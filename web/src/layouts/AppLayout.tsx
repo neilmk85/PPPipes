@@ -58,7 +58,10 @@ const navEntries: NavEntry[] = [
       { path: '/production/pipe-configs',    icon: <Settings2 size={14} />,    label: 'Pipe Configuration' },
       { path: '/production/machines',         icon: <Cpu size={14} />,          label: 'Machines' },
       { path: '/production/overhead-configs', icon: <DollarSign size={14} />,   label: 'Overhead Config' },
-      { path: '/production/reports',          icon: <BarChart2 size={14} />,    label: 'Reports' },
+      { path: '/production/reports',                icon: <BarChart2 size={14} />,    label: 'Reports' },
+      { path: '/production/reports/fabrication',    icon: <BarChart2 size={14} />,    label: 'Fabrication Report' },
+      { path: '/production/reports/coating',        icon: <BarChart2 size={14} />,    label: 'Coating Report' },
+      { path: '/production/reports/spinning',       icon: <BarChart2 size={14} />,    label: 'Spinning Report' },
     ],
   },
   {
