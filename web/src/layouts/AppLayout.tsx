@@ -20,6 +20,7 @@ interface NavItem {
   label: string
   roles?: string[]
   highlight?: boolean
+  disabled?: boolean
 }
 
 interface NavGroup {
@@ -150,7 +151,7 @@ const navEntries: NavEntry[] = [
   },
   { path: '/activity-logs', icon: <Activity size={18} />, label: 'Activity Logs', roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
   { path: '/settings', icon: <Settings size={18} />, label: 'Settings', roles: ['ADMIN', 'SUPER_ADMIN'] },
-  { path: '/site', icon: <Building2 size={18} />, label: 'Site', highlight: true },
+  { path: '/site', icon: <Building2 size={18} />, label: 'Site', highlight: true, disabled: true },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -201,6 +202,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isVisible = (roles?: string[]) => !roles || roles.some(r => hasRole(r))
 
   const renderItem = (item: NavItem, indent = false) => {
+    if (item.disabled) {
+      return (
+        <div
+          key={item.path}
+          title={!isExpanded ? item.label : undefined}
+          className={`relative flex items-center gap-3 rounded-lg mb-0.5 px-3 py-2.5 mx-2 cursor-not-allowed opacity-40`}
+        >
+          <span className="shrink-0 text-gray-400">{item.icon}</span>
+          {isExpanded && (
+            <span className="truncate text-[13px] font-bold text-gray-400">{item.label}</span>
+          )}
+        </div>
+      )
+    }
+
     const active = indent
       ? location.pathname === item.path
       : isPathActive(location.pathname, item.path)

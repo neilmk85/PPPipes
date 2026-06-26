@@ -59,16 +59,16 @@ export default function OrderDetailModal({ order, onClose }: Props) {
           </table>
           {(() => {
             const orderItems: any[] = order.items ?? []
-            const rates = [...new Set(orderItems.map((i: any) => parseFloat(i.taxRate || 0)).filter((r: number) => r > 0))]
+            const rates = [...new Set(orderItems.map((i: any) => parseFloat(String(i.taxRate || 0))).filter((r: number) => r > 0))]
             const gstLbl = rates.length === 1 ? `GST (${rates[0]}%)` : 'GST'
-            const totalAmt = parseFloat(order.totalAmount || 0)
+            const totalAmt = parseFloat(String(order.totalAmount || 0))
             const roundedAmt = Math.round(totalAmt)
             const roundOff = parseFloat((roundedAmt - totalAmt).toFixed(2))
             return (
               <div className="border-t pt-3 space-y-1 text-sm">
                 <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>₹{order.subtotal}</span></div>
                 {order.discountAmount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{order.discountAmount}</span></div>}
-                {parseFloat(order.taxAmount || 0) > 0 && <div className="flex justify-between text-gray-600"><span>{gstLbl}</span><span>₹{order.taxAmount}</span></div>}
+                {parseFloat(String(order.taxAmount || 0)) > 0 && <div className="flex justify-between text-gray-600"><span>{gstLbl}</span><span>₹{order.taxAmount}</span></div>}
                 {roundOff !== 0 && <div className="flex justify-between text-gray-400 text-xs"><span>Round Off</span><span>{roundOff > 0 ? '+' : ''}₹{roundOff.toFixed(2)}</span></div>}
                 <div className="flex justify-between font-bold text-base"><span>Total</span><span>₹{roundedAmt.toFixed(2)}</span></div>
               </div>

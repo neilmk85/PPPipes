@@ -222,7 +222,7 @@ function DateRangePicker({ fromDate, toDate, onChange }: {
                 <div key={lbl}>
                   <label className="text-xs text-gray-500 mb-0.5 block">{lbl}</label>
                   <input type="date" value={val}
-                    onChange={e => { set(e.target.value); setPreset('custom') }}
+                    onChange={e => { set(e.target.value); setPreset('') }}
                     className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400"
                   />
                 </div>
@@ -495,7 +495,7 @@ export default function ProductionOrdersPage() {
 
           <div className="flex gap-1.5">
             {([
-              { key: 'ALL',    label: 'All Sources' },
+              { key: 'ALL',    label: 'All Sources', icon: undefined },
               { key: 'SO',     label: 'From SO',    icon: Link2  },
               { key: 'DIRECT', label: 'Direct',     icon: Unlink },
             ] as const).map(({ key, label, icon: Icon }) => (

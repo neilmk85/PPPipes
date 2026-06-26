@@ -559,16 +559,16 @@ export interface PipePurchaseEntry {
 
 export const pipePurchasesApi = {
   list: (outletId: number, from?: string, to?: string) =>
-    api.get<{ data: { data: PipePurchaseEntry[] } }>('/business/pipe-purchases', {
+    api.get<{ data: PipePurchaseEntry[] }>('/business/pipe-purchases', {
       params: { outletId, ...buildParams(from, to) },
     }).then(unwrap<PipePurchaseEntry[]>),
 
   create: (data: Omit<PipePurchaseEntry, 'id' | 'createdAt' | 'updatedAt' | 'supplier'>) =>
-    api.post<{ data: { data: PipePurchaseEntry } }>('/business/pipe-purchases', data)
+    api.post<{ data: PipePurchaseEntry }>('/business/pipe-purchases', data)
       .then(unwrap<PipePurchaseEntry>),
 
   update: (id: number, data: Partial<PipePurchaseEntry>) =>
-    api.put<{ data: { data: PipePurchaseEntry } }>(`/business/pipe-purchases/${id}`, data)
+    api.put<{ data: PipePurchaseEntry }>(`/business/pipe-purchases/${id}`, data)
       .then(unwrap<PipePurchaseEntry>),
 
   delete: (id: number) =>
@@ -589,15 +589,15 @@ export interface CuttingEntry {
 
 export const cuttingsApi = {
   list: (from?: string, to?: string) =>
-    api.get<{ data: { data: CuttingEntry[] } }>('/business/cuttings', { params: buildParams(from, to) })
+    api.get<{ data: CuttingEntry[] }>('/business/cuttings', { params: buildParams(from, to) })
       .then(unwrap<CuttingEntry[]>),
 
   create: (data: Omit<CuttingEntry, 'id' | 'createdAt' | 'updatedAt'>) =>
-    api.post<{ data: { data: CuttingEntry } }>('/business/cuttings', data)
+    api.post<{ data: CuttingEntry }>('/business/cuttings', data)
       .then(unwrap<CuttingEntry>),
 
   update: (id: number, data: Omit<CuttingEntry, 'id' | 'createdAt' | 'updatedAt'>) =>
-    api.put<{ data: { data: CuttingEntry } }>(`/business/cuttings/${id}`, data)
+    api.put<{ data: CuttingEntry }>(`/business/cuttings/${id}`, data)
       .then(unwrap<CuttingEntry>),
 
   delete: (id: number) =>
