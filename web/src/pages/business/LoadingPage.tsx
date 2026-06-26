@@ -2101,7 +2101,8 @@ export default function LoadingPage() {
                   <input
                     required type="date"
                     value={form.date}
-                    min={fmtDate(today)}
+                    min={fmtDate(subDays(today, 2))}
+                    max={fmtDate(today)}
                     onChange={e => setField('date', e.target.value)}
                     className="px-3 py-1.5 text-sm border border-white/25 rounded-xl bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/40 focus:bg-white/20 transition-all [color-scheme:dark]"
                   />
