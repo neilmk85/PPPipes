@@ -542,6 +542,7 @@ export default function DirectPurchasePage() {
   const [paidAmount, setPaidAmount] = useState('')
   const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [selectedPO, setSelectedPO] = useState<any>(null)
 
   // Date filter
   const [from, setFrom] = useState('')
@@ -961,6 +962,103 @@ export default function DirectPurchasePage() {
         document.body
       )}
 
+      {/* ── PO Detail Modal ── */}
+      {selectedPO && createPortal(
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={e => { if (e.target === e.currentTarget) setSelectedPO(null) }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+                  <Package size={18} className="text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-medium">Purchase Order</p>
+                  <p className="font-mono text-sm font-bold text-indigo-700">{selectedPO.poNumber}</p>
+                </div>
+                <span className={`ml-2 text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                  selectedPO.status === 'RECEIVED'  ? 'bg-emerald-100 text-emerald-700' :
+                  selectedPO.status === 'PARTIAL'   ? 'bg-amber-100 text-amber-700' :
+                  selectedPO.status === 'SENT'      ? 'bg-blue-100 text-blue-700' :
+                  selectedPO.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-600'
+                }`}>{selectedPO.status}</span>
+              </div>
+              <button onClick={() => setSelectedPO(null)} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-gray-700 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Meta */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Supplier</p>
+                  <p className="text-sm font-bold text-gray-800">{selectedPO.supplier?.name ?? '—'}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Date</p>
+                  <p className="text-sm font-bold text-gray-800">{selectedPO.receivedDate ? fmtDate(selectedPO.receivedDate) : fmtDate(selectedPO.createdAt)}</p>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Items</p>
+                <div className="border border-gray-100 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-violet-100">
+                        <th className="px-4 py-2.5 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Product</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Qty</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Unit Cost</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Tax %</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {(selectedPO.items ?? []).map((item: any, i: number) => (
+                        <tr key={i} className="hover:bg-gray-50/50">
+                          <td className="px-4 py-3 font-medium text-gray-800">{item.product?.name ?? `Product #${item.productId}`}</td>
+                          <td className="px-4 py-3 text-right text-gray-600">{fmtNum(item.receivedQuantity || item.orderedQuantity)} {item.product?.unitOfMeasure ?? ''}</td>
+                          <td className="px-4 py-3 text-right text-gray-600">{fmtCur(item.unitCost)}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{parseFloat(item.taxRate) > 0 ? `${item.taxRate}%` : '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-gray-900">{fmtCur(item.lineTotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Subtotal</span><span>{fmtCur(selectedPO.subtotal)}</span>
+                </div>
+                {parseFloat(selectedPO.taxAmount) > 0 && (
+                  <div className="flex justify-between text-sm text-gray-600">
+                    <span>Tax</span><span>{fmtCur(selectedPO.taxAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-bold text-gray-900 border-t border-gray-200 pt-2 mt-2">
+                  <span>Total</span><span>{fmtCur(selectedPO.totalAmount)}</span>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedPO.notes && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Notes</p>
+                  <p className="text-sm text-gray-700">{selectedPO.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       <div className="p-6">
 
         {/* ── Purchase History ── */}
@@ -1003,7 +1101,7 @@ export default function DirectPurchasePage() {
                         </td>
                       </tr>
                     ) : history.map((po: any) => (
-                      <tr key={po.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                      <tr key={po.id} onClick={() => setSelectedPO(po)} className="border-b border-gray-50 hover:bg-violet-50/50 cursor-pointer transition-colors">
                         <td className="px-4 py-3">
                           <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">{po.poNumber}</span>
                         </td>

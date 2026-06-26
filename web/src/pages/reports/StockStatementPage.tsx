@@ -266,7 +266,7 @@ export default function StockStatementPage() {
   const STATUS_LABEL: Record<string, string> = { ok: 'In Stock', low: 'Low', out: 'Out' }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 font-inter">
 
       {/* ── Header ── */}
       <div className="bg-gradient-to-br from-teal-700 via-teal-600 to-emerald-600 px-6 pt-8 pb-6">
