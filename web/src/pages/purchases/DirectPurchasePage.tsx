@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { productApi, vendorApi, taxGroupApi, purchaseOrderApi, outletApi } from '@/services/api'
-import { UOM_OPTIONS } from '@/constants/units'
+import { UOM_OPTIONS, ALL_UNITS } from '@/constants/units'
 import { useAuthStore } from '@/store/authStore'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -234,8 +234,6 @@ function LineRow({ line, onChange, onRemove, gstInclusive }: {
 }) {
   const calc = line.product ? lineCalc(line, gstInclusive) : null
 
-  const uomOptions: string[] = UOM_OPTIONS as unknown as string[]
-
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
       {/* Product */}
@@ -283,10 +281,16 @@ function LineRow({ line, onChange, onRemove, gstInclusive }: {
           className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white text-gray-700"
         >
           <option value="">— Unit —</option>
-          {line.uom && !uomOptions.includes(line.uom) && (
+          {line.uom && !ALL_UNITS.some(u => u.value === line.uom) && (
             <option value={line.uom}>{line.uom}</option>
           )}
-          {uomOptions.map(u => <option key={u} value={u}>{u}</option>)}
+          {UOM_OPTIONS.map(group => (
+            <optgroup key={group.group} label={group.group}>
+              {group.units.map(u => (
+                <option key={u.value} value={u.value}>{u.label}</option>
+              ))}
+            </optgroup>
+          ))}
         </select>
       </td>
 
