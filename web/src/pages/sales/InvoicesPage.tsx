@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import toast from 'react-hot-toast'
 import { format, addDays } from 'date-fns'
-import { invoiceApi, productApi, discountApi, integrationApi } from '@/services/api'
+import { invoiceApi, productApi, discountApi, integrationApi, taxGroupApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import CustomerSearchInput from '@/components/CustomerSearchInput'
 import { DEFAULT_INVOICE_TEMPLATE, InvoiceTemplateConfig } from '@/pages/settings/SettingsPage'
@@ -149,6 +149,62 @@ function InvDateFilterDropdown({ from, to, onChange }: {
 // ─── Line item type ────────────────────────────────────────────────────────────
 
 const METERS_PER_PIPE = 5.25
+const NO_SPINNER = '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden'
+
+// ─── GST Picker (portal dropdown) ────────────────────────────────────────────
+
+function GstPicker({ value, onChange, taxGroups }: {
+  value: number; onChange: (rate: number) => void; taxGroups: any[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos,  setPos]  = useState<{ top: number; left: number; width: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (btnRef.current && !btnRef.current.closest('[data-gst-picker]')?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  function toggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 160) })
+    }
+    setOpen(v => !v)
+  }
+
+  function pick(rate: number) { onChange(rate); setOpen(false) }
+
+  return (
+    <div data-gst-picker="">
+      <button ref={btnRef} type="button" onClick={toggle}
+        className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white flex items-center justify-end gap-1">
+        <span className="tabular-nums">{value > 0 ? value : '0'}%</span>
+        <ChevronDown size={11} className={`text-gray-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && pos && createPortal(
+        <div className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl py-1 overflow-y-auto max-h-52"
+          style={{ top: pos.top, left: pos.left, width: pos.width }}>
+          <button type="button" onMouseDown={() => pick(0)}
+            className={`w-full text-left px-3 py-2 text-sm transition-colors ${value === 0 ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
+            No Tax / 0%
+          </button>
+          {taxGroups.map((tg: any) => {
+            const rate = Number(tg.totalRate ?? tg.rate ?? 0)
+            return (
+              <button key={tg.id} type="button" onMouseDown={() => pick(rate)}
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${value === rate ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
+                {tg.name ?? `${rate}%`} — {rate}%
+              </button>
+            )
+          })}
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
 
 interface LineItem {
   id: string
@@ -342,6 +398,21 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
   const [sendOnSave, setSendOnSave]         = useState(false)
   const initialized = useRef(false)
 
+  const { data: nextNumberData } = useQuery({
+    queryKey: ['invoice-next-number'],
+    queryFn: () => invoiceApi.nextNumber().then((r: any) => r.data.data?.nextNumber ?? ''),
+    enabled: !isEdit,
+    staleTime: 0,
+  })
+  const nextInvoiceNumber: string = nextNumberData ?? ''
+
+  const { data: taxGroupsData } = useQuery({
+    queryKey: ['taxGroups'],
+    queryFn: () => taxGroupApi.getAll(true).then((r: any) => r.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  })
+  const taxGroups: any[] = taxGroupsData ?? []
+
   useEffect(() => {
     if (editInvoice && !initialized.current) {
       initialized.current = true
@@ -500,7 +571,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
           {/* ── Header ── */}
           <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
                 <FileText size={15} className="text-white" />
               </div>
               <div>
@@ -511,12 +582,12 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
             <div className="flex items-center gap-2">
               <button onClick={handleClose} className="px-3.5 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
               <button onClick={() => handleSubmit(false)} disabled={submitting}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm border border-violet-400 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors font-medium">
+                className="flex items-center gap-1.5 px-4 py-2 text-sm border border-blue-400 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors font-medium">
                 {submitting && !sendOnSave ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
                 {isEdit ? 'Update Draft' : 'Save Draft'}
               </button>
               <button onClick={() => handleSubmit(true)} disabled={submitting}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium shadow-sm">
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium shadow-sm">
                 {submitting && sendOnSave ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                 {isEdit ? 'Update & Send' : 'Save & Send'}
               </button>
@@ -533,8 +604,8 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                 <div className="bg-white rounded-xl shadow-md p-5">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">From</p>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
-                      <Building2 size={17} className="text-violet-600" />
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                      <Building2 size={17} className="text-blue-600" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-gray-900">PP Pipes Products</p>
@@ -577,7 +648,13 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                 <div className="grid divide-x divide-gray-100" style={{ gridTemplateColumns: '1fr 1fr 1fr 1.4fr 1fr' }}>
                   <div className="px-5 py-4">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Invoice No.</p>
-                    <p className="text-sm text-gray-400 italic">{isEdit ? editInvoice.invoiceNumber : 'Auto-assigned'}</p>
+                    {isEdit ? (
+                      <p className="text-[13px] font-semibold tracking-wide text-gray-800">{editInvoice.invoiceNumber}</p>
+                    ) : nextInvoiceNumber ? (
+                      <p className="text-[13px] font-semibold tracking-wide text-blue-600">{nextInvoiceNumber}</p>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">Auto-assigned</p>
+                    )}
                   </div>
                   <div className="px-5 py-4">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Issue Date</p>
@@ -634,7 +711,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                 </div>
 
                 {/* Table header */}
-                <div className="grid text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 border-b border-gray-100"
+                <div className="grid text-[10px] font-bold text-gray-600 uppercase tracking-widest bg-gray-200 border-b border-gray-200"
                   style={{ gridTemplateColumns: '2.5fr 100px 120px 80px 72px 116px 36px' }}>
                   <div className="px-5 py-3">Description</div>
                   <div className="px-3 py-3 text-right">Meters (m)</div>
@@ -652,7 +729,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                   const c = calcLine(it)
                   return (
                     <div key={it.id}
-                      className={`grid items-center border-b border-gray-100 last:border-0 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'} hover:bg-violet-50/20`}
+                      className={`grid items-center border-b border-gray-100 last:border-0 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'} hover:bg-blue-50/20`}
                       style={{ gridTemplateColumns: '2.5fr 100px 120px 80px 72px 116px 36px' }}>
 
                       {/* Description */}
@@ -675,7 +752,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                       <div className="px-2 py-2.5">
                         <input type="number" min="0.01" step="0.01" value={it.meters || ''}
                           onChange={e => updateItem(it.id, 'meters', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                          className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${NO_SPINNER}`} />
                       </div>
 
                       {/* Price/m */}
@@ -684,7 +761,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-300 pointer-events-none">₹</span>
                           <input type="number" min="0" step="0.01" value={it.unitPrice || ''}
                             onChange={e => updateItem(it.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                            className="w-full pl-5 pr-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                            className={`w-full pl-5 pr-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${NO_SPINNER}`} />
                         </div>
                       </div>
 
@@ -692,14 +769,12 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                       <div className="px-2 py-2.5">
                         <input type="number" min="0" max="100" step="0.5" value={it.discountPercent || ''}
                           onChange={e => updateItem(it.id, 'discountPercent', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                          className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${NO_SPINNER}`} />
                       </div>
 
                       {/* GST % */}
                       <div className="px-2 py-2.5">
-                        <input type="number" min="0" max="100" step="0.5" value={it.taxRate || ''}
-                          onChange={e => updateItem(it.id, 'taxRate', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                        <GstPicker value={it.taxRate} onChange={rate => updateItem(it.id, 'taxRate', rate)} taxGroups={taxGroups} />
                       </div>
 
                       {/* Net Amount */}
@@ -741,7 +816,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                       <input type="number" min="0" max="100" step="0.5" value={billDiscPct || ''}
                         onChange={e => setBillDiscPct(parseFloat(e.target.value) || 0)}
                         placeholder="0"
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-right" />
+                        className={`flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white text-right ${NO_SPINNER}`} />
                       {billDiscPct > 0 && <span className="text-xs text-emerald-600 font-medium whitespace-nowrap">−₹{billDiscAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>}
                     </div>
                     <div className="flex items-center gap-3">
@@ -749,14 +824,14 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                       <input type="number" min="0" step="0.01" value={shippingAmt || ''}
                         onChange={e => setShippingAmt(parseFloat(e.target.value) || 0)}
                         placeholder="0.00"
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-right" />
+                        className={`flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white text-right ${NO_SPINNER}`} />
                     </div>
                     <div className="flex items-center gap-3">
                       <label className="text-xs font-medium text-gray-600 w-36 shrink-0">Advance Received (₹)</label>
                       <input type="number" min="0" step="0.01" value={advanceAmt || ''}
                         onChange={e => setAdvanceAmt(parseFloat(e.target.value) || 0)}
                         placeholder="0.00"
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-right" />
+                        className={`flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white text-right ${NO_SPINNER}`} />
                     </div>
                   </div>
                 </div>
@@ -799,7 +874,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                     )}
                     <div className="flex justify-between font-bold text-[15px] border-t border-gray-200 pt-3 mt-1 text-gray-900">
                       <span>Grand Total</span>
-                      <span className="tabular-nums text-violet-700">₹{roundedGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                      <span className="tabular-nums text-blue-700">₹{roundedGrandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                     {advanceAmt > 0 && (
                       <div className="flex justify-between text-sm text-emerald-600 font-medium">
@@ -826,13 +901,13 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Notes</label>
                   <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
                     placeholder={`Payment due ${selectedTerm?.days === 0 ? 'on receipt' : selectedTerm?.days ? `within ${selectedTerm.days} days` : '…'}`}
-                    className="w-full px-4 py-3 text-sm rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white resize-none" />
+                    className="w-full px-4 py-3 text-sm rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white resize-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Terms &amp; Conditions</label>
                   <textarea rows={3} value={terms} onChange={e => setTerms(e.target.value)}
                     placeholder="Late payment charges, return policy…"
-                    className="w-full px-4 py-3 text-sm rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white resize-none" />
+                    className="w-full px-4 py-3 text-sm rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white resize-none" />
                 </div>
               </div>
 
@@ -851,12 +926,12 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                 Cancel
               </button>
               <button onClick={() => handleSubmit(false)} disabled={submitting}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm border border-violet-400 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors font-medium">
+                className="flex items-center gap-1.5 px-4 py-2 text-sm border border-blue-400 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors font-medium">
                 {submitting && !sendOnSave ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
                 {isEdit ? 'Update Draft' : 'Save Draft'}
               </button>
               <button onClick={() => handleSubmit(true)} disabled={submitting}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium shadow-sm">
+                className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors font-medium shadow-sm">
                 {submitting && sendOnSave ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
                 {isEdit ? 'Update & Send' : 'Save & Send'}
               </button>
@@ -1565,16 +1640,52 @@ export default function InvoicesPage() {
           <div className="absolute -bottom-8 -left-8 w-56 h-56 rounded-full bg-violet-300/20 blur-2xl" />
         </div>
 
-        {/* Top row */}
-        <div className="relative flex items-center justify-between px-8 py-6">
-          <div className="flex items-center gap-4">
+        {/* Top row — title + all controls inline */}
+        <div className="relative flex items-center gap-3 px-8 py-5 flex-wrap">
+          <div className="flex items-center gap-4 shrink-0">
             <Receipt size={26} className="text-amber-300" />
             <div>
               <p className="text-violet-200 text-xs font-semibold tracking-widest uppercase">Sales</p>
               <h1 className="text-white text-2xl font-bold tracking-tight">Invoices</h1>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Section tabs */}
+          <div className="flex gap-1 bg-white/10 rounded-full p-1 shrink-0">
+            {(['summary', 'transactions'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all capitalize ${
+                  tab === t ? 'bg-white text-violet-700 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}>
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Status chips */}
+          <div className="flex gap-1 bg-white/10 rounded-xl p-1 flex-wrap">
+            {STATUS_TABS.map(s => (
+              <button key={s} onClick={() => { setStatusTab(s); setPage(0); if (tab !== 'transactions') setTab('transactions') }}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                  statusTab === s && tab === 'transactions'
+                    ? STATUS_TAB_ACTIVE[s]
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}>
+                {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="relative w-52 shrink-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
+            <input value={search} onChange={e => { setSearch(e.target.value); if (tab !== 'transactions') setTab('transactions') }}
+              placeholder="Search…"
+              className="pl-9 pr-4 py-2 bg-white/10 border border-white/20 text-white placeholder-white/40 rounded-xl w-full text-sm focus:outline-none focus:bg-white/20 focus:border-white/40 transition-colors" />
+          </div>
+
+          {/* Date filter + New Invoice pushed to end */}
+          <div className="flex items-center gap-3 ml-auto shrink-0">
             <InvDateFilterDropdown
               from={fromDate} to={toDate}
               onChange={(f, t) => { setFromDate(f); setToDate(t); setPage(0) }}
@@ -1606,20 +1717,6 @@ export default function InvoicesPage() {
           </div>
         </div>
 
-      </div>
-
-      {/* ── Section Tabs ── */}
-      <div className="flex gap-1 bg-gray-100 rounded-full p-1 w-fit">
-        {(['summary', 'transactions'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all capitalize ${
-              tab === t
-                ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200'
-            }`}>
-            {t}
-          </button>
-        ))}
       </div>
 
       {/* ── Summary Tab ── */}
@@ -1669,31 +1766,6 @@ export default function InvoicesPage() {
 
       {/* ── Transactions Tab ── */}
       {tab === 'transactions' && (<>
-        {/* Status Tabs + Search */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex gap-1.5 bg-gray-100/80 rounded-2xl p-1.5 flex-wrap">
-            {STATUS_TABS.map(s => (
-              <button key={s} onClick={() => { setStatusTab(s); setPage(0) }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                  statusTab === s
-                    ? STATUS_TAB_ACTIVE[s]
-                    : 'text-gray-500 hover:text-gray-800 hover:bg-white/80'
-                }`}>
-                {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
-              </button>
-            ))}
-          </div>
-          <div className="relative flex-1 max-w-xs ml-auto">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search invoice # or customer…"
-              className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl w-full text-sm focus:ring-2 focus:ring-primary-400 focus:outline-none bg-white shadow-sm" />
-          </div>
-          {totalElements > 0 && (
-            <span className="text-xs text-gray-400 whitespace-nowrap">{totalElements} invoice{totalElements !== 1 ? 's' : ''}</span>
-          )}
-        </div>
-
         {/* Table */}
         <div className="bg-white rounded-xl border overflow-hidden">
           <table className="w-full">

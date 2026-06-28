@@ -425,7 +425,7 @@ class _CardTile extends StatelessWidget {
         ),
         clipBehavior: Clip.hardEdge,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             // Top accent stripe — violet→blue for all cards
@@ -439,92 +439,44 @@ class _CardTile extends StatelessWidget {
             ),
 
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Name row + Type top-right plain text
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              card.label,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF111827),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              card.subtitle,
-                              style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        card.category,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF9CA3AF),
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
+                  // Centred icon
+                  Icon(card.icon, color: card.color, size: 32),
+                  const SizedBox(height: 10),
+                  // Title + subtitle centred below
+                  Text(
+                    card.label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111827),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-
-                  const SizedBox(height: 9),
-
-                  if (stat != null)
+                  const SizedBox(height: 2),
+                  Text(
+                    card.subtitle,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (stat != null) ...[
+                    const SizedBox(height: 9),
                     _DetailRow(
                       icon: Icons.bar_chart_outlined,
                       label: 'Stock',
                       value: stat!,
                       color: card.color,
                       gradientPill: true,
-                    )
-                  else
-                    _DetailRow(
-                      icon: Icons.fiber_manual_record,
-                      label: 'Status',
-                      value: isActive ? 'Live' : 'Pending',
-                      color: isActive ? const Color(0xFF059669) : const Color(0xFF9CA3AF),
                     ),
-
-                  const SizedBox(height: 9),
-
-                  // Bottom action button
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? card.color.withOpacity(0.08)
-                          : const Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      isActive ? 'Open' : 'Coming Soon',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isActive ? card.color : const Color(0xFF9CA3AF),
-                      ),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),

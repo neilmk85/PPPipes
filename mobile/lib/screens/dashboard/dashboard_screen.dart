@@ -373,7 +373,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<dynamic> get _shellPlates => _inventory.where((inv) {
     final n = (inv['product']?['name'] ?? '').toString().toLowerCase();
-    return n.contains('shell');
+    return n.contains('sheet');
   }).toList();
 
   List<dynamic> get _reorderItems {
@@ -651,6 +651,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         if (_reorderItems.isEmpty) _empty('All materials above reorder level')
         else ..._reorderItems.map((inv) {
           final name  = (inv['product']?['name'] ?? '').toString();
+          final uom   = (inv['product']?['unitOfMeasure'] ?? '').toString();
           final qty   = p.d(inv['quantityOnHand']);
           final rl    = p.d(inv['reorderLevel'] ?? 10);
           final pct   = rl > 0 ? math.min(1.0, math.max(0.0, qty / rl)) : 0.0;
@@ -683,6 +684,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           fontSize: 12, fontWeight: FontWeight.bold,
                           color: isOut ? Colors.red.shade700
                               : Colors.orange.shade700)),
+                      if (uom.isNotEmpty) ...[
+                        const SizedBox(width: 3),
+                        Text(uom, style: const TextStyle(
+                            fontSize: 10, color: Color(0xFF94A3B8))),
+                      ],
                     ]),
                     const SizedBox(height: 3),
                     ClipRRect(
@@ -698,9 +704,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 )),
                 Expanded(child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  child: Text(_fmt(rl), textAlign: TextAlign.right,
-                      style: const TextStyle(fontSize: 12,
-                          fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                    Text(_fmt(rl), textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 12,
+                            fontWeight: FontWeight.w600, color: Color(0xFF334155))),
+                    if (uom.isNotEmpty) ...[
+                      const SizedBox(width: 3),
+                      Text(uom, style: const TextStyle(
+                          fontSize: 10, color: Color(0xFF94A3B8))),
+                    ],
+                  ]),
                 )),
               ]),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/widget_service.dart';
 
 class AuthState {
   final AuthResponse? user;
@@ -50,6 +51,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _api.getMe();
       state = AuthState(user: user, isRestoring: false);
+      _refreshWidget(user.outletId);
     } catch (_) {
       // Token invalid or expired — clear storage and go to login
       await _storage.deleteAll();
@@ -62,11 +64,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final auth = await _api.login(email, password);
       state = AuthState(user: auth, isRestoring: false);
+      _refreshWidget(auth.outletId);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }
+  }
+
+  void _refreshWidget(int? outletId) {
+    if (outletId == null) return;
+    WidgetService(_api).refresh(outletId: outletId);
   }
 
   Future<void> logout() async {

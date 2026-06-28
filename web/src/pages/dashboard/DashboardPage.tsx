@@ -214,7 +214,7 @@ export default function DashboardPage() {
   // ── Shell Plates ──────────────────────────────────────────────────────────
   const shellPlates = useMemo(() =>
     (inventory as any[]).filter((inv: any) =>
-      inv.product?.name?.toLowerCase().includes('shell')
+      inv.product?.name?.toLowerCase().includes('sheet')
     ), [inventory])
 
   const shellTotalQty    = shellPlates.reduce((s: number, i: any) => s + parseFloat(i.quantityOnHand ?? 0), 0)
@@ -547,7 +547,7 @@ export default function DashboardPage() {
                     const shortfall = Math.max(0, threshold - qty)
                     const pct       = Math.min(100, Math.round((qty / threshold) * 100))
                     const isOut     = qty <= 0
-                    const uom       = inv.uom || inv.product?.baseUnit || ''
+                    const uom       = inv.product?.unitOfMeasure || ''
                     return (
                       <tr key={inv.id} className="hover:bg-red-50/30 transition-colors">
                         <td className="px-6 py-3.5">

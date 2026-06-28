@@ -202,6 +202,15 @@ func (ih *InvoiceHandler) RecordPayment(w http.ResponseWriter, r *http.Request) 
 	util.SendSuccess(w, "Payment recorded", invoice)
 }
 
+func (ih *InvoiceHandler) PeekNextNumber(w http.ResponseWriter, r *http.Request) {
+	next, err := ih.service.PeekNextNumber()
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Next invoice number", map[string]string{"nextNumber": next})
+}
+
 func (ih *InvoiceHandler) SendEmail(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {

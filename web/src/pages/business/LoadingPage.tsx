@@ -11,7 +11,7 @@ import {
   Printer, Camera, Upload, Trash2, ZoomIn, Loader2, ImageOff, Check, FileText, Eye,
   Receipt, Building2, Send,
 } from 'lucide-react'
-import { productionEntryApi, vendorApi, salesOrderApi, customerApi, loadingRecordApi, invoiceApi, pipeConfigApi, inventoryApi } from '@/services/api'
+import { productionEntryApi, vendorApi, salesOrderApi, customerApi, loadingRecordApi, invoiceApi, pipeConfigApi, inventoryApi, taxGroupApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { format, subDays, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -623,6 +623,54 @@ function DateFilterDropdown({ from, to, onChange }: {
 
 const METERS_PER_PIPE = 5.25
 
+function GstPicker({ value, onChange, taxGroups }: {
+  value: number; onChange: (rate: number) => void; taxGroups: any[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 })
+
+  function toggle() {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect()
+      setPos({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX, width: Math.max(r.width, 130) })
+    }
+    setOpen(o => !o)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [open])
+
+  const options = [{ label: 'No Tax / 0%', rate: 0 }, ...taxGroups.map((g: any) => { const r = Number(g.totalRate ?? g.rate ?? 0); return { label: `${g.name} / ${r}%`, rate: r } })]
+
+  return (
+    <>
+      <button ref={ref} type="button" onClick={toggle}
+        className={`w-full flex items-center justify-between px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white tabular-nums`}>
+        <span className="text-gray-800">{value}%</span>
+        <ChevronDown size={12} className="text-gray-400 shrink-0" />
+      </button>
+      {open && createPortal(
+        <div className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden"
+          style={{ top: pos.top, left: pos.left, width: pos.width }}>
+          {options.map(o => (
+            <button key={o.rate} type="button"
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-violet-50 hover:text-violet-700 transition-colors ${o.rate === value ? 'bg-violet-50 text-violet-700 font-semibold' : 'text-gray-700'}`}
+              onClick={() => { onChange(o.rate); setOpen(false) }}>
+              {o.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 interface InvLineItem {
   id: string
   productName: string
@@ -687,6 +735,20 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
   const [submitting,        setSubmitting]        = useState(false)
   const [sendOnSave,        setSendOnSave]        = useState(false)
 
+  const { data: nextNumberData } = useQuery({
+    queryKey: ['invoice-next-number'],
+    queryFn: () => invoiceApi.nextNumber().then((r: any) => r.data.data?.nextNumber ?? ''),
+    staleTime: 0,
+  })
+  const nextInvoiceNumber: string = nextNumberData ?? ''
+
+  const { data: taxGroupsData } = useQuery({
+    queryKey: ['taxGroups'],
+    queryFn: () => taxGroupApi.getAll(true).then((r: any) => r.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  })
+  const taxGroups: any[] = taxGroupsData ?? []
+
   const [items, setItems] = useState<InvLineItem[]>([
     { id: '1', productName: record.pipeName ?? '',
       meters: (record.quantity ?? 1) * METERS_PER_PIPE,
@@ -729,7 +791,8 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
     setItems(prev => prev.map(i => {
       if (i.id !== id) return i
       const merged = { ...i, ...patch }
-      if ('meters' in patch) merged.quantity = Math.ceil((patch.meters ?? 0) / METERS_PER_PIPE)
+      if ('meters' in patch)   merged.quantity = Math.ceil((patch.meters ?? 0) / METERS_PER_PIPE)
+      if ('quantity' in patch) merged.meters   = (patch.quantity ?? 0) * METERS_PER_PIPE
       return merged
     }))
   }
@@ -894,7 +957,9 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                 <div className="grid divide-x divide-gray-100" style={{ gridTemplateColumns: '1fr 1fr 1fr 1.4fr 1fr' }}>
                   <div className="px-5 py-4">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Invoice No.</p>
-                    <p className="text-sm text-gray-400 italic">Auto-assigned</p>
+                    {nextInvoiceNumber
+                      ? <p className="text-[13px] font-semibold tracking-wide text-blue-600">{nextInvoiceNumber}</p>
+                      : <p className="text-sm text-gray-400 italic">Auto-assigned</p>}
                   </div>
                   <div className="px-5 py-4">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Issue Date</p>
@@ -944,11 +1009,12 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
               <div className="bg-white rounded-xl shadow-md overflow-hidden">
                 {/* Table header */}
                 <div className="grid text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100"
-                  style={{ gridTemplateColumns: '2.5fr 100px 120px 80px 72px 116px 36px',
+                  style={{ gridTemplateColumns: '2.5fr 90px 90px 120px 80px 80px 116px 36px',
                            background: 'linear-gradient(to right, #eff6ff, #eef2ff)',
                            borderBottom: '1px solid #dbeafe' }}>
                   <div className="px-5 py-3 text-gray-800">Description</div>
                   <div className="px-3 py-3 text-right text-gray-800">Meters (m)</div>
+                  <div className="px-3 py-3 text-right text-gray-800">Qty (pcs)</div>
                   <div className="px-3 py-3 text-right text-gray-800">Price / m (₹)</div>
                   <div className="px-3 py-3 text-right text-gray-800">Disc %</div>
                   <div className="px-3 py-3 text-right text-gray-800">GST %</div>
@@ -962,7 +1028,7 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                   return (
                     <div key={item.id}
                       className={`grid items-center border-b border-gray-100 last:border-0 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'} hover:bg-violet-50/20`}
-                      style={{ gridTemplateColumns: '2.5fr 100px 120px 80px 72px 116px 36px' }}>
+                      style={{ gridTemplateColumns: '2.5fr 90px 90px 120px 80px 80px 116px 36px' }}>
 
                       {/* Description */}
                       <div className="px-5 py-3">
@@ -974,7 +1040,7 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                         />
                         {item.meters > 0 && item.unitPrice > 0 && (
                           <p className="text-[10px] text-gray-400 mt-0.5 tabular-nums">
-                            {item.meters}m × ₹{item.unitPrice}/m · ≈ {item.quantity} pipe{item.quantity !== 1 ? 's' : ''}
+                            {item.meters}m × ₹{item.unitPrice}/m
                           </p>
                         )}
                       </div>
@@ -983,7 +1049,14 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                       <div className="px-2 py-2.5">
                         <input type="number" min="0.01" step="0.01" value={item.meters || ''}
                           onChange={e => updateItem(item.id, { meters: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                          className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white ${NO_SPINNER}`} />
+                      </div>
+
+                      {/* Qty (pcs) */}
+                      <div className="px-2 py-2.5">
+                        <input type="number" min="1" step="1" value={item.quantity || ''}
+                          onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
+                          className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white ${NO_SPINNER}`} />
                       </div>
 
                       {/* Price/m */}
@@ -992,7 +1065,7 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-300 pointer-events-none">₹</span>
                           <input type="number" min="0" step="0.01" value={item.unitPrice || ''}
                             onChange={e => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                            className="w-full pl-5 pr-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                            className={`w-full pl-5 pr-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white ${NO_SPINNER}`} />
                         </div>
                       </div>
 
@@ -1000,14 +1073,12 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                       <div className="px-2 py-2.5">
                         <input type="number" min="0" max="100" step="0.5" value={item.discountPercent || ''}
                           onChange={e => updateItem(item.id, { discountPercent: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                          className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white ${NO_SPINNER}`} />
                       </div>
 
-                      {/* GST % */}
+                      {/* GST % — dropdown */}
                       <div className="px-2 py-2.5">
-                        <input type="number" min="0" max="100" step="0.5" value={item.taxRate || ''}
-                          onChange={e => updateItem(item.id, { taxRate: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
+                        <GstPicker value={item.taxRate} onChange={rate => updateItem(item.id, { taxRate: rate })} taxGroups={taxGroups} />
                       </div>
 
                       {/* Net Amount */}
@@ -1053,7 +1124,7 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                       <input type="number" min="0" max="100" step="0.5" value={billDiscountPct || ''}
                         onChange={e => setBillDiscountPct(parseFloat(e.target.value) || 0)}
                         placeholder="0"
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-right" />
+                        className={`flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-right ${NO_SPINNER}`} />
                       {billDiscountPct > 0 && <span className="text-xs text-emerald-600 font-medium whitespace-nowrap">−₹{billDiscAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>}
                     </div>
                     <div className="flex items-center gap-3">
@@ -1061,7 +1132,7 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
                       <input type="number" min="0" step="0.01" value={shippingAmount || ''}
                         onChange={e => setShippingAmount(parseFloat(e.target.value) || 0)}
                         placeholder="0.00"
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-right" />
+                        className={`flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400 bg-white text-right ${NO_SPINNER}`} />
                     </div>
                   </div>
                 </div>

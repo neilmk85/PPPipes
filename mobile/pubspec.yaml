@@ -25,6 +25,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   cupertino_icons: ^1.0.6
+  home_widget: ^0.9.2+1
 
 dev_dependencies:
   flutter_test:

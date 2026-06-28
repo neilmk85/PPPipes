@@ -562,6 +562,7 @@ export const invoiceApi = {
     api.patch<ApiResponse<any>>(`/invoices/${id}/payment`, {}, { params: { amount } }),
   update: (id: number, data: any) => api.put<ApiResponse<any>>(`/invoices/${id}`, data),
   delete: (id: number) => api.delete<ApiResponse<any>>(`/invoices/${id}`),
+  nextNumber: () => api.get<ApiResponse<any>>('/invoices/next-number'),
 }
 
 // Quotations

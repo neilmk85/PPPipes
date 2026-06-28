@@ -600,6 +600,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		invoiceHandler.GetAll,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("GET /api/invoices/next-number", middleware.Chain(
+		invoiceHandler.PeekNextNumber,
+		middleware.Authenticate(db),
+	))
 	mux.HandleFunc("GET /api/invoices/{id}", middleware.Chain(
 		invoiceHandler.GetByID,
 		middleware.Authenticate(db),

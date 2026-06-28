@@ -423,6 +423,21 @@ func (is *InvoiceService) RecordPayment(id int, amount decimal.Decimal) (*models
 	return is.GetByID(id)
 }
 
+// PeekNextNumber reads the current invoice_sequence value without consuming it
+// and returns the number that would be assigned to the next invoice created today.
+func (is *InvoiceService) PeekNextNumber() (string, error) {
+	var seq util.Sequence
+	err := is.db.Where("name = ?", "invoice_sequence").First(&seq).Error
+	if err == gorm.ErrRecordNotFound {
+		// No invoices created yet — sequence starts at 1
+		return fmt.Sprintf("INV-%s-1", time.Now().Format("20060102")), nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("INV-%s-%d", time.Now().Format("20060102"), seq.Value+1), nil
+}
+
 func (is *InvoiceService) SendEmail(id int, email string) error {
 	invoice := &models.Invoice{}
 	if err := is.db.First(invoice, id).Error; err != nil {
