@@ -23,6 +23,14 @@ function fmtCur(n: any) {
   if (isNaN(v)) return '₹0.00'
   return '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+function paymentBadge(po: any) {
+  const bill = po.sourceBills?.[0]
+  if (!bill) return { label: 'Cash', color: 'bg-emerald-100 text-emerald-700' }
+  if (bill.status === 'PAID')    return { label: 'Paid', color: 'bg-emerald-100 text-emerald-700' }
+  if (bill.status === 'PARTIAL') return { label: 'Partial', color: 'bg-amber-100 text-amber-700' }
+  return { label: 'Unpaid', color: 'bg-red-100 text-red-700' }
+}
+
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric',
@@ -1079,6 +1087,35 @@ export default function DirectPurchasePage() {
                 </div>
               </div>
 
+              {/* Payment status */}
+              {(() => {
+                const bill = selectedPO.sourceBills?.[0]
+                const badge = paymentBadge(selectedPO)
+                return (
+                  <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Payment</p>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${badge.color}`}>{badge.label}</span>
+                    </div>
+                    {bill && (
+                      <div className="text-right">
+                        {parseFloat(bill.paidAmount) > 0 && (
+                          <p className="text-xs text-gray-500">Paid: <span className="font-semibold text-gray-800">{fmtCur(bill.paidAmount)}</span></p>
+                        )}
+                        {bill.status !== 'PAID' && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Balance: <span className="font-semibold text-red-600">{fmtCur(parseFloat(bill.totalAmount) - parseFloat(bill.paidAmount))}</span>
+                          </p>
+                        )}
+                        {bill.billNumber && (
+                          <p className="text-[10px] text-gray-400 mt-1 font-mono">Bill #{bill.billNumber}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
               <div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Items</p>
                 <div className="border border-gray-100 rounded-xl overflow-hidden">
@@ -1164,13 +1201,14 @@ export default function DirectPurchasePage() {
                       <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Supplier</th>
                       <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Items</th>
                       <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Total</th>
+                      <th className="px-4 py-3 text-center text-[11px] font-bold text-violet-500 uppercase tracking-widest">Payment</th>
                       <th className="px-4 py-3 text-center text-[11px] font-bold text-violet-500 uppercase tracking-widest">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">
+                        <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">
                           No purchase history yet
                         </td>
                       </tr>
@@ -1183,6 +1221,9 @@ export default function DirectPurchasePage() {
                         <td className="px-4 py-3 text-sm font-medium text-gray-800">{po.supplier?.name ?? '—'}</td>
                         <td className="px-4 py-3 text-right text-sm text-gray-600">{po.items?.length ?? 0}</td>
                         <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">{fmtCur(po.totalAmount)}</td>
+                        <td className="px-4 py-3 text-center">
+                          {(() => { const b = paymentBadge(po); return <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${b.color}`}>{b.label}</span> })()}
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
                             po.status === 'RECEIVED'  ? 'bg-emerald-100 text-emerald-700' :

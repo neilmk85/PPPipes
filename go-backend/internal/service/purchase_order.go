@@ -55,6 +55,7 @@ func (pos *PurchaseOrderService) GetAll(page, size int, outletId *int, supplierI
 		Preload("Items", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Product")
 		}).
+		Preload("SourceBills").
 		Order("created_at DESC").
 		Offset(offset).
 		Limit(size).
