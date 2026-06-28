@@ -11,7 +11,7 @@ import {
   Printer, Camera, Upload, Trash2, ZoomIn, Loader2, ImageOff, Check, FileText, Eye,
   Receipt, Building2, Send,
 } from 'lucide-react'
-import { productionEntryApi, vendorApi, salesOrderApi, customerApi, loadingRecordApi, invoiceApi, pipeConfigApi } from '@/services/api'
+import { productionEntryApi, vendorApi, salesOrderApi, customerApi, loadingRecordApi, invoiceApi, pipeConfigApi, inventoryApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { format, subDays, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -1425,6 +1425,21 @@ export default function LoadingPage() {
   const totalFinal     = filtered.reduce((s, r) => s + r.finalTesting, 0)
 
   // ── Vendor + site address data ───────────────────────────────────
+  const { data: finishedPipeInventory = [] } = useQuery({
+    queryKey: ['finished-pipe-inventory', outletId],
+    queryFn: () => inventoryApi.getAllByOutlet(outletId, 'FINISHED_PIPE', 0, 500)
+      .then(r => r.data.data?.content ?? r.data.data ?? []),
+    staleTime: 60_000,
+  })
+  const inventoryQtyMap = useMemo(() => {
+    const map = new Map<string, number>()
+    ;(finishedPipeInventory as any[]).forEach((inv: any) => {
+      const name = inv.product?.name ?? inv.productName ?? ''
+      if (name) map.set(name, Number(inv.quantityOnHand ?? 0))
+    })
+    return map
+  }, [finishedPipeInventory])
+
   const { data: pipeConfigsRaw = [] } = useQuery({
     queryKey: ['pipe-configs-loading'],
     queryFn: () => pipeConfigApi.getAll({ active: true, size: 100 }).then(r => r.data.data?.content ?? r.data.data ?? []),
@@ -1554,8 +1569,11 @@ export default function LoadingPage() {
     const valid = pipeEntries.filter(pe => pe.pipeName && pe.qty)
     if (valid.length === 0) return
     for (const pe of valid) {
-      const avail = rows.find(r => r.pipeName === pe.pipeName)?.finalTesting ?? 0
-      if (parseInt(pe.qty) > avail) return
+      const avail = inventoryQtyMap.get(pe.pipeName) ?? 0
+      if (parseInt(pe.qty) > avail) {
+        toast.error(`Only ${avail} ${pe.pipeName} available in inventory`)
+        return
+      }
     }
     setSubmitting(true)
     try {
@@ -2115,11 +2133,14 @@ export default function LoadingPage() {
                               options={pipeConfigs.map(pc => pc.name)}
                               placeholder="Search pipe type…"
                               renderOption={opt => {
-                                const r = rows.find(r => r.pipeName === opt)
+                                const qty = inventoryQtyMap.get(opt) ?? 0
                                 return (
                                   <span className="flex items-center justify-between w-full">
                                     <span className="font-medium">{opt}</span>
-                                    {r && r.finalTesting > 0 && <span className="text-green-600 font-bold text-xs tabular-nums">{r.finalTesting} avail.</span>}
+                                    {qty > 0
+                                      ? <span className="text-green-600 font-bold text-xs tabular-nums">{qty} avail.</span>
+                                      : <span className="text-red-400 font-semibold text-xs">Out of stock</span>
+                                    }
                                   </span>
                                 )
                               }}
