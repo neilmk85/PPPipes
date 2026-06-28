@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format, addDays } from 'date-fns'
-import { quotationApi, productApi, discountApi, integrationApi } from '@/services/api'
+import { quotationApi, productApi, discountApi, integrationApi, taxGroupApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import CustomerSearchInput from '@/components/CustomerSearchInput'
 import { createPortal } from 'react-dom'
@@ -165,6 +165,72 @@ function ProductSearch({ onSelect }: { onSelect: (p: any) => void }) {
   )
 }
 
+// ─── GST Picker ───────────────────────────────────────────────────────────────
+
+function GstPicker({ value, onChange, taxGroups }: {
+  value: number
+  onChange: (rate: number) => void
+  taxGroups: any[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos]   = useState<{ top: number; left: number; width: number } | null>(null)
+  const btnRef          = useRef<HTMLButtonElement>(null)
+
+  function updatePos() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 100) })
+    }
+  }
+  useEffect(() => {
+    if (!open) return
+    updatePos()
+    window.addEventListener('scroll', updatePos, true)
+    window.addEventListener('resize', updatePos)
+    return () => { window.removeEventListener('scroll', updatePos, true); window.removeEventListener('resize', updatePos) }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (btnRef.current && !btnRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const options = taxGroups.filter(g => Number(g.totalRate) > 0)
+
+  return (
+    <>
+      <button ref={btnRef} type="button"
+        onClick={() => { setOpen(o => !o) }}
+        className="w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white flex items-center justify-end gap-0.5 hover:border-violet-300 transition-colors">
+        <span className="tabular-nums">{value > 0 ? value : '0'}</span>
+        <span className="text-gray-400 text-xs">%</span>
+      </button>
+      {open && pos && createPortal(
+        <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999 }}
+          className="bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden">
+          <button type="button"
+            onMouseDown={e => { e.preventDefault(); onChange(0); setOpen(false) }}
+            className={`w-full px-3 py-2 text-sm text-left hover:bg-violet-50 transition-colors flex items-center justify-between ${value === 0 ? 'bg-violet-50 font-semibold text-violet-700' : 'text-gray-700'}`}>
+            <span>No Tax</span><span className="text-xs text-gray-400">0%</span>
+          </button>
+          {options.map(g => (
+            <button key={g.id} type="button"
+              onMouseDown={e => { e.preventDefault(); onChange(Number(g.totalRate)); setOpen(false) }}
+              className={`w-full px-3 py-2 text-sm text-left hover:bg-violet-50 transition-colors flex items-center justify-between ${Number(g.totalRate) === value ? 'bg-violet-50 font-semibold text-violet-700' : 'text-gray-700'}`}>
+              <span>{g.name}</span><span className="text-xs tabular-nums">{g.totalRate}%</span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 // ─── Create Quotation Panel ────────────────────────────────────────────────────
 
 function CreateQuotationPanel({ outletId, onClose, onCreated }: {
@@ -184,6 +250,14 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
   const [notes, setNotes]                   = useState('')
   const [terms, setTerms]                   = useState('Prices are valid till the validity date mentioned above.\nGST as applicable.\nSubject to local jurisdiction.')
   const [items, setItems]                   = useState<LineItem[]>([])
+  const [errors, setErrors]                 = useState<{ customer?: string; items?: string }>({})
+
+  const { data: taxGroupsData } = useQuery({
+    queryKey: ['taxGroups'],
+    queryFn: () => taxGroupApi.getAll(true).then((r: any) => r.data.data ?? []),
+    staleTime: 5 * 60 * 1000,
+  })
+  const taxGroups: any[] = taxGroupsData ?? []
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true))
@@ -241,8 +315,11 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
   const gstLabel       = taxRates.length === 1 ? `GST (${taxRates[0]}%)` : 'GST'
 
   async function handleSubmit(send: boolean) {
-    if (!selectedCustomer)  { toast.error('Please select a customer'); return }
-    if (items.length === 0) { toast.error('Add at least one item'); return }
+    const newErrors: typeof errors = {}
+    if (!selectedCustomer)  newErrors.customer = 'Please select a customer'
+    if (items.length === 0) newErrors.items    = 'Add at least one item'
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return }
+    setErrors({})
     setSendOnSave(send)
     setSubmitting(true)
     try {
@@ -327,7 +404,7 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-md p-5">
+                <div className={`bg-white rounded-xl shadow-md p-5 ${errors.customer ? 'ring-2 ring-red-300' : ''}`}>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Quote To</p>
                   {selectedCustomer ? (
                     <div className="flex items-center gap-3">
@@ -344,9 +421,10 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
                       </button>
                     </div>
                   ) : (
-                    <CustomerSearchInput label="" value={selectedCustomer} onSelect={setSelectedCustomer}
+                    <CustomerSearchInput label="" value={selectedCustomer} onSelect={c => { setSelectedCustomer(c); setErrors(e => ({ ...e, customer: undefined })) }}
                       onClear={() => setSelectedCustomer(null)} placeholder="Search customer by name or phone…" />
                   )}
+                  {errors.customer && <p className="text-xs text-red-500 mt-2">{errors.customer}</p>}
                 </div>
               </div>
 
@@ -394,7 +472,10 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
                 </div>
 
                 {items.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-gray-400">No items yet — search a product above to add</div>
+                  <div className="py-8 text-center">
+                    <p className="text-sm text-gray-400">No items yet — search a product above to add</p>
+                    {errors.items && <p className="text-xs text-red-500 mt-1">{errors.items}</p>}
+                  </div>
                 ) : items.map((it, idx) => {
                   const c = calcLine(it)
                   return (
@@ -434,9 +515,7 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
                           className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white ${NO_SPINNER}`} />
                       </div>
                       <div className="px-2 py-2.5">
-                        <input type="number" min="0" max="100" step="0.5" value={it.taxRate || ''}
-                          onChange={e => updateItem(it.id, 'taxRate', parseFloat(e.target.value) || 0)}
-                          className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white ${NO_SPINNER}`} />
+                        <GstPicker value={it.taxRate} onChange={rate => updateItem(it.id, 'taxRate', rate)} taxGroups={taxGroups} />
                       </div>
                       <div className="px-3 py-2.5 text-right">
                         <p className="text-sm font-bold text-gray-900 tabular-nums">₹{c.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
