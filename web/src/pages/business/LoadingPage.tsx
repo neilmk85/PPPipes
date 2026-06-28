@@ -2119,7 +2119,7 @@ export default function LoadingPage() {
 
                   <div className="space-y-2">
                     {pipeEntries.map((pe, idx) => {
-                      const avail = rows.find(r => r.pipeName === pe.pipeName)?.finalTesting ?? 0
+                      const avail = inventoryQtyMap.get(pe.pipeName) ?? 0
                       const qty   = parseInt(pe.qty || '0')
                       const over  = pe.pipeName && qty > avail
                       return (
