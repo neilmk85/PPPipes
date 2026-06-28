@@ -3,7 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8082/api';
+  static const String baseUrl = 'https://system.pppipeproducts.com/api';
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
@@ -367,8 +367,11 @@ class ApiService {
   }
 
   // ---- Business Operations ----
-  Future<List<dynamic>> getCementBags({int page = 0}) async {
-    final res = await _dio.get('/business/cement-bags', queryParameters: {'page': page, 'size': 20});
+  Future<List<dynamic>> getCementBags({String? fromDate, String? toDate}) async {
+    final params = <String, dynamic>{};
+    if (fromDate != null) params['from'] = fromDate;
+    if (toDate != null) params['to'] = toDate;
+    final res = await _dio.get('/business/cement-bags', queryParameters: params);
     final data = res.data['data'];
     if (data is Map && data.containsKey('content')) return data['content'] as List;
     if (data is List) return data;
@@ -378,6 +381,123 @@ class ApiService {
   Future<Map<String, dynamic>> createCementBag(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/cement-bags', data: data);
     return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateCementBag(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/cement-bags/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteCementBag(int id) async {
+    await _dio.delete('/business/cement-bags/$id');
+  }
+
+  Future<List<dynamic>> getMaintenanceEntries({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/business/maintenance', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createMaintenanceEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/maintenance', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateMaintenanceEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/maintenance/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteMaintenanceEntry(int id) async {
+    await _dio.delete('/business/maintenance/$id');
+  }
+
+  Future<List<dynamic>> getStoreRoomMaterials({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/business/store-room-materials', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createStoreRoomMaterial(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/store-room-materials', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateStoreRoomMaterial(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/store-room-materials/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteStoreRoomMaterial(int id) async {
+    await _dio.delete('/business/store-room-materials/$id');
+  }
+
+  Future<List<Map<String, dynamic>>> getProductsRaw({int size = 1000, String? itemType}) async {
+    final params = <String, dynamic>{'page': 0, 'size': size};
+    if (itemType != null) params['itemType'] = itemType;
+    final res = await _dio.get('/products', queryParameters: params);
+    final content = res.data['data']['content'] as List;
+    return content.cast<Map<String, dynamic>>();
+  }
+
+  Future<List<dynamic>> getCuttingEntries({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/business/cuttings', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createCuttingEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/cuttings', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateCuttingEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/cuttings/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteCuttingEntry(int id) async {
+    await _dio.delete('/business/cuttings/$id');
+  }
+
+  Future<List<dynamic>> getDieselEntries({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/business/diesel-maintenance', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createDieselEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/diesel-maintenance', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateDieselEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/diesel-maintenance/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteDieselEntry(int id) async {
+    await _dio.delete('/business/diesel-maintenance/$id');
   }
 
   Future<List<dynamic>> getVehicleEntries({int page = 0, int size = 20}) async {
@@ -442,6 +562,31 @@ class ApiService {
 
   Future<void> deleteConversion(int id) async {
     await _dio.delete('/business/conversions/$id');
+  }
+
+  Future<List<dynamic>> getLabourEntries({String? fromDate, String? toDate}) async {
+    final params = <String, dynamic>{};
+    if (fromDate != null) params['fromDate'] = fromDate;
+    if (toDate != null) params['toDate'] = toDate;
+    final res = await _dio.get('/business/labour', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createLabourEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/labour', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateLabourEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/labour/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteLabourEntry(int id) async {
+    await _dio.delete('/business/labour/$id');
   }
 
   // Pipe configs (for conversion diameter/kg options)
@@ -594,6 +739,32 @@ class ApiService {
     return [];
   }
 
+  // ── Discard ──────────────────────────────────────────────────────────────────
+
+  Future<List<dynamic>> getDiscardEntries({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/business/discards', queryParameters: params);
+    final data = res.data['data'];
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createDiscardEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/discards', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateDiscardEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/discards/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteDiscardEntry(int id) async {
+    await _dio.delete('/business/discards/$id');
+  }
+
   Future<Map<String, dynamic>> getGstr1(String from, String to) async {
     final res = await _dio.get('/gst/gstr1', queryParameters: {'from': from, 'to': to});
     return res.data['data'] as Map<String, dynamic>;
@@ -609,5 +780,31 @@ class ApiService {
     final data = res.data['data'];
     if (data is List) return data;
     return [];
+  }
+
+  // ── Extra Fabrication Charges ─────────────────────────────────────────────────
+
+  Future<List<dynamic>> getExtraFabEntries({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/business/extra-fab', queryParameters: params);
+    final data = res.data['data'];
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createExtraFabEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/extra-fab', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateExtraFabEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/extra-fab/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteExtraFabEntry(int id) async {
+    await _dio.delete('/business/extra-fab/$id');
   }
 }

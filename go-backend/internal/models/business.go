@@ -349,3 +349,30 @@ type ThirdPartyPipePurchase struct {
 }
 
 func (ThirdPartyPipePurchase) TableName() string { return "biz_third_party_pipe_purchases" }
+
+// ─── Extra Fabrication Charges ────────────────────────────────────────────────
+type BizExtraFab struct {
+	ID              uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Date            DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
+	VendorName      string    `gorm:"column:vendor_name;size:255;not null" json:"vendorName"`
+	Particular      string    `gorm:"column:particular;size:255;default:'Fabrication Charges'" json:"particular"`
+	Rate            string    `gorm:"column:rate;type:decimal(12,2)" json:"rate"`
+	Quantity        string    `gorm:"column:quantity" json:"quantity"`
+	TaxPercent      string    `gorm:"column:tax_percent;type:decimal(5,2);default:0" json:"taxPercent"`
+	LineTotal       string    `gorm:"column:line_total;type:decimal(14,2)" json:"lineTotal"`
+	Notes           string    `gorm:"column:notes;type:text" json:"notes"`
+	InvoiceNo       string    `gorm:"column:invoice_no;size:100" json:"invoiceNo"`
+	VehicleNo       string    `gorm:"column:vehicle_no;size:100" json:"vehicleNo"`
+	InvoiceData     string    `gorm:"column:invoice_data;type:text" json:"invoiceData"`
+	SubTotal        string    `gorm:"column:sub_total;type:decimal(14,2)" json:"subTotal"`
+	DiscountPercent string    `gorm:"column:discount_percent;type:decimal(5,2);default:0" json:"discountPercent"`
+	BillPrice       string    `gorm:"column:bill_price;type:decimal(14,2)" json:"billPrice"`
+	Taxable         string    `gorm:"column:taxable;type:decimal(14,2)" json:"taxable"`
+	GstInclusive    bool      `gorm:"column:gst_inclusive;default:false" json:"gstInclusive"`
+	RoundingOff     string    `gorm:"column:rounding_off;type:decimal(6,2);default:0" json:"roundingOff"`
+	FinalBill       string    `gorm:"column:final_bill;type:decimal(14,2)" json:"finalBill"`
+	CreatedAt       time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt       time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (BizExtraFab) TableName() string { return "biz_extra_fab" }

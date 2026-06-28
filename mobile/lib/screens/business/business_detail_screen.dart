@@ -15,60 +15,251 @@ class CementBagsScreen extends StatefulWidget {
 }
 
 class _CementBagsScreenState extends State<CementBagsScreen> {
-  static const _color = Color(0xFF57534E);
-  List<CementBag> _items = [];
-  bool _loading = true;
+  static const _color = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF3730A3);
 
+  bool _loadingData = true;
+  List<Map<String, dynamic>> _items = [];
+  bool _showSearch = false;
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+  String _preset = '';
+  late DateTime _from, _to;
   @override
   void initState() {
     super.initState();
+    _to = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
     _load();
   }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() => _loadingData = true);
     try {
-      final raw = await ApiService().getCementBags();
-      setState(() {
-        _items = raw.map((e) => CementBag.fromJson(e)).toList();
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
+      final data = await ApiService().getCementBags(
+          fromDate: _fmtIso(_from), toDate: _fmtIso(_to));
+      if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loadingData = false);
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday',
+      'this_week': 'This Week', 'last_week': 'Last Week',
+      'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') {
+      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    }
+    return 'Filter by Date';
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_search.trim().isEmpty) return _items;
+    final q = _search.toLowerCase();
+    return _items.where((e) =>
+      (e['notes'] ?? '').toString().toLowerCase().contains(q) ||
+      _toD(e['quantity']).toStringAsFixed(0).contains(q)
+    ).toList();
+  }
+
+  double get _totalBags => _items.fold(0.0, (s, e) => s + _toD(e['quantity']));
+
+  void _showAddEdit([Map<String, dynamic>? editing]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CementBagSheet(
+        initial: editing,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateCementBag(_toI(editing['id']), data);
+          } else {
+            await ApiService().createCementBag(data);
+          }
+          _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: const Text('This will permanently delete this usage record.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ApiService().deleteCementBag(id);
+      _load();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+    final totalBags = _totalBags;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cement Bags'),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-      ),
-      body: _loading
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loadingData
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              child: _items.isEmpty
-                  ? const Center(child: Text('No cement bag entries'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _items.length,
-                      itemBuilder: (_, i) {
-                        final item = _items[i];
-                        return _BizCard(
-                          icon: Icons.all_inbox_outlined,
-                          color: _color,
-                          title: '${item.quantity.toStringAsFixed(0)} bags',
-                          subtitle: _fmtDate(item.date),
-                          notes: item.notes,
-                        );
-                      },
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [_color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.06),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_items.length}', 'Entries'),
+                              _hStat(totalBags.toStringAsFixed(0), 'Total Used'),
+                            ]),
+                          ),
+                        ),
+                      ]),
                     ),
+                  ),
+                  title: const Text('Used Cement Bags',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel,
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.all_inbox_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No usage entries found',
+                            style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _CementBagCard(
+                          entry: filtered[i],
+                          onEdit: () => _showAddEdit(filtered[i]),
+                          onDelete: () => _delete(_toI(filtered[i]['id'])),
+                        ),
+                        childCount: filtered.length,
+                      ),
+                    ),
+                  ),
+              ]),
             ),
+      bottomNavigationBar: _buildFloatingNav(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAdd(context),
+        onPressed: () => _showAddEdit(),
         backgroundColor: _color,
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
@@ -76,27 +267,443 @@ class _CementBagsScreenState extends State<CementBagsScreen> {
     );
   }
 
-  void _showAdd(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _SimpleAddSheet(
-        title: 'Add Cement Bag Entry',
-        accentColor: _color,
-        fields: [
-          _FieldDef('quantity', 'Quantity (bags)', TextInputType.number),
-          _FieldDef('notes', 'Notes (optional)', TextInputType.text),
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.13),
+                      blurRadius: 24,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: _color.withValues(alpha: 0.12),
+                      blurRadius: 40,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                  child: _showSearch ? _buildCementSearchExpanded() : _buildCementNavItems(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCementSearchExpanded() {
+    return Row(
+      key: const ValueKey('csearch'),
+      children: [
+        Container(
+          margin: const EdgeInsets.all(8),
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_color, _colorDark],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.all(Radius.circular(24)),
+          ),
+          child: const Icon(Icons.search, color: Colors.white, size: 20),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search notes…',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              border: InputBorder.none,
+              isDense: true,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => setState(() {
+            _showSearch = false;
+            _search = '';
+            _searchCtrl.clear();
+          }),
+          child: Container(
+            margin: const EdgeInsets.all(10),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCementNavItems() {
+    return Row(
+      key: const ValueKey('cnav'),
+      children: [
+        _cFloatItem(
+          icon: Icons.search,
+          label: 'Search',
+          active: false,
+          onTap: () => setState(() => _showSearch = true),
+        ),
+        _cFloatItem(
+          icon: Icons.all_inbox_outlined,
+          label: 'Usage Log',
+          active: true,
+          onTap: () {},
+        ),
+      ],
+    );
+  }
+
+  Widget _cFloatItem({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, _colorDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(26)),
+                )
+              : null,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: active ? Colors.white : const Color(0xFF94A3B8)),
+              const SizedBox(height: 3),
+              Text(label,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: active ? Colors.white : const Color(0xFF94A3B8),
+                    letterSpacing: 0.2,
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label,
+          style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2),
+          textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ── Cement Bag Card ──────────────────────────────────────────────────────────
+
+class _CementBagCard extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _CementBagCard({required this.entry, required this.onEdit, required this.onDelete});
+
+  static const _color = Color(0xFF4F46E5);
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    final p = s.split('-');
+    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : s;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date = entry['date']?.toString() ?? '';
+    final qty = _toD(entry['quantity']);
+    final notes = entry['notes']?.toString() ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1)),
         ],
-        onSubmit: (data) async {
-          await ApiService().createCementBag({
-            'quantity': double.tryParse(data['quantity'] ?? '0') ?? 0,
-            'notes': data['notes'],
-            'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
-          });
-          _load();
-        },
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.all_inbox_outlined, color: _color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${qty.toStringAsFixed(0)} bags used',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(_fmtDate(date),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              ]),
+            ),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF94A3B8)),
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+              ),
+            ]),
+          ]),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(notes,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Cement Bag Sheet ─────────────────────────────────────────────────────────
+
+class _CementBagSheet extends StatefulWidget {
+  final Map<String, dynamic>? initial;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _CementBagSheet({this.initial, required this.onSubmit});
+
+  @override
+  State<_CementBagSheet> createState() => _CementBagSheetState();
+}
+
+class _CementBagSheetState extends State<_CementBagSheet> {
+  static const _color = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF3730A3);
+
+  late DateTime _date;
+  final _qtyCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _errQty;
+
+  bool get _isEdit => widget.initial != null;
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    _date = e != null && (e['date']?.toString().length ?? 0) >= 10
+        ? DateTime.tryParse(e['date'].toString().substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    _qtyCtrl.text = e != null ? _toD(e['quantity']).toStringAsFixed(0) : '';
+    _notesCtrl.text = e?['notes']?.toString() ?? '';
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final qty = double.tryParse(_qtyCtrl.text.trim());
+    setState(() { _errQty = qty == null || qty <= 0 ? 'Enter a valid quantity' : null; });
+    if (_errQty != null) return;
+
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date': DateFormat('yyyy-MM-dd').format(_date),
+        'quantity': qty,
+        'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_color, _colorDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.all_inbox_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(_isEdit ? 'Edit Usage Entry' : 'Log Bag Usage',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final d = await showDatePicker(
+                      context: context,
+                      initialDate: _date,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (d != null) setState(() => _date = d);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.calendar_today_outlined, size: 16, color: Color(0xFF64748B)),
+                      const SizedBox(width: 8),
+                      Text(DateFormat('dd MMM yyyy').format(_date),
+                          style: const TextStyle(fontSize: 14)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Bags Used*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (_) => setState(() => _errQty = null),
+                  decoration: InputDecoration(
+                    hintText: 'No. of bags used',
+                    errorText: _errQty,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Notes (optional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Supplier name, delivery info…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _color,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    icon: _submitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.check_circle_outline),
+                    label: Text(_submitting ? 'Saving…' : _isEdit ? 'Save Changes' : 'Log Usage'),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -832,8 +1439,11 @@ class _LoadingScreenState extends State<LoadingScreen> {
   List<String> _customerNames  = [];
   List<String> _allAddresses   = [];
   Map<String, List<String>> _customerAddressMap = {};
-  bool _showHistory = false;
+  bool _showHistory = true;
+  bool _showSearch  = false;
   String _recSearch = '';
+  final _searchCtrl = TextEditingController();
+  String _preset = '';
 
   late DateTime _from;
   late DateTime _to;
@@ -844,6 +1454,12 @@ class _LoadingScreenState extends State<LoadingScreen> {
     _to   = DateTime.now();
     _from = _to.subtract(const Duration(days: 29));
     _loadAll();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -992,6 +1608,75 @@ class _LoadingScreenState extends State<LoadingScreen> {
     ).toList();
   }
 
+  List<({String value, String category})> get _suggestions {
+    final q = _recSearch.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    final seen = <String>{};
+    final result = <({String value, String category})>[];
+    void add(String? val, String cat) {
+      if (val == null || val.trim().isEmpty) return;
+      final v = val.trim();
+      if (v.toLowerCase().contains(q) && seen.add(v.toLowerCase())) {
+        result.add((value: v, category: cat));
+      }
+    }
+    for (final r in _records) {
+      add(r['pipeName']     as String?, 'Pipe');
+      add(r['customerName'] as String?, 'Customer');
+      add(r['vehicleNo']    as String?, 'Vehicle');
+      add(r['driverName']   as String?, 'Driver');
+      add(r['vendor']       as String?, 'Vendor');
+      add(r['customerPoNo'] as String?, 'PO No.');
+    }
+    return result.take(6).toList();
+  }
+
+  IconData _suggIcon(String cat) {
+    switch (cat) {
+      case 'Pipe':     return Icons.water_damage_outlined;
+      case 'Customer': return Icons.person_outline;
+      case 'Vehicle':  return Icons.local_shipping_outlined;
+      case 'Driver':   return Icons.drive_eta_outlined;
+      case 'Vendor':   return Icons.store_outlined;
+      case 'PO No.':   return Icons.receipt_outlined;
+      default:         return Icons.search;
+    }
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday',
+      'this_week': 'This Week', 'last_week': 'Last Week',
+      'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') {
+      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    }
+    return 'Filter by Date';
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _loadAll();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _loadAll();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final today     = DateTime.now();
@@ -1010,42 +1695,83 @@ class _LoadingScreenState extends State<LoadingScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: const Text('Loading'),
-        backgroundColor: _violet,
-        foregroundColor: Colors.white,
-        actions: [
-          TextButton.icon(
-            onPressed: () => setState(() => _showHistory = !_showHistory),
-            icon: Icon(_showHistory ? Icons.list_alt : Icons.history, color: Colors.white, size: 18),
-            label: Text(_showHistory ? 'Curing Days' : 'Loaded Pipes', style: const TextStyle(color: Colors.white, fontSize: 12)),
-          ),
-        ],
-      ),
+      bottomNavigationBar: _buildFloatingNav(),
       body: _loadingData
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadAll,
               child: CustomScrollView(slivers: [
-                // Stats strip
-                SliverToBoxAdapter(child: _showHistory
-                  ? _StatStrip(
-                      stats: [
-                        ('Dispatches', filtered.length, _violet),
-                        ('Pipes Loaded', totalLoaded, _color),
-                        ('Pipe Types', uniquePipes, const Color(0xFF2563EB)),
-                      ],
-                      color: _violet,
-                    )
-                  : _StatStrip(
-                      stats: [
-                        ('Day 5 ($day5Label)', totalDay5, Colors.cyan),
-                        ('Day 6 ($day6Label)', totalDay6, Colors.blue),
-                        ('Day 7+ (≤$day7Label)', totalDay7, Colors.indigo),
-                        ('Final Testing', totalFinal, Colors.green),
-                      ],
-                      color: _violet,
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF7C3AED), Color(0xFF4C1D95)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.06),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: _showHistory ? [
+                              _hStat('${filtered.length}', 'Dispatches'),
+                              _hStat('$totalLoaded', 'Loaded'),
+                              _hStat('$uniquePipes', 'Pipe Types'),
+                            ] : [
+                              _hStat('$totalDay5', 'Day 5\n$day5Label'),
+                              _hStat('$totalDay6', 'Day 6\n$day6Label'),
+                              _hStat('$totalDay7', 'Day 7+\n≤$day7Label'),
+                              _hStat('$totalFinal', 'Final\nTest'),
+                            ]),
+                          ),
+                        ),
+                      ]),
                     ),
+                  ),
+                  title: const Text('Loading',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
                 ),
 
                 if (!_showHistory) ...[
@@ -1093,20 +1819,6 @@ class _LoadingScreenState extends State<LoadingScreen> {
                     ]),
                   )),
                 ] else ...[
-                  // Search bar
-                  SliverToBoxAdapter(child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                    child: TextField(
-                      onChanged: (v) => setState(() => _recSearch = v),
-                      decoration: InputDecoration(
-                        hintText: 'Search pipe, vehicle, driver, customer…',
-                        prefixIcon: const Icon(Icons.search, size: 18),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                        filled: true, fillColor: Colors.white,
-                      ),
-                    ),
-                  )),
                   // Loaded pipes list
                   if (filtered.isEmpty)
                     const SliverFillRemaining(child: Center(child: Text('No loading records found')))
@@ -1182,15 +1894,274 @@ class _LoadingScreenState extends State<LoadingScreen> {
                 ],
               ]),
             ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _openLoadSheet,
         backgroundColor: _violet,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_box_outlined),
-        label: const Text('Load Pipes'),
+        child: const Icon(Icons.add),
       ),
     );
   }
+
+  Widget _buildSuggestions() {
+    final suggs = _suggestions;
+    if (!_showSearch || suggs.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 16, offset: const Offset(0, -4)),
+          BoxShadow(color: _violet.withValues(alpha: 0.07), blurRadius: 24, offset: const Offset(0, -8)),
+        ],
+      ),
+      constraints: const BoxConstraints(maxHeight: 210),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          shrinkWrap: true,
+          itemCount: suggs.length,
+          separatorBuilder: (_, __) => Divider(height: 1, indent: 16, endIndent: 16, color: Colors.grey.shade100),
+          itemBuilder: (_, i) {
+            final s = suggs[i];
+            final q = _recSearch.trim().toLowerCase();
+            final idx = s.value.toLowerCase().indexOf(q);
+            return InkWell(
+              onTap: () => setState(() {
+                _searchCtrl.text = s.value;
+                _recSearch = s.value;
+              }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  Icon(_suggIcon(s.category), size: 15, color: const Color(0xFF94A3B8)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: idx >= 0
+                        ? RichText(text: TextSpan(
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                            children: [
+                              if (idx > 0) TextSpan(text: s.value.substring(0, idx)),
+                              TextSpan(text: s.value.substring(idx, idx + q.length),
+                                style: const TextStyle(color: _violet, fontWeight: FontWeight.w700)),
+                              TextSpan(text: s.value.substring(idx + q.length)),
+                            ],
+                          ))
+                        : Text(s.value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(s.category, style: const TextStyle(fontSize: 10, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                  ),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSuggestions(),
+            Padding(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.13),
+                  blurRadius: 24,
+                  spreadRadius: -2,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: _violet.withValues(alpha: 0.12),
+                  blurRadius: 40,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.hardEdge,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: (_showSearch && _showHistory)
+                  ? _buildSearchExpanded()
+                  : _buildNavItems(),
+            ),
+          ),
+        ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() {
+    return Row(
+      key: const ValueKey('search'),
+      children: [
+        // Active search pill
+        Container(
+          margin: const EdgeInsets.all(8),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_violet, Color(0xFF2563EB)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: const Icon(Icons.search, color: Colors.white, size: 20),
+        ),
+        // Expanding text field
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+            onChanged: (v) => setState(() => _recSearch = v),
+            decoration: InputDecoration(
+              hintText: 'Search pipe, vehicle, driver…',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              border: InputBorder.none,
+              isDense: true,
+            ),
+          ),
+        ),
+        // Close button
+        GestureDetector(
+          onTap: () => setState(() {
+            _showSearch = false;
+            _recSearch = '';
+            _searchCtrl.clear();
+          }),
+          child: Container(
+            margin: const EdgeInsets.all(10),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavItems() {
+    return Row(
+      key: const ValueKey('nav'),
+      children: [
+        _floatItem(
+          icon: Icons.search,
+          label: 'Search',
+          active: false,
+          onTap: () => setState(() {
+            _showHistory = true;
+            _showSearch = true;
+          }),
+        ),
+        _floatItem(
+          icon: Icons.local_shipping_outlined,
+          label: 'Loaded Pipes',
+          active: _showHistory,
+          onTap: () => setState(() {
+            _showHistory = true;
+            _showSearch = false;
+          }),
+        ),
+        _floatItem(
+          iconBuilder: (c) => CustomPaint(size: const Size(22, 22), painter: _PipeIconPainter(c)),
+          label: 'Curing Days',
+          active: !_showHistory,
+          onTap: () => setState(() {
+            _showHistory = false;
+            _showSearch = false;
+            _recSearch = '';
+            _searchCtrl.clear();
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _floatItem({
+    IconData? icon,
+    Widget Function(Color color)? iconBuilder,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    final iconColor = active ? Colors.white : const Color(0xFF94A3B8);
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [_violet, Color(0xFF2563EB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(26),
+                )
+              : null,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              iconBuilder != null
+                  ? iconBuilder(iconColor)
+                  : Icon(icon!, size: 22, color: iconColor),
+              const SizedBox(height: 3),
+              Text(label,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                  color: active ? Colors.white : const Color(0xFF94A3B8),
+                  letterSpacing: 0.2,
+                )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2, height: 1.3), textAlign: TextAlign.center),
+    ]),
+  );
 
   Widget _thCell(String line1, String line2) => Expanded(child: Column(children: [
     Text(line1, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Colors.grey)),
@@ -1203,6 +2174,281 @@ class _LoadingScreenState extends State<LoadingScreen> {
     Text(text, style: const TextStyle(fontSize: 11, color: Colors.grey)),
   ]);
 }
+
+// ── Pipe icon painter (used in Loading floating nav) ──────────────────────────
+
+class _PipeIconPainter extends CustomPainter {
+  final Color color;
+  _PipeIconPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.35
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    const r = Radius.circular(2.5);
+
+    // Proportions derived from the reference image
+    final fl = w * 0.21;   // flange width
+    final ft = h * 0.10;   // flange top
+    final fb = h * 0.90;   // flange bottom
+    final pt = h * 0.32;   // pipe body top
+    final pb = h * 0.68;   // pipe body bottom
+
+    // Left flange outer shape
+    canvas.drawRRect(RRect.fromLTRBR(0, ft, fl, fb, r), paint);
+    // Left flange inner step line (shows socket depth)
+    canvas.drawLine(Offset(fl * 0.55, pt), Offset(fl * 0.55, pb), paint);
+
+    // Pipe body — top and bottom edges
+    canvas.drawLine(Offset(fl, pt), Offset(w - fl, pt), paint);
+    canvas.drawLine(Offset(fl, pb), Offset(w - fl, pb), paint);
+
+    // Right flange outer shape
+    canvas.drawRRect(RRect.fromLTRBR(w - fl, ft, w, fb, r), paint);
+    // Right flange inner step line
+    canvas.drawLine(Offset(w - fl * 0.55, pt), Offset(w - fl * 0.55, pb), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PipeIconPainter old) => old.color != color;
+}
+
+class _BizDateSheet extends StatefulWidget {
+  final String preset;
+  final DateTime from, to;
+  final void Function(String preset, DateTime from, DateTime to) onApply;
+  final VoidCallback onClear;
+
+  const _BizDateSheet({
+    required this.preset, required this.from, required this.to,
+    required this.onApply, required this.onClear,
+  });
+
+  @override
+  State<_BizDateSheet> createState() => _BizDateSheetState();
+}
+
+class _BizDateSheetState extends State<_BizDateSheet> {
+  static const _violet = Color(0xFF7C3AED);
+  static const _blue   = Color(0xFF2563EB);
+
+  static const _presets = [
+    ('today',        'Today'),
+    ('yesterday',    'Yesterday'),
+    ('this_week',    'This Week'),
+    ('last_week',    'Last Week'),
+    ('this_month',   'This Month'),
+    ('last_month',   'Last Month'),
+    ('this_quarter', 'This Quarter'),
+    ('this_year',    'This Year'),
+  ];
+
+  late String   _preset;
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _preset = widget.preset;
+    _from   = widget.from;
+    _to     = widget.to;
+  }
+
+  DateTime _resolveFrom(String key) {
+    final n = DateTime.now();
+    switch (key) {
+      case 'today':        return DateTime(n.year, n.month, n.day);
+      case 'yesterday':    return DateTime(n.year, n.month, n.day - 1);
+      case 'this_week':    return n.subtract(Duration(days: n.weekday - 1));
+      case 'last_week':    return n.subtract(Duration(days: n.weekday - 1 + 7));
+      case 'this_month':   return DateTime(n.year, n.month, 1);
+      case 'last_month':   return DateTime(n.year, n.month - 1, 1);
+      case 'this_quarter': final q = ((n.month - 1) ~/ 3); return DateTime(n.year, q * 3 + 1, 1);
+      case 'this_year':    return DateTime(n.year, 1, 1);
+      default:             return n.subtract(const Duration(days: 29));
+    }
+  }
+
+  DateTime _resolveTo(String key) {
+    final n = DateTime.now();
+    switch (key) {
+      case 'yesterday':  return DateTime(n.year, n.month, n.day - 1);
+      case 'last_week':  return n.subtract(Duration(days: n.weekday));
+      case 'last_month': return DateTime(n.year, n.month, 0);
+      default:           return n;
+    }
+  }
+
+  void _pickPreset(String key) {
+    final from = _resolveFrom(key);
+    final to   = _resolveTo(key);
+    setState(() { _preset = key; _from = from; _to = to; });
+    widget.onApply(key, from, to);
+    Navigator.pop(context);
+  }
+
+  Future<void> _pickFrom() async {
+    final p = await showDatePicker(
+      context: context,
+      initialDate: _from,
+      firstDate: DateTime(2020), lastDate: DateTime(2030),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _violet)),
+        child: child!,
+      ),
+    );
+    if (p != null) setState(() { _from = p; _preset = 'custom'; if (_to.isBefore(p)) _to = p; });
+  }
+
+  Future<void> _pickTo() async {
+    final p = await showDatePicker(
+      context: context,
+      initialDate: _to.isBefore(_from) ? _from : _to,
+      firstDate: _from, lastDate: DateTime(2030),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _violet)),
+        child: child!,
+      ),
+    );
+    if (p != null) setState(() { _to = p; _preset = 'custom'; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dfmt = DateFormat('dd MMM yyyy');
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Drag handle
+        Center(child: Container(
+          margin: const EdgeInsets.only(top: 12, bottom: 14),
+          width: 36, height: 4,
+          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+        )),
+        // Title + Clear
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(children: [
+            const Expanded(child: Text('Filter by Date', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),
+            TextButton(
+              onPressed: () { Navigator.pop(context); widget.onClear(); },
+              child: const Text('Clear', style: TextStyle(color: Color(0xFF7C3AED))),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        // Preset chips
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Wrap(spacing: 8, runSpacing: 8,
+            children: _presets.map((pr) {
+              final active = _preset == pr.$1;
+              return GestureDetector(
+                onTap: () => _pickPreset(pr.$1),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: active ? _violet.withValues(alpha: 0.1) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    border: active ? Border.all(color: _violet.withValues(alpha: 0.4)) : null,
+                  ),
+                  child: Text(pr.$2, style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                    color: active ? _violet : Colors.grey.shade700,
+                  )),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Divider(indent: 16, endIndent: 16),
+        // Custom range
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('CUSTOM RANGE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey, letterSpacing: 0.8)),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: _BizDtField(label: 'From', value: dfmt.format(_from), onTap: _pickFrom)),
+              const SizedBox(width: 10),
+              Expanded(child: _BizDtField(label: 'To',   value: dfmt.format(_to),   onTap: _pickTo)),
+            ]),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [_violet, _blue]),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent, shadowColor: Colors.transparent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    widget.onApply(_preset, _from, _to);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Apply Range', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+class _BizDtField extends StatelessWidget {
+  final String label, value;
+  final VoidCallback onTap;
+  const _BizDtField({required this.label, required this.value, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Row(children: [
+            Icon(Icons.calendar_today_outlined, size: 12, color: Colors.grey.shade500),
+            const SizedBox(width: 4),
+            Expanded(child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Loading Date Filter dropdown overlay ──────────────────────────────────────
+
+
+
 
 // ── Delivery Challan bottom sheet ─────────────────────────────────────────────
 
@@ -1764,19 +3010,49 @@ class _ExtraVehiclesScreenState extends State<ExtraVehiclesScreen> {
   static const _color = Color(0xFFC026D3);
   List<_ExtraVehicleEntry> _items = [];
   bool _loading = true;
+  DateTime? _filterDate;
 
   @override
   void initState() { super.initState(); _load(); }
 
+  String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final raw = await ApiService().getExtraVehicles(size: 200);
+      final dateStr = _filterDate != null ? _fmt(_filterDate!) : null;
+      final raw = await ApiService().getExtraVehicles(
+        size: 200,
+        fromDate: dateStr,
+        toDate: dateStr,
+      );
       setState(() {
         _items = raw.map((e) => _ExtraVehicleEntry.fromJson(e as Map<String, dynamic>)).toList();
         _loading = false;
       });
     } catch (_) { setState(() => _loading = false); }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _filterDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _color)),
+        child: child!,
+      ),
+    );
+    if (picked != null) {
+      setState(() => _filterDate = picked);
+      _load();
+    }
+  }
+
+  void _clearDate() {
+    setState(() => _filterDate = null);
+    _load();
   }
 
   List<String> get _vendorSuggestions {
@@ -1828,19 +3104,62 @@ class _ExtraVehiclesScreenState extends State<ExtraVehiclesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasFilter = _filterDate != null;
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
         title: const Text('Extra Vehicles'),
         backgroundColor: _color,
         foregroundColor: Colors.white,
+        actions: [
+          if (hasFilter)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton.icon(
+                onPressed: _clearDate,
+                icon: const Icon(Icons.close, size: 14, color: Colors.white),
+                label: Text(
+                  DateFormat('dd MMM').format(_filterDate!),
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+              ),
+            ),
+          IconButton(
+            icon: Icon(
+              hasFilter ? Icons.calendar_today : Icons.calendar_today_outlined,
+              color: Colors.white,
+            ),
+            tooltip: 'Filter by date',
+            onPressed: _pickDate,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: _items.isEmpty
-                  ? const Center(child: Text('No extra vehicle entries'))
+                  ? Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.directions_car_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text(
+                          hasFilter
+                              ? 'No entries for ${DateFormat('dd MMM yyyy').format(_filterDate!)}'
+                              : 'No extra vehicle entries',
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                        if (hasFilter) ...[
+                          const SizedBox(height: 8),
+                          TextButton(onPressed: _clearDate, child: const Text('Clear filter')),
+                        ],
+                      ]),
+                    )
                   : ListView.builder(
                       padding: const EdgeInsets.all(12),
                       itemCount: _items.length,
@@ -2348,43 +3667,43 @@ class _ConversionCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Icon(Icons.sync_outlined, color: color, size: 18),
-          ),
+          Icon(Icons.sync_outlined, color: color, size: 20),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              if (fp != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(20)),
-                  child: Text('${fp['d']} mm · ${fp['kg']} kg', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange.shade700)),
-                ),
+            if (fp != null)
+              Row(children: [
+                RichText(text: TextSpan(
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  children: [
+                    TextSpan(text: '${fp['d']} mm', style: const TextStyle(color: Color(0xFF374151))),
+                    TextSpan(text: ' · ${fp['kg']} kg', style: TextStyle(color: Colors.grey[400])),
+                  ],
+                )),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Icon(Icons.arrow_forward, size: 14, color: color),
+                  child: Icon(Icons.arrow_forward, size: 13, color: Colors.grey[400]),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
-                  child: Text('${tp?['kg'] ?? ''} kg', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
-                ),
-              ] else
-                Text('${entry.fromPipe} → ${entry.toPipe}', style: const TextStyle(fontSize: 12)),
-              const Spacer(),
-              Text('${double.tryParse(entry.quantity)?.toInt() ?? entry.quantity} pipes',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-            ]),
+                Text('${tp?['kg'] ?? ''} kg',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+              ])
+            else
+              Text('${entry.fromPipe} → ${entry.toPipe}', style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 2),
             Text(_fmtDate(entry.date), style: const TextStyle(fontSize: 11, color: Colors.grey)),
             if (entry.notes != null && entry.notes!.isNotEmpty)
               Text(entry.notes!, style: const TextStyle(fontSize: 11, color: Colors.grey)),
           ])),
-          IconButton(icon: const Icon(Icons.edit_outlined, size: 18), color: Colors.grey, onPressed: onEdit, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-          const SizedBox(width: 4),
-          IconButton(icon: const Icon(Icons.delete_outline, size: 18), color: Colors.red[300], onPressed: onDelete, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+          const SizedBox(width: 8),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+            Text('${double.tryParse(entry.quantity)?.toInt() ?? entry.quantity} pipes',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(icon: const Icon(Icons.edit_outlined, size: 18), color: Colors.grey, onPressed: onEdit, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+              const SizedBox(width: 4),
+              IconButton(icon: const Icon(Icons.delete_outline, size: 18), color: Colors.red[300], onPressed: onDelete, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+            ]),
+          ]),
         ]),
       ),
     );
@@ -2429,7 +3748,8 @@ class _ConversionSheetState extends State<_ConversionSheet> {
   void dispose() { _qtyCtrl.dispose(); _notesCtrl.dispose(); super.dispose(); }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime(2030));
+    final today = DateTime.now();
+    final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: today);
     if (picked != null) setState(() => _date = picked);
   }
 
@@ -4170,4 +5490,7044 @@ class _PipeDrop extends StatelessWidget {
 
 extension _Let<T> on T {
   R let<R>(R Function(T) block) => block(this);
+}
+
+// ─── Labour Screen ───────────────────────────────────────────────────────────
+
+class LabourScreen extends StatefulWidget {
+  const LabourScreen({super.key});
+  @override
+  State<LabourScreen> createState() => _LabourScreenState();
+}
+
+class _LabourScreenState extends State<LabourScreen> {
+  static const _color = Color(0xFF4F46E5);
+
+  bool _loadingData = true;
+  List<Map<String, dynamic>> _items = [];
+  bool _showOT = false;
+  bool _showSearch = false;
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+  String _preset = '';
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _to = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loadingData = true);
+    try {
+      final data = await ApiService().getLabourEntries(
+          fromDate: _fmtIso(_from), toDate: _fmtIso(_to));
+      if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loadingData = false);
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday',
+      'this_week': 'This Week', 'last_week': 'Last Week',
+      'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') {
+      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    }
+    return 'Filter by Date';
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    var list = _showOT
+        ? _items.where((e) => _toD(e['overtimeHours']) > 0 && _toI(e['overtimeLabourCount']) > 0).toList()
+        : _items;
+    if (_search.trim().isNotEmpty) {
+      final q = _search.toLowerCase();
+      list = list.where((e) => (e['contractorName'] ?? '').toString().toLowerCase().contains(q)).toList();
+    }
+    return list;
+  }
+
+  int get _totalLabours => _items.fold(0, (s, e) => s + _toI(e['labourCount']));
+  double get _totalCost => _items.fold(0.0, (s, e) => s + _toI(e['labourCount']) * _toD(e['ratePerDay']));
+  double get _totalOTCost => _items.fold(0.0, (s, e) {
+    final h = _toD(e['overtimeHours']);
+    final c = _toI(e['overtimeLabourCount']);
+    final r = _toD(e['overtimeRatePerHour']);
+    return s + h * c * r;
+  });
+  String _fmtNum(double n) {
+    if (n >= 100000) return '₹${(n / 100000).toStringAsFixed(1)}L';
+    if (n >= 1000) return '₹${(n / 1000).toStringAsFixed(1)}K';
+    return '₹${n.toStringAsFixed(0)}';
+  }
+
+  void _showAddEdit([Map<String, dynamic>? editing]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LabourSheet(
+        initial: editing,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateLabourEntry(editing['id'] as int, data);
+          } else {
+            await ApiService().createLabourEntry(data);
+          }
+          _load();
+        },
+      ),
+    );
+  }
+
+  void _showOTSheet(Map<String, dynamic> entry) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LabourOTSheet(
+        entry: entry,
+        onSubmit: (otData) async {
+          final updated = <String, dynamic>{...entry, ...otData};
+          await ApiService().updateLabourEntry(_toI(entry['id']), updated);
+          _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: const Text('This will permanently delete this labour record.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ApiService().deleteLabourEntry(id);
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+    final tc = _totalCost;
+    final toc = _totalOTCost;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loadingData
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF4F46E5), Color(0xFF3730A3)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.06),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_items.length}', 'Entries'),
+                              _hStat('$_totalLabours', 'Labours'),
+                              _hStat(tc > 0 ? _fmtNum(tc) : '—', 'Daily Cost'),
+                              _hStat(toc > 0 ? _fmtNum(toc) : '—', 'OT Cost'),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: const Text('Labour',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel,
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.people_outline, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No entries found',
+                            style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _LabourCard(
+                          entry: filtered[i],
+                          onEdit: () => _showAddEdit(filtered[i]),
+                          onOT: () => _showOTSheet(filtered[i]),
+                          onDelete: () => _delete(_toI(filtered[i]['id'])),
+                        ),
+                        childCount: filtered.length,
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+      bottomNavigationBar: _buildFloatingNav(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEdit(),
+        backgroundColor: _color,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  List<String> get _labourSuggestions {
+    final q = _search.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    final seen = <String>{};
+    return _items
+        .map((e) => e['contractorName']?.toString() ?? '')
+        .where((n) => n.isNotEmpty && n.toLowerCase().contains(q) && seen.add(n.toLowerCase()))
+        .take(6)
+        .toList();
+  }
+
+  Widget _buildLabourSuggestions() {
+    final suggs = _labourSuggestions;
+    if (!_showSearch || suggs.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 16, offset: const Offset(0, -4)),
+          BoxShadow(color: _color.withValues(alpha: 0.07), blurRadius: 24, offset: const Offset(0, -8)),
+        ],
+      ),
+      constraints: const BoxConstraints(maxHeight: 210),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          shrinkWrap: true,
+          itemCount: suggs.length,
+          separatorBuilder: (_, __) => Divider(height: 1, indent: 16, endIndent: 16, color: Colors.grey.shade100),
+          itemBuilder: (_, i) {
+            final name = suggs[i];
+            final q = _search.trim().toLowerCase();
+            final idx = name.toLowerCase().indexOf(q);
+            return InkWell(
+              onTap: () => setState(() {
+                _searchCtrl.text = name;
+                _search = name;
+              }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  const Icon(Icons.people_outline, size: 15, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: idx >= 0
+                        ? RichText(
+                            text: TextSpan(
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                              children: [
+                                if (idx > 0) TextSpan(text: name.substring(0, idx)),
+                                TextSpan(
+                                    text: name.substring(idx, idx + q.length),
+                                    style: const TextStyle(color: _color, fontWeight: FontWeight.w700)),
+                                TextSpan(text: name.substring(idx + q.length)),
+                              ],
+                            ),
+                          )
+                        : Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  ),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildLabourSuggestions(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.13),
+                      blurRadius: 24,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: _color.withValues(alpha: 0.12),
+                      blurRadius: 40,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                  child: _showSearch ? _buildLabourSearchExpanded() : _buildLabourNavItems(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabourSearchExpanded() {
+    return Row(
+      key: const ValueKey('lsearch'),
+      children: [
+        Container(
+          margin: const EdgeInsets.all(8),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_color, Color(0xFF3730A3)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: const Icon(Icons.search, color: Colors.white, size: 20),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search contractor…',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              border: InputBorder.none,
+              isDense: true,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => setState(() {
+            _showSearch = false;
+            _search = '';
+            _searchCtrl.clear();
+          }),
+          child: Container(
+            margin: const EdgeInsets.all(10),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLabourNavItems() {
+    return Row(
+      key: const ValueKey('lnav'),
+      children: [
+        _lFloatItem(
+          icon: Icons.search,
+          label: 'Search',
+          active: false,
+          onTap: () => setState(() => _showSearch = true),
+        ),
+        _lFloatItem(
+          icon: Icons.people_outline,
+          label: 'Labour Data',
+          active: !_showOT,
+          onTap: () => setState(() { _showOT = false; }),
+        ),
+        _lFloatItem(
+          icon: Icons.access_time_outlined,
+          label: 'OT Data',
+          active: _showOT,
+          onTap: () => setState(() { _showOT = true; }),
+        ),
+      ],
+    );
+  }
+
+  Widget _lFloatItem({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    final iconColor = active ? Colors.white : const Color(0xFF94A3B8);
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, Color(0xFF3730A3)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(26)),
+                )
+              : null,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: iconColor),
+              const SizedBox(height: 3),
+              Text(label,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    color: active ? Colors.white : const Color(0xFF94A3B8),
+                    letterSpacing: 0.2,
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label,
+          style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2),
+          textAlign: TextAlign.center),
+    ]),
+  );
+
+}
+
+class _LabourCard extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final VoidCallback onEdit;
+  final VoidCallback onOT;
+  final VoidCallback onDelete;
+
+  const _LabourCard(
+      {required this.entry, required this.onEdit, required this.onOT, required this.onDelete});
+
+  static const _color = Color(0xFF4F46E5);
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    final p = s.split('-');
+    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : s;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = entry['contractorName']?.toString() ?? '';
+    final date = entry['date']?.toString() ?? '';
+    final count = _toI(entry['labourCount']);
+    final rate = _toD(entry['ratePerDay']);
+    final dailyCost = count > 0 && rate > 0 ? count * rate : 0.0;
+    final otHours = _toD(entry['overtimeHours']);
+    final otCount = _toI(entry['overtimeLabourCount']);
+    final otRate = _toD(entry['overtimeRatePerHour']);
+    final hasOT = otHours > 0 && otCount > 0;
+    final otLbrHrs = hasOT ? otHours * otCount : 0.0;
+    final otCost = otLbrHrs > 0 && otRate > 0 ? otLbrHrs * otRate : 0.0;
+    final notes = entry['notes']?.toString() ?? '';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade100),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.people_outline, color: _color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name.isEmpty ? 'Unknown Contractor' : name,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                Text(_fmtDate(date),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              ]),
+            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+              Text('$count labours',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              if (dailyCost > 0)
+                Text('₹${dailyCost.toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 11, color: _color, fontWeight: FontWeight.w600)),
+            ]),
+          ]),
+
+          if (hasOT) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.access_time, size: 13, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 6),
+                Text('$otCount × ${otHours}h OT',
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+                const Spacer(),
+                if (otCost > 0)
+                  Text('₹${otCost.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xFF065F46), fontWeight: FontWeight.w700)),
+              ]),
+            ),
+          ],
+
+          const SizedBox(height: 6),
+          Row(children: [
+            InkWell(
+              onTap: onOT,
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: hasOT ? const Color(0xFFFFFBEB) : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: hasOT ? const Color(0xFFFDE68A) : Colors.grey.shade200),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.access_time,
+                      size: 12, color: hasOT ? const Color(0xFFF59E0B) : Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(hasOT ? 'Edit OT' : 'Add OT',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: hasOT ? const Color(0xFFF59E0B) : Colors.grey)),
+                ]),
+              ),
+            ),
+            if (notes.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(notes,
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              color: Colors.grey,
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 10),
+            IconButton(
+              icon: Icon(Icons.delete_outline, size: 16, color: Colors.red.shade300),
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+class _LabourSheet extends StatefulWidget {
+  final Map<String, dynamic>? initial;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+  const _LabourSheet({this.initial, required this.onSubmit});
+  @override
+  State<_LabourSheet> createState() => _LabourSheetState();
+}
+
+class _LabourSheetState extends State<_LabourSheet> {
+  static const _color = Color(0xFF4F46E5);
+
+  late DateTime _date;
+  final _contractorCtrl = TextEditingController();
+  final _countCtrl = TextEditingController();
+  final _rateCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _errContractor, _errCount;
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    _date = e != null
+        ? (DateTime.tryParse(e['date']?.toString() ?? '') ?? DateTime.now())
+        : DateTime.now();
+    _contractorCtrl.text = e?['contractorName']?.toString() ?? '';
+    _countCtrl.text = e?['labourCount']?.toString() ?? '';
+    final r = _toD(e?['ratePerDay']);
+    _rateCtrl.text = r > 0 ? r.toStringAsFixed(2) : '';
+    _notesCtrl.text = e?['notes']?.toString() ?? '';
+  }
+
+  @override
+  void dispose() {
+    _contractorCtrl.dispose();
+    _countCtrl.dispose();
+    _rateCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _color)),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _submit() async {
+    final contractor = _contractorCtrl.text.trim();
+    final count = int.tryParse(_countCtrl.text.trim()) ?? 0;
+    bool hasErr = false;
+    setState(() {
+      _errContractor = contractor.isEmpty ? 'Required' : null;
+      _errCount = count <= 0 ? 'Must be ≥ 1' : null;
+      hasErr = contractor.isEmpty || count <= 0;
+    });
+    if (hasErr) return;
+    setState(() => _submitting = true);
+    try {
+      final e = widget.initial;
+      await widget.onSubmit({
+        'date': DateFormat('yyyy-MM-dd').format(_date),
+        'contractorName': contractor,
+        'labourCount': count,
+        'ratePerDay': _rateCtrl.text.trim(),
+        'overtimeHours': e?['overtimeHours'] ?? '',
+        'overtimeLabourCount': e?['overtimeLabourCount'] ?? 0,
+        'overtimeRatePerHour': e?['overtimeRatePerHour'] ?? '',
+        'notes': _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (err) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $err')));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = int.tryParse(_countCtrl.text) ?? 0;
+    final rate = double.tryParse(_rateCtrl.text) ?? 0;
+    final dailyTotal = count > 0 && rate > 0 ? count * rate : 0.0;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF2563EB)]),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Row(children: [
+              const Icon(Icons.people_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(widget.initial != null ? 'Edit Labour Entry' : 'Add Labour Entry',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.close, color: Colors.white70, size: 20),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _lbl('DATE'),
+                GestureDetector(
+                  onTap: _pickDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.shade50,
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.calendar_today_outlined, size: 15, color: Colors.grey.shade500),
+                      const SizedBox(width: 10),
+                      Text(DateFormat('dd MMM yyyy').format(_date),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                _lbl('CONTRACTOR NAME *'),
+                TextField(
+                  controller: _contractorCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) => setState(() => _errContractor = null),
+                  decoration: _iDeco(hint: 'Enter contractor / agency name', err: _errContractor),
+                ),
+                const SizedBox(height: 14),
+
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('NO. OF LABOURS *'),
+                    TextField(
+                      controller: _countCtrl,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() => _errCount = null),
+                      decoration: _iDeco(hint: '0', err: _errCount),
+                    ),
+                  ])),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('RATE / DAY (OPTIONAL)'),
+                    TextField(
+                      controller: _rateCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
+                      decoration: _iDeco(hint: '₹ 0.00'),
+                    ),
+                  ])),
+                ]),
+                const SizedBox(height: 14),
+
+                if (dailyTotal > 0) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDE9FE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(children: [
+                      const Text('Daily Total',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF5B21B6),
+                              fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      Text('₹${dailyTotal.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF5B21B6))),
+                      const SizedBox(width: 6),
+                      Text('($count × ₹${rate.toStringAsFixed(0)})',
+                          style: const TextStyle(fontSize: 10, color: Color(0xFF7C3AED))),
+                    ]),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+
+                _lbl('NOTES (OPTIONAL)'),
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 2,
+                  decoration: _iDeco(hint: 'Any additional details…'),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _submitting ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _color,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _submitting
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(widget.initial != null ? 'Save Changes' : 'Add Entry',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _lbl(String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(t,
+        style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade400,
+            letterSpacing: 1.2)),
+  );
+
+  InputDecoration _iDeco({required String hint, String? err}) => InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+    errorText: err,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    filled: true,
+    fillColor: Colors.grey.shade50,
+    border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade200)),
+    enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade200)),
+    focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: _color)),
+    errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.red)),
+    focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.red)),
+  );
+}
+
+// ─── Labour OT Sheet ─────────────────────────────────────────────────────────
+
+class _LabourOTSheet extends StatefulWidget {
+  final Map<String, dynamic> entry;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+  const _LabourOTSheet({required this.entry, required this.onSubmit});
+  @override
+  State<_LabourOTSheet> createState() => _LabourOTSheetState();
+}
+
+class _LabourOTSheetState extends State<_LabourOTSheet> {
+  static const _amber = Color(0xFFF59E0B);
+
+  final _hoursCtrl = TextEditingController();
+  final _countCtrl = TextEditingController();
+  final _rateCtrl  = TextEditingController();
+  bool _submitting = false;
+  String? _errHours, _errCount;
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    final p = s.split('-');
+    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : s;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.entry;
+    final h  = _toD(e['overtimeHours']);
+    final c  = _toI(e['overtimeLabourCount']);
+    final r  = _toD(e['overtimeRatePerHour']);
+    if (h > 0) _hoursCtrl.text = h == h.truncateToDouble() ? h.toInt().toString() : h.toString();
+    if (c > 0) _countCtrl.text = '$c';
+    if (r > 0) _rateCtrl.text  = r.toStringAsFixed(2);
+  }
+
+  @override
+  void dispose() {
+    _hoursCtrl.dispose();
+    _countCtrl.dispose();
+    _rateCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _hasExisting =>
+      _toD(widget.entry['overtimeHours']) > 0 && _toI(widget.entry['overtimeLabourCount']) > 0;
+
+  Future<void> _submit({bool clear = false}) async {
+    if (!clear) {
+      final h = double.tryParse(_hoursCtrl.text) ?? 0;
+      final c = int.tryParse(_countCtrl.text) ?? 0;
+      bool hasErr = false;
+      setState(() {
+        _errHours = h <= 0 ? 'Required' : null;
+        _errCount = c <= 0 ? 'Required' : null;
+        hasErr = h <= 0 || c <= 0;
+      });
+      if (hasErr) return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'overtimeHours': clear ? '' : _hoursCtrl.text.trim(),
+        'overtimeLabourCount': clear ? 0 : (int.tryParse(_countCtrl.text.trim()) ?? 0),
+        'overtimeRatePerHour': clear ? '' : _rateCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (err) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $err')));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = double.tryParse(_hoursCtrl.text) ?? 0;
+    final c = int.tryParse(_countCtrl.text) ?? 0;
+    final r = double.tryParse(_rateCtrl.text) ?? 0;
+    final totalHrs  = h > 0 && c > 0 ? h * c : 0.0;
+    final totalCost = totalHrs > 0 && r > 0 ? totalHrs * r : 0.0;
+    final labourCount = _toI(widget.entry['labourCount']);
+    final date = widget.entry['date']?.toString() ?? '';
+    final name = widget.entry['contractorName']?.toString() ?? '';
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Header
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFF97316)]),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Row(children: [
+              const Icon(Icons.access_time, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Record Overtime',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text('$name · ${_fmtDate(date)}',
+                    style: const TextStyle(fontSize: 11, color: Colors.white70)),
+              ])),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.close, color: Colors.white70, size: 20),
+              ),
+            ]),
+          ),
+
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Context chip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.people_outline, size: 14, color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 6),
+                    Text('$labourCount labours present on ${_fmtDate(date)}',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+                  ]),
+                ),
+                const SizedBox(height: 16),
+
+                // OT Hours + OT Count
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('OT HOURS *'),
+                    TextField(
+                      controller: _hoursCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      autofocus: true,
+                      onChanged: (_) => setState(() => _errHours = null),
+                      decoration: _iDeco(hint: 'e.g. 2.5', err: _errHours),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('0.5 = 30 mins', style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+                  ])),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('NO. OF LABOURS *'),
+                    TextField(
+                      controller: _countCtrl,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() => _errCount = null),
+                      decoration: _iDeco(hint: '0', err: _errCount),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Who worked OT', style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+                  ])),
+                ]),
+                const SizedBox(height: 14),
+
+                _lbl('RATE / HOUR / LABOUR (OPTIONAL)'),
+                TextField(
+                  controller: _rateCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  decoration: _iDeco(hint: '₹ 0.00'),
+                ),
+
+                if (totalHrs > 0) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Column(children: [
+                      Row(children: [
+                        const Icon(Icons.access_time, size: 13, color: Color(0xFFF59E0B)),
+                        const SizedBox(width: 6),
+                        const Text('OT Summary',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Text('${totalHrs.toStringAsFixed(1)} labour-hrs',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+                        Text(' ($c × ${h}h)',
+                            style: const TextStyle(fontSize: 10, color: Color(0xFFF59E0B))),
+                      ]),
+                      if (totalCost > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(children: [
+                          const Text('OT Cost',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+                          const Spacer(),
+                          Text('₹${totalCost.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF065F46))),
+                        ]),
+                      ],
+                    ]),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+                Row(children: [
+                  if (_hasExisting)
+                    TextButton.icon(
+                      onPressed: _submitting ? null : () => _submit(clear: true),
+                      icon: const Icon(Icons.clear, size: 14),
+                      label: const Text('Clear OT', style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    icon: _submitting
+                        ? const SizedBox(width: 14, height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.access_time, size: 14),
+                    label: const Text('Save OT', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _amber,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _lbl(String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(t,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+            color: Colors.grey.shade400, letterSpacing: 1.2)),
+  );
+
+  InputDecoration _iDeco({required String hint, String? err}) => InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+    errorText: err,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    filled: true,
+    fillColor: Colors.grey.shade50,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade200)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade200)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: _amber)),
+    errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.red)),
+    focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.red)),
+  );
+}
+
+// ─── Store Material Screen ────────────────────────────────────────────────────
+
+class StoreMaterialScreen extends StatefulWidget {
+  const StoreMaterialScreen({super.key});
+  @override
+  State<StoreMaterialScreen> createState() => _StoreMaterialScreenState();
+}
+
+class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
+  static const _color = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  bool _loadingData = true;
+  List<Map<String, dynamic>> _items = [];
+  List<Map<String, dynamic>> _products = [];
+  bool _showSearch = false;
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+  String _preset = '';
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _to = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+    _loadProducts();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loadingData = true);
+    try {
+      final data = await ApiService().getStoreRoomMaterials(
+          from: _fmtIso(_from), to: _fmtIso(_to));
+      if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loadingData = false);
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final data = await ApiService().getProductsRaw(size: 1000);
+      if (mounted) setState(() => _products = data);
+    } catch (_) {}
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday',
+      'this_week': 'This Week', 'last_week': 'Last Week',
+      'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') {
+      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    }
+    return 'Filter by Date';
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_search.trim().isEmpty) return _items;
+    final q = _search.toLowerCase();
+    return _items.where((e) =>
+      (e['itemName'] ?? '').toString().toLowerCase().contains(q) ||
+      (e['notes'] ?? '').toString().toLowerCase().contains(q)
+    ).toList();
+  }
+
+  List<String> get _searchSuggestions {
+    final q = _search.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    final seen = <String>{};
+    return _items
+        .map((e) => e['itemName']?.toString() ?? '')
+        .where((n) => n.isNotEmpty && n.toLowerCase().contains(q) && seen.add(n.toLowerCase()))
+        .take(6)
+        .toList();
+  }
+
+  void _showAddEdit([Map<String, dynamic>? editing]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _StoreMaterialSheet(
+        initial: editing,
+        products: _products,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateStoreRoomMaterial(_toI(editing['id']), data);
+          } else {
+            await ApiService().createStoreRoomMaterial(data);
+          }
+          _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: const Text('This will permanently delete this store material record.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ApiService().deleteStoreRoomMaterial(id);
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loadingData
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [_color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withValues(alpha: 0.06),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_items.length}', 'Entries'),
+                              _hStat('${_uniqueItems}', 'Items'),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: const Text('Store Material',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel,
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.archive_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No entries found',
+                            style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _StoreMaterialCard(
+                          entry: filtered[i],
+                          onEdit: () => _showAddEdit(filtered[i]),
+                          onDelete: () => _delete(_toI(filtered[i]['id'])),
+                        ),
+                        childCount: filtered.length,
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+      bottomNavigationBar: _buildFloatingNav(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEdit(),
+        backgroundColor: _color,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  int get _uniqueItems {
+    final seen = <String>{};
+    for (final e in _items) {
+      final name = e['itemName']?.toString() ?? '';
+      if (name.isNotEmpty) seen.add(name.toLowerCase());
+    }
+    return seen.length;
+  }
+
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSuggestions(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.13), blurRadius: 24, spreadRadius: -2, offset: const Offset(0, 6)),
+                    BoxShadow(color: _color.withValues(alpha: 0.12), blurRadius: 40, offset: const Offset(0, 10)),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                  child: _showSearch ? _buildSearchExpanded() : _buildNavItems(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() {
+    return Row(
+      key: const ValueKey('smsearch'),
+      children: [
+        Container(
+          margin: const EdgeInsets.all(8),
+          width: 48, height: 48,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(colors: [_color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.all(Radius.circular(24)),
+          ),
+          child: const Icon(Icons.search, color: Colors.white, size: 20),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search items…',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              border: InputBorder.none,
+              isDense: true,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => setState(() { _showSearch = false; _search = ''; _searchCtrl.clear(); }),
+          child: Container(
+            margin: const EdgeInsets.all(10),
+            width: 40, height: 40,
+            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavItems() {
+    return Row(
+      key: const ValueKey('smnav'),
+      children: [
+        _smFloatItem(icon: Icons.search, label: 'Search', active: false, onTap: () => setState(() => _showSearch = true)),
+        _smFloatItem(icon: Icons.archive_outlined, label: 'All Entries', active: true, onTap: () {}),
+      ],
+    );
+  }
+
+  Widget _smFloatItem({required IconData icon, required String label, required bool active, required VoidCallback onTap}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(colors: [_color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.all(Radius.circular(26)),
+                )
+              : null,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: active ? Colors.white : const Color(0xFF94A3B8)),
+              const SizedBox(height: 3),
+              Text(label, style: TextStyle(fontSize: 9.5, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? Colors.white : const Color(0xFF94A3B8), letterSpacing: 0.2)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    final suggs = _searchSuggestions;
+    if (!_showSearch || suggs.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 16, offset: const Offset(0, -4)),
+          BoxShadow(color: _color.withValues(alpha: 0.07), blurRadius: 24, offset: const Offset(0, -8)),
+        ],
+      ),
+      constraints: const BoxConstraints(maxHeight: 210),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          shrinkWrap: true,
+          itemCount: suggs.length,
+          separatorBuilder: (_, __) => Divider(height: 1, indent: 16, endIndent: 16, color: Colors.grey.shade100),
+          itemBuilder: (_, i) {
+            final name = suggs[i];
+            final q = _search.trim().toLowerCase();
+            final idx = name.toLowerCase().indexOf(q);
+            return InkWell(
+              onTap: () => setState(() { _searchCtrl.text = name; _search = name; }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  const Icon(Icons.archive_outlined, size: 15, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: idx >= 0
+                        ? RichText(
+                            text: TextSpan(
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                              children: [
+                                if (idx > 0) TextSpan(text: name.substring(0, idx)),
+                                TextSpan(text: name.substring(idx, idx + q.length), style: const TextStyle(color: _color, fontWeight: FontWeight.w700)),
+                                TextSpan(text: name.substring(idx + q.length)),
+                              ],
+                            ),
+                          )
+                        : Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  ),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ── Store Material Card ───────────────────────────────────────────────────────
+
+class _StoreMaterialCard extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _StoreMaterialCard({required this.entry, required this.onEdit, required this.onDelete});
+
+  static const _color = Color(0xFF7C3AED);
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    final p = s.split('-');
+    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : s;
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  Color _badgeColor(String type) {
+    switch (type) {
+      case 'RAW_MATERIAL': return const Color(0xFFF59E0B);
+      case 'FINISHED_PIPE': return const Color(0xFF7C3AED);
+      default: return const Color(0xFF64748B);
+    }
+  }
+
+  String _badgeLabel(String type) {
+    switch (type) {
+      case 'RAW_MATERIAL': return 'Raw Material';
+      case 'FINISHED_PIPE': return 'Finished Pipe';
+      default: return 'General';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date = entry['date']?.toString() ?? '';
+    final itemName = entry['itemName']?.toString() ?? '';
+    final itemType = entry['itemType']?.toString() ?? 'GENERAL';
+    final qty = _toD(entry['quantity']);
+    final uom = entry['uom']?.toString() ?? '';
+    final notes = entry['notes']?.toString() ?? '';
+    final badgeColor = _badgeColor(itemType);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.archive_outlined, color: _color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(itemName.isEmpty ? '—' : itemName,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(_badgeLabel(itemType),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: badgeColor)),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(_fmtDate(date), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                ]),
+              ]),
+            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+              Text(qty == qty.truncateToDouble() ? qty.toStringAsFixed(0) : qty.toStringAsFixed(2),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _color)),
+              if (uom.isNotEmpty)
+                Text(uom, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+            ]),
+            const SizedBox(width: 4),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+              IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+            ]),
+          ]),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(notes, style: TextStyle(fontSize: 12, color: Colors.grey.shade600), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Store Material Sheet ──────────────────────────────────────────────────────
+
+class _StoreMaterialSheet extends StatefulWidget {
+  final Map<String, dynamic>? initial;
+  final List<Map<String, dynamic>> products;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _StoreMaterialSheet({this.initial, required this.products, required this.onSubmit});
+
+  @override
+  State<_StoreMaterialSheet> createState() => _StoreMaterialSheetState();
+}
+
+class _StoreMaterialSheetState extends State<_StoreMaterialSheet> {
+  static const _color = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  late DateTime _date;
+  final _itemCtrl = TextEditingController();
+  final _qtyCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  String _uom = '';
+  String _itemType = 'GENERAL';
+  bool _submitting = false;
+  String? _errItem;
+  String? _errQty;
+  bool _showProductList = false;
+  List<Map<String, dynamic>> _filteredProducts = [];
+
+  bool get _isEdit => widget.initial != null;
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    _date = e != null && (e['date']?.toString().length ?? 0) >= 10
+        ? DateTime.tryParse(e['date'].toString().substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    if (e != null) {
+      _itemCtrl.text = e['itemName']?.toString() ?? '';
+      _uom = e['uom']?.toString() ?? '';
+      _itemType = e['itemType']?.toString() ?? 'GENERAL';
+      final qty = _toD(e['quantity']);
+      _qtyCtrl.text = qty == qty.truncateToDouble() ? qty.toStringAsFixed(0) : qty.toStringAsFixed(2);
+      _notesCtrl.text = e['notes']?.toString() ?? '';
+    }
+    _filteredProducts = widget.products;
+  }
+
+  @override
+  void dispose() {
+    _itemCtrl.dispose();
+    _qtyCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  void _filterProducts(String q) {
+    setState(() {
+      _showProductList = q.trim().isNotEmpty;
+      _filteredProducts = q.trim().isEmpty
+          ? widget.products
+          : widget.products.where((p) => (p['name'] ?? '').toString().toLowerCase().contains(q.toLowerCase())).toList();
+    });
+  }
+
+  void _selectProduct(Map<String, dynamic> p) {
+    setState(() {
+      _itemCtrl.text = p['name']?.toString() ?? '';
+      _uom = p['unitOfMeasure']?.toString() ?? '';
+      _itemType = p['itemType']?.toString() ?? 'GENERAL';
+      _showProductList = false;
+      _errItem = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    final itemName = _itemCtrl.text.trim();
+    final qty = double.tryParse(_qtyCtrl.text.trim());
+    setState(() {
+      _errItem = itemName.isEmpty ? 'Item name is required' : null;
+      _errQty = qty == null || qty <= 0 ? 'Enter a valid quantity' : null;
+    });
+    if (_errItem != null || _errQty != null) return;
+
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date': DateFormat('yyyy-MM-dd').format(_date),
+        'itemName': itemName,
+        'itemType': _itemType,
+        'quantity': qty.toString(),
+        'uom': _uom,
+        'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [_color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.archive_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(_isEdit ? 'Edit Entry' : 'Add Store Material',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Date
+                const Text('Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime.now());
+                    if (d != null) setState(() => _date = d);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      const Icon(Icons.calendar_today_outlined, size: 16, color: Color(0xFF64748B)),
+                      const SizedBox(width: 8),
+                      Text(DateFormat('dd MMM yyyy').format(_date), style: const TextStyle(fontSize: 14)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Item Name with autocomplete
+                const Text('Item Name*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _itemCtrl,
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (v) {
+                    _filterProducts(v);
+                    if (_errItem != null) setState(() => _errItem = null);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Search or type item name…',
+                    errorText: _errItem,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                    suffixIcon: _uom.isNotEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(color: const Color(0xFF7C3AED).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
+                              child: Text(_uom, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _color)),
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+                if (_showProductList && _filteredProducts.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _filteredProducts.length > 8 ? 8 : _filteredProducts.length,
+                        itemBuilder: (_, i) {
+                          final p = _filteredProducts[i];
+                          final name = p['name']?.toString() ?? '';
+                          final uom = p['unitOfMeasure']?.toString() ?? '';
+                          return InkWell(
+                            onTap: () => _selectProduct(p),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Row(children: [
+                                Expanded(child: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                                if (uom.isNotEmpty)
+                                  Text(uom, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                              ]),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                // Quantity + UOM row
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(
+                    flex: 2,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Quantity*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _qtyCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(fontSize: 14),
+                        onChanged: (_) => setState(() => _errQty = null),
+                        decoration: InputDecoration(
+                          hintText: '0.00',
+                          errorText: _errQty,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          isDense: true,
+                        ),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Unit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: TextEditingController(text: _uom),
+                        style: const TextStyle(fontSize: 14),
+                        onChanged: (v) => setState(() => _uom = v),
+                        decoration: InputDecoration(
+                          hintText: 'pcs',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          isDense: true,
+                        ),
+                      ),
+                    ]),
+                  ),
+                ]),
+                const SizedBox(height: 14),
+
+                // Notes
+                const Text('Notes (optional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Additional details…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    style: FilledButton.styleFrom(backgroundColor: _color, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    icon: _submitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.check_circle_outline),
+                    label: Text(_submitting ? 'Saving…' : _isEdit ? 'Save Changes' : 'Add Entry'),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Maintenance Screen ───────────────────────────────────────────────────────
+
+class MaintenanceScreen extends StatefulWidget {
+  const MaintenanceScreen({super.key});
+  @override
+  State<MaintenanceScreen> createState() => _MaintenanceScreenState();
+}
+
+class _MaintenanceScreenState extends State<MaintenanceScreen> {
+  static const _color = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  static const _processes = [
+    'Fabrication', 'Fabrication Testing', 'Moulding', 'Spinning',
+    'Demoulding', 'Curing 1', 'Winding', 'Coating', 'Final Testing',
+    'General / Other',
+  ];
+
+  bool _loadingData = true;
+  List<Map<String, dynamic>> _items = [];
+  bool _showSearch = false;
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+  String _preset = '';
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _to = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loadingData = true);
+    try {
+      final data = await ApiService().getMaintenanceEntries(from: _fmtIso(_from), to: _fmtIso(_to));
+      if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loadingData = false);
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
+      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    return 'Filter by Date';
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_search.trim().isEmpty) return _items;
+    final q = _search.toLowerCase();
+    return _items.where((e) =>
+      (e['vendor'] ?? '').toString().toLowerCase().contains(q) ||
+      (e['process'] ?? '').toString().toLowerCase().contains(q) ||
+      (e['notes'] ?? '').toString().toLowerCase().contains(q)
+    ).toList();
+  }
+
+  double get _totalAmount => _filtered.fold(0.0, (s, e) => s + _toD(e['amount']));
+
+  List<String> get _vendorSuggestions {
+    final q = _search.trim().toLowerCase();
+    if (q.isEmpty) return [];
+    final seen = <String>{};
+    return _items
+        .map((e) => e['vendor']?.toString() ?? '')
+        .where((n) => n.isNotEmpty && n.toLowerCase().contains(q) && seen.add(n.toLowerCase()))
+        .take(6)
+        .toList();
+  }
+
+  List<String> get _allVendors {
+    final seen = <String>{};
+    return _items
+        .map((e) => e['vendor']?.toString() ?? '')
+        .where((n) => n.isNotEmpty && seen.add(n.toLowerCase()))
+        .toList()
+      ..sort();
+  }
+
+  void _showAddEdit([Map<String, dynamic>? editing]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MaintenanceSheet(
+        initial: editing,
+        vendorHistory: _allVendors,
+        processes: _processes,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateMaintenanceEntry(_toI(editing['id']), data);
+          } else {
+            await ApiService().createMaintenanceEntry(data);
+          }
+          _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: const Text('This will permanently delete this maintenance record.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ApiService().deleteMaintenanceEntry(id);
+      _load();
+    }
+  }
+
+  String _fmtAmount(double v) {
+    if (v >= 100000) return '₹${(v / 100000).toStringAsFixed(1)}L';
+    if (v >= 1000) return '₹${(v / 1000).toStringAsFixed(1)}K';
+    return '₹${v.toStringAsFixed(0)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+    final total = _totalAmount;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loadingData
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6D28D9), _color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_items.length}', 'Entries'),
+                              _hStat(total > 0 ? _fmtAmount(total) : '—', 'Total Cost'),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: const Text('Maintenance',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.build_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No entries found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else ...[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _MaintenanceCard(
+                          entry: filtered[i],
+                          onEdit: () => _showAddEdit(filtered[i]),
+                          onDelete: () => _delete(_toI(filtered[i]['id'])),
+                        ),
+                        childCount: filtered.length,
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(children: [
+                        const Text('Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70)),
+                        const Spacer(),
+                        Text('₹${total.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ]),
+                    ),
+                  ),
+                ],
+              ]),
+            ),
+      bottomNavigationBar: _buildFloatingNav(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEdit(),
+        backgroundColor: _color,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSuggestions(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.13), blurRadius: 24, spreadRadius: -2, offset: const Offset(0, 6)),
+                    BoxShadow(color: _color.withValues(alpha: 0.12), blurRadius: 40, offset: const Offset(0, 10)),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                  child: _showSearch ? _buildSearchExpanded() : _buildNavItems(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() {
+    return Row(
+      key: const ValueKey('mtsearch'),
+      children: [
+        Container(
+          margin: const EdgeInsets.all(8), width: 48, height: 48,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.all(Radius.circular(24)),
+          ),
+          child: const Icon(Icons.search, color: Colors.white, size: 20),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search vendor or process…',
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              border: InputBorder.none, isDense: true,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => setState(() { _showSearch = false; _search = ''; _searchCtrl.clear(); }),
+          child: Container(
+            margin: const EdgeInsets.all(10), width: 40, height: 40,
+            decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
+            child: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavItems() {
+    return Row(
+      key: const ValueKey('mtnav'),
+      children: [
+        _mtFloatItem(icon: Icons.search, label: 'Search', active: false, onTap: () => setState(() => _showSearch = true)),
+        _mtFloatItem(icon: Icons.build_outlined, label: 'All Entries', active: true, onTap: () {}),
+      ],
+    );
+  }
+
+  Widget _mtFloatItem({required IconData icon, required String label, required bool active, required VoidCallback onTap}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.all(Radius.circular(26)),
+                )
+              : null,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 22, color: active ? Colors.white : const Color(0xFF94A3B8)),
+            const SizedBox(height: 3),
+            Text(label, style: TextStyle(fontSize: 9.5, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? Colors.white : const Color(0xFF94A3B8), letterSpacing: 0.2)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    final suggs = _vendorSuggestions;
+    if (!_showSearch || suggs.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 16, offset: const Offset(0, -4)),
+          BoxShadow(color: _color.withValues(alpha: 0.07), blurRadius: 24, offset: const Offset(0, -8)),
+        ],
+      ),
+      constraints: const BoxConstraints(maxHeight: 210),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          shrinkWrap: true,
+          itemCount: suggs.length,
+          separatorBuilder: (_, __) => Divider(height: 1, indent: 16, endIndent: 16, color: Colors.grey.shade100),
+          itemBuilder: (_, i) {
+            final name = suggs[i];
+            final q = _search.trim().toLowerCase();
+            final idx = name.toLowerCase().indexOf(q);
+            return InkWell(
+              onTap: () => setState(() { _searchCtrl.text = name; _search = name; }),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  const Icon(Icons.store_outlined, size: 15, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: idx >= 0
+                        ? RichText(text: TextSpan(
+                            style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                            children: [
+                              if (idx > 0) TextSpan(text: name.substring(0, idx)),
+                              TextSpan(text: name.substring(idx, idx + q.length), style: const TextStyle(color: _color, fontWeight: FontWeight.w700)),
+                              TextSpan(text: name.substring(idx + q.length)),
+                            ],
+                          ))
+                        : Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  ),
+                ]),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ── Maintenance Card ──────────────────────────────────────────────────────────
+
+class _MaintenanceCard extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _MaintenanceCard({required this.entry, required this.onEdit, required this.onDelete});
+
+  static const _color = Color(0xFF7C3AED);
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    try {
+      final d = DateTime.parse(s.substring(0, 10));
+      return DateFormat('dd MMM yyyy').format(d);
+    } catch (_) { return s; }
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date = entry['date']?.toString() ?? '';
+    final process = entry['process']?.toString() ?? '';
+    final vendor = entry['vendor']?.toString() ?? '';
+    final amount = _toD(entry['amount']);
+    final notes = entry['notes']?.toString() ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4, offset: const Offset(0, 1)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.build_outlined, color: _color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(vendor.isEmpty ? '—' : vendor,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Row(children: [
+                  if (process.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(process, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(_fmtDate(date), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                ]),
+              ]),
+            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+              Text('₹${amount.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            ]),
+            const SizedBox(width: 4),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+              IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+            ]),
+          ]),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(notes, style: TextStyle(fontSize: 12, color: Colors.grey.shade600), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Maintenance Sheet ─────────────────────────────────────────────────────────
+
+class _MaintenanceSheet extends StatefulWidget {
+  final Map<String, dynamic>? initial;
+  final List<String> vendorHistory;
+  final List<String> processes;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _MaintenanceSheet({this.initial, required this.vendorHistory, required this.processes, required this.onSubmit});
+
+  @override
+  State<_MaintenanceSheet> createState() => _MaintenanceSheetState();
+}
+
+class _MaintenanceSheetState extends State<_MaintenanceSheet> {
+  static const _color = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  late DateTime _date;
+  String _process = '';
+  final _vendorCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _errProcess;
+  String? _errVendor;
+  String? _errAmount;
+  bool _showVendorList = false;
+  List<String> _filteredVendors = [];
+
+  bool get _isEdit => widget.initial != null;
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    _date = e != null && (e['date']?.toString().length ?? 0) >= 10
+        ? DateTime.tryParse(e['date'].toString().substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    if (e != null) {
+      _process = e['process']?.toString() ?? '';
+      _vendorCtrl.text = e['vendor']?.toString() ?? '';
+      final amt = _toD(e['amount']);
+      _amountCtrl.text = amt > 0 ? amt.toStringAsFixed(2) : '';
+      _notesCtrl.text = e['notes']?.toString() ?? '';
+    }
+    _filteredVendors = widget.vendorHistory;
+  }
+
+  @override
+  void dispose() {
+    _vendorCtrl.dispose();
+    _amountCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  void _filterVendors(String q) {
+    setState(() {
+      _showVendorList = q.trim().isNotEmpty;
+      _filteredVendors = q.trim().isEmpty
+          ? widget.vendorHistory
+          : widget.vendorHistory.where((v) => v.toLowerCase().contains(q.toLowerCase())).toList();
+    });
+  }
+
+  Future<void> _submit() async {
+    final vendor = _vendorCtrl.text.trim();
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    setState(() {
+      _errProcess = _process.isEmpty ? 'Select a process' : null;
+      _errVendor = vendor.isEmpty ? 'Vendor is required' : null;
+      _errAmount = amount == null || amount < 0 ? 'Enter a valid amount' : null;
+    });
+    if (_errProcess != null || _errVendor != null || _errAmount != null) return;
+
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date': DateFormat('yyyy-MM-dd').format(_date),
+        'process': _process,
+        'vendor': vendor,
+        'amount': amount.toString(),
+        'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.build_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(_isEdit ? 'Edit Maintenance Entry' : 'Add Maintenance Entry',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime.now());
+                    if (d != null) setState(() => _date = d);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      const Icon(Icons.calendar_today_outlined, size: 16, color: Color(0xFF64748B)),
+                      const SizedBox(width: 8),
+                      Text(DateFormat('dd MMM yyyy').format(_date), style: const TextStyle(fontSize: 14)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Production Process*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _errProcess != null ? Colors.red : Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _process.isEmpty ? null : _process,
+                      hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Select process…', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                      isExpanded: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      borderRadius: BorderRadius.circular(10),
+                      items: widget.processes.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)))).toList(),
+                      onChanged: (v) { if (v != null) setState(() { _process = v; _errProcess = null; }); },
+                    ),
+                  ),
+                ),
+                if (_errProcess != null) ...[
+                  const SizedBox(height: 4),
+                  Text(_errProcess!, style: const TextStyle(fontSize: 11, color: Colors.red)),
+                ],
+                const SizedBox(height: 14),
+
+                const Text('Vendor*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _vendorCtrl,
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (v) {
+                    _filterVendors(v);
+                    if (_errVendor != null) setState(() => _errVendor = null);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Type vendor name…',
+                    errorText: _errVendor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                if (_showVendorList && _filteredVendors.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 160),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _filteredVendors.length > 6 ? 6 : _filteredVendors.length,
+                        itemBuilder: (_, i) => InkWell(
+                          onTap: () => setState(() { _vendorCtrl.text = _filteredVendors[i]; _showVendorList = false; _errVendor = null; }),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            child: Text(_filteredVendors[i], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                const Text('Amount (₹)*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (_) => setState(() => _errAmount = null),
+                  decoration: InputDecoration(
+                    hintText: '0.00',
+                    prefixText: '₹ ',
+                    errorText: _errAmount,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Notes (optional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Additional details…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    style: FilledButton.styleFrom(backgroundColor: _color, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    icon: _submitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.check_circle_outline),
+                    label: Text(_submitting ? 'Saving…' : _isEdit ? 'Save Changes' : 'Add Entry'),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Cutting Screen ───────────────────────────────────────────────────────────
+
+class CuttingScreen extends StatefulWidget {
+  const CuttingScreen({super.key});
+  @override
+  State<CuttingScreen> createState() => _CuttingScreenState();
+}
+
+class _CuttingScreenState extends State<CuttingScreen> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+  static const _pink      = Color(0xFFDB2777);
+
+  bool _loadingData = true;
+  List<Map<String, dynamic>> _items = [];
+  List<String> _sheets = [];
+  bool _loadingSheets = true;
+
+  String _preset = '';
+  late DateTime _from, _to;
+
+  static final _sheetRe = RegExp(r'^1\.6MM SHEET \d+$');
+  static int _diameter(String name) => int.tryParse(name.split(' ').last) ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _loadSheets();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _loadSheets() async {
+    try {
+      final raw = await ApiService().getProductsRaw(size: 200, itemType: 'RAW_MATERIAL');
+      final names = raw
+          .map((p) => p['name']?.toString() ?? '')
+          .where((n) => _sheetRe.hasMatch(n))
+          .toList()
+        ..sort((a, b) => _diameter(a).compareTo(_diameter(b)));
+      if (mounted) setState(() { _sheets = names; _loadingSheets = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingSheets = false);
+    }
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loadingData = true);
+    try {
+      final data = await ApiService().getCuttingEntries(from: _fmtIso(_from), to: _fmtIso(_to));
+      if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loadingData = false);
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
+      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    return 'Filter by Date';
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  int get _totalSheets => _items.fold(0, (s, e) => s + _toI(e['quantity']));
+  int get _fromSizes   => _items.map((e) => e['fromSheet']?.toString() ?? '').toSet().length;
+  int get _toSizes     => _items.map((e) => e['toSheet']?.toString()   ?? '').toSet().length;
+
+  void _showAddEdit([Map<String, dynamic>? editing]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CuttingSheet(
+        initial: editing,
+        sheets: _sheets,
+        loadingSheets: _loadingSheets,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateCuttingEntry(_toI(editing['id']), data);
+          } else {
+            await ApiService().createCuttingEntry(data);
+          }
+          _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(int id, String from, String to) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: Text('Delete cutting $from → $to?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true),  child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ApiService().deleteCuttingEntry(id);
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loadingData
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6D28D9), _color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_items.length}', 'Total Cuts'),
+                              _hStat('$_totalSheets', 'Total Sheets'),
+                              _hStat('$_fromSizes', 'From Sizes'),
+                              _hStat('$_toSizes', 'To Sizes'),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: const Text('Sheet Cutting',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                if (_items.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.content_cut, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No cutting entries found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _CuttingCard(
+                          entry: _items[i],
+                          onEdit:   () => _showAddEdit(_items[i]),
+                          onDelete: () => _delete(
+                            _toI(_items[i]['id']),
+                            _items[i]['fromSheet']?.toString() ?? '',
+                            _items[i]['toSheet']?.toString()   ?? '',
+                          ),
+                        ),
+                        childCount: _items.length,
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEdit(),
+        backgroundColor: _pink,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 8, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ── Cutting Card ──────────────────────────────────────────────────────────────
+
+class _CuttingCard extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _CuttingCard({required this.entry, required this.onEdit, required this.onDelete});
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    try { return DateFormat('dd MMM yyyy').format(DateTime.parse(s.substring(0, 10))); }
+    catch (_) { return s; }
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date      = entry['date']?.toString() ?? '';
+    final fromSheet = entry['fromSheet']?.toString() ?? '';
+    final toSheet   = entry['toSheet']?.toString()   ?? '';
+    final qty       = _toI(entry['quantity']);
+    final notes     = entry['notes']?.toString() ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4,  offset: const Offset(0, 1)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.content_cut, color: Color(0xFFDB2777), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(6)),
+                    child: Text(fromSheet, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFBE123C))),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.arrow_forward, size: 14, color: Color(0xFFFDA4AF)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFFFDF2F8), borderRadius: BorderRadius.circular(6)),
+                    child: Text(toSheet, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF9D174D))),
+                  ),
+                ]),
+                const SizedBox(height: 3),
+                Text(_fmtDate(date), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              ]),
+            ),
+            Text('$qty sheets', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            const SizedBox(width: 4),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(onPressed: onEdit,   icon: const Icon(Icons.edit_outlined,  size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+              IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+            ]),
+          ]),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(notes, style: TextStyle(fontSize: 12, color: Colors.grey.shade600), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Cutting Sheet ─────────────────────────────────────────────────────────────
+
+class _CuttingSheet extends StatefulWidget {
+  final Map<String, dynamic>? initial;
+  final List<String> sheets;
+  final bool loadingSheets;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _CuttingSheet({this.initial, required this.sheets, required this.loadingSheets, required this.onSubmit});
+
+  @override
+  State<_CuttingSheet> createState() => _CuttingSheetState();
+}
+
+class _CuttingSheetState extends State<_CuttingSheet> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+  static const _pink      = Color(0xFFDB2777);
+
+  late DateTime _date;
+  String _fromSheet = '';
+  String _toSheet   = '';
+  final _qtyCtrl   = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _errFrom, _errTo, _errQty;
+
+  bool get _isEdit => widget.initial != null;
+
+  static int _diameter(String name) => int.tryParse(name.split(' ').last) ?? 0;
+
+  List<String> get _toSheets {
+    if (_fromSheet.isEmpty) return [];
+    final fromDia = _diameter(_fromSheet);
+    return widget.sheets.where((s) => _diameter(s) < fromDia).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    _date = e != null && (e['date']?.toString().length ?? 0) >= 10
+        ? DateTime.tryParse(e['date'].toString().substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    if (e != null) {
+      _fromSheet      = e['fromSheet']?.toString() ?? '';
+      _toSheet        = e['toSheet']?.toString()   ?? '';
+      _qtyCtrl.text   = e['quantity']?.toString()  ?? '';
+      _notesCtrl.text = e['notes']?.toString()     ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onFromChange(String val) {
+    setState(() {
+      _fromSheet = val;
+      _errFrom   = null;
+      if (_toSheet.isNotEmpty && _diameter(_toSheet) >= _diameter(val)) _toSheet = '';
+      _errTo = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    final qty = int.tryParse(_qtyCtrl.text.trim());
+    setState(() {
+      _errFrom = _fromSheet.isEmpty ? 'Select a From sheet' : null;
+      _errTo   = _toSheet.isEmpty   ? 'Select a To sheet'   : null;
+      _errQty  = (qty == null || qty < 1) ? 'Enter a valid quantity (≥ 1)' : null;
+    });
+    if (_errFrom != null || _errTo != null || _errQty != null) return;
+
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date':      DateFormat('yyyy-MM-dd').format(_date),
+        'fromSheet': _fromSheet,
+        'toSheet':   _toSheet,
+        'quantity':  qty,
+        'notes':     _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final toSheets = _toSheets;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.content_cut, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(_isEdit ? 'Edit Cutting Entry' : 'Record Cutting',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                const Text('Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime.now());
+                    if (d != null) setState(() => _date = d);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      const Icon(Icons.calendar_today_outlined, size: 16, color: Color(0xFF64748B)),
+                      const SizedBox(width: 8),
+                      Text(DateFormat('dd MMM yyyy').format(_date), style: const TextStyle(fontSize: 14)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                Row(children: [
+                  const Text('Sheet Cutting*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                  const SizedBox(width: 8),
+                  Text('larger → smaller', style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                ]),
+                const SizedBox(height: 6),
+
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: _errFrom != null ? Colors.red : Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _fromSheet.isEmpty ? null : _fromSheet,
+                            hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('From…', style: TextStyle(fontSize: 12, color: Colors.grey))),
+                            isExpanded: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            borderRadius: BorderRadius.circular(10),
+                            items: widget.sheets.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                            onChanged: widget.loadingSheets ? null : (v) { if (v != null) _onFromChange(v); },
+                          ),
+                        ),
+                      ),
+                      if (_errFrom != null) ...[
+                        const SizedBox(height: 3),
+                        Text(_errFrom!, style: const TextStyle(fontSize: 10, color: Colors.red)),
+                      ],
+                    ]),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                    child: Icon(Icons.arrow_forward, size: 18, color: Color(0xFFFDA4AF)),
+                  ),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: _errTo != null ? Colors.red : Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _toSheet.isEmpty ? null : _toSheet,
+                            hint: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(_fromSheet.isEmpty ? 'From first' : 'To…', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            ),
+                            isExpanded: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            borderRadius: BorderRadius.circular(10),
+                            items: toSheets.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                            onChanged: (widget.loadingSheets || _fromSheet.isEmpty || toSheets.isEmpty)
+                                ? null
+                                : (v) { if (v != null) setState(() { _toSheet = v; _errTo = null; }); },
+                          ),
+                        ),
+                      ),
+                      if (_errTo != null) ...[
+                        const SizedBox(height: 3),
+                        Text(_errTo!, style: const TextStyle(fontSize: 10, color: Colors.red)),
+                      ],
+                    ]),
+                  ),
+                ]),
+
+                if (_fromSheet.isNotEmpty && _toSheet.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFECDD3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('Cutting:', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(4)),
+                        child: Text(_fromSheet, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFBE123C))),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Icon(Icons.arrow_forward, size: 13, color: Color(0xFFFDA4AF)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFFDF2F8), borderRadius: BorderRadius.circular(4)),
+                        child: Text(_toSheet, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF9D174D))),
+                      ),
+                    ]),
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                const Text('Quantity (sheets)*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _qtyCtrl,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (_) => setState(() => _errQty = null),
+                  decoration: InputDecoration(
+                    hintText: 'Number of sheets cut…',
+                    errorText: _errQty,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Notes (optional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Any remarks…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    style: FilledButton.styleFrom(backgroundColor: _color, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    icon: _submitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.check_circle_outline),
+                    label: Text(_submitting ? 'Saving…' : _isEdit ? 'Save Changes' : 'Add Entry'),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Diesel Maintenance Screen ────────────────────────────────────────────────
+
+class DieselMaintenanceScreen extends StatefulWidget {
+  const DieselMaintenanceScreen({super.key});
+  @override
+  State<DieselMaintenanceScreen> createState() => _DieselMaintenanceScreenState();
+}
+
+class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  static const _processes = [
+    'Fabrication', 'Fabrication Testing', 'Moulding', 'Spinning',
+    'Demoulding', 'Curing 1', 'Winding', 'Coating', 'Final Testing',
+    'General / Other',
+  ];
+
+  bool _loadingData = true;
+  List<Map<String, dynamic>> _items = [];
+  String _preset = '';
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loadingData = true);
+    try {
+      final data = await ApiService().getDieselEntries(from: _fmtIso(_from), to: _fmtIso(_to));
+      if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loadingData = false);
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
+      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    return 'Filter by Date';
+  }
+
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  double get _totalLitres => _items.fold(0.0, (s, e) => s + _toD(e['quantity']));
+
+  void _showAddEdit([Map<String, dynamic>? editing]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DieselSheet(
+        initial: editing,
+        processes: _processes,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateDieselEntry(_toI(editing['id']), data);
+          } else {
+            await ApiService().createDieselEntry(data);
+          }
+          _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(int id, String date, String process) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: Text('Delete diesel entry for $process on $date?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true),  child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await ApiService().deleteDieselEntry(id);
+      _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = _totalLitres;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loadingData
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6D28D9), _color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_items.length}', 'Entries'),
+                              _hStat(total > 0 ? '${total.toStringAsFixed(1)}L' : '—', 'Total Diesel'),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: const Text('Diesel Maintenance',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                if (_items.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.local_gas_station_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No diesel entries found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else ...[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _DieselCard(
+                          entry: _items[i],
+                          onEdit:   () => _showAddEdit(_items[i]),
+                          onDelete: () => _delete(
+                            _toI(_items[i]['id']),
+                            _items[i]['date']?.toString() ?? '',
+                            _items[i]['process']?.toString() ?? '',
+                          ),
+                        ),
+                        childCount: _items.length,
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(children: [
+                        const Text('Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70)),
+                        const Spacer(),
+                        Text('${total.toStringAsFixed(2)} L',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ]),
+                    ),
+                  ),
+                ],
+              ]),
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEdit(),
+        backgroundColor: _color,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ── Diesel Card ───────────────────────────────────────────────────────────────
+
+class _DieselCard extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _DieselCard({required this.entry, required this.onEdit, required this.onDelete});
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    try { return DateFormat('dd MMM yyyy').format(DateTime.parse(s.substring(0, 10))); }
+    catch (_) { return s; }
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final date    = entry['date']?.toString()    ?? '';
+    final process = entry['process']?.toString() ?? '';
+    final qty     = _toD(entry['quantity']);
+    final notes   = entry['notes']?.toString()   ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4,  offset: const Offset(0, 1)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.local_gas_station_outlined, color: Color(0xFFE11D48), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(process.isEmpty ? '—' : process,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(4)),
+                    child: Text('Diesel', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFBE123C))),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(_fmtDate(date), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                ]),
+              ]),
+            ),
+            RichText(text: TextSpan(
+              children: [
+                TextSpan(text: qty.toStringAsFixed(2), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+                const TextSpan(text: ' L', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8))),
+              ],
+            )),
+            const SizedBox(width: 4),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(onPressed: onEdit,   icon: const Icon(Icons.edit_outlined,  size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+              IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFF94A3B8)), padding: const EdgeInsets.all(4), constraints: const BoxConstraints()),
+            ]),
+          ]),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(notes, style: TextStyle(fontSize: 12, color: Colors.grey.shade600), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+// ── Diesel Sheet ──────────────────────────────────────────────────────────────
+
+class _DieselSheet extends StatefulWidget {
+  final Map<String, dynamic>? initial;
+  final List<String> processes;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _DieselSheet({this.initial, required this.processes, required this.onSubmit});
+
+  @override
+  State<_DieselSheet> createState() => _DieselSheetState();
+}
+
+class _DieselSheetState extends State<_DieselSheet> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  late DateTime _date;
+  String _process = '';
+  final _qtyCtrl   = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _errProcess, _errQty;
+
+  bool get _isEdit => widget.initial != null;
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    _date = e != null && (e['date']?.toString().length ?? 0) >= 10
+        ? DateTime.tryParse(e['date'].toString().substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    if (e != null) {
+      _process        = e['process']?.toString() ?? '';
+      final qty = _toD(e['quantity']);
+      _qtyCtrl.text   = qty > 0 ? qty.toStringAsFixed(2) : '';
+      _notesCtrl.text = e['notes']?.toString() ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _qtyCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final qty = double.tryParse(_qtyCtrl.text.trim());
+    setState(() {
+      _errProcess = _process.isEmpty ? 'Select a production process' : null;
+      _errQty     = (qty == null || qty <= 0) ? 'Enter a valid quantity' : null;
+    });
+    if (_errProcess != null || _errQty != null) return;
+
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date':     DateFormat('yyyy-MM-dd').format(_date),
+        'process':  _process,
+        'quantity': qty.toString(),
+        'notes':    _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.local_gas_station_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(_isEdit ? 'Edit Diesel Entry' : 'Add Diesel Entry',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                const Text('Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () async {
+                    final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime.now());
+                    if (d != null) setState(() => _date = d);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      const Icon(Icons.calendar_today_outlined, size: 16, color: Color(0xFF64748B)),
+                      const SizedBox(width: 8),
+                      Text(DateFormat('dd MMM yyyy').format(_date), style: const TextStyle(fontSize: 14)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Production Process*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _errProcess != null ? Colors.red : Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _process.isEmpty ? null : _process,
+                      hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Select a process…', style: TextStyle(fontSize: 13, color: Colors.grey))),
+                      isExpanded: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      borderRadius: BorderRadius.circular(10),
+                      items: widget.processes.map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 13)))).toList(),
+                      onChanged: (v) { if (v != null) setState(() { _process = v; _errProcess = null; }); },
+                    ),
+                  ),
+                ),
+                if (_errProcess != null) ...[
+                  const SizedBox(height: 4),
+                  Text(_errProcess!, style: const TextStyle(fontSize: 11, color: Colors.red)),
+                ],
+                const SizedBox(height: 14),
+
+                const Text('Quantity (Litres)*', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontSize: 14),
+                  onChanged: (_) => setState(() => _errQty = null),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. 50',
+                    suffixText: 'L',
+                    suffixStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8)),
+                    errorText: _errQty,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Notes (optional)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 3,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Optional notes…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    style: FilledButton.styleFrom(backgroundColor: _color, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    icon: _submitting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.check_circle_outline),
+                    label: Text(_submitting ? 'Saving…' : _isEdit ? 'Save Changes' : 'Add Entry'),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Transport Report Screen ──────────────────────────────────────────────────
+
+enum _TransportTab { transporter, customer, trips }
+
+class _TripData {
+  final int id;
+  final String date, pipeName, vehicleNo, driverName, driverContact;
+  final String vendor, siteAddress, transportRate, rateType, notes;
+  final int quantity;
+  final double totalAmount;
+
+  const _TripData({
+    required this.id, required this.date, required this.pipeName,
+    required this.vehicleNo, required this.driverName, required this.driverContact,
+    required this.vendor, required this.siteAddress, required this.transportRate,
+    required this.rateType, required this.notes, required this.quantity,
+    required this.totalAmount,
+  });
+
+  static int _i(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  static double _compute(int qty, String rate, String rt) {
+    final r = double.tryParse(rate) ?? 0;
+    return rt == 'per_trip' ? r : qty * r;
+  }
+
+  factory _TripData.fromMap(Map<String, dynamic> m) {
+    final qty  = _i(m['quantity']);
+    final rate = m['transportRate']?.toString() ?? '';
+    final rt   = m['rateType']?.toString() ?? 'per_pipe';
+    return _TripData(
+      id:            _i(m['id']),
+      date:          m['date']?.toString() ?? '',
+      pipeName:      m['pipeName']?.toString() ?? '',
+      vehicleNo:     m['vehicleNo']?.toString() ?? '',
+      driverName:    m['driverName']?.toString() ?? '',
+      driverContact: m['driverContact']?.toString() ?? '',
+      vendor:        m['vendor']?.toString() ?? '',
+      siteAddress:   m['siteAddress']?.toString() ?? '',
+      transportRate: rate,
+      rateType:      rt,
+      notes:         m['notes']?.toString() ?? '',
+      quantity:      qty,
+      totalAmount:   _compute(qty, rate, rt),
+    );
+  }
+}
+
+class TransportReportScreen extends StatefulWidget {
+  const TransportReportScreen({super.key});
+  @override
+  State<TransportReportScreen> createState() => _TransportReportScreenState();
+}
+
+class _TransportReportScreenState extends State<TransportReportScreen> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  bool _loading = true;
+  List<_TripData> _trips = [];
+  _TransportTab _tab = _TransportTab.transporter;
+
+  String _search = '';
+  String _vendorFilter = '';
+  final _searchCtrl = TextEditingController();
+  bool _showSearch = false;
+
+  String _preset = '';
+  late DateTime _from, _to;
+
+  // expanded sets
+  final _expandedVendors   = <String>{};
+  final _expandedSites     = <String>{};
+  final _expandedTrips     = <int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final raw = await ApiService().getLoadingRecords(from: _fmtIso(_from), to: _fmtIso(_to), size: 1000);
+      final trips = raw.cast<Map<String, dynamic>>().map(_TripData.fromMap).toList();
+      trips.sort((a, b) => b.date.compareTo(a.date));
+      if (mounted) {
+        setState(() { _trips = trips; });
+        // auto-expand all
+        _expandedVendors
+          ..clear()
+          ..addAll(_vendorSummaries.map((v) => v.$1));
+        _expandedSites
+          ..clear()
+          ..addAll(_siteSummaries.map((s) => s.$1));
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
+      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    return 'Filter by Date';
+  }
+
+  List<_TripData> get _filtered {
+    var list = _trips;
+    if (_vendorFilter.isNotEmpty) {
+      list = list.where((t) => t.vendor.toLowerCase() == _vendorFilter.toLowerCase()).toList();
+    }
+    if (_search.trim().isNotEmpty) {
+      final q = _search.toLowerCase();
+      list = list.where((t) =>
+        t.pipeName.toLowerCase().contains(q) ||
+        t.vehicleNo.toLowerCase().contains(q) ||
+        t.driverName.toLowerCase().contains(q) ||
+        t.vendor.toLowerCase().contains(q) ||
+        t.siteAddress.toLowerCase().contains(q)
+      ).toList();
+    }
+    return list;
+  }
+
+  // Vendor summaries: (vendor, trips, totalPipes, totalAmount, trucks, siteCount)
+  List<(String, List<_TripData>, int, double, int, int)> get _vendorSummaries {
+    final map = <String, List<_TripData>>{};
+    for (final t in _filtered) {
+      (map[t.vendor.isEmpty ? 'Unknown' : t.vendor] ??= []).add(t);
+    }
+    return map.entries.map((e) {
+      final trips = e.value;
+      final totalPipes  = trips.fold(0,   (s, t) => s + t.quantity);
+      final totalAmount = trips.fold(0.0, (s, t) => s + t.totalAmount);
+      final trucks = trips.map((t) => t.vehicleNo).where((v) => v.isNotEmpty).toSet().length;
+      final sites  = trips.map((t) => t.siteAddress).where((s) => s.isNotEmpty).toSet().length;
+      return (e.key, trips, totalPipes, totalAmount, trucks, sites);
+    }).toList()
+      ..sort((a, b) => b.$4.compareTo(a.$4));
+  }
+
+  // Site summaries: (site, trips, totalPipes, totalAmount, vendors, pipeTypes)
+  List<(String, List<_TripData>, int, double, Set<String>, Set<String>)> get _siteSummaries {
+    final map = <String, List<_TripData>>{};
+    for (final t in _filtered) {
+      (map[t.siteAddress.isEmpty ? 'Unknown Site' : t.siteAddress] ??= []).add(t);
+    }
+    return map.entries.map((e) {
+      final trips       = e.value;
+      final totalPipes  = trips.fold(0,   (s, t) => s + t.quantity);
+      final totalAmount = trips.fold(0.0, (s, t) => s + t.totalAmount);
+      final vendors     = trips.map((t) => t.vendor).where((v) => v.isNotEmpty).toSet();
+      final pipeTypes   = trips.map((t) => t.pipeName).where((p) => p.isNotEmpty).toSet();
+      return (e.key, trips, totalPipes, totalAmount, vendors, pipeTypes);
+    }).toList()
+      ..sort((a, b) => b.$3.compareTo(a.$3));
+  }
+
+  List<String> get _allVendors =>
+    _trips.map((t) => t.vendor).where((v) => v.isNotEmpty).toSet().toList()..sort();
+
+  double get _grandTotal    => _filtered.fold(0.0, (s, t) => s + t.totalAmount);
+  int    get _grandPipes    => _filtered.fold(0,   (s, t) => s + t.quantity);
+  double get _avgRate {
+    final withRate = _filtered.where((t) => (double.tryParse(t.transportRate) ?? 0) > 0).toList();
+    if (withRate.isEmpty) return 0;
+    return withRate.fold(0.0, (s, t) => s + (double.tryParse(t.transportRate) ?? 0)) / withRate.length;
+  }
+
+  static String _fmtAmt(double v) {
+    if (v == 0) return '—';
+    if (v >= 10000000) return '₹${(v / 10000000).toStringAsFixed(2)}Cr';
+    if (v >= 100000)   return '₹${(v / 100000).toStringAsFixed(2)}L';
+    if (v >= 1000)     return '₹${(v / 1000).toStringAsFixed(1)}K';
+    return '₹${v.toStringAsFixed(2)}';
+  }
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    try { return DateFormat('dd MMM yyyy').format(DateTime.parse(s.substring(0, 10))); }
+    catch (_) { return s; }
+  }
+
+  void _openEdit(_TripData trip) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TransportEditSheet(
+        trip: trip,
+        onSubmit: (data) async {
+          await ApiService().updateLoadingRecord(trip.id, data);
+          _load();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filtered;
+    final total    = _grandTotal;
+    final pipes    = _grandPipes;
+    final avg      = _avgRate;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                // ── AppBar ──────────────────────────────────────────────────
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 130,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6D28D9), _color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
+                          ),
+                        ),
+                        // Stats strip
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${filtered.length}', 'Total Trips'),
+                              _hStat('$pipes', 'Total Pipes'),
+                              _hStat(total > 0 ? _fmtAmt(total) : '—', 'Total Payable'),
+                              _hStat(avg > 0 ? '₹${avg.toStringAsFixed(0)}' : '—', 'Avg Rate'),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: const Text('Transport Report',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                  bottom: PreferredSize(
+                    preferredSize: const Size.fromHeight(44),
+                    child: Container(
+                      color: const Color(0xFF5B21B6),
+                      child: Row(
+                        children: [
+                          _tabBtn(_TransportTab.transporter, Icons.business_outlined,  'Transporter'),
+                          _tabBtn(_TransportTab.customer,    Icons.location_on_outlined, 'Customer'),
+                          _tabBtn(_TransportTab.trips,       Icons.local_shipping_outlined, 'All Trips'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // ── Search + vendor filter ───────────────────────────────────
+                SliverToBoxAdapter(
+                  child: _buildFilterBar(),
+                ),
+
+                // ── Tab content ──────────────────────────────────────────────
+                if (filtered.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.local_shipping_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No transport records found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  )
+                else if (_tab == _TransportTab.transporter)
+                  _buildTransporterTab()
+                else if (_tab == _TransportTab.customer)
+                  _buildCustomerTab()
+                else
+                  _buildAllTripsTab(),
+              ]),
+            ),
+    );
+  }
+
+  Widget _tabBtn(_TransportTab t, IconData icon, String label) {
+    final active = _tab == t;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tab = t),
+        child: Container(
+          height: 44,
+          decoration: active
+              ? const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.white, width: 2)),
+                )
+              : null,
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 13, color: active ? Colors.white : Colors.white54),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? Colors.white : Colors.white54)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Search
+        Row(children: [
+          Expanded(
+            child: Container(
+              height: 38,
+              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
+              child: Row(children: [
+                const SizedBox(width: 10),
+                Icon(Icons.search, size: 16, color: Colors.grey.shade400),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    style: const TextStyle(fontSize: 13),
+                    onChanged: (v) => setState(() => _search = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search pipe, vehicle, driver, site…',
+                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                      border: InputBorder.none, isDense: true,
+                    ),
+                  ),
+                ),
+                if (_search.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => setState(() { _search = ''; _searchCtrl.clear(); }),
+                    child: Padding(padding: const EdgeInsets.all(8), child: Icon(Icons.close, size: 14, color: Colors.grey.shade400)),
+                  ),
+              ]),
+            ),
+          ),
+        ]),
+        if (_allVendors.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          // Vendor filter chips
+          SizedBox(
+            height: 30,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              _vendorChip('All', ''),
+              ..._allVendors.map((v) => _vendorChip(v, v)),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _vendorChip(String label, String value) {
+    final active = _vendorFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _vendorFilter = value),
+      child: Container(
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: active ? _color : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: active ? Colors.white : Colors.grey.shade600)),
+      ),
+    );
+  }
+
+  // ── Transporter Tab ──────────────────────────────────────────────────────────
+
+  Widget _buildTransporterTab() {
+    final summaries = _vendorSummaries;
+    final grandTotal = _grandTotal;
+    final grandPipes = _grandPipes;
+    final filteredLen = _filtered.length;
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          for (final vs in summaries) _buildVendorCard(vs),
+          // Grand total footer
+          if (summaries.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Grand Total Payable', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70)),
+                  const SizedBox(height: 2),
+                  Text('$filteredLen trips · $grandPipes pipes', style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                ]),
+                const Spacer(),
+                Text(_fmtAmt(grandTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildVendorCard((String, List<_TripData>, int, double, int, int) vs) {
+    final (vendor, trips, totalPipes, totalAmount, trucks, siteCount) = vs;
+    final expanded = _expandedVendors.contains(vendor);
+
+    // Group by truck
+    final byTruck = <String, (int, int)>{};
+    for (final t in trips) {
+      final key = t.vehicleNo.isEmpty ? '—' : t.vehicleNo;
+      final cur = byTruck[key] ?? (0, 0);
+      byTruck[key] = (cur.$1 + 1, cur.$2 + t.quantity);
+    }
+
+    // Group by site
+    final bySite = <String, List<_TripData>>{};
+    for (final t in trips) {
+      final key = t.siteAddress.isEmpty ? 'Unknown Site' : t.siteAddress;
+      (bySite[key] ??= []).add(t);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 3))],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(children: [
+        // Header
+        GestureDetector(
+          onTap: () => setState(() { expanded ? _expandedVendors.remove(vendor) : _expandedVendors.add(vendor); }),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFFA78BFA), Color(0xFF818CF8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.business_outlined, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Text(vendor, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white.withValues(alpha: 0.3))),
+                      child: Text('${trips.length} trips', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(Icons.local_shipping_outlined, size: 11, color: Colors.white.withValues(alpha: 0.7)),
+                    const SizedBox(width: 3),
+                    Text('$totalPipes pipes', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                    const SizedBox(width: 10),
+                    Icon(Icons.fire_truck_outlined, size: 11, color: Colors.white.withValues(alpha: 0.7)),
+                    const SizedBox(width: 3),
+                    Text('$trucks trucks', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                    const SizedBox(width: 10),
+                    Icon(Icons.location_on_outlined, size: 11, color: Colors.white.withValues(alpha: 0.7)),
+                    const SizedBox(width: 3),
+                    Text('$siteCount sites', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                  ]),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(_fmtAmt(totalAmount), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white)),
+                const SizedBox(height: 2),
+                Text('total payable', style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.6))),
+              ]),
+              const SizedBox(width: 8),
+              Icon(expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white, size: 20),
+            ]),
+          ),
+        ),
+
+        if (expanded) ...[
+          // Truck-wise chips
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            color: const Color(0xFFF5F3FF),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('TRUCK-WISE SUMMARY', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED), letterSpacing: 1)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 6, children: byTruck.entries.map((e) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE9D5FF))),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.local_shipping_outlined, size: 12, color: Color(0xFF7C3AED)),
+                  const SizedBox(width: 4),
+                  Text(e.key, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+                  const SizedBox(width: 4),
+                  Text('· ${e.value.$1} trips · ${e.value.$2} pipes', style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                ]),
+              )).toList()),
+            ]),
+          ),
+
+          // Site breakdown
+          for (final site in bySite.entries)
+            _buildSiteBreakdown(site.key, site.value),
+
+          // Sub-total
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFFE9D5FF), width: 2)),
+              color: Color(0xFFF5F3FF),
+            ),
+            child: Row(children: [
+              const Text('Sub-total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+              const Spacer(),
+              Text('${trips.length} trips · $totalPipes pipes', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              const SizedBox(width: 12),
+              Text(_fmtAmt(totalAmount), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildSiteBreakdown(String site, List<_TripData> trips) {
+    final totalPipes = trips.fold(0, (s, t) => s + t.quantity);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        color: const Color(0xFFEEF2FF),
+        child: Row(children: [
+          const Icon(Icons.location_on_outlined, size: 13, color: Color(0xFF4F46E5)),
+          const SizedBox(width: 6),
+          Expanded(child: Text(site, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: const Color(0xFFE0E7FF), borderRadius: BorderRadius.circular(8)),
+            child: Text('${trips.length} trips', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5))),
+          ),
+          const SizedBox(width: 8),
+          Text('$totalPipes pipes', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF374151))),
+        ]),
+      ),
+      for (final t in trips)
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+          decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.local_shipping_outlined, size: 10, color: Color(0xFF64748B)),
+                    const SizedBox(width: 3),
+                    Text(t.vehicleNo.isEmpty ? '—' : t.vehicleNo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF374151))),
+                  ]),
+                ),
+                const SizedBox(width: 6),
+                Expanded(child: Text(t.pipeName.isEmpty ? '—' : t.pipeName, style: const TextStyle(fontSize: 11, color: Color(0xFF374151)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ]),
+              const SizedBox(height: 2),
+              Text(_fmtDate(t.date), style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+            ])),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
+              child: Text('${t.quantity}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+            ),
+          ]),
+        ),
+    ]);
+  }
+
+  // ── Customer Tab ──────────────────────────────────────────────────────────────
+
+  Widget _buildCustomerTab() {
+    final summaries   = _siteSummaries;
+    final grandTotal  = _grandTotal;
+    final grandPipes  = _grandPipes;
+    final filteredLen = _filtered.length;
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          for (final cs in summaries) _buildCustomerCard(cs),
+          if (summaries.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF4F46E5), _color], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Grand Total Delivered', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70)),
+                  const SizedBox(height: 2),
+                  Text('$filteredLen trips · $grandPipes pipes', style: const TextStyle(fontSize: 10, color: Colors.white54)),
+                ]),
+                const Spacer(),
+                Text(_fmtAmt(grandTotal), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white)),
+              ]),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildCustomerCard((String, List<_TripData>, int, double, Set<String>, Set<String>) cs) {
+    final (site, trips, totalPipes, totalAmount, vendors, pipeTypes) = cs;
+    final expanded = _expandedSites.contains(site);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 3))],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(children: [
+        GestureDetector(
+          onTap: () => setState(() { expanded ? _expandedSites.remove(site) : _expandedSites.add(site); }),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFFA78BFA), Color(0xFF818CF8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Row(children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.location_on_outlined, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(child: Text(site, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white), maxLines: 2, overflow: TextOverflow.ellipsis)),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white.withValues(alpha: 0.3))),
+                      child: Text('${trips.length} trips', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(Icons.local_shipping_outlined, size: 11, color: Colors.white.withValues(alpha: 0.7)),
+                    const SizedBox(width: 3),
+                    Text('$totalPipes pipes', style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                    const SizedBox(width: 10),
+                    Icon(Icons.business_outlined, size: 11, color: Colors.white.withValues(alpha: 0.7)),
+                    const SizedBox(width: 3),
+                    Expanded(child: Text(vendors.take(2).join(', ') + (vendors.length > 2 ? '…' : ''), style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  ]),
+                  if (pipeTypes.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Wrap(spacing: 4, runSpacing: 4, children: pipeTypes.take(3).map((pt) =>
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                        child: Text(pt, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.85))),
+                      )
+                    ).toList()),
+                  ],
+                ]),
+              ),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(_fmtAmt(totalAmount), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white)),
+                const SizedBox(height: 2),
+                Text('total transport', style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.6))),
+              ]),
+              const SizedBox(width: 6),
+              Icon(expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white, size: 20),
+            ]),
+          ),
+        ),
+        if (expanded) ...[
+          for (final t in trips)
+            _buildCustomerTripRow(t),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Color(0xFFE0E7FF), width: 2)),
+              color: Color(0xFFF0F4FF),
+            ),
+            child: Row(children: [
+              const Text('Sub-total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+              const Spacer(),
+              Text('$totalPipes pipes', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              const SizedBox(width: 12),
+              Text(_fmtAmt(totalAmount), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildCustomerTripRow(_TripData t) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
+      child: Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Text(_fmtDate(t.date), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+            const SizedBox(width: 8),
+            Expanded(child: Text(t.pipeName.isEmpty ? '—' : t.pipeName, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+          ]),
+          const SizedBox(height: 2),
+          Row(children: [
+            if (t.vendor.isNotEmpty) ...[
+              const Icon(Icons.business_outlined, size: 10, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 3),
+              Text(t.vendor, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+              const SizedBox(width: 8),
+            ],
+            if (t.vehicleNo.isNotEmpty) ...[
+              const Icon(Icons.local_shipping_outlined, size: 10, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 3),
+              Text(t.vehicleNo, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+            ],
+          ]),
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('${t.quantity} pipes', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+          if (t.totalAmount > 0)
+            Text(_fmtAmt(t.totalAmount), style: const TextStyle(fontSize: 11, color: Color(0xFF7C3AED))),
+        ]),
+        const SizedBox(width: 4),
+        GestureDetector(
+          onTap: () => _openEdit(t),
+          child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.edit_outlined, size: 16, color: Color(0xFF94A3B8))),
+        ),
+      ]),
+    );
+  }
+
+  // ── All Trips Tab ─────────────────────────────────────────────────────────────
+
+  Widget _buildAllTripsTab() {
+    final trips      = _filtered;
+    final grandTotal = _grandTotal;
+    final grandPipes = _grandPipes;
+
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+      sliver: SliverList(
+        delegate: SliverChildListDelegate([
+          // Header info
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              Text('${trips.length} trip${trips.length != 1 ? 's' : ''} · $grandPipes pipes', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              const Spacer(),
+              Text(_fmtAmt(grandTotal), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
+            ]),
+          ),
+          for (final t in trips) _buildTripCard(t),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildTripCard(_TripData t) {
+    final expanded = _expandedTrips.contains(t.id);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(children: [
+        GestureDetector(
+          onTap: () => setState(() { expanded ? _expandedTrips.remove(t.id) : _expandedTrips.add(t.id); }),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              // Expand toggle
+              Container(
+                width: 22, height: 22,
+                decoration: BoxDecoration(
+                  color: expanded ? _color : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_right, size: 14, color: expanded ? Colors.white : Colors.grey.shade400),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text(_fmtDate(t.date), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(t.pipeName.isEmpty ? '—' : t.pipeName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  ]),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    if (t.vehicleNo.isNotEmpty) ...[
+                      const Icon(Icons.local_shipping_outlined, size: 11, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 3),
+                      Text(t.vehicleNo, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      const SizedBox(width: 8),
+                    ],
+                    if (t.vendor.isNotEmpty) ...[
+                      const Icon(Icons.business_outlined, size: 11, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 3),
+                      Expanded(child: Text(t.vendor, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    ],
+                  ]),
+                ]),
+              ),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('${t.quantity} pipes', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+                if (t.totalAmount > 0)
+                  Text(_fmtAmt(t.totalAmount), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF7C3AED))),
+              ]),
+            ]),
+          ),
+        ),
+        if (expanded) ...[
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFFF5F3FF), Color(0xFFEEF2FF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              border: Border(top: BorderSide(color: Color(0xFFE9D5FF))),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Details grid
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: _detailItem('Driver', t.driverName.isEmpty ? '—' : t.driverName, Icons.person_outlined)),
+                Expanded(child: _detailItem('Contact', t.driverContact.isEmpty ? '—' : t.driverContact, Icons.phone_outlined)),
+              ]),
+              const SizedBox(height: 8),
+              _detailItem('Site / Delivery Address', t.siteAddress.isEmpty ? '—' : t.siteAddress, Icons.location_on_outlined),
+              const SizedBox(height: 8),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: _detailItem(
+                  'Amount Breakdown',
+                  t.rateType == 'per_trip'
+                      ? 'Fixed trip rate'
+                      : '${t.quantity} pipes × ₹${t.transportRate.isEmpty ? '0' : t.transportRate}${t.totalAmount > 0 ? ' = ${_fmtAmt(t.totalAmount)}' : ''}',
+                  Icons.currency_rupee,
+                )),
+                if (t.notes.isNotEmpty)
+                  Expanded(child: _detailItem('Notes', t.notes, Icons.notes_outlined)),
+              ]),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _openEdit(t),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE9D5FF)),
+                  ),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.edit_outlined, size: 14, color: Color(0xFF7C3AED)),
+                    SizedBox(width: 6),
+                    Text('Edit Record', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _detailItem(String label, String value, IconData icon) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(icon, size: 10, color: const Color(0xFF7C3AED)),
+        const SizedBox(width: 4),
+        Text(label.toUpperCase(), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED), letterSpacing: 0.8)),
+      ]),
+      const SizedBox(height: 3),
+      Text(value, style: const TextStyle(fontSize: 12, color: Color(0xFF374151))),
+    ]),
+  );
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 8, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ── Transport Edit Sheet ──────────────────────────────────────────────────────
+
+class _TransportEditSheet extends StatefulWidget {
+  final _TripData trip;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _TransportEditSheet({required this.trip, required this.onSubmit});
+
+  @override
+  State<_TransportEditSheet> createState() => _TransportEditSheetState();
+}
+
+class _TransportEditSheetState extends State<_TransportEditSheet> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+
+  late DateTime _date;
+  final _pipeCtrl    = TextEditingController();
+  final _qtyCtrl     = TextEditingController();
+  final _vehicleCtrl = TextEditingController();
+  final _vendorCtrl  = TextEditingController();
+  final _driverCtrl  = TextEditingController();
+  final _contactCtrl = TextEditingController();
+  final _siteCtrl    = TextEditingController();
+  final _rateCtrl    = TextEditingController();
+  final _notesCtrl   = TextEditingController();
+  String _rateType   = 'per_pipe';
+  bool _submitting   = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.trip;
+    _date = t.date.length >= 10
+        ? DateTime.tryParse(t.date.substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    _pipeCtrl.text    = t.pipeName;
+    _qtyCtrl.text     = t.quantity > 0 ? t.quantity.toString() : '';
+    _vehicleCtrl.text = t.vehicleNo;
+    _vendorCtrl.text  = t.vendor;
+    _driverCtrl.text  = t.driverName;
+    _contactCtrl.text = t.driverContact;
+    _siteCtrl.text    = t.siteAddress;
+    _rateCtrl.text    = t.transportRate;
+    _notesCtrl.text   = t.notes;
+    _rateType         = t.rateType.isEmpty ? 'per_pipe' : t.rateType;
+  }
+
+  @override
+  void dispose() {
+    _pipeCtrl.dispose(); _qtyCtrl.dispose(); _vehicleCtrl.dispose();
+    _vendorCtrl.dispose(); _driverCtrl.dispose(); _contactCtrl.dispose();
+    _siteCtrl.dispose(); _rateCtrl.dispose(); _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  double get _previewTotal {
+    final qty  = int.tryParse(_qtyCtrl.text.trim()) ?? 0;
+    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 0;
+    return _rateType == 'per_trip' ? rate : qty * rate;
+  }
+
+  Future<void> _submit() async {
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date':          DateFormat('yyyy-MM-dd').format(_date),
+        'pipeName':      _pipeCtrl.text.trim(),
+        'quantity':      int.tryParse(_qtyCtrl.text.trim()) ?? 0,
+        'vehicleNo':     _vehicleCtrl.text.trim(),
+        'vendor':        _vendorCtrl.text.trim(),
+        'driverName':    _driverCtrl.text.trim(),
+        'driverContact': _contactCtrl.text.trim(),
+        'siteAddress':   _siteCtrl.text.trim(),
+        'transportRate': _rateCtrl.text.trim(),
+        'rateType':      _rateType,
+        'notes':         _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  Widget _field(String label, TextEditingController ctrl, {TextInputType? type, String? hint}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+      const SizedBox(height: 4),
+      TextField(
+        controller: ctrl,
+        keyboardType: type,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: hint,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          isDense: true,
+        ),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = _previewTotal;
+    final qty     = int.tryParse(_qtyCtrl.text.trim()) ?? 0;
+    final rate    = double.tryParse(_rateCtrl.text.trim()) ?? 0;
+
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Edit Loading Record', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                  Text('${widget.trip.pipeName} · ${DateFormat('dd MMM yyyy').format(_date)}',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.75))),
+                ]),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Date + Qty + Vehicle
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () async {
+                        final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime.now().add(const Duration(days: 1)));
+                        if (d != null) setState(() => _date = d);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                        child: Row(children: [
+                          const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Text(DateFormat('dd MMM yy').format(_date), style: const TextStyle(fontSize: 13)),
+                        ]),
+                      ),
+                    ),
+                  ])),
+                  const SizedBox(width: 8),
+                  Expanded(child: _field('Qty', _qtyCtrl, type: TextInputType.number)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _field('Vehicle No', _vehicleCtrl)),
+                ]),
+                const SizedBox(height: 12),
+
+                _field('Pipe Name', _pipeCtrl),
+                const SizedBox(height: 12),
+
+                // Transport Rate — highlighted box
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F3FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE9D5FF), width: 1.5),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      const Text('TRANSPORT RATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF7C3AED), letterSpacing: 0.8)),
+                      const Spacer(),
+                      // Rate type toggle
+                      Container(
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE9D5FF))),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          for (final rt in [('per_pipe', '₹/Pipe'), ('per_trip', '₹/Trip')])
+                            GestureDetector(
+                              onTap: () => setState(() => _rateType = rt.$1),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: _rateType == rt.$1 ? _color : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(7),
+                                ),
+                                child: Text(rt.$2, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _rateType == rt.$1 ? Colors.white : Colors.grey.shade500)),
+                              ),
+                            ),
+                        ]),
+                      ),
+                    ]),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _rateCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        prefixText: '₹ ',
+                        hintText: '0.00',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE9D5FF))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFDDD6FE))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        isDense: true,
+                      ),
+                    ),
+                    if (rate > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        _rateType == 'per_trip'
+                            ? 'Trip total = ₹${preview.toStringAsFixed(2)}'
+                            : '$qty pipes × ₹${_rateCtrl.text} = ₹${preview.toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
+                      ),
+                    ],
+                  ]),
+                ),
+                const SizedBox(height: 12),
+
+                _field('Vendor / Transporter', _vendorCtrl),
+                const SizedBox(height: 12),
+
+                Row(children: [
+                  Expanded(child: _field('Driver Name', _driverCtrl)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _field('Driver Contact', _contactCtrl, type: TextInputType.phone)),
+                ]),
+                const SizedBox(height: 12),
+
+                _field('Site / Delivery Address', _siteCtrl),
+                const SizedBox(height: 12),
+
+                _field('Notes (optional)', _notesCtrl),
+                const SizedBox(height: 20),
+
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13)),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _submitting ? null : _submit,
+                      style: FilledButton.styleFrom(backgroundColor: _color, padding: const EdgeInsets.symmetric(vertical: 13)),
+                      icon: _submitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.save_outlined, size: 16),
+                      label: Text(_submitting ? 'Saving…' : 'Save Changes'),
+                    ),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Discard Screen ───────────────────────────────────────────────────────────
+
+class _DiscardData {
+  final int id;
+  final String date, process, pipeName, quantity, notes;
+
+  const _DiscardData({
+    required this.id, required this.date, required this.process,
+    required this.pipeName, required this.quantity, required this.notes,
+  });
+
+  factory _DiscardData.fromMap(Map<String, dynamic> m) => _DiscardData(
+    id:       m['id'] is int ? m['id'] : int.tryParse(m['id']?.toString() ?? '') ?? 0,
+    date:     m['date']?.toString() ?? '',
+    process:  m['process']?.toString() ?? '',
+    pipeName: m['pipeName']?.toString() ?? '',
+    quantity: m['quantity']?.toString() ?? '0',
+    notes:    m['notes']?.toString() ?? '',
+  );
+
+  double get qty => double.tryParse(quantity) ?? 0;
+}
+
+class DiscardScreen extends StatefulWidget {
+  const DiscardScreen({super.key});
+  @override
+  State<DiscardScreen> createState() => _DiscardScreenState();
+}
+
+class _DiscardScreenState extends State<DiscardScreen> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+  static const _red       = Color(0xFFEF4444);
+
+  static const _processes = [
+    'Fabrication', 'Fabrication Testing', 'Moulding', 'Spinning',
+    'Demoulding', 'Curing 1', 'Winding', 'Coating', 'Final Testing', 'General / Other',
+  ];
+
+  bool _loading = true;
+  List<_DiscardData> _entries = [];
+  List<String> _pipes = [];
+
+  String _preset = '';
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = DateTime(_to.year, _to.month, 1);
+    _load();
+    _loadPipes();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final raw = await ApiService().getDiscardEntries(from: _fmtIso(_from), to: _fmtIso(_to));
+      final entries = raw.cast<Map<String, dynamic>>().map(_DiscardData.fromMap).toList();
+      if (mounted) setState(() => _entries = entries);
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadPipes() async {
+    try {
+      final raw = await ApiService().getPipeConfigs(size: 500);
+      final names = raw.cast<Map<String, dynamic>>()
+          .map((m) => m['name']?.toString() ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList()
+        ..sort();
+      if (mounted) setState(() => _pipes = names);
+    } catch (_) {}
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = DateTime(now.year, now.month, 1); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
+      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    return 'Filter by Date';
+  }
+
+  double get _totalQty => _entries.fold(0.0, (s, e) => s + e.qty);
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    try { return DateFormat('dd MMM yyyy').format(DateTime.parse(s.substring(0, 10))); }
+    catch (_) { return s; }
+  }
+
+  void _openAdd() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DiscardSheet(
+        pipes: _pipes,
+        onSubmit: (data) async {
+          final created = await ApiService().createDiscardEntry(data);
+          final entry = _DiscardData.fromMap(created);
+          setState(() => _entries = [entry, ..._entries]);
+        },
+      ),
+    );
+  }
+
+  void _openEdit(_DiscardData entry) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DiscardSheet(
+        initial: entry,
+        pipes: _pipes,
+        onSubmit: (data) async {
+          final updated = await ApiService().updateDiscardEntry(entry.id, data);
+          final e = _DiscardData.fromMap(updated);
+          setState(() => _entries = _entries.map((x) => x.id == entry.id ? e : x).toList());
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(_DiscardData entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Entry', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        content: Text('Delete discard entry for ${entry.pipeName} on ${_fmtDate(entry.date)}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: _red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ApiService().deleteDiscardEntry(entry.id);
+      setState(() => _entries = _entries.where((x) => x.id != entry.id).toList());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalQty = _totalQty;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAdd,
+        backgroundColor: _color,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                // ── AppBar ──────────────────────────────────────────────────
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6D28D9), _color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
+                          ),
+                        ),
+                        // Stats strip
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_entries.length}', 'Entries'),
+                              _hStat(totalQty > 0 ? totalQty.toStringAsFixed(0) : '—', 'Total Discarded'),
+                              _hStat(
+                                _entries.map((e) => e.pipeName).toSet().length.toString(),
+                                'Pipe Types',
+                              ),
+                              _hStat(
+                                _entries.map((e) => e.process).toSet().length.toString(),
+                                'Processes',
+                              ),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: Row(children: [
+                    const Icon(Icons.delete_outline, size: 18, color: Color(0xFFFCA5A5)),
+                    const SizedBox(width: 6),
+                    const Text('Discard', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  ]),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // ── List ──────────────────────────────────────────────────────
+                if (_entries.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.delete_outline, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No discard entries found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text('Tap + to add an entry', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                      ]),
+                    ),
+                  )
+                else ...[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    sliver: SliverToBoxAdapter(
+                      child: Row(children: [
+                        Text('${_entries.length} entr${_entries.length != 1 ? 'ies' : 'y'}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        const Spacer(),
+                        if (totalQty > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(20)),
+                            child: Text('Total: ${totalQty.toStringAsFixed(0)} pipes discarded',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _red)),
+                          ),
+                      ]),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _buildCard(_entries[i]),
+                        childCount: _entries.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ]),
+            ),
+    );
+  }
+
+  Widget _buildCard(_DiscardData e) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          // Left — trash icon
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.delete_outline, size: 18, color: _red),
+          ),
+          const SizedBox(width: 10),
+          // Middle — details
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(e.pipeName.isEmpty ? '—' : e.pipeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                const SizedBox(width: 6),
+                // Process badge (amber)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)),
+                  child: Text(e.process.isEmpty ? '—' : e.process, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                ),
+              ]),
+              const SizedBox(height: 3),
+              Row(children: [
+                const Icon(Icons.calendar_today_outlined, size: 10, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 3),
+                Text(_fmtDate(e.date), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                if (e.notes.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.notes_outlined, size: 10, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 3),
+                  Expanded(child: Text(e.notes, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ],
+              ]),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          // Right — quantity
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(e.qty.toStringAsFixed(0), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _red)),
+            const Text('pipes', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+          ]),
+          const SizedBox(width: 8),
+          // Action icons
+          Column(children: [
+            GestureDetector(
+              onTap: () => _openEdit(e),
+              child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.edit_outlined, size: 16, color: Color(0xFF94A3B8))),
+            ),
+            GestureDetector(
+              onTap: () => _confirmDelete(e),
+              child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.delete_outline, size: 16, color: Color(0xFF94A3B8))),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 8, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ─── Discard Sheet ─────────────────────────────────────────────────────────────
+
+class _DiscardSheet extends StatefulWidget {
+  final _DiscardData? initial;
+  final List<String> pipes;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _DiscardSheet({this.initial, required this.pipes, required this.onSubmit});
+
+  @override
+  State<_DiscardSheet> createState() => _DiscardSheetState();
+}
+
+class _DiscardSheetState extends State<_DiscardSheet> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF2563EB);
+  static const _red       = Color(0xFFEF4444);
+
+  static const _processes = [
+    'Fabrication', 'Fabrication Testing', 'Moulding', 'Spinning',
+    'Demoulding', 'Curing 1', 'Winding', 'Coating', 'Final Testing', 'General / Other',
+  ];
+
+  late DateTime _date;
+  String _process  = '';
+  String _pipeName = '';
+  final _pipeCtrl  = TextEditingController();
+  final _qtyCtrl   = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+  bool _showPipeSuggestions = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final init = widget.initial;
+    _date    = init != null && init.date.length >= 10
+        ? DateTime.tryParse(init.date.substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    _process        = init?.process  ?? '';
+    _pipeName       = init?.pipeName ?? '';
+    _pipeCtrl.text  = _pipeName;
+    _qtyCtrl.text   = init != null && init.quantity != '0' ? init.quantity : '';
+    _notesCtrl.text = init?.notes ?? '';
+  }
+
+  @override
+  void dispose() {
+    _pipeCtrl.dispose(); _qtyCtrl.dispose(); _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  List<String> get _pipeSuggestions {
+    final q = _pipeCtrl.text.toLowerCase();
+    if (q.isEmpty) return widget.pipes;
+    return widget.pipes.where((p) => p.toLowerCase().contains(q)).toList();
+  }
+
+  Future<void> _submit() async {
+    if (_date == null) return;
+    if (_process.isEmpty) { _showSnack('Please select a process'); return; }
+    if (_pipeCtrl.text.trim().isEmpty) { _showSnack('Please enter a pipe name'); return; }
+    final qty = double.tryParse(_qtyCtrl.text.trim()) ?? 0;
+    if (qty <= 0) { _showSnack('Please enter a valid quantity'); return; }
+
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date':     DateFormat('yyyy-MM-dd').format(_date),
+        'process':  _process,
+        'pipeName': _pipeCtrl.text.trim(),
+        'quantity': _qtyCtrl.text.trim(),
+        'notes':    _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  void _showSnack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Header
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF6D28D9), _color, _colorDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.delete_outline, color: Color(0xFFFCA5A5), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(widget.initial == null ? 'Add Discard Entry' : 'Edit Discard Entry',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // Date
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('DATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: () async {
+                        final d = await showDatePicker(
+                          context: context,
+                          initialDate: _date,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now().add(const Duration(days: 1)),
+                        );
+                        if (d != null) setState(() => _date = d);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                        decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                        child: Row(children: [
+                          const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Text(DateFormat('dd MMM yyyy').format(_date), style: const TextStyle(fontSize: 13)),
+                        ]),
+                      ),
+                    ),
+                  ])),
+                ]),
+                const SizedBox(height: 14),
+
+                // Process
+                const Text('PROCESS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 6, children: _processes.map((p) {
+                  final sel = _process == p;
+                  return GestureDetector(
+                    onTap: () => setState(() => _process = p),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: sel ? const Color(0xFFFEF3C7) : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: sel ? const Color(0xFFD97706) : Colors.transparent, width: 1.5),
+                      ),
+                      child: Text(p, style: TextStyle(fontSize: 11, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? const Color(0xFFB45309) : Colors.grey.shade600)),
+                    ),
+                  );
+                }).toList()),
+                const SizedBox(height: 14),
+
+                // Pipe Name
+                const Text('PIPE NAME', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _pipeCtrl,
+                  style: const TextStyle(fontSize: 13),
+                  onChanged: (_) => setState(() => _showPipeSuggestions = true),
+                  onTap: ()    => setState(() => _showPipeSuggestions = true),
+                  decoration: InputDecoration(
+                    hintText: 'Search pipe name…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    isDense: true,
+                  ),
+                ),
+                if (_showPipeSuggestions && _pipeSuggestions.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 160),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10)],
+                    ),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _pipeSuggestions.length,
+                      itemBuilder: (_, i) {
+                        final p = _pipeSuggestions[i];
+                        return GestureDetector(
+                          onTap: () => setState(() {
+                            _pipeCtrl.text = p;
+                            _pipeName = p;
+                            _showPipeSuggestions = false;
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              border: i > 0 ? const Border(top: BorderSide(color: Color(0xFFF1F5F9))) : null,
+                            ),
+                            child: Text(p, style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                // Quantity + Notes row
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('QUANTITY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _qtyCtrl,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: '0',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          isDense: true,
+                          suffixText: 'pipes',
+                          suffixStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                        ),
+                      ),
+                    ]),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('NOTES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.5)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _notesCtrl,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Optional…',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          isDense: true,
+                        ),
+                      ),
+                    ]),
+                  ),
+                ]),
+                const SizedBox(height: 20),
+
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13)),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _submitting ? null : _submit,
+                      style: FilledButton.styleFrom(backgroundColor: _color, padding: const EdgeInsets.symmetric(vertical: 13)),
+                      icon: _submitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.save_outlined, size: 16),
+                      label: Text(_submitting ? 'Saving…' : widget.initial == null ? 'Add Entry' : 'Save Changes'),
+                    ),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ─── Extra Fab Screen ─────────────────────────────────────────────────────────
+
+class _ExtraFabData {
+  final int    id;
+  final String date, vendorName, particular;
+  final String rate, quantity, taxPercent, lineTotal;
+  final String notes, invoiceNo, vehicleNo, invoiceData;
+  final String subTotal, discountPercent, billPrice, taxable;
+  final bool   gstInclusive;
+  final String roundingOff, finalBill;
+
+  const _ExtraFabData({
+    required this.id, required this.date, required this.vendorName,
+    required this.particular, required this.rate, required this.quantity,
+    required this.taxPercent, required this.lineTotal,
+    required this.notes, required this.invoiceNo, required this.vehicleNo,
+    required this.invoiceData, required this.subTotal, required this.discountPercent,
+    required this.billPrice, required this.taxable, required this.gstInclusive,
+    required this.roundingOff, required this.finalBill,
+  });
+
+  factory _ExtraFabData.fromMap(Map<String, dynamic> m) => _ExtraFabData(
+    id:              m['id'] is int ? m['id'] : int.tryParse(m['id']?.toString() ?? '') ?? 0,
+    date:            m['date']?.toString() ?? '',
+    vendorName:      m['vendorName']?.toString() ?? '',
+    particular:      m['particular']?.toString() ?? 'Fabrication Charges',
+    rate:            m['rate']?.toString() ?? '',
+    quantity:        m['quantity']?.toString() ?? '',
+    taxPercent:      m['taxPercent']?.toString() ?? '0',
+    lineTotal:       m['lineTotal']?.toString() ?? '',
+    notes:           m['notes']?.toString() ?? '',
+    invoiceNo:       m['invoiceNo']?.toString() ?? '',
+    vehicleNo:       m['vehicleNo']?.toString() ?? '',
+    invoiceData:     m['invoiceData']?.toString() ?? '',
+    subTotal:        m['subTotal']?.toString() ?? '',
+    discountPercent: m['discountPercent']?.toString() ?? '0',
+    billPrice:       m['billPrice']?.toString() ?? '',
+    taxable:         m['taxable']?.toString() ?? '',
+    gstInclusive:    m['gstInclusive'] == true || m['gstInclusive']?.toString() == 'true',
+    roundingOff:     m['roundingOff']?.toString() ?? '0',
+    finalBill:       m['finalBill']?.toString() ?? '',
+  );
+
+  double get finalBillAmt => double.tryParse(finalBill) ?? 0;
+}
+
+class ExtraFabScreen extends StatefulWidget {
+  const ExtraFabScreen({super.key});
+  @override
+  State<ExtraFabScreen> createState() => _ExtraFabScreenState();
+}
+
+class _ExtraFabScreenState extends State<ExtraFabScreen> {
+  static const _amber    = Color(0xFFD97706);
+  static const _yellow   = Color(0xFFCA8A04);
+  static const _amberBg  = Color(0xFFFEF3C7);
+
+  bool _loading = true;
+  List<_ExtraFabData> _entries = [];
+  List<String> _vendors = [];
+
+  String _preset = '';
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = DateTime(_to.year, _to.month, 1);
+    _load();
+    _loadOptions();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final raw = await ApiService().getExtraFabEntries(from: _fmtIso(_from), to: _fmtIso(_to));
+      final entries = raw.cast<Map<String, dynamic>>().map(_ExtraFabData.fromMap).toList();
+      if (mounted) setState(() => _entries = entries);
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadOptions() async {
+    try {
+      final vendors = await ApiService().getVendors();
+      final names = vendors.map((v) => (v['name'] ?? v['vendorName'] ?? '').toString()).where((n) => n.isNotEmpty).toList()..sort();
+      if (mounted) setState(() => _vendors = names);
+    } catch (_) {}
+  }
+
+  void _showDateSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _BizDateSheet(
+        preset: _preset, from: _from, to: _to,
+        onApply: (preset, from, to) {
+          setState(() { _preset = preset; _from = from; _to = to; });
+          _load();
+        },
+        onClear: () {
+          final now = DateTime.now();
+          setState(() { _preset = ''; _to = now; _from = DateTime(now.year, now.month, 1); });
+          _load();
+        },
+      ),
+    );
+  }
+
+  String get _filterLabel {
+    const labels = {
+      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
+      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
+      'this_quarter': 'This Quarter', 'this_year': 'This Year',
+    };
+    if (labels.containsKey(_preset)) return labels[_preset]!;
+    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
+    return 'Filter by Date';
+  }
+
+  double get _totalFinalBill => _entries.fold(0.0, (s, e) => s + e.finalBillAmt);
+
+  static String _fmtAmt(double v) {
+    if (v == 0) return '—';
+    return '₹${v.toLocaleString()}';
+  }
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    try { return DateFormat('dd MMM yyyy').format(DateTime.parse(s.substring(0, 10))); }
+    catch (_) { return s; }
+  }
+
+  void _openAdd() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ExtraFabSheet(
+        vendors: _vendors,
+        onSubmit: (data) async {
+          final created = await ApiService().createExtraFabEntry(data);
+          final e = _ExtraFabData.fromMap(created);
+          setState(() => _entries = [e, ..._entries]);
+        },
+      ),
+    );
+  }
+
+  void _openEdit(_ExtraFabData entry) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ExtraFabSheet(
+        initial: entry,
+        vendors: _vendors,
+        onSubmit: (data) async {
+          final updated = await ApiService().updateExtraFabEntry(entry.id, data);
+          final e = _ExtraFabData.fromMap(updated);
+          setState(() => _entries = _entries.map((x) => x.id == entry.id ? e : x).toList());
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(_ExtraFabData entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Entry', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        content: Text('Delete extra fab entry for ${entry.vendorName} on ${_fmtDate(entry.date)}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await ApiService().deleteExtraFabEntry(entry.id);
+      setState(() => _entries = _entries.where((x) => x.id != entry.id).toList());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAdd,
+        backgroundColor: _amber,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                // ── AppBar ──────────────────────────────────────────────────
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 106,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Stack(children: [
+                        Positioned(
+                          right: -24, top: -24,
+                          child: Container(
+                            width: 110, height: 110,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                            child: Row(children: [
+                              _hStat('${_entries.length}', 'Entries'),
+                              _hStat(_totalFinalBill > 0 ? _fmtAmt(_totalFinalBill) : '—', 'Final Bill'),
+                              _hStat(_entries.map((e) => e.vendorName).toSet().length.toString(), 'Vendors'),
+                              _hStat(_entries.where((e) => e.gstInclusive).length.toString(), 'GST Bills'),
+                            ]),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                  title: Row(children: [
+                    const Icon(Icons.hardware_outlined, size: 18, color: Color(0xFFFDE68A)),
+                    const SizedBox(width: 6),
+                    const Text('Extra Fabrication', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  ]),
+                  actions: [
+                    GestureDetector(
+                        onTap: _showDateSheet,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // ── List ──────────────────────────────────────────────────────
+                if (_entries.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.hardware_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No extra fab entries found', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text('Tap + to add an entry', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                      ]),
+                    ),
+                  )
+                else ...[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                    sliver: SliverToBoxAdapter(
+                      child: Row(children: [
+                        Text('${_entries.length} entr${_entries.length != 1 ? 'ies' : 'y'}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        const Spacer(),
+                        if (_totalFinalBill > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(20)),
+                            child: Text('Total: ${_fmtAmt(_totalFinalBill)}',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _yellow)),
+                          ),
+                      ]),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _buildCard(_entries[i]),
+                        childCount: _entries.length,
+                      ),
+                    ),
+                  ),
+                ],
+              ]),
+            ),
+    );
+  }
+
+  Widget _buildCard(_ExtraFabData e) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(children: [
+          Container(
+            width: 38, height: 38,
+            decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.hardware_outlined, size: 18, color: _amber),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(e.vendorName.isEmpty ? '—' : e.vendorName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                if (e.gstInclusive) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(8)),
+                    child: const Text('GST', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
+                  ),
+                ],
+              ]),
+              const SizedBox(height: 3),
+              Row(children: [
+                const Icon(Icons.calendar_today_outlined, size: 10, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 3),
+                Text(_fmtDate(e.date), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                if (e.invoiceNo.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.receipt_outlined, size: 10, color: Color(0xFF94A3B8)),
+                  const SizedBox(width: 3),
+                  Text(e.invoiceNo, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                ],
+                if (e.vehicleNo.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(e.vehicleNo, style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                ],
+              ]),
+              if (e.quantity.isNotEmpty && e.quantity != '0') ...[
+                const SizedBox(height: 2),
+                Text('Qty: ${e.quantity} × ₹${e.rate} (Tax: ${e.taxPercent}%)', style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+              ],
+            ]),
+          ),
+          const SizedBox(width: 8),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(_fmtAmt(e.finalBillAmt), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _yellow)),
+            if (e.discountPercent.isNotEmpty && e.discountPercent != '0')
+              Text('${e.discountPercent}% off', style: const TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+          ]),
+          const SizedBox(width: 8),
+          Column(children: [
+            GestureDetector(
+              onTap: () => _openEdit(e),
+              child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.edit_outlined, size: 16, color: Color(0xFF94A3B8))),
+            ),
+            GestureDetector(
+              onTap: () => _confirmDelete(e),
+              child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.delete_outline, size: 16, color: Color(0xFF94A3B8))),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 8, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ─── Extra Fab Sheet ──────────────────────────────────────────────────────────
+
+class _ExtraFabSheet extends StatefulWidget {
+  final _ExtraFabData? initial;
+  final List<String> vendors;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+
+  const _ExtraFabSheet({this.initial, required this.vendors, required this.onSubmit});
+
+  @override
+  State<_ExtraFabSheet> createState() => _ExtraFabSheetState();
+}
+
+class _ExtraFabSheetState extends State<_ExtraFabSheet> {
+  static const _amber   = Color(0xFFD97706);
+  static const _yellow  = Color(0xFFCA8A04);
+  static const _amberBg = Color(0xFFFEF3C7);
+
+  late DateTime _date;
+  bool _gstInclusive       = false;
+  bool _showVendorSugs     = false;
+  bool _submitting         = false;
+
+  final _particularCtrl    = TextEditingController();
+  final _rateCtrl          = TextEditingController();
+  final _qtyCtrl           = TextEditingController();
+  final _taxCtrl           = TextEditingController();
+  final _notesCtrl         = TextEditingController();
+  final _invoiceCtrl       = TextEditingController();
+  final _vehicleCtrl       = TextEditingController();
+  final _invoiceDataCtrl   = TextEditingController();
+  final _vendorCtrl        = TextEditingController();
+  final _discountCtrl      = TextEditingController();
+  final _roundingCtrl      = TextEditingController();
+
+  // Computed values (updated via _recompute)
+  String _lineTotal   = '';
+  String _subTotal    = '';
+  String _billPrice   = '';
+  String _taxable     = '';
+  String _finalBill   = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final init = widget.initial;
+    _date = init != null && init.date.length >= 10
+        ? DateTime.tryParse(init.date.substring(0, 10)) ?? DateTime.now()
+        : DateTime.now();
+    _gstInclusive         = init?.gstInclusive ?? false;
+    _particularCtrl.text  = init?.particular ?? 'Fabrication Charges';
+    _rateCtrl.text        = (init?.rate.isNotEmpty == true && init?.rate != '0') ? init!.rate : '';
+    _qtyCtrl.text         = (init?.quantity.isNotEmpty == true && init?.quantity != '0') ? init!.quantity : '';
+    _taxCtrl.text         = init?.taxPercent ?? '0';
+    _notesCtrl.text       = init?.notes ?? '';
+    _invoiceCtrl.text     = init?.invoiceNo ?? '';
+    _vehicleCtrl.text     = init?.vehicleNo ?? '';
+    _invoiceDataCtrl.text = init?.invoiceData ?? '';
+    _vendorCtrl.text      = init?.vendorName ?? '';
+    _discountCtrl.text    = init?.discountPercent ?? '0';
+    _roundingCtrl.text    = init?.roundingOff ?? '0';
+
+    _recompute();
+    for (final c in [_rateCtrl, _qtyCtrl, _taxCtrl, _discountCtrl, _roundingCtrl]) {
+      c.addListener(_recompute);
+    }
+  }
+
+  void _recompute() {
+    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 0;
+    final qty  = double.tryParse(_qtyCtrl.text.trim()) ?? 0;
+    final tax  = double.tryParse(_taxCtrl.text.trim()) ?? 0;
+    final disc = double.tryParse(_discountCtrl.text.trim()) ?? 0;
+    final rnd  = double.tryParse(_roundingCtrl.text.trim()) ?? 0;
+
+    final lt  = rate > 0 && qty > 0 ? rate * qty * (1 + tax / 100) : 0.0;
+    final sub = lt;
+    final bp  = sub > 0 ? (sub - sub * disc / 100).clamp(0, double.infinity) : 0.0;
+    final fb  = bp + rnd;
+
+    setState(() {
+      _lineTotal = lt > 0 ? lt.toStringAsFixed(2) : '';
+      _subTotal  = sub > 0 ? sub.toStringAsFixed(2) : '';
+      _billPrice = bp > 0 ? bp.toStringAsFixed(2) : '';
+      _taxable   = bp > 0 ? bp.toStringAsFixed(2) : '';
+      _finalBill = fb > 0 ? fb.toStringAsFixed(2) : '';
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_particularCtrl, _rateCtrl, _qtyCtrl, _taxCtrl, _notesCtrl,
+                     _invoiceCtrl, _vehicleCtrl, _invoiceDataCtrl, _vendorCtrl,
+                     _discountCtrl, _roundingCtrl]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  List<String> get _vendorSuggestions {
+    final q = _vendorCtrl.text.toLowerCase();
+    if (q.isEmpty) return widget.vendors;
+    return widget.vendors.where((v) => v.toLowerCase().contains(q)).toList();
+  }
+
+  Future<void> _submit() async {
+    if (_vendorCtrl.text.trim().isEmpty) { _snack('Please enter a vendor name'); return; }
+    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 0;
+    final qty  = double.tryParse(_qtyCtrl.text.trim()) ?? 0;
+    if (rate <= 0) { _snack('Please enter a rate'); return; }
+    if (qty  <= 0) { _snack('Please enter a quantity'); return; }
+
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date':            DateFormat('yyyy-MM-dd').format(_date),
+        'vendorName':      _vendorCtrl.text.trim(),
+        'particular':      _particularCtrl.text.trim(),
+        'rate':            _rateCtrl.text.trim(),
+        'quantity':        _qtyCtrl.text.trim(),
+        'taxPercent':      _taxCtrl.text.trim().isEmpty ? '0' : _taxCtrl.text.trim(),
+        'lineTotal':       _lineTotal,
+        'notes':           _notesCtrl.text.trim(),
+        'invoiceNo':       _invoiceCtrl.text.trim(),
+        'vehicleNo':       _vehicleCtrl.text.trim(),
+        'invoiceData':     _invoiceDataCtrl.text.trim(),
+        'subTotal':        _subTotal,
+        'discountPercent': _discountCtrl.text.trim().isEmpty ? '0' : _discountCtrl.text.trim(),
+        'billPrice':       _billPrice,
+        'taxable':         _taxable,
+        'gstInclusive':    _gstInclusive,
+        'roundingOff':     _roundingCtrl.text.trim().isEmpty ? '0' : _roundingCtrl.text.trim(),
+        'finalBill':       _finalBill,
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      setState(() => _submitting = false);
+    }
+  }
+
+  void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 2)));
+
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(text, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B), letterSpacing: 0.5)),
+  );
+
+  Widget _textField(TextEditingController ctrl, {TextInputType? type, String? hint, String? suffix, VoidCallback? onChanged}) => TextField(
+    controller: ctrl,
+    keyboardType: type,
+    style: const TextStyle(fontSize: 13),
+    onChanged: onChanged != null ? (_) => onChanged() : null,
+    decoration: InputDecoration(
+      hintText: hint,
+      suffixText: suffix,
+      suffixStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      isDense: true,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // Header
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Row(children: [
+              const Icon(Icons.hardware_outlined, color: Color(0xFFFDE68A), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(widget.initial == null ? 'Add Extra Fab Entry' : 'Edit Extra Fab Entry',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(15)),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                ),
+              ),
+            ]),
+          ),
+
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                // ── Line Item ──────────────────────────────────────
+                _sectionHeader('LINE ITEM'),
+                _label('PARTICULAR'),
+                _textField(_particularCtrl, hint: 'Fabrication Charges'),
+                const SizedBox(height: 10),
+
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _label('RATE (₹)'),
+                    _textField(_rateCtrl, type: const TextInputType.numberWithOptions(decimal: true), hint: '0.00'),
+                  ])),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _label('QUANTITY'),
+                    _textField(_qtyCtrl, type: TextInputType.number, hint: '0'),
+                  ])),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _label('TAX (%)'),
+                    _textField(_taxCtrl, type: const TextInputType.numberWithOptions(decimal: true), hint: '0'),
+                  ])),
+                ]),
+                if (_lineTotal.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(8)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Line Total', style: TextStyle(fontSize: 11, color: Color(0xFF92400E))),
+                      Text('₹$_lineTotal', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _yellow)),
+                    ]),
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                // ── Note + Invoice + Vehicle + Invoice Data ────────
+                _label('NOTE'),
+                _textField(_notesCtrl, hint: 'Optional notes…'),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _label('INVOICE NUMBER'),
+                    _textField(_invoiceCtrl, hint: 'INV-001'),
+                  ])),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _label('VEHICLE NUMBER'),
+                    _textField(_vehicleCtrl, hint: 'MH-01-AB-1234'),
+                  ])),
+                ]),
+                const SizedBox(height: 10),
+                _label('INVOICE DATA'),
+                TextField(
+                  controller: _invoiceDataCtrl,
+                  maxLines: 3,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Additional invoice details…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // ── Purchase Details ───────────────────────────────
+                _sectionHeader('PURCHASE DETAILS'),
+                _label('PURCHASE DATE'),
+                GestureDetector(
+                  onTap: () async {
+                    final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2020), lastDate: DateTime.now().add(const Duration(days: 1)));
+                    if (d != null) setState(() => _date = d);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF64748B)),
+                      const SizedBox(width: 6),
+                      Text(DateFormat('dd MMM yyyy').format(_date), style: const TextStyle(fontSize: 13)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _label('VENDOR NAME'),
+                TextField(
+                  controller: _vendorCtrl,
+                  style: const TextStyle(fontSize: 13),
+                  onChanged: (_) => setState(() => _showVendorSugs = true),
+                  onTap:    ()  => setState(() => _showVendorSugs = true),
+                  decoration: InputDecoration(
+                    hintText: 'Type or select vendor…',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    isDense: true,
+                  ),
+                ),
+                if (_showVendorSugs && _vendorSuggestions.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _suggestionList(_vendorSuggestions, (v) => setState(() { _vendorCtrl.text = v; _showVendorSugs = false; })),
+                ],
+                const SizedBox(height: 18),
+
+                // ── Bill Summary ───────────────────────────────────
+                _sectionHeader('BILL SUMMARY'),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Column(children: [
+                    _summaryRow('Sub Total', _subTotal),
+                    _divider(),
+                    Row(children: [
+                      const Text('Discount on Bill (%)', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      const Spacer(),
+                      SizedBox(
+                        width: 70,
+                        child: TextField(
+                          controller: _discountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontSize: 12),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ]),
+                    _divider(),
+                    _summaryRow('Bill Price', _billPrice),
+                    _summaryRow('Taxable', _taxable),
+                    _divider(),
+                    Row(children: [
+                      const Text('GST Inclusive', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => setState(() => _gstInclusive = !_gstInclusive),
+                        child: Container(
+                          width: 42, height: 22,
+                          decoration: BoxDecoration(
+                            color: _gstInclusive ? _amber : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: AnimatedAlign(
+                            duration: const Duration(milliseconds: 150),
+                            alignment: _gstInclusive ? Alignment.centerRight : Alignment.centerLeft,
+                            child: Container(
+                              width: 18, height: 18,
+                              margin: const EdgeInsets.symmetric(horizontal: 2),
+                              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ]),
+                    _divider(),
+                    Row(children: [
+                      const Text('Rounding Off', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                      const Spacer(),
+                      SizedBox(
+                        width: 70,
+                        child: TextField(
+                          controller: _roundingCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontSize: 12),
+                          decoration: InputDecoration(
+                            hintText: '0.00',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ]),
+                    _divider(),
+                    Row(children: [
+                      const Text('Final Bill', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+                      const Spacer(),
+                      Text(
+                        _finalBill.isNotEmpty ? '₹$_finalBill' : '—',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: _yellow),
+                      ),
+                    ]),
+                  ]),
+                ),
+                const SizedBox(height: 20),
+
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 13)),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _submitting ? null : _submit,
+                      style: FilledButton.styleFrom(backgroundColor: _amber, padding: const EdgeInsets.symmetric(vertical: 13)),
+                      icon: _submitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.save_outlined, size: 16),
+                      label: Text(_submitting ? 'Saving…' : widget.initial == null ? 'Add Entry' : 'Save Changes'),
+                    ),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: _yellow, letterSpacing: 0.8)),
+  );
+
+  Widget _divider() => const Padding(padding: EdgeInsets.symmetric(vertical: 6), child: Divider(height: 1, color: Color(0xFFFDE68A)));
+
+  Widget _summaryRow(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(children: [
+      Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+      const Spacer(),
+      Text(value.isNotEmpty ? '₹$value' : '—', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+    ]),
+  );
+
+  Widget _suggestionList(List<String> items, void Function(String) onPick) => Container(
+    constraints: const BoxConstraints(maxHeight: 150),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      border: Border.all(color: Colors.grey.shade200),
+      borderRadius: BorderRadius.circular(10),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10)],
+    ),
+    child: ListView.builder(
+      shrinkWrap: true,
+      itemCount: items.length,
+      itemBuilder: (_, i) => GestureDetector(
+        onTap: () => onPick(items[i]),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(border: i > 0 ? const Border(top: BorderSide(color: Color(0xFFF1F5F9))) : null),
+          child: Text(items[i], style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
+        ),
+      ),
+    ),
+  );
+}
+
+extension on double {
+  String toLocaleString() {
+    if (this >= 10000000) return '${(this / 10000000).toStringAsFixed(2)}Cr';
+    if (this >= 100000) return '${(this / 100000).toStringAsFixed(2)}L';
+    if (this >= 1000) return '${(this / 1000).toStringAsFixed(1)}K';
+    return toStringAsFixed(2);
+  }
 }

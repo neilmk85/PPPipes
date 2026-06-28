@@ -1616,3 +1616,64 @@ func (h *BusinessHandler) DeletePipePurchase(w http.ResponseWriter, r *http.Requ
 	}
 	util.SendSuccess(w, "Pipe purchase deleted and inventory reversed", nil)
 }
+
+// ─── Extra Fab ────────────────────────────────────────────────────────────────
+
+func (h *BusinessHandler) ListExtraFab(w http.ResponseWriter, r *http.Request) {
+	var rows []models.BizExtraFab
+	q := applyDateRange(h.db.Order("date DESC, id DESC"), r)
+	if err := q.Find(&rows).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to fetch extra fab entries")
+		return
+	}
+	util.SendSuccess(w, "Extra fab entries retrieved", rows)
+}
+
+func (h *BusinessHandler) CreateExtraFab(w http.ResponseWriter, r *http.Request) {
+	var row models.BizExtraFab
+	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if err := h.db.Create(&row).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to create extra fab entry")
+		return
+	}
+	util.SendSuccess(w, "Extra fab entry created", row)
+}
+
+func (h *BusinessHandler) UpdateExtraFab(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+	var row models.BizExtraFab
+	if err := h.db.First(&row, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	row.ID = id
+	if err := h.db.Save(&row).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to update extra fab entry")
+		return
+	}
+	util.SendSuccess(w, "Extra fab entry updated", row)
+}
+
+func (h *BusinessHandler) DeleteExtraFab(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+	if err := h.db.Delete(&models.BizExtraFab{}, id).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to delete extra fab entry")
+		return
+	}
+	util.SendSuccess(w, "Extra fab entry deleted", nil)
+}

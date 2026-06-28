@@ -1859,6 +1859,12 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PUT /api/business/diesel-maintenance/{id}", middleware.Chain(businessHandler.UpdateDieselMaintenance, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/diesel-maintenance/{id}", middleware.Chain(businessHandler.DeleteDieselMaintenance, middleware.Authenticate(db)))
 
+	// Extra Fabrication Charges
+	mux.HandleFunc("GET /api/business/extra-fab", middleware.Chain(businessHandler.ListExtraFab, middleware.Authenticate(db)))
+	mux.HandleFunc("POST /api/business/extra-fab", middleware.Chain(businessHandler.CreateExtraFab, middleware.Authenticate(db)))
+	mux.HandleFunc("PUT /api/business/extra-fab/{id}", middleware.Chain(businessHandler.UpdateExtraFab, middleware.Authenticate(db)))
+	mux.HandleFunc("DELETE /api/business/extra-fab/{id}", middleware.Chain(businessHandler.DeleteExtraFab, middleware.Authenticate(db)))
+
 	// Store Room Materials
 	mux.HandleFunc("GET /api/business/store-room-materials", middleware.Chain(businessHandler.ListStoreRoomMaterials, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/store-room-materials", middleware.Chain(businessHandler.CreateStoreRoomMaterial, middleware.Authenticate(db)))

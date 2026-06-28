@@ -30,6 +30,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   void initState() {
     super.initState();
+    _emailCtrl.text    = 'admin@pppipeproducts.com';
+    _passwordCtrl.text = 'Admin@123';
     _fadeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 900));
     _fadeAnim =
@@ -220,7 +222,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           const SizedBox(height: 8),
                           _GlassField(
                             controller: _emailCtrl,
-                            hint: 'admin@pos.com',
+                            hint: 'admin@pppipeproducts.com',
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             icon: Icons.email_outlined,
@@ -339,7 +341,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           // ── Hint ──
                           Center(
                             child: Text(
-                              'Default: admin@pos.com / Admin@123',
+                              'Default: admin@pppipeproducts.com / Admin@123',
                               style: TextStyle(
                                 fontSize: 11,
                                 color:

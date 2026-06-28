@@ -21,15 +21,15 @@ const _cards = [
   _BizCard('psc',                'PSC',                'Pre-stressed concrete spun',    'Production', Icons.inventory_2_outlined,          Color(0xFF2563EB)),
   _BizCard('testing-lab',        'Testing Lab',        'QC & test results log',         'Quality',    Icons.science_outlined,              Color(0xFF0891B2)),
   _BizCard('pdi',                'PDI',                'Pre-dispatch inspection',       'Quality',    Icons.assignment_turned_in_outlined, Color(0xFF059669)),
-  _BizCard('maintenance',        'Maintenance',        'Equipment & plant upkeep',      'Operations', Icons.build_outlined,                Color(0xFFD97706)),
+  _BizCard('maintenance',        'Maintenance',        'Equipment & plant upkeep',      'Operations', Icons.build_outlined,                Color(0xFF7C3AED)),
   _BizCard('vehicles',           'Vehicles',           'Diesel & mileage tracking',     'Logistics',  Icons.local_shipping_outlined,       Color(0xFFEA580C)),
   _BizCard('silo',               'Silo',               'Silo fill & level records',     'Operations', Icons.storage_outlined,              Color(0xFF0D9488)),
   _BizCard('silo-extraction',    'Silo Extraction',    'Material drawn from silos',     'Operations', Icons.download_outlined,             Color(0xFF0284C7)),
   _BizCard('discard',            'Discard',            'Scrapped or rejected items',    'Quality',    Icons.delete_outline,                Color(0xFFEF4444)),
   _BizCard('extra-fab',          'Extra Fab',          'Additional fabrication work',   'Production', Icons.hardware_outlined,             Color(0xFFCA8A04)),
   _BizCard('labour',             'Labour',             'Daily attendance & wages',      'HR',         Icons.people_outline,                Color(0xFF4F46E5)),
-  _BizCard('cement-bags',        'Cement Bags',        'Daily consumption log',         'Materials',  Icons.all_inbox_outlined,            Color(0xFF57534E)),
-  _BizCard('store-material',     'Store Material',     'Store room stock entries',      'Materials',  Icons.archive_outlined,              Color(0xFF65A30D)),
+  _BizCard('cement-bags',        'Used Cement Bags',   'Daily bag consumption log',     'Materials',  Icons.all_inbox_outlined,            Color(0xFF57534E)),
+  _BizCard('store-material',     'Store Material',     'Store room stock entries',      'Materials',  Icons.archive_outlined,              Color(0xFF7C3AED)),
   _BizCard('diesel-maintenance', 'Diesel Maintenance', 'Fuel usage & maintenance',      'Logistics',  Icons.local_gas_station_outlined,    Color(0xFFE11D48)),
   _BizCard('extra-vehicles',     'Extra Vehicles',     'Hired & additional vehicles',   'Logistics',  Icons.directions_car_outlined,       Color(0xFFC026D3)),
   _BizCard('cutting',            'Cutting',            'Pipe cutting records',          'Production', Icons.content_cut_outlined,          Color(0xFFDB2777)),
@@ -39,7 +39,7 @@ const _cards = [
   _BizCard('transport-report',   'Transport Report',   'Vehicle trip summary',          'Logistics',  Icons.bar_chart_outlined,            Color(0xFFEA580C)),
 ];
 
-const _routed = {'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'pdi', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes'};
+const _routed = {'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'pdi', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes', 'labour', 'store-material', 'maintenance', 'cutting', 'diesel-maintenance', 'transport-report', 'discard', 'extra-fab'};
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -200,8 +200,24 @@ class _BusinessScreenState extends State<BusinessScreen> {
       context.push('/business/extra-vehicles');
     } else if (key == 'conversion') {
       context.push('/business/conversion');
+    } else if (key == 'labour') {
+      context.push('/business/labour');
     } else if (key == 'loaded-pipes') {
       context.push('/business/loaded-pipes');
+    } else if (key == 'store-material') {
+      context.push('/business/store-material');
+    } else if (key == 'maintenance') {
+      context.push('/business/maintenance');
+    } else if (key == 'cutting') {
+      context.push('/business/cutting');
+    } else if (key == 'diesel-maintenance') {
+      context.push('/business/diesel-maintenance');
+    } else if (key == 'transport-report') {
+      context.push('/business/transport-report');
+    } else if (key == 'discard') {
+      context.push('/business/discard');
+    } else if (key == 'extra-fab') {
+      context.push('/business/extra-fab');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Coming soon'), duration: Duration(seconds: 2)),

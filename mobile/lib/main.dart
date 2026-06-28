@@ -103,6 +103,14 @@ class PosApp extends ConsumerWidget {
             GoRoute(path: '/business/extra-vehicles',  builder: (_, __) => const ExtraVehiclesScreen()),
             GoRoute(path: '/business/conversion',      builder: (_, __) => const ConversionScreen()),
             GoRoute(path: '/business/loaded-pipes',   builder: (_, __) => const LoadedPipesScreen()),
+            GoRoute(path: '/business/labour',          builder: (_, __) => const LabourScreen()),
+            GoRoute(path: '/business/store-material',  builder: (_, __) => const StoreMaterialScreen()),
+            GoRoute(path: '/business/maintenance',     builder: (_, __) => const MaintenanceScreen()),
+            GoRoute(path: '/business/cutting',            builder: (_, __) => const CuttingScreen()),
+            GoRoute(path: '/business/diesel-maintenance', builder: (_, __) => const DieselMaintenanceScreen()),
+            GoRoute(path: '/business/transport-report',  builder: (_, __) => const TransportReportScreen()),
+            GoRoute(path: '/business/discard',           builder: (_, __) => const DiscardScreen()),
+            GoRoute(path: '/business/extra-fab',         builder: (_, __) => const ExtraFabScreen()),
             GoRoute(path: '/products',    builder: (_, __) => const ProductsScreen()),
             GoRoute(path: '/inventory',   builder: (_, __) => const InventoryScreen()),
             GoRoute(path: '/reports',     builder: (_, __) => const ReportsScreen()),
@@ -142,10 +150,9 @@ class PosApp extends ConsumerWidget {
 
 // ── Section detection ─────────────────────────────────────────────────────────
 
-enum _Section { dashboard, pos, commerce, operations, reports, settings }
+enum _Section { dashboard, commerce, operations, reports, settings }
 
 _Section _sectionOf(String path) {
-  if (path.startsWith('/pos')) return _Section.pos;
   if (path.startsWith('/commerce')     ||
       path.startsWith('/sales-orders') ||
       path.startsWith('/purchases')    ||
@@ -185,16 +192,8 @@ List<_BotItem> _itemsFor(_Section section) {
     case _Section.dashboard:
       return const [
         _BotItem(path: '/dashboard',  icon: Icons.dashboard_outlined,    activeIcon: Icons.dashboard,    label: 'Dashboard'),
-        _BotItem(path: '/pos',        icon: Icons.point_of_sale_outlined, activeIcon: Icons.point_of_sale,label: 'POS'),
         _BotItem(path: '/commerce',   icon: Icons.shopping_bag_outlined,  activeIcon: Icons.shopping_bag, label: 'Commerce'),
         _BotItem(path: '/operations', icon: Icons.factory_outlined,       activeIcon: Icons.factory,      label: 'Operations'),
-      ];
-    case _Section.pos:
-      return const [
-        _BotItem(path: '/pos',       icon: Icons.point_of_sale_outlined, activeIcon: Icons.point_of_sale, label: 'POS'),
-        _BotItem(path: '/products',  icon: Icons.inventory_2_outlined,   activeIcon: Icons.inventory_2,   label: 'Products'),
-        _BotItem(path: '/customers', icon: Icons.people_outline,         activeIcon: Icons.people,         label: 'Customers'),
-        _BotItem(path: '/orders',    icon: Icons.receipt_long_outlined,  activeIcon: Icons.receipt_long,   label: 'Orders'),
       ];
     case _Section.commerce:
       return const [
@@ -213,14 +212,12 @@ List<_BotItem> _itemsFor(_Section section) {
     case _Section.reports:
       return const [
         _BotItem(path: '/dashboard', icon: Icons.dashboard_outlined,    activeIcon: Icons.dashboard,    label: 'Dashboard'),
-        _BotItem(path: '/pos',       icon: Icons.point_of_sale_outlined,activeIcon: Icons.point_of_sale,label: 'POS'),
         _BotItem(path: '/reports',   icon: Icons.bar_chart_outlined,    activeIcon: Icons.bar_chart,    label: 'Reports'),
         _BotItem(path: '/settings',  icon: Icons.settings_outlined,     activeIcon: Icons.settings,     label: 'Settings'),
       ];
     case _Section.settings:
       return const [
         _BotItem(path: '/dashboard', icon: Icons.dashboard_outlined,    activeIcon: Icons.dashboard,    label: 'Dashboard'),
-        _BotItem(path: '/pos',       icon: Icons.point_of_sale_outlined,activeIcon: Icons.point_of_sale,label: 'POS'),
         _BotItem(path: '/reports',   icon: Icons.bar_chart_outlined,    activeIcon: Icons.bar_chart,    label: 'Reports'),
         _BotItem(path: '/settings',  icon: Icons.settings_outlined,     activeIcon: Icons.settings,     label: 'Settings'),
       ];
@@ -240,17 +237,21 @@ class _AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<_AppShell> {
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).matchedLocation;
+    // Use the full URI path so sub-routes inside ShellRoute are detected correctly
+    final location = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
     final section  = _sectionOf(location);
     final items    = _itemsFor(section);
     final activeIdx = items.indexWhere((it) => location.startsWith(it.path));
     final auth     = ref.watch(authProvider);
 
+    // Business hub + every sub-screen: no bottom nav
+    final showBottomNav = !location.startsWith('/business');
+
     return Scaffold(
       key: appShellKey,
       drawer: _AppDrawer(currentPath: location, auth: auth, ref: ref),
       body: widget.child,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: showBottomNav ? NavigationBar(
         selectedIndex: activeIdx < 0 ? 0 : activeIdx,
         onDestinationSelected: (i) => context.go(items[i].path),
         labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
@@ -259,7 +260,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
           selectedIcon: Icon(item.activeIcon),
           label: item.label,
         )).toList(),
-      ),
+      ) : null,
     );
   }
 }
@@ -301,7 +302,6 @@ class _AppDrawer extends StatelessWidget {
                     _sectionLabel('HOME'),
                     _navItem(context, '/dashboard',  Icons.dashboard_outlined,         Icons.dashboard,         'Dashboard'),
                     _navItem(context, '/business',   Icons.business_center_outlined,   Icons.business_center,   'Business'),
-                    _navItem(context, '/pos',         Icons.point_of_sale_outlined,     Icons.point_of_sale,     'Point of Sale'),
 
                     // ── COMMERCE ─────────────────────────────────────
                     const SizedBox(height: 6),

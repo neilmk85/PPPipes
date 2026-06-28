@@ -202,71 +202,6 @@ function Autocomplete({
   )
 }
 
-// ── Pipe dropdown with coloured qty ──────────────────────────────────────────
-
-function PipeDropdown({
-  value, onChange, options,
-}: {
-  value: string
-  onChange: (v: string) => void
-  options: { pipeName: string; finalTesting: number }[]
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-
-  const selected = options.find(o => o.pipeName === value)
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className={`w-full flex items-center justify-between px-3 py-2.5 text-sm border rounded-xl bg-white transition-all ${
-          open ? 'border-violet-400 ring-2 ring-violet-200' : 'border-gray-200 hover:border-gray-300'
-        }`}
-      >
-        {selected ? (
-          <span className="flex items-center gap-2">
-            <span className="text-gray-800 font-medium">{selected.pipeName}</span>
-            <span className="text-green-600 font-bold text-xs">{selected.finalTesting} available</span>
-          </span>
-        ) : (
-          <span className="text-gray-400">Select pipe type…</span>
-        )}
-        <ChevronDown size={14} className={`text-gray-400 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div className="absolute top-full mt-1.5 left-0 right-0 z-50 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden">
-          {options.map(o => (
-            <button
-              key={o.pipeName}
-              type="button"
-              onClick={() => { onChange(o.pipeName); setOpen(false) }}
-              className={`w-full flex items-center justify-between px-3 py-2.5 text-sm transition-colors ${
-                value === o.pipeName
-                  ? 'bg-violet-50 text-violet-700'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <span className="font-medium">{o.pipeName}</span>
-              <span className="text-green-600 font-bold text-xs tabular-nums">{o.finalTesting} avail.</span>
-            </button>
-          ))}
-          {options.length === 0 && (
-            <p className="px-3 py-3 text-xs text-gray-400 text-center">No pipes in final testing</p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── Challan document body ─────────────────────────────────────────────────────
 
@@ -2149,10 +2084,20 @@ export default function LoadingPage() {
 
                           {/* Pipe Name */}
                           <div>
-                            <PipeDropdown
+                            <Autocomplete
                               value={pe.pipeName}
                               onChange={v => updatePipeEntry(pe.id, { pipeName: v })}
-                              options={rows.filter(r => r.finalTesting > 0)}
+                              options={rows.filter(r => r.finalTesting > 0).map(r => r.pipeName)}
+                              placeholder="Search pipe type…"
+                              renderOption={opt => {
+                                const r = rows.find(r => r.pipeName === opt)
+                                return (
+                                  <span className="flex items-center justify-between w-full">
+                                    <span className="font-medium">{opt}</span>
+                                    {r && <span className="text-green-600 font-bold text-xs tabular-nums">{r.finalTesting} avail.</span>}
+                                  </span>
+                                )
+                              }}
                             />
                             {idx === 0 && !pe.pipeName && (
                               <input required value="" onChange={() => {}} className="sr-only" tabIndex={-1} aria-hidden />

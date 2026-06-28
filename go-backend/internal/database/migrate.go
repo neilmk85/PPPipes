@@ -375,6 +375,10 @@ func Migrate(db *gorm.DB) error {
 		slog.Error("[Database] Failed to migrate BizCutting", "error", err)
 		return err
 	}
+	if err := db.AutoMigrate(&models.BizExtraFab{}); err != nil {
+		slog.Error("[Database] Failed to migrate BizExtraFab", "error", err)
+		return err
+	}
 	if err := db.AutoMigrate(&models.Discard{}); err != nil {
 		slog.Error("[Database] Failed to migrate Discard", "error", err)
 		return err

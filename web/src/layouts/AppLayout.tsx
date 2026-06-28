@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ShoppingCart, Package, Users, BarChart3, Settings, LogOut,
+  Package, Users, BarChart3, Settings, LogOut,
   Tag, ArrowLeftRight, TrendingUp, ChevronLeft, ChevronRight,
   Store, FileText, Boxes, ShoppingBag,
   Building2, PackageCheck, Receipt, CreditCard, FileX,
@@ -42,7 +42,6 @@ function isPathActive(current: string, path: string): boolean {
 }
 
 const navEntries: NavEntry[] = [
-  { path: '/pos',       icon: <ShoppingCart size={18} />,    label: 'POS', disabled: true },
   { path: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
   { path: '/business',  icon: <Briefcase size={18} />,       label: 'Business' },
   {

@@ -603,3 +603,44 @@ export const cuttingsApi = {
   delete: (id: number) =>
     api.delete(`/business/cuttings/${id}`),
 }
+
+// ─── Extra Fabrication Charges ────────────────────────────────────────────────
+
+export interface ExtraFabEntry {
+  id:              number
+  date:            string
+  vendorName:      string
+  particular:      string
+  rate:            string
+  quantity:        string
+  taxPercent:      string
+  lineTotal:       string
+  notes:           string
+  invoiceNo:       string
+  vehicleNo:       string
+  invoiceData:     string
+  subTotal:        string
+  discountPercent: string
+  billPrice:       string
+  taxable:         string
+  gstInclusive:    boolean
+  roundingOff:     string
+  finalBill:       string
+  createdAt:       string
+  updatedAt:       string
+}
+
+export const extraFabApi = {
+  list: (from?: string, to?: string) =>
+    api.get<{ data: ExtraFabEntry[] }>('/business/extra-fab', { params: buildParams(from, to) })
+      .then(unwrap<ExtraFabEntry[]>),
+
+  create: (data: Omit<ExtraFabEntry, 'id' | 'createdAt' | 'updatedAt'>) =>
+    api.post<{ data: ExtraFabEntry }>('/business/extra-fab', data).then(unwrap<ExtraFabEntry>),
+
+  update: (id: number, data: Omit<ExtraFabEntry, 'id' | 'createdAt' | 'updatedAt'>) =>
+    api.put<{ data: ExtraFabEntry }>(`/business/extra-fab/${id}`, data).then(unwrap<ExtraFabEntry>),
+
+  delete: (id: number) =>
+    api.delete(`/business/extra-fab/${id}`),
+}

@@ -87,6 +87,7 @@ import DiameterHeatmapPage from '@/pages/business/DiameterHeatmapPage'
 import TransportReportPage from '@/pages/business/TransportReportPage'
 import LabourPage from '@/pages/business/LabourPage'
 import ThirdPartyPipePurchasePage from '@/pages/business/ThirdPartyPipePurchasePage'
+import ExtraFabPage from '@/pages/business/ExtraFabPage'
 import BusinessSettingsPage from '@/pages/business/BusinessSettingsPage'
 import SitePage from '@/pages/site/SitePage'
 import SitesPage from '@/pages/site/SitesPage'
@@ -134,6 +135,7 @@ export default function App() {
           <Route path="/business/conversion" element={<ProtectedRoute><ConversionPage /></ProtectedRoute>} />
           <Route path="/business/cutting" element={<ProtectedRoute><CuttingPage /></ProtectedRoute>} />
           <Route path="/business/discard" element={<ProtectedRoute><DiscardPage /></ProtectedRoute>} />
+          <Route path="/business/extra-fab" element={<ProtectedRoute><ExtraFabPage /></ProtectedRoute>} />
           <Route path="/business/pdi" element={<ProtectedRoute><PDIPage /></ProtectedRoute>} />
           <Route path="/business/loading" element={<ProtectedRoute><LoadingPage /></ProtectedRoute>} />
           <Route path="/business/loading/diameter-view" element={<ProtectedRoute><DiameterHeatmapPage /></ProtectedRoute>} />

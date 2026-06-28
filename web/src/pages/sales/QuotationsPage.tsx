@@ -246,7 +246,7 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
       const res = await quotationApi.create({
         customerId: selectedCustomer?.id ?? null,
         outletId,
-        validUntil,
+        validUntil: validUntil ? `${validUntil}T00:00:00Z` : undefined,
         notes: notes || undefined,
         termsConditions: terms || undefined,
         items: items.map(it => ({
