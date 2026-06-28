@@ -2177,9 +2177,9 @@ export default function LoadingPage() {
                               </button>
                             </div>
                             {over
-                              ? <p className="text-[10px] text-red-500 mt-0.5">Exceeds {avail} available</p>
+                              ? <p className="text-[10px] text-red-500 mt-0.5">Only {avail} available, {qty - avail} short</p>
                               : pe.pipeName && avail > 0
-                                ? <p className="text-[10px] text-gray-400 mt-0.5">Max {avail}</p>
+                                ? <p className="text-[10px] text-gray-400 mt-0.5">{avail} available</p>
                                 : null
                             }
                           </div>
