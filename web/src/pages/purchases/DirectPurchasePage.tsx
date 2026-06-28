@@ -50,11 +50,11 @@ function lineCalc(line: LineItem, gstInclusive: boolean) {
   const qty      = parseFloat(String(line.qty)) || 0
   const unitCost = parseFloat(String(line.unitCost)) || 0
   const taxGroup = line.taxGroupOverride ?? line.product?.taxGroup
-  const totalRate = parseFloat(taxGroup?.totalRate ?? line.taxRate ?? 0)
-  const cgstRate  = parseFloat(taxGroup?.cgstRate ?? 0)
-  const sgstRate  = parseFloat(taxGroup?.sgstRate ?? 0)
-  const igstRate  = parseFloat(taxGroup?.igstRate ?? 0)
-  const cessRate  = parseFloat(taxGroup?.cessRate ?? 0)
+  const totalRate = Number(taxGroup?.totalRate) || 0
+  const cgstRate  = Number(taxGroup?.cgstRate)  || 0
+  const sgstRate  = Number(taxGroup?.sgstRate)  || 0
+  const igstRate  = Number(taxGroup?.igstRate)  || 0
+  const cessRate  = Number(taxGroup?.cessRate)  || 0
 
   const subtotal = gstInclusive
     ? qty * unitCost / (1 + totalRate / 100)
@@ -200,7 +200,7 @@ function GstPicker({ value, onChange }: { value: any; onChange: (tg: any | null)
             className="w-full px-3 py-2.5 text-sm text-gray-500 hover:bg-gray-50 text-left border-b border-gray-100">
             0%
           </button>
-          {(groups as any[]).map((g: any) => (
+          {(groups as any[]).filter((g: any) => Number(g.totalRate) > 0).map((g: any) => (
             <button key={g.id} onMouseDown={e => { e.preventDefault(); onChange(g); setOpen(false) }}
               className={`w-full px-3 py-2.5 text-sm text-left hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 ${value?.id === g.id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-800'}`}>
               {g.totalRate}%
