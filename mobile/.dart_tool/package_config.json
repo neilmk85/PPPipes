@@ -380,6 +380,12 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "home_widget",
+      "rootUri": "file:///Users/nilesh/.pub-cache/hosted/pub.dev/home_widget-0.9.2+1",
+      "packageUri": "lib/",
+      "languageVersion": "3.5"
+    },
+    {
       "name": "http",
       "rootUri": "file:///Users/nilesh/.pub-cache/hosted/pub.dev/http-1.6.0",
       "packageUri": "lib/",

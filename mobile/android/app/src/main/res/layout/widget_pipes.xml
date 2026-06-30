@@ -35,7 +35,7 @@
 
     </LinearLayout>
 
-    <!-- Body: donut left, stat cards right -->
+    <!-- Body: donut left, 2x2 cards right -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -46,42 +46,44 @@
         <!-- Donut chart -->
         <ImageView
             android:id="@+id/iv_chart"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
             android:layout_marginEnd="8dp"
             android:contentDescription="Stats chart" />
 
-        <!-- Stat cards stacked vertically -->
+        <!-- 2x2 card grid -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <!-- Available card -->
+            <!-- Row 1: Available | Loaded Today -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:layout_marginBottom="4dp"
-                android:background="@drawable/widget_card_purple"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp">
+                android:orientation="horizontal">
 
+                <!-- Available -->
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/widget_card_amber"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Available"
-                        android:textColor="#C4B5FD"
-                        android:textSize="8sp" />
+                        android:textColor="#FCD34D"
+                        android:textSize="7sp" />
 
                     <TextView
                         android:id="@+id/tv_available"
@@ -89,43 +91,28 @@
                         android:layout_height="wrap_content"
                         android:text="—"
                         android:textColor="#FFFFFF"
-                        android:textSize="22sp"
+                        android:textSize="17sp"
                         android:textStyle="bold" />
 
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="pipes"
-                    android:textColor="#7C3AED"
-                    android:textSize="8sp" />
-
-            </LinearLayout>
-
-            <!-- Loaded Today card -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:background="@drawable/widget_card_blue"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp">
-
+                <!-- Loaded Today -->
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:background="@drawable/widget_card_orange"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Loaded Today"
-                        android:textColor="#93C5FD"
-                        android:textSize="8sp" />
+                        android:text="Loaded"
+                        android:textColor="#FDBA74"
+                        android:textSize="7sp" />
 
                     <TextView
                         android:id="@+id/tv_loaded"
@@ -133,17 +120,78 @@
                         android:layout_height="wrap_content"
                         android:text="—"
                         android:textColor="#FFFFFF"
-                        android:textSize="22sp"
+                        android:textSize="17sp"
                         android:textStyle="bold" />
 
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="pipes"
-                    android:textColor="#1D4ED8"
-                    android:textSize="8sp" />
+            </LinearLayout>
+
+            <!-- Row 2: Revenue Today | Made Today -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="horizontal">
+
+                <!-- Revenue Today -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/widget_card_amber"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Orders Today"
+                        android:textColor="#FCD34D"
+                        android:textSize="7sp" />
+
+                    <TextView
+                        android:id="@+id/tv_orders_today"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="—"
+                        android:textColor="#FFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <!-- Made Today -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/widget_card_orange"
+                    android:orientation="vertical"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="4dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Low Stock"
+                        android:textColor="#FDBA74"
+                        android:textSize="7sp" />
+
+                    <TextView
+                        android:id="@+id/tv_low_stock"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="—"
+                        android:textColor="#FFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
 
             </LinearLayout>
 

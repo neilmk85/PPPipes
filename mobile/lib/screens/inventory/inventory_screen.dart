@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pos_mobile/main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
@@ -18,51 +19,246 @@ class InventoryScreen extends ConsumerStatefulWidget {
   ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends ConsumerState<InventoryScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabs;
+class _InventoryScreenState extends ConsumerState<InventoryScreen> {
+  static const _color = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF3730A3);
 
-  @override
-  void initState() {
-    super.initState();
-    _tabs = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
+  String _tab = 'lowstock';
 
   @override
   Widget build(BuildContext context) {
+    final lowStockAsync = ref.watch(_lowStockProvider);
+    final lowStockCount = lowStockAsync.valueOrNull?.length ?? 0;
+
+    String viewLabel;
+    switch (_tab) {
+      case 'adjust':
+        viewLabel = 'Adjust';
+        break;
+      case 'outlets':
+        viewLabel = 'Outlets';
+        break;
+      default:
+        viewLabel = 'Low Stock';
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu_outlined),
-          onPressed: openAppDrawer,
-          tooltip: 'Open menu',
-        ),
-        title: const Text('Inventory'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(text: 'Low Stock'),
-            Tab(text: 'Adjust Stock'),
-            Tab(text: 'Search Outlets'),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 106,
+            toolbarHeight: 46,
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: context.canPop()
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => context.pop(),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.menu_outlined),
+                    onPressed: openAppDrawer,
+                    tooltip: 'Open menu',
+                  ),
+            title: const Text(
+              'Inventory',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+                color: Colors.white,
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: () => ref.invalidate(_lowStockProvider),
+                color: Colors.white,
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, _colorDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -24,
+                      top: -24,
+                      child: Container(
+                        width: 110,
+                        height: 110,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                        child: Row(
+                          children: [
+                            _hStat('$lowStockCount', 'Low Stock'),
+                            _hStat(viewLabel, 'View'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SliverFillRemaining(
+            child: _buildTabContent(),
+          ),
+        ],
+      ),
+      bottomNavigationBar: _buildFloatingNav(),
+    );
+  }
+
+  Widget _buildTabContent() {
+    switch (_tab) {
+      case 'adjust':
+        return const _AdjustStockTab();
+      case 'outlets':
+        return const _CrossOutletTab();
+      default:
+        return const _LowStockTab();
+    }
+  }
+
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.13),
+                      blurRadius: 24,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: _color.withValues(alpha: 0.12),
+                      blurRadius: 40,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Row(
+                  children: [
+                    _navItem(
+                        icon: Icons.warning_amber_outlined,
+                        label: 'Low Stock',
+                        tab: 'lowstock'),
+                    _navItem(
+                        icon: Icons.tune_outlined,
+                        label: 'Adjust',
+                        tab: 'adjust'),
+                    _navItem(
+                        icon: Icons.store_outlined,
+                        label: 'Outlets',
+                        tab: 'outlets'),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabs,
-        children: const [
-          _LowStockTab(),
-          _AdjustStockTab(),
-          _CrossOutletTab(),
-        ],
+    );
+  }
+
+  Widget _navItem(
+      {required IconData icon, required String label, required String tab}) {
+    final active = _tab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tab = tab),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, _colorDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(26)),
+                )
+              : null,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 22,
+                  color: active ? Colors.white : const Color(0xFF94A3B8)),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight:
+                      active ? FontWeight.w700 : FontWeight.w500,
+                  color: active ? Colors.white : const Color(0xFF94A3B8),
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+
+  Widget _hStat(String value, String label) => Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                  fontSize: 9, color: Colors.white70, letterSpacing: 0.2),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
 }
 
 // ─── Low Stock Tab ───────────────────────────────────────────────────────────
@@ -78,19 +274,73 @@ class _LowStockTab extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (items) => items.isEmpty
           ? const Center(child: Text('No low stock items 🎉'))
-          : ListView.builder(
-              itemCount: items.length,
-              itemBuilder: (ctx, i) {
-                final inv = items[i];
-                return ListTile(
-                  title: Text(inv.product.name),
-                  subtitle: Text(
-                      '${inv.product.sku ?? ''}  •  Reorder at: ${inv.reorderLevel}'),
-                  trailing: _StockBadge(
-                      qty: inv.quantityOnHand,
-                      reorder: inv.reorderLevel.toDouble()),
-                );
-              },
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              child: ListView.builder(
+                itemCount: items.length,
+                itemBuilder: (ctx, i) {
+                  final inv = items[i];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.warning_amber_outlined,
+                                color: Colors.orange, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  inv.product.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14),
+                                ),
+                                Text(
+                                  '${inv.product.sku ?? ''}  •  Reorder at: ${inv.reorderLevel}',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _StockBadge(
+                              qty: inv.quantityOnHand,
+                              reorder: inv.reorderLevel.toDouble()),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
     );
   }
@@ -191,7 +441,7 @@ class _AdjustStockTabState extends ConsumerState<_AdjustStockTab> {
                     label: const Text('Adjust'),
                     onPressed: () => _adjust(p),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6C63FF),
+                      backgroundColor: const Color(0xFF4F46E5),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
@@ -375,7 +625,7 @@ class _CrossOutletTabState extends State<_CrossOutletTab> {
   final _searchCtrl = TextEditingController();
   List<Product> _results = [];
   bool _searching = false;
-  Map<int, List<dynamic>> _stockMap = {};
+  final Map<int, List<dynamic>> _stockMap = {};
 
   @override
   void dispose() {
@@ -445,7 +695,7 @@ class _CrossOutletTabState extends State<_CrossOutletTab> {
                         stockData != null
                             ? Icons.expand_less
                             : Icons.store_outlined,
-                        color: const Color(0xFF6C63FF),
+                        color: const Color(0xFF4F46E5),
                       ),
                       onPressed: () => _loadStock(p.id),
                     ),

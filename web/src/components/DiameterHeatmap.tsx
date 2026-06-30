@@ -83,12 +83,19 @@ export function buildHeatmapMatrix(
     diameterMm: extractDiameterMm(name),
     pressureClass: extractPressureClass(name),
   }))
+  // Always show the full standard grid so the heatmap looks the same in live
+  // mode as in dummy mode — only cells with real data are non-zero.
   const dSet  = new Set(configSource.map(c => c.diameterMm).filter(d => d > 0))
   const pcSet = new Set(configSource.map(c => c.pressureClass).filter(Boolean))
-  const diameters = DIAMETER_ORDER.filter(d => dSet.has(d))
+  const liveDiameters = DIAMETER_ORDER.filter(d => dSet.has(d))
     .concat(Array.from(dSet).filter(d => !DIAMETER_ORDER.includes(d)).sort((a, b) => a - b))
-  const pressureClasses = PC_ORDER.filter(pc => pcSet.has(pc))
+  const livePcs = PC_ORDER.filter(pc => pcSet.has(pc))
     .concat(Array.from(pcSet).filter(pc => !PC_ORDER.includes(pc)).sort())
+  // Merge live sizes into the full standard order so all columns/rows are shown
+  const diameters = DIAMETER_ORDER
+    .concat(liveDiameters.filter(d => !DIAMETER_ORDER.includes(d)))
+  const pressureClasses = PC_ORDER
+    .concat(livePcs.filter(pc => !PC_ORDER.includes(pc)))
 
   const matrix: Record<number, Record<string, number>> = {}
   diameters.forEach(d => { matrix[d] = {}; pressureClasses.forEach(pc => { matrix[d][pc] = 0 }) })

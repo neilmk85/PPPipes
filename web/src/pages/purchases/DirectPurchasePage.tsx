@@ -5,7 +5,7 @@ import {
   Plus, Trash2, Search, Package, ChevronLeft, ChevronRight,
   FileText, Building2, Loader2, X, Calendar, ChevronDown,
   Truck, Receipt, History,
-  Banknote, CreditCard, SplitSquareHorizontal,
+  Banknote, CreditCard, SplitSquareHorizontal, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { productApi, vendorApi, taxGroupApi, purchaseOrderApi, outletApi } from '@/services/api'
@@ -566,6 +566,7 @@ export default function DirectPurchasePage() {
   // Slide panel state
   const [showForm, setShowForm]       = useState(false)
   const [panelVisible, setPanelVisible] = useState(false)
+  const [editingPO, setEditingPO]     = useState<any>(null)
 
   const [selectedPO, setSelectedPO] = useState<any>(null)
 
@@ -639,14 +640,39 @@ export default function DirectPurchasePage() {
     setPaidAmount('')
   }
 
-  function openPanel() {
-    resetForm()
+  function openPanel(po?: any) {
+    if (po) {
+      setEditingPO(po)
+      setSupplierId(po.supplierId ?? null)
+      setInvoiceNo(po.sourceBills?.[0]?.vendorBillNumber ?? '')
+      const dateStr = po.receivedDate
+        ? new Date(po.receivedDate).toISOString().slice(0, 10)
+        : new Date(po.createdAt).toISOString().slice(0, 10)
+      setPurchaseDate(dateStr)
+      setNotes(po.notes ?? '')
+      setGstInclusive(false)
+      setPaymentMode('cash')
+      setPaidAmount('')
+      const prefilledLines: LineItem[] = (po.items ?? []).map((item: any) => ({
+        _id: _lineId++,
+        product: item.product ?? { id: item.productId, name: `Product #${item.productId}`, sku: '', unitOfMeasure: '' },
+        qty: parseFloat(item.receivedQuantity || item.orderedQuantity) || '',
+        unitCost: parseFloat(item.unitCost) || '',
+        taxRate: parseFloat(item.taxRate) || '',
+        taxGroupOverride: null,
+        uom: item.product?.unitOfMeasure ?? '',
+      }))
+      setLines(prefilledLines.length > 0 ? prefilledLines : [newLine()])
+    } else {
+      setEditingPO(null)
+      resetForm()
+    }
     setShowForm(true)
   }
 
   function closePanel() {
     setPanelVisible(false)
-    setTimeout(() => setShowForm(false), 300)
+    setTimeout(() => { setShowForm(false); setEditingPO(null) }, 300)
   }
 
   useEffect(() => {
@@ -663,31 +689,42 @@ export default function DirectPurchasePage() {
 
     setSaving(true)
     try {
-      const payload: any = {
-        outletId:      effectiveOutletId,
-        supplierId,
-        invoiceNumber: invoiceNo || null,
-        purchaseDate,
-        notes:         notes || null,
-        paymentMode,
-        items: validLines.map(l => {
-          const taxGroup = l.taxGroupOverride ?? l.product?.taxGroup
-          return {
-            productId: l.product.id,
-            quantity:  parseFloat(String(l.qty)),
-            unitCost:  parseFloat(String(l.unitCost)) || 0,
-            taxRate:   parseFloat(taxGroup?.totalRate ?? l.taxRate ?? 0),
-          }
-        }),
-      }
-      if (paymentMode === 'partial' && paidAmount) {
-        payload.paidAmount = parseFloat(paidAmount) || 0
-      }
+      const itemsPayload = validLines.map(l => {
+        const taxGroup = l.taxGroupOverride ?? l.product?.taxGroup
+        return {
+          productId: l.product.id,
+          quantity:  parseFloat(String(l.qty)),
+          unitCost:  parseFloat(String(l.unitCost)) || 0,
+          taxRate:   parseFloat(taxGroup?.totalRate ?? l.taxRate ?? 0),
+        }
+      })
 
-      const res = await purchaseOrderApi.createDirect(payload)
-      const data = res.data.data
-      const modeLabel = paymentMode === 'credit' ? ' · Bill created (unpaid)' : paymentMode === 'partial' ? ' · Bill created (partial)' : ''
-      toast.success(`Purchase recorded! PO# ${data.poNumber}${modeLabel}`)
+      if (editingPO) {
+        await purchaseOrderApi.updateDirect(editingPO.id, {
+          supplierId,
+          purchaseDate,
+          notes: notes || null,
+          items: itemsPayload,
+        })
+        toast.success(`Purchase updated — PO# ${editingPO.poNumber}`)
+      } else {
+        const payload: any = {
+          outletId:      effectiveOutletId,
+          supplierId,
+          invoiceNumber: invoiceNo || null,
+          purchaseDate,
+          notes:         notes || null,
+          paymentMode,
+          items: itemsPayload,
+        }
+        if (paymentMode === 'partial' && paidAmount) {
+          payload.paidAmount = parseFloat(paidAmount) || 0
+        }
+        const res = await purchaseOrderApi.createDirect(payload)
+        const data = res.data.data
+        const modeLabel = paymentMode === 'credit' ? ' · Bill created (unpaid)' : paymentMode === 'partial' ? ' · Bill created (partial)' : ''
+        toast.success(`Purchase recorded! PO# ${data.poNumber}${modeLabel}`)
+      }
 
       qc.invalidateQueries({ queryKey: ['purchase-orders'] })
       qc.invalidateQueries({ queryKey: ['inventory', 'all', effectiveOutletId] })
@@ -763,8 +800,12 @@ export default function DirectPurchasePage() {
                     <Package size={17} className="text-white" />
                   </div>
                   <div>
-                    <h2 className="text-[15px] font-bold text-gray-900 leading-none">Add Direct Purchase</h2>
-                    <p className="text-xs text-gray-400 mt-0.5">PO number assigned on save</p>
+                    <h2 className="text-[15px] font-bold text-gray-900 leading-none">
+                      {editingPO ? `Edit Purchase — ${editingPO.poNumber}` : 'Add Direct Purchase'}
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {editingPO ? 'Inventory will be adjusted on save' : 'PO number assigned on save'}
+                    </p>
                   </div>
                 </div>
                 <button onClick={closePanel} className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-gray-700 transition-colors">
@@ -798,8 +839,8 @@ export default function DirectPurchasePage() {
                       </div>
                     )}
 
-                    {/* Payment Mode */}
-                    <div className="mb-6">
+                    {/* Payment Mode — only for new purchases */}
+                    {!editingPO && <div className="mb-6">
                       <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-3">
                         <Banknote size={12} /> Payment Mode <span className="text-red-400">*</span>
                       </label>
@@ -841,9 +882,9 @@ export default function DirectPurchasePage() {
                           )}
                         </div>
                       )}
-                    </div>
+                    </div>}
 
-                    <div className="grid grid-cols-3 gap-6">
+                    <div className={`grid gap-6 ${editingPO ? 'grid-cols-2' : 'grid-cols-3'}`}>
                       {/* Supplier */}
                       <div>
                         <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-2">
@@ -869,17 +910,19 @@ export default function DirectPurchasePage() {
                         </div>
                       </div>
 
-                      {/* Invoice Number */}
-                      <div>
-                        <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-2">
-                          <FileText size={12} /> Invoice / Bill No.
-                        </label>
-                        <input
-                          type="text" placeholder="e.g. BILL-2024-001"
-                          value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)}
-                          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                        />
-                      </div>
+                      {/* Invoice Number — new purchase only */}
+                      {!editingPO && (
+                        <div>
+                          <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-2">
+                            <FileText size={12} /> Invoice / Bill No.
+                          </label>
+                          <input
+                            type="text" placeholder="e.g. BILL-2024-001"
+                            value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)}
+                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                          />
+                        </div>
+                      )}
 
                       {/* Purchase Date */}
                       <div>
@@ -1036,8 +1079,10 @@ export default function DirectPurchasePage() {
                     className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold shadow-md transition-all active:scale-[.98]"
                   >
                     {saving
-                      ? <><Loader2 size={15} className="animate-spin" /> Recording…</>
-                      : <><Receipt size={15} /> Record Purchase{validLines.length > 1 ? ` (${validLines.length} items)` : ''}</>
+                      ? <><Loader2 size={15} className="animate-spin" /> {editingPO ? 'Updating…' : 'Recording…'}</>
+                      : editingPO
+                        ? <><Pencil size={15} /> Update Purchase</>
+                        : <><Receipt size={15} /> Record Purchase{validLines.length > 1 ? ` (${validLines.length} items)` : ''}</>
                     }
                   </button>
                 </div>
@@ -1203,6 +1248,7 @@ export default function DirectPurchasePage() {
                       <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Total</th>
                       <th className="px-4 py-3 text-center text-[11px] font-bold text-violet-500 uppercase tracking-widest">Payment</th>
                       <th className="px-4 py-3 text-center text-[11px] font-bold text-violet-500 uppercase tracking-widest">Status</th>
+                      <th className="px-4 py-3" />
                     </tr>
                   </thead>
                   <tbody>
@@ -1215,7 +1261,7 @@ export default function DirectPurchasePage() {
                     ) : history.map((po: any) => (
                       <tr key={po.id} onClick={() => setSelectedPO(po)} className="border-b border-gray-50 hover:bg-violet-50/50 cursor-pointer transition-colors">
                         <td className="px-4 py-3">
-                          <span className="font-mono text-xs font-bold text-white bg-gray-800 px-2 py-1 rounded-lg">{po.poNumber}</span>
+                          <span className="font-mono text-xs font-bold text-gray-900">{po.poNumber}</span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{po.receivedDate ? fmtDate(po.receivedDate) : fmtDate(po.createdAt)}</td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-800">{po.supplier?.name ?? '—'}</td>
@@ -1232,6 +1278,15 @@ export default function DirectPurchasePage() {
                             po.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                             'bg-gray-100 text-gray-600'
                           }`}>{po.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={e => { e.stopPropagation(); openPanel(po) }}
+                            className="p-1.5 rounded-lg hover:bg-violet-100 text-gray-400 hover:text-violet-600 transition-colors"
+                            title="Edit purchase"
+                          >
+                            <Pencil size={14} />
+                          </button>
                         </td>
                       </tr>
                     ))}

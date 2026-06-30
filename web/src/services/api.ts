@@ -567,10 +567,12 @@ export const invoiceApi = {
 
 // Quotations
 export const quotationApi = {
+  nextNumber: () => api.get<ApiResponse<any>>('/quotations/next-number'),
   create: (data: any) => api.post<ApiResponse<any>>('/quotations', data),
   getByOutlet: (outletId: number, params?: any) =>
     api.get<ApiResponse<any>>('/quotations', { params: { outletId, ...params } }),
   getById: (id: number) => api.get<ApiResponse<any>>(`/quotations/${id}`),
+  update: (id: number, data: any) => api.put<ApiResponse<any>>(`/quotations/${id}`, data),
   updateStatus: (id: number, status: string) =>
     api.patch<ApiResponse<any>>(`/quotations/${id}/status`, null, { params: { status } }),
 }
@@ -592,6 +594,8 @@ export const purchaseOrderApi = {
     api.post<ApiResponse<any>>('/purchase-orders', data),
   createDirect: (data: any) =>
     api.post<ApiResponse<any>>('/purchase-orders/direct', data),
+  updateDirect: (id: number, data: any) =>
+    api.put<ApiResponse<any>>(`/purchase-orders/direct/${id}`, data),
   update: (id: number, data: any) =>
     api.put<ApiResponse<any>>(`/purchase-orders/${id}`, data),
   updateStatus: (id: number, status: string) =>

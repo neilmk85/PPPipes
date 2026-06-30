@@ -9,6 +9,7 @@ import 'package:pos_mobile/main.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/parse.dart' as sp;
+import '../../widgets/date_filter_dropdown.dart';
 import 'debtors_screen.dart';
 import 'gst_screen.dart';
 
@@ -20,6 +21,9 @@ class ReportsScreen extends ConsumerStatefulWidget {
 }
 
 class _ReportsScreenState extends ConsumerState<ReportsScreen> {
+  static const _color = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF3730A3);
+
   DateTime _from = DateTime.now().subtract(const Duration(days: 7));
   DateTime _to = DateTime.now();
   Map<String, dynamic>? _summary;
@@ -29,12 +33,51 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   bool _exporting = false;
 
   final _fmt = DateFormat('yyyy-MM-dd');
-  final _displayFmt = DateFormat('dd MMM');
+
+  // PDI-style date filter overlay
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  BizDateFilter _dateFilter = const BizDateFilter(preset: 'this_week');
 
   @override
   void initState() {
     super.initState();
+    _from = bizResolveFrom('this_week');
+    _to   = bizResolveTo('this_week');
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => BizDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 7));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   Future<void> _load() async {
@@ -64,21 +107,6 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     }
   }
 
-  Future<void> _pickRange() async {
-    final range = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: DateTimeRange(start: _from, end: _to),
-    );
-    if (range != null) {
-      setState(() {
-        _from = range.start;
-        _to = range.end;
-      });
-      _load();
-    }
-  }
 
   Future<void> _exportPdf() async {
     if (_summary == null) return;
@@ -233,122 +261,333 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   String _n(dynamic v) => sp.d(v).toStringAsFixed(0);
 
+  Widget _hStat(String value, String label) => Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white)),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 9, color: Colors.white70, letterSpacing: 0.2),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      );
+
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.13),
+                        blurRadius: 24,
+                        spreadRadius: -2,
+                        offset: const Offset(0, 6)),
+                    BoxShadow(
+                        color: _color.withValues(alpha: 0.12),
+                        blurRadius: 40,
+                        offset: const Offset(0, 10)),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Row(
+                  children: [
+                    _navItem(
+                        icon: Icons.bar_chart_outlined,
+                        label: 'Sales',
+                        active: true,
+                        onTap: () {}),
+                    _navItem(
+                        icon: Icons.account_balance_wallet_outlined,
+                        label: 'Debtors',
+                        active: false,
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const DebtorsScreen()))),
+                    _navItem(
+                        icon: Icons.store_outlined,
+                        label: 'Creditors',
+                        active: false,
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const CreditorScreen()))),
+                    _navItem(
+                        icon: Icons.receipt_outlined,
+                        label: 'GST',
+                        active: false,
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const GstScreen()))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(
+                      colors: [_color, _colorDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.all(Radius.circular(26)))
+              : null,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 22,
+                  color: active ? Colors.white : const Color(0xFF94A3B8)),
+              const SizedBox(height: 3),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight:
+                          active ? FontWeight.w700 : FontWeight.w500,
+                      color:
+                          active ? Colors.white : const Color(0xFF94A3B8),
+                      letterSpacing: 0.2)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu_outlined),
-          onPressed: openAppDrawer,
-          tooltip: 'Open menu',
-        ),
-        title: const Text('Reports'),
-        actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.calendar_today, size: 16),
-            label: Text(
-              '${_displayFmt.format(_from)} – ${_displayFmt.format(_to)}',
-              style: const TextStyle(fontSize: 12),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 106,
+            toolbarHeight: 46,
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.menu_outlined),
+              onPressed: openAppDrawer,
             ),
-            onPressed: _pickRange,
+            title: const Text(
+              'Reports',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: Colors.white),
+            ),
+            actions: [
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: GestureDetector(
+                  onTap: _toggleDateOverlay,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.25)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                      const SizedBox(width: 5),
+                      Text(
+                        _dateFilter.isActive ? _dateFilter.label : 'Date',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 3),
+                      const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                    ]),
+                  ),
+                ),
+              ),
+              IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _load,
+                  color: Colors.white),
+              IconButton(
+                icon: _exporting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.share_outlined, color: Colors.white),
+                onPressed:
+                    _summary == null || _exporting ? null : _exportPdf,
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, _colorDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 52, 16, 8),
+                    child: Row(
+                      children: [
+                        _hStat(
+                          _summary != null
+                              ? '₹${_n(_summary!['totalSales'])}'
+                              : '—',
+                          'Total Sales',
+                        ),
+                        _hStat(
+                          _summary != null
+                              ? '${_summary!['totalOrders'] ?? 0}'
+                              : '—',
+                          'Orders',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
-          IconButton(
-            icon: _exporting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.share_outlined),
-            onPressed: _summary == null || _exporting ? null : _exportPdf,
-            tooltip: 'Export PDF',
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_summary != null) _SummaryCards(summary: _summary!),
-                  const SizedBox(height: 24),
-                  if (_dailyTrend.isNotEmpty) ...[
-                    const Text('Daily Sales Trend',
+          if (_loading)
+            const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()))
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_summary != null)
+                      _SummaryCards(summary: _summary!),
+                    const SizedBox(height: 24),
+                    if (_dailyTrend.isNotEmpty) ...[
+                      const Text('Daily Sales Trend',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      _DailyTrendChart(
+                          data: _dailyTrend, displayFmt: DateFormat('dd MMM')),
+                      const SizedBox(height: 24),
+                    ],
+                    if (_topProducts.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Top Products',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold)),
+                          Text('${_topProducts.length} products',
+                              style: const TextStyle(
+                                  color: Colors.grey, fontSize: 12)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _TopProductsList(products: _topProducts),
+                    ],
+                    const SizedBox(height: 24),
+                    const Text('More Reports',
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    _DailyTrendChart(
-                        data: _dailyTrend, displayFmt: _displayFmt),
-                    const SizedBox(height: 24),
-                  ],
-                  if (_topProducts.isNotEmpty) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Top Products',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold)),
-                        Text('${_topProducts.length} products',
-                            style: const TextStyle(
-                                color: Colors.grey, fontSize: 12)),
-                      ],
+                    _MoreReportsTile(
+                      icon: Icons.account_balance_wallet_outlined,
+                      color: const Color(0xFFE53935),
+                      title: 'Debtors Ledger',
+                      subtitle: 'Customer outstanding receivables',
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const DebtorsScreen())),
                     ),
-                    const SizedBox(height: 12),
-                    _TopProductsList(products: _topProducts),
+                    _MoreReportsTile(
+                      icon: Icons.store_outlined,
+                      color: const Color(0xFF5E35B1),
+                      title: 'Creditors Ledger',
+                      subtitle: 'Vendor outstanding payables',
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const CreditorScreen())),
+                    ),
+                    _MoreReportsTile(
+                      icon: Icons.receipt_outlined,
+                      color: const Color(0xFF1565C0),
+                      title: 'GST Reports',
+                      subtitle: 'GSTR-1, GSTR-3B & HSN summary',
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const GstScreen())),
+                    ),
+                    const SizedBox(height: 16),
                   ],
-                  const SizedBox(height: 24),
-                  const Text('More Reports',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  _MoreReportsTile(
-                    icon: Icons.account_balance_wallet_outlined,
-                    color: const Color(0xFFE53935),
-                    title: 'Debtors Ledger',
-                    subtitle: 'Customer outstanding receivables',
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const DebtorsScreen())),
-                  ),
-                  _MoreReportsTile(
-                    icon: Icons.store_outlined,
-                    color: const Color(0xFF5E35B1),
-                    title: 'Creditors Ledger',
-                    subtitle: 'Vendor outstanding payables',
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const CreditorScreen())),
-                  ),
-                  _MoreReportsTile(
-                    icon: Icons.receipt_outlined,
-                    color: const Color(0xFF1565C0),
-                    title: 'GST Reports',
-                    subtitle: 'GSTR-1, GSTR-3B & HSN summary',
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const GstScreen())),
-                  ),
-                  const SizedBox(height: 16),
-                ],
+                ),
               ),
             ),
+        ],
+      ),
+      bottomNavigationBar: _buildFloatingNav(),
     );
   }
 }
 
 class _SummaryCards extends StatelessWidget {
+  static const _color = Color(0xFF4F46E5);
   final Map<String, dynamic> summary;
   const _SummaryCards({required this.summary});
 
   @override
   Widget build(BuildContext context) {
     final cards = [
-      ('Total Sales', '₹${_n(summary['totalSales'])}',
-          Icons.attach_money, Colors.blue),
-      ('Orders', '${sp.i(summary['totalOrders'])}',
-          Icons.receipt_long, Colors.purple),
-      ('Avg Order', '₹${_n(summary['avgOrderValue'])}',
-          Icons.trending_up, Colors.orange),
-      ('Items Sold', '${sp.i(summary['totalItemsSold'])}',
-          Icons.inventory, Colors.green),
+      ('Total Sales', '₹${_n(summary['totalSales'])}', Icons.attach_money),
+      ('Orders', '${sp.i(summary['totalOrders'])}', Icons.receipt_long),
+      ('Avg Order', '₹${_n(summary['avgOrderValue'])}', Icons.trending_up),
+      ('Items Sold', '${sp.i(summary['totalItemsSold'])}', Icons.inventory),
     ];
     return GridView.count(
       crossAxisCount: 2,
@@ -361,21 +600,21 @@ class _SummaryCards extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: c.$4.withValues(alpha: 0.1),
+            color: _color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: c.$4.withValues(alpha: 0.3)),
+            border: Border.all(color: _color.withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(c.$3, color: c.$4, size: 20),
+              Icon(c.$3, color: _color, size: 20),
               const SizedBox(height: 4),
               Text(c.$2,
-                  style: TextStyle(
+                  style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: c.$4)),
+                      color: _color)),
               Text(c.$1,
                   style: const TextStyle(
                       color: Colors.grey, fontSize: 12)),
@@ -451,7 +690,9 @@ class _DailyTrendChart extends StatelessWidget {
                     final dt = DateTime.parse(dateStr);
                     label = displayFmt.format(dt);
                   } catch (_) {
-                    label = dateStr.length >= 5 ? dateStr.substring(5) : dateStr;
+                    label = dateStr.length >= 5
+                        ? dateStr.substring(5)
+                        : dateStr;
                   }
                   return Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -471,19 +712,19 @@ class _DailyTrendChart extends StatelessWidget {
             LineChartBarData(
               spots: spots,
               isCurved: true,
-              color: const Color(0xFF6C63FF),
+              color: const Color(0xFF4F46E5),
               barWidth: 3,
               dotData: FlDotData(
                 show: data.length <= 14,
                 getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
                   radius: 3,
-                  color: const Color(0xFF6C63FF),
+                  color: const Color(0xFF4F46E5),
                   strokeWidth: 0,
                 ),
               ),
               belowBarData: BarAreaData(
                 show: true,
-                color: const Color(0xFF6C63FF).withValues(alpha: 0.1),
+                color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
               ),
             ),
           ],
@@ -548,9 +789,9 @@ class _TopProductsList extends StatelessWidget {
                   ),
                   Text(
                     '₹${revenue.toStringAsFixed(0)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF6C63FF)),
+                        color: _rankColor(i)),
                   ),
                 ],
               ),
@@ -587,7 +828,7 @@ class _TopProductsList extends StatelessWidget {
       0 => const Color(0xFFFFD700),
       1 => const Color(0xFFC0C0C0),
       2 => const Color(0xFFCD7F32),
-      _ => const Color(0xFF6C63FF),
+      _ => const Color(0xFF4F46E5),
     };
   }
 }
@@ -609,16 +850,24 @@ class _MoreReportsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 2)),
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 4,
+                offset: const Offset(0, 1)),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -637,13 +886,17 @@ class _MoreReportsTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(title,
+                        style:
+                            const TextStyle(fontWeight: FontWeight.bold)),
                     Text(subtitle,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.grey)),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: Colors.grey.withValues(alpha: 0.6)),
+              Icon(Icons.chevron_right,
+                  color: Colors.grey.withValues(alpha: 0.6)),
             ],
           ),
         ),

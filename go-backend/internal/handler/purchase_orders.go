@@ -213,3 +213,29 @@ func (poh *PurchaseOrderHandler) Delete(w http.ResponseWriter, r *http.Request) 
 
 	util.SendSuccess(w, "Purchase order deleted", map[string]int{"id": id})
 }
+
+// UpdateDirect PUT /api/purchase-orders/direct/{id}
+func (poh *PurchaseOrderHandler) UpdateDirect(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid purchase order ID")
+		return
+	}
+
+	var req map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	order, err := poh.service.UpdateDirect(id, req)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	util.SendSuccess(w, "Purchase updated", map[string]interface{}{
+		"id":       order.ID,
+		"poNumber": order.PONumber,
+	})
+}

@@ -640,6 +640,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	))
 
 	// ==================== QUOTATIONS ====================
+	mux.HandleFunc("GET /api/quotations/next-number", middleware.Chain(
+		quotationHandler.PeekNextNumber,
+		middleware.Authenticate(db),
+	))
 	mux.HandleFunc("GET /api/quotations", middleware.Chain(
 		quotationHandler.GetAll,
 		middleware.Authenticate(db),
@@ -1132,6 +1136,9 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		middleware.Authenticate(db),
 		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
+	mux.HandleFunc("PUT /api/purchase-orders/direct/{id}", middleware.Chain(
+		purchaseOrderHandler.UpdateDirect,
+		middleware.Authenticate(db)))
 	mux.HandleFunc("GET /api/purchase-orders/{poNumber}", middleware.Chain(
 		purchaseOrderHandler.GetByPONumber,
 		middleware.Authenticate(db),

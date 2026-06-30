@@ -257,8 +257,11 @@ class ApiService {
   }
 
   // ---- Purchase Orders ----
-  Future<List<dynamic>> getPurchaseOrders({int page = 0, int size = 20}) async {
-    final res = await _dio.get('/purchase-orders', queryParameters: {'page': page, 'size': size});
+  Future<List<dynamic>> getPurchaseOrders({int page = 0, int size = 20, String? from, String? to}) async {
+    final params = <String, dynamic>{'page': page, 'size': size};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/purchase-orders', queryParameters: params);
     final data = res.data['data'];
     if (data is Map && data.containsKey('content')) return data['content'] as List;
     if (data is List) return data;
@@ -332,8 +335,10 @@ class ApiService {
   }
 
   // ---- Production ----
-  Future<List<dynamic>> getProductionOrders({int page = 0, int size = 20}) async {
-    final res = await _dio.get('/production/orders', queryParameters: {'page': page, 'size': size});
+  Future<List<dynamic>> getProductionOrders({int page = 0, int size = 20, String? status}) async {
+    final params = <String, dynamic>{'page': page, 'size': size};
+    if (status != null) params['status'] = status;
+    final res = await _dio.get('/production/orders', queryParameters: params);
     final data = res.data['data'];
     if (data is Map && data.containsKey('content')) return data['content'] as List;
     if (data is List) return data;
@@ -589,6 +594,31 @@ class ApiService {
     await _dio.delete('/business/labour/$id');
   }
 
+  Future<List<dynamic>> getTestingLabEntries({String? fromDate, String? toDate}) async {
+    final params = <String, dynamic>{};
+    if (fromDate != null) params['fromDate'] = fromDate;
+    if (toDate != null) params['toDate'] = toDate;
+    final res = await _dio.get('/business/testing-labs', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createTestingLabEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/testing-labs', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> updateTestingLabEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/testing-labs/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> deleteTestingLabEntry(int id) async {
+    await _dio.delete('/business/testing-labs/$id');
+  }
+
   // Pipe configs (for conversion diameter/kg options)
   Future<List<dynamic>> getPipeConfigs({int size = 500}) async {
     final res = await _dio.get('/production/pipe-configs', queryParameters: {'size': size});
@@ -596,6 +626,11 @@ class ApiService {
     if (data is Map && data.containsKey('content')) return data['content'] as List;
     if (data is List) return data;
     return [];
+  }
+
+  Future<Map<String, dynamic>> getPipeConfig(int id) async {
+    final res = await _dio.get('/production/pipe-configs/$id');
+    return res.data['data'] as Map<String, dynamic>;
   }
 
   Future<List<dynamic>> getSiloEntries({int page = 0, int size = 20}) async {
@@ -725,15 +760,15 @@ class ApiService {
   }
 
   // ---- Extended Reports ----
-  Future<List<dynamic>> getDebtorsLedger(String from, String to) async {
-    final res = await _dio.get('/reports/debtors-ledger', queryParameters: {'from': from, 'to': to});
+  Future<List<dynamic>> getDebtorsLedger(String from, String to, int outletId) async {
+    final res = await _dio.get('/reports/debtors-ledger', queryParameters: {'from': from, 'to': to, 'outletId': outletId});
     final data = res.data['data'];
     if (data is List) return data;
     return [];
   }
 
-  Future<List<dynamic>> getCreditorsLedger(String from, String to) async {
-    final res = await _dio.get('/reports/creditors-ledger', queryParameters: {'from': from, 'to': to});
+  Future<List<dynamic>> getCreditorsLedger(String from, String to, int outletId) async {
+    final res = await _dio.get('/reports/creditors-ledger', queryParameters: {'from': from, 'to': to, 'outletId': outletId});
     final data = res.data['data'];
     if (data is List) return data;
     return [];
@@ -765,18 +800,18 @@ class ApiService {
     await _dio.delete('/business/discards/$id');
   }
 
-  Future<Map<String, dynamic>> getGstr1(String from, String to) async {
-    final res = await _dio.get('/gst/gstr1', queryParameters: {'from': from, 'to': to});
+  Future<Map<String, dynamic>> getGstr1(String from, String to, int outletId) async {
+    final res = await _dio.get('/gst/gstr1', queryParameters: {'from': from, 'to': to, 'outletId': outletId});
     return res.data['data'] as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getGstr3b(String from, String to) async {
-    final res = await _dio.get('/gst/gstr3b', queryParameters: {'from': from, 'to': to});
+  Future<Map<String, dynamic>> getGstr3b(String from, String to, int outletId) async {
+    final res = await _dio.get('/gst/gstr3b', queryParameters: {'from': from, 'to': to, 'outletId': outletId});
     return res.data['data'] as Map<String, dynamic>;
   }
 
-  Future<List<dynamic>> getHsnSummary(String from, String to) async {
-    final res = await _dio.get('/gst/hsn-summary', queryParameters: {'from': from, 'to': to});
+  Future<List<dynamic>> getHsnSummary(String from, String to, int outletId) async {
+    final res = await _dio.get('/gst/hsn-summary', queryParameters: {'from': from, 'to': to, 'outletId': outletId});
     final data = res.data['data'];
     if (data is List) return data;
     return [];

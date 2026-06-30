@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:pos_mobile/main.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
@@ -13,11 +14,19 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+  static const _color = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF3730A3);
+
   final List<Order> _orders = [];
   int _page = 0;
   bool _loading = false;
   bool _hasMore = true;
   final ScrollController _scrollCtrl = ScrollController();
+
+  String _activeTab = 'all';
+  bool _showSearch = false;
+  String _search = '';
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -29,6 +38,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   @override
   void dispose() {
     _scrollCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -69,63 +79,158 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     }
   }
 
+  List<Order> get _filtered {
+    var list = _orders.where((o) {
+      if (_activeTab == 'active') {
+        return o.status != 'COMPLETED' &&
+            o.status != 'CANCELLED' &&
+            o.status != 'REFUNDED';
+      }
+      if (_activeTab == 'completed') return o.status == 'COMPLETED';
+      if (_activeTab == 'cancelled') return o.status == 'CANCELLED';
+      return true;
+    }).toList();
+
+    if (_search.trim().isNotEmpty) {
+      final q = _search.toLowerCase();
+      list = list
+          .where((o) =>
+              o.orderNumber.toLowerCase().contains(q) ||
+              (o.customer?.name.toLowerCase().contains(q) ?? false))
+          .toList();
+    }
+    return list;
+  }
+
+  int get _completedCount =>
+      _orders.where((o) => o.status == 'COMPLETED').length;
+  int get _activeCount => _orders
+      .where((o) =>
+          o.status != 'COMPLETED' &&
+          o.status != 'CANCELLED' &&
+          o.status != 'REFUNDED')
+      .length;
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu_outlined),
-          onPressed: openAppDrawer,
-          tooltip: 'Open menu',
-        ),
-        title: const Text('Orders'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _load(reset: true),
-          ),
-        ],
-      ),
-      body: _orders.isEmpty && _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _orders.isEmpty
-              ? const Center(child: Text('No orders yet'))
-              : ListView.builder(
-                  controller: _scrollCtrl,
-                  itemCount: _orders.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (ctx, i) {
-                    if (i == _orders.length) {
-                      return const Center(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: RefreshIndicator(
+        onRefresh: () => _load(reset: true),
+        child: CustomScrollView(
+          controller: _scrollCtrl,
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              expandedHeight: 106,
+              toolbarHeight: 46,
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              leading: context.canPop()
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => context.pop(),
+                    )
+                  : const IconButton(
+                      icon: Icon(Icons.menu_outlined),
+                      onPressed: openAppDrawer,
+                      tooltip: 'Open menu',
+                    ),
+              title: const Text(
+                'Orders',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: Colors.white,
+                ),
+              ),
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.pin,
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [_color, _colorDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: -24,
+                        top: -24,
+                        child: Container(
+                          width: 110,
+                          height: 110,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.06),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.bottomLeft,
                         child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(),
+                          padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                          child: Row(
+                            children: [
+                              _hStat('${_orders.length}', 'Orders'),
+                              _hStat('$_completedCount', 'Completed'),
+                              _hStat('$_activeCount', 'Active'),
+                            ],
+                          ),
                         ),
-                      );
-                    }
-                    final o = _orders[i];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      child: ListTile(
-                        title: Text(o.orderNumber,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                          '${o.customer?.name ?? 'Walk-in'}  •  ${o.items.length} items  •  ${_fmtDate(o.createdAt)}',
-                        ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '₹${o.totalAmount.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF6C63FF)),
-                            ),
-                            _StatusBadge(status: o.status),
-                          ],
-                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            if (filtered.isEmpty && !_loading)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.receipt_long_outlined,
+                          size: 48, color: Colors.grey.shade300),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No orders found',
+                        style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (_loading && _orders.isEmpty)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (ctx, i) {
+                      if (i >= filtered.length) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      final o = filtered[i];
+                      return GestureDetector(
                         onTap: () => showDialog(
                           context: context,
                           builder: (_) => _OrderDetailDialog(
@@ -133,12 +238,300 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                             onCancelled: () => _load(reset: true),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: _color.withValues(alpha: 0.10),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                      Icons.receipt_long_outlined,
+                                      color: _color,
+                                      size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        o.orderNumber,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${o.customer?.name ?? 'Walk-in'}  •  ${o.items.length} items  •  ${_fmtDate(o.createdAt)}',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '₹${o.totalAmount.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                        color: _color,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    _StatusBadge(status: o.status),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    childCount: filtered.length + (_hasMore ? 1 : 0),
+                  ),
                 ),
+              ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildFloatingNav(),
     );
   }
+
+  Widget _buildFloatingNav() {
+    return Container(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+              child: Container(
+                height: 64,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.13),
+                      blurRadius: 24,
+                      spreadRadius: -2,
+                      offset: const Offset(0, 6),
+                    ),
+                    BoxShadow(
+                      color: _color.withValues(alpha: 0.12),
+                      blurRadius: 40,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  transitionBuilder: (child, anim) =>
+                      FadeTransition(opacity: anim, child: child),
+                  child:
+                      _showSearch ? _buildSearchExpanded() : _buildNavItems(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() {
+    return Row(
+      key: const ValueKey('osearch'),
+      children: [
+        Container(
+          margin: const EdgeInsets.all(8),
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_color, _colorDark],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.all(Radius.circular(24)),
+          ),
+          child: const Icon(Icons.search, color: Colors.white, size: 20),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _searchCtrl,
+            autofocus: true,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+            onChanged: (v) => setState(() => _search = v),
+            decoration: InputDecoration(
+              hintText: 'Search orders…',
+              hintStyle:
+                  TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              border: InputBorder.none,
+              isDense: true,
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => setState(() {
+            _showSearch = false;
+            _search = '';
+            _searchCtrl.clear();
+          }),
+          child: Container(
+            margin: const EdgeInsets.all(10),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(Icons.close,
+                size: 18, color: Color(0xFF64748B)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNavItems() {
+    return Row(
+      key: const ValueKey('onav'),
+      children: [
+        _navItem(
+          icon: Icons.search,
+          label: 'Search',
+          active: false,
+          onTap: () => setState(() => _showSearch = true),
+        ),
+        _navItem(
+          icon: Icons.all_inbox_outlined,
+          label: 'All',
+          active: _activeTab == 'all',
+          onTap: () => setState(() => _activeTab = 'all'),
+        ),
+        _navItem(
+          icon: Icons.bolt_outlined,
+          label: 'Active',
+          active: _activeTab == 'active',
+          onTap: () => setState(() => _activeTab = 'active'),
+        ),
+        _navItem(
+          icon: Icons.check_circle_outline,
+          label: 'Completed',
+          active: _activeTab == 'completed',
+          onTap: () => setState(() => _activeTab = 'completed'),
+        ),
+        _navItem(
+          icon: Icons.cancel_outlined,
+          label: 'Cancelled',
+          active: _activeTab == 'cancelled',
+          onTap: () => setState(() => _activeTab = 'cancelled'),
+        ),
+      ],
+    );
+  }
+
+  Widget _navItem({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, _colorDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.all(Radius.circular(26)),
+                )
+              : null,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 22,
+                  color: active ? Colors.white : const Color(0xFF94A3B8)),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight:
+                      active ? FontWeight.w700 : FontWeight.w500,
+                  color: active ? Colors.white : const Color(0xFF94A3B8),
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                  fontSize: 9, color: Colors.white70, letterSpacing: 0.2),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
 
   String _fmtDate(String iso) {
     if (iso.isEmpty) return '';
@@ -308,6 +701,7 @@ class _OrderDetailDialogState extends State<_OrderDetailDialog> {
     );
   }
 
+  // ignore: non_constant_identifier_names
   Widget _Row(String label, double amount,
       {Color? color, bool bold = false}) =>
       Padding(

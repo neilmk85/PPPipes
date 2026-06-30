@@ -13,6 +13,7 @@ import { pipeConfigApi, vendorApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
 const NO_SPINNER = '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden'
+const METERS_PER_PIPE = 5.25
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -295,7 +296,8 @@ function AddForm({
   const [selectedPipe, setSelectedPipe] = useState<any>(null)
   const [purchaseDate, setPurchaseDate] = useState(today())
   const [invoiceNumber, setInvoiceNumber] = useState('')
-  const [quantity, setQuantity]         = useState('')
+  const [quantity, setQuantity]         = useState('')   // pieces
+  const [meters, setMeters]             = useState('')   // metres (derived or entered)
   const [unitRate, setUnitRate]         = useState('')
   const [notes, setNotes]               = useState('')
   const [errors, setErrors]             = useState<Record<string, string>>({})
@@ -358,7 +360,7 @@ function AddForm({
             <h1 className="text-lg font-bold text-gray-900 leading-none">Record Pipe Purchase</h1>
             <p className="text-xs text-gray-500 mt-0.5">
               {selectedPipe
-                ? `${selectedPipe.name}${quantity ? ` · ${quantity} pcs` : ''}`
+                ? `${selectedPipe.name}${quantity ? ` · ${quantity} pcs${meters ? ` / ${meters} m` : ''}` : ''}`
                 : 'Select vendor & pipe to get started'}
             </p>
           </div>
@@ -447,9 +449,10 @@ function AddForm({
 
             {/* Table header */}
             <div className="grid text-[11px] font-bold text-gray-800 tracking-wide border-b border-blue-100"
-              style={{ gridTemplateColumns: '2.5fr 130px 150px 150px 36px', background: 'linear-gradient(to right, #eff6ff, #eef2ff)' }}>
+              style={{ gridTemplateColumns: '2fr 110px 110px 140px 140px 36px', background: 'linear-gradient(to right, #eff6ff, #eef2ff)' }}>
               <div className="px-5 py-3">Pipe Type</div>
-              <div className="px-3 py-3 text-right">Quantity (pcs)</div>
+              <div className="px-3 py-3 text-right">Meters (m)</div>
+              <div className="px-3 py-3 text-right">Qty (pcs)</div>
               <div className="px-3 py-3 text-right">Unit Rate (₹)</div>
               <div className="px-3 py-3 text-right">Total Amount</div>
               <div />
@@ -462,7 +465,7 @@ function AddForm({
               </div>
             ) : (
               <div className="grid items-center border-b border-gray-100 hover:bg-blue-50/20 transition-colors bg-white"
-                style={{ gridTemplateColumns: '2.5fr 130px 150px 150px 36px' }}>
+                style={{ gridTemplateColumns: '2fr 110px 110px 140px 140px 36px' }}>
                 <div className="px-5 py-3">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-md bg-blue-100 flex items-center justify-center shrink-0">
@@ -474,9 +477,34 @@ function AddForm({
                     </div>
                   </div>
                 </div>
+                {/* Meters input */}
+                <div className="px-2 py-2.5">
+                  <input type="number" min={0} step="0.01" placeholder="0.00" value={meters}
+                    onChange={e => {
+                      const m = e.target.value
+                      setMeters(m)
+                      if (m && Number(m) > 0) {
+                        setQuantity(String(Math.ceil(Number(m) / METERS_PER_PIPE)))
+                      } else {
+                        setQuantity('')
+                      }
+                      setErrors(prev => ({ ...prev, quantity: undefined! }))
+                    }}
+                    className={`w-full px-2 py-1.5 text-sm text-right border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${NO_SPINNER} border-gray-200`} />
+                </div>
+                {/* Qty (pcs) input */}
                 <div className="px-2 py-2.5">
                   <input type="number" min={1} placeholder="0" value={quantity}
-                    onChange={e => { setQuantity(e.target.value); setErrors(prev => ({ ...prev, quantity: undefined! })) }}
+                    onChange={e => {
+                      const q = e.target.value
+                      setQuantity(q)
+                      if (q && Number(q) > 0) {
+                        setMeters((Number(q) * METERS_PER_PIPE).toFixed(2))
+                      } else {
+                        setMeters('')
+                      }
+                      setErrors(prev => ({ ...prev, quantity: undefined! }))
+                    }}
                     className={`w-full px-2 py-1.5 text-sm text-right border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${NO_SPINNER} ${errors.quantity ? 'border-red-400' : 'border-gray-200'}`} />
                   {errors.quantity && <p className="text-[10px] text-red-500 mt-0.5">{errors.quantity}</p>}
                 </div>
@@ -494,7 +522,7 @@ function AddForm({
                   </p>
                 </div>
                 <div className="pr-2 flex items-center justify-center">
-                  <button type="button" onClick={() => { setSelectedPipe(null); setQuantity(''); setUnitRate('') }}
+                  <button type="button" onClick={() => { setSelectedPipe(null); setQuantity(''); setMeters(''); setUnitRate('') }}
                     className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
                     <X size={13} />
                   </button>
@@ -529,7 +557,10 @@ function AddForm({
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Quantity</span>
-                <span className="tabular-nums font-medium">{quantity ? `${Number(quantity).toLocaleString()} pcs` : '—'}</span>
+                <span className="tabular-nums font-medium">
+                  {quantity ? `${Number(quantity).toLocaleString()} pcs` : '—'}
+                  {meters && quantity ? <span className="text-gray-400 ml-1">/ {Number(meters).toLocaleString('en-IN')} m</span> : null}
+                </span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Unit Rate</span>
@@ -558,7 +589,7 @@ function AddForm({
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md text-sm">
             {mutation.isPending
               ? <><Loader2 size={15} className="animate-spin" /> Recording…</>
-              : <><Package size={15} /> Record Purchase{quantity ? ` · ${quantity} pcs` : ''}</>
+              : <><Package size={15} /> Record Purchase{quantity ? ` · ${quantity} pcs${meters ? ` / ${meters} m` : ''}` : ''}</>
             }
           </button>
         </div>

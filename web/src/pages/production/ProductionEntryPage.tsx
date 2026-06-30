@@ -388,6 +388,7 @@ interface OrderEntryCardProps {
   index: number
   totalOrders: number
   showValidation: boolean   // true after first Save attempt — reveals inline errors
+  coatingSandType?: 'plaster' | 'crushedDust'
 }
 
 export interface StockIssue {
@@ -400,7 +401,7 @@ export interface StockIssue {
   siloLabel?: string
 }
 
-function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate, index, totalOrders, showValidation }: OrderEntryCardProps) {
+function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate, index, totalOrders, showValidation, coatingSandType }: OrderEntryCardProps) {
   const pipesRejected = Math.max(
     0, (Number(data.pipesProcessed) || 0) - (Number(data.pipesCompleted) || 0)
   )
@@ -572,13 +573,21 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockDataReady, hasStockWarning, hasSiloWarning, pipesEntered, order.id])
 
-  // Sync material inputs when stage/config/pipesCompleted changes
+  // Sync material inputs when stage/config/pipesCompleted/sandType changes
   useEffect(() => {
     if (!MATERIAL_STAGES.includes(stage) || !configData?.materials) {
       onChange({ ...data, materialInputs: [] })
       return
     }
-    const stageMatsList = configData.materials.filter((m: any) => m.stageType === stage)
+    let stageMatsList = configData.materials.filter((m: any) => m.stageType === stage)
+    // For COATING, filter to only the selected sand material
+    if (stage === 'COATING' && coatingSandType) {
+      const sandName = coatingSandType === 'plaster' ? 'plaster sand' : 'crushed sand'
+      const sandMats = stageMatsList.filter((m: any) =>
+        (m.materialProduct?.name ?? '').toLowerCase().includes(sandName)
+      )
+      if (sandMats.length > 0) stageMatsList = sandMats
+    }
     const completed = Number(data.pipesCompleted) || 0
     const inputs: MaterialInput[] = stageMatsList.map((mat: any) => {
       const rate = parseFloat(String(mat.quantityPerPipe)) || 0
@@ -598,7 +607,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
     })
     onChange({ ...data, materialInputs: inputs })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, configData, data.pipesCompleted])
+  }, [stage, configData, data.pipesCompleted, coatingSandType])
 
   function set(field: keyof OrderEntryData, value: string) {
     onChange({ ...data, [field]: value })
@@ -2184,6 +2193,7 @@ export default function ProductionEntryPage() {
                     index={index}
                     totalOrders={selectedIds.length}
                     showValidation={showValidation}
+                    coatingSandType={selectedStage === 'COATING' ? coatingSandType : undefined}
                   />
                 )
               })}

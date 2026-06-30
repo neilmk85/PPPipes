@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import '../../widgets/date_filter_dropdown.dart';
+import 'package:pos_mobile/main.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
 
@@ -23,8 +26,13 @@ class _CementBagsScreenState extends State<CementBagsScreen> {
   bool _showSearch = false;
   String _search = '';
   final _searchCtrl = TextEditingController();
-  String _preset = '';
+
+  // date filter
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
+
   @override
   void initState() {
     super.initState();
@@ -35,8 +43,36 @@ class _CementBagsScreenState extends State<CementBagsScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -50,40 +86,6 @@ class _CementBagsScreenState extends State<CementBagsScreen> {
       if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
     } catch (_) {}
     if (mounted) setState(() => _loadingData = false);
-  }
-
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
-          _load();
-        },
-      ),
-    );
-  }
-
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday',
-      'this_week': 'This Week', 'last_week': 'Last Week',
-      'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') {
-      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    }
-    return 'Filter by Date';
   }
 
   static double _toD(dynamic v) {
@@ -207,8 +209,10 @@ class _CementBagsScreenState extends State<CementBagsScreen> {
                   title: const Text('Used Cement Bags',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -220,13 +224,14 @@ class _CementBagsScreenState extends State<CementBagsScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel,
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Filter by Date',
                                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
                 ),
 
@@ -719,74 +724,320 @@ class VehiclesScreen extends StatefulWidget {
 }
 
 class _VehiclesScreenState extends State<VehiclesScreen> {
-  static const _color = Color(0xFFEA580C);
-  List<VehicleEntry> _items = [];
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF4C1D95);
+
+  List<VehicleEntry> _allItems = [];
   bool _loading = true;
+
+  // date filter
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
+
+  // bottom nav
+  String _activeTab      = 'all'; // 'all' | 'crane' | 'jcb'
+  bool   _searchExpanded = false;
+  String _search         = '';
+  final  _searchCtrl     = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
     _load();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final raw = await ApiService().getVehicleEntries();
+      final raw = await ApiService().getVehicleEntries(size: 500);
       setState(() {
-        _items = raw.map((e) => VehicleEntry.fromJson(e)).toList();
-        _loading = false;
+        _allItems = raw.map((e) => VehicleEntry.fromJson(e)).toList();
+        _loading  = false;
       });
     } catch (_) {
       setState(() => _loading = false);
     }
   }
 
+  List<VehicleEntry> get _filtered {
+    return _allItems.where((item) {
+      // date range
+      if (item.date.isNotEmpty) {
+        try {
+          final d    = DateTime.parse(item.date.split('T').first);
+          final from = DateTime(_from.year, _from.month, _from.day);
+          final to   = DateTime(_to.year, _to.month, _to.day, 23, 59, 59);
+          if (d.isBefore(from) || d.isAfter(to)) return false;
+        } catch (_) {}
+      }
+      // tab
+      if (_activeTab == 'crane' && !item.craneEnabled) return false;
+      if (_activeTab == 'jcb'   && !item.jcbEnabled)   return false;
+      // search
+      if (_search.trim().isNotEmpty) {
+        final q = _search.toLowerCase();
+        return _fmtDate(item.date).toLowerCase().contains(q) ||
+               (item.notes ?? '').toLowerCase().contains(q);
+      }
+      return true;
+    }).toList();
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
+  // ── bottom nav ──────────────────────────────────────────────────────────────
+
+  Widget _buildFloatingNav() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 20, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() => Row(
+    key: const ValueKey('search'),
+    children: [
+      // search icon circle
+      Container(
+        margin: const EdgeInsets.all(8),
+        width: 46, height: 46,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [_color, _colorDark]),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.search, color: Colors.white, size: 20),
+      ),
+      Expanded(
+        child: TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search by date or notes…',
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      ),
+      GestureDetector(
+        onTap: () {
+          _searchCtrl.clear();
+          setState(() { _search = ''; _searchExpanded = false; });
+        },
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          width: 46, height: 46,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.close, size: 20, color: Colors.grey),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildNavItems() => Row(
+    key: const ValueKey('nav'),
+    children: [
+      _navItem(Icons.search, 'Search', '', onTap: () => setState(() => _searchExpanded = true)),
+      _navItem(Icons.list_outlined,                   'All',   'all'),
+      _navItem(Icons.precision_manufacturing_outlined, 'Crane', 'crane'),
+      _navItem(Icons.construction_outlined,            'JCB',   'jcb'),
+    ],
+  );
+
+  Widget _navItem(IconData icon, String label, String tab, {VoidCallback? onTap}) {
+    final active = tab.isNotEmpty && _activeTab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap ?? () => setState(() => _activeTab = tab),
+        child: Container(
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? BoxDecoration(
+                  gradient: const LinearGradient(colors: [_color, _colorDark]),
+                  borderRadius: BorderRadius.circular(26),
+                )
+              : null,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: active ? Colors.white : Colors.grey.shade500),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w600,
+                  color: active ? Colors.white : Colors.grey.shade500,
+                )),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered    = _filtered;
+    final craneLitres = filtered.fold<double>(0, (s, e) => s + (e.craneDiesel ?? 0));
+    final jcbLitres   = filtered.fold<double>(0, (s, e) => s + (e.jcbDiesel   ?? 0));
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vehicles'),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _items.isEmpty
-                  ? const Center(child: Text('No vehicle entries'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _items.length,
-                      itemBuilder: (_, i) {
-                        final item = _items[i];
-                        final parts = <String>[];
-                        if (item.craneEnabled) {
-                          parts.add(
-                              'Crane: ${item.craneDiesel?.toStringAsFixed(1) ?? '-'} L'
-                              ' · ${item.craneHours?.toStringAsFixed(1) ?? '-'} h');
-                        }
-                        if (item.jcbEnabled) {
-                          parts.add(
-                              'JCB: ${item.jcbDiesel?.toStringAsFixed(1) ?? '-'} L'
-                              ' · ${item.jcbHours?.toStringAsFixed(1) ?? '-'} h');
-                        }
-                        return _BizCard(
-                          icon: Icons.local_shipping_outlined,
-                          color: _color,
-                          title: _fmtDate(item.date),
-                          subtitle: parts.isEmpty ? 'No equipment recorded' : parts.join('  '),
-                          notes: item.notes,
-                        );
-                      },
+      bottomNavigationBar: _buildFloatingNav(),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 120,
+            backgroundColor: _color,
+            foregroundColor: Colors.white,
+            leading: context.canPop()
+                ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+                : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
+            title: const Text('Vehicles'),
+            actions: [
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: GestureDetector(
+                  onTap: _toggleDateOverlay,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.25)),
                     ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                      const SizedBox(width: 5),
+                      Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 3),
+                      const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed: () => _showAdd(context),
+              ),
+              const SizedBox(width: 4),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, _colorDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                    child: Row(children: [
+                      _hStat('${filtered.length}', 'Entries'),
+                      _hStat(craneLitres > 0 ? craneLitres.toStringAsFixed(1) : '—', 'Crane L'),
+                      _hStat(jcbLitres   > 0 ? jcbLitres.toStringAsFixed(1)   : '—', 'JCB L'),
+                    ]),
+                  ),
+                ),
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAdd(context),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+          ),
+          SliverFillRemaining(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: filtered.isEmpty
+                        ? Center(child: Text(
+                            _activeTab == 'crane' ? 'No crane entries' :
+                            _activeTab == 'jcb'   ? 'No JCB entries'  : 'No vehicle entries'))
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                            itemCount: filtered.length,
+                            itemBuilder: (_, i) {
+                              final item  = filtered[i];
+                              final parts = <String>[];
+                              if (item.craneEnabled) {
+                                parts.add('Crane: ${item.craneDiesel?.toStringAsFixed(1) ?? '-'} L'
+                                    ' · ${item.craneHours?.toStringAsFixed(1) ?? '-'} h');
+                              }
+                              if (item.jcbEnabled) {
+                                parts.add('JCB: ${item.jcbDiesel?.toStringAsFixed(1) ?? '-'} L'
+                                    ' · ${item.jcbHours?.toStringAsFixed(1) ?? '-'} h');
+                              }
+                              return _BizCard(
+                                icon: Icons.local_shipping_outlined,
+                                color: _color,
+                                title: _fmtDate(item.date),
+                                subtitle: parts.isEmpty ? 'No equipment recorded' : parts.join('  '),
+                                notes: item.notes,
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -795,10 +1046,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: Colors.transparent,
       builder: (_) => _VehicleAddSheet(
-        accentColor: _color,
         onSubmit: (data) async {
           await ApiService().createVehicleEntry(data);
           _load();
@@ -811,10 +1060,9 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
 // ── Vehicle Add Sheet ─────────────────────────────────────────────────────────
 
 class _VehicleAddSheet extends StatefulWidget {
-  final Color accentColor;
   final Future<void> Function(Map<String, dynamic>) onSubmit;
 
-  const _VehicleAddSheet({required this.accentColor, required this.onSubmit});
+  const _VehicleAddSheet({required this.onSubmit});
 
   @override
   State<_VehicleAddSheet> createState() => _VehicleAddSheetState();
@@ -833,8 +1081,8 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
   final _jcbHoursCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
-  static const _orange = Color(0xFFEA580C);
-  static const _deepOrange = Color(0xFFC2410C);
+  static const _orange     = Color(0xFF7C3AED);
+  static const _deepOrange = Color(0xFF4C1D95);
 
   @override
   void dispose() {
@@ -854,7 +1102,9 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
       lastDate: DateTime(2030),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: _orange),
+          colorScheme: const ColorScheme.light(
+            primary: _orange, onPrimary: Colors.white, surface: Colors.white,
+          ),
         ),
         child: child!,
       ),
@@ -1313,29 +1563,70 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
 // ── Silo ──────────────────────────────────────────────────────────────────────
 
 class SiloScreen extends StatefulWidget {
-  const SiloScreen({super.key});
+  final bool isExtraction;
+  const SiloScreen({super.key, this.isExtraction = false});
 
   @override
   State<SiloScreen> createState() => _SiloScreenState();
 }
 
 class _SiloScreenState extends State<SiloScreen> {
-  static const _color = Color(0xFF0D9488);
-  List<SiloEntry> _items = [];
+  static const _color = Color(0xFF7C3AED);
+
+  List<SiloEntry> _allItems = [];
   bool _loading = true;
+
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
 
   @override
   void initState() {
     super.initState();
+    _to = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
     _load();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final raw = await ApiService().getSiloEntries();
+      final raw = await ApiService().getSiloEntries(size: 500);
       setState(() {
-        _items = raw.map((e) => SiloEntry.fromJson(e)).toList();
+        _allItems = raw.map((e) => SiloEntry.fromJson(e)).toList();
         _loading = false;
       });
     } catch (_) {
@@ -1343,42 +1634,126 @@ class _SiloScreenState extends State<SiloScreen> {
     }
   }
 
+  List<SiloEntry> get _filtered {
+    return _allItems.where((item) {
+      if (item.date.isEmpty) return true;
+      try {
+        final d = DateTime.parse(item.date.split('T').first);
+        final from = DateTime(_from.year, _from.month, _from.day);
+        final to = DateTime(_to.year, _to.month, _to.day, 23, 59, 59);
+        return !d.isBefore(from) && !d.isAfter(to);
+      } catch (_) { return true; }
+    }).toList();
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _filtered;
+    final totalExtracted = filtered.fold<double>(0, (s, e) => s + (e.extracted ?? 0));
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Silo'),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _items.isEmpty
-                  ? const Center(child: Text('No silo entries'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _items.length,
-                      itemBuilder: (_, i) {
-                        final item = _items[i];
-                        return _BizCard(
-                          icon: Icons.storage_outlined,
-                          color: _color,
-                          title: item.siloName ?? 'Silo Entry',
-                          subtitle: item.extracted != null
-                              ? 'Extracted: ${item.extracted!.toStringAsFixed(1)} units'
-                              : _fmtDate(item.date),
-                          notes: item.notes,
-                        );
-                      },
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 120,
+            backgroundColor: _color,
+            foregroundColor: Colors.white,
+            leading: context.canPop()
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => context.pop(),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.menu_outlined),
+                    onPressed: openAppDrawer,
+                    tooltip: 'Open menu',
+                  ),
+            title: Text(widget.isExtraction ? 'Silo Extraction' : 'Silo'),
+            actions: [
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: GestureDetector(
+                  onTap: _toggleDateOverlay,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.25)),
                     ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                      const SizedBox(width: 5),
+                      Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 3),
+                      const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed: () => _showAdd(context),
+              ),
+              const SizedBox(width: 4),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF7C3AED), Color(0xFF4C1D95)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                    child: Row(children: [
+                      _hStat('${filtered.length}', 'Entries'),
+                      _hStat(totalExtracted > 0 ? totalExtracted.toStringAsFixed(0) : '—', 'Total MT'),
+                    ]),
+                  ),
+                ),
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAdd(context),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
+          ),
+          SliverFillRemaining(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: filtered.isEmpty
+                        ? const Center(child: Text('No silo entries'))
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: filtered.length,
+                            itemBuilder: (_, i) {
+                              final item = filtered[i];
+                              return _BizCard(
+                                icon: Icons.storage_outlined,
+                                color: _color,
+                                title: item.siloName ?? 'Silo Entry',
+                                subtitle: item.extracted != null
+                                    ? '${item.extracted!.toStringAsFixed(1)} MT'
+                                    : _fmtDate(item.date),
+                                notes: item.notes,
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -1387,25 +1762,330 @@ class _SiloScreenState extends State<SiloScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _SimpleAddSheet(
-        title: 'Record Silo Extraction',
-        accentColor: _color,
-        fields: [
-          _FieldDef('siloName', 'Silo Name', TextInputType.text),
-          _FieldDef('extractedAmount', 'Extracted Amount', TextInputType.number),
-          _FieldDef('notes', 'Notes', TextInputType.text),
-        ],
-        onSubmit: (data) async {
-          await ApiService().createSiloEntry({
-            'siloName': data['siloName'],
-            'extractedAmount': double.tryParse(data['extractedAmount'] ?? '0'),
-            'notes': data['notes'],
-            'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
-          });
-          _load();
-        },
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SiloEntrySheet(
+        isExtraction: widget.isExtraction,
+        onSaved: _load,
+      ),
+    );
+  }
+}
+
+// ── Silo Entry Sheet ──────────────────────────────────────────────────────────
+
+class _SiloEntrySheet extends StatefulWidget {
+  final bool isExtraction;
+  final VoidCallback onSaved;
+  const _SiloEntrySheet({required this.onSaved, this.isExtraction = false});
+  @override
+  State<_SiloEntrySheet> createState() => _SiloEntrySheetState();
+}
+
+class _SiloEntrySheetState extends State<_SiloEntrySheet> {
+  static const _violet     = Color(0xFF7C3AED);
+  static const _violetDark = Color(0xFF4C1D95);
+
+  DateTime _date = DateTime.now();
+  final _checked     = [false, false, false];
+  final _amountCtrls = List.generate(3, (_) => TextEditingController());
+  final _uoms        = ['MT', 'MT', 'MT'];
+  final _notesCtrl   = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    for (final c in _amountCtrls) c.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: _violet, onPrimary: Colors.white, surface: Colors.white,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _save() async {
+    const names = ['Silo 1', 'Silo 2', 'Silo 3'];
+    final entries = <Map<String, dynamic>>[];
+    for (var i = 0; i < 3; i++) {
+      if (!_checked[i]) continue;
+      final amt = double.tryParse(_amountCtrls[i].text.trim()) ?? 0;
+      if (amt <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Enter a valid amount for ${names[i]}')),
+        );
+        return;
+      }
+      entries.add({
+        'siloName': names[i],
+        'extractedAmount': amt,
+        'unit': widget.isExtraction ? _uoms[i] : 'MT',
+        'notes': _notesCtrl.text.trim(),
+        'date': DateFormat('yyyy-MM-dd').format(_date),
+      });
+    }
+    if (entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select at least one silo')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      for (final e in entries) await ApiService().createSiloEntry(e);
+      if (mounted) { Navigator.pop(context); widget.onSaved(); }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── gradient header ──
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [_violet, _violetDark],
+                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(widget.isExtraction ? 'New Silo Extraction' : 'New Silo Entry',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: _pickDate,
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.calendar_today_outlined, size: 12, color: Colors.white70),
+                        const SizedBox(width: 5),
+                        Text(DateFormat('dd MMM yyyy').format(_date),
+                            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        const SizedBox(width: 5),
+                        const Icon(Icons.edit_outlined, size: 11, color: Colors.white54),
+                      ]),
+                    ),
+                  ]),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ]),
+            ),
+            // ── body ──
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.isExtraction ? 'Silo Extractions' : 'Silo Entries',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54, letterSpacing: 0.5)),
+                const SizedBox(height: 12),
+                ...List.generate(3, (i) {
+                  final enabled = _checked[i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        // checkbox + label
+                        GestureDetector(
+                          onTap: () => setState(() => _checked[i] = !_checked[i]),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Container(
+                              width: 22, height: 22,
+                              decoration: BoxDecoration(
+                                color: enabled ? _violet : Colors.transparent,
+                                border: Border.all(
+                                  color: enabled ? _violet : Colors.grey.shade400,
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: enabled
+                                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                  : null,
+                            ),
+                            const SizedBox(width: 8),
+                            Text('Silo ${i + 1}',
+                                style: TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w600,
+                                  color: enabled ? Colors.black87 : Colors.grey.shade500,
+                                )),
+                          ]),
+                        ),
+                        const SizedBox(width: 12),
+                        // amount field
+                        Expanded(
+                          child: TextField(
+                            controller: _amountCtrls[i],
+                            enabled: enabled,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              hintText: enabled ? '0.00' : '—',
+                              suffixText: widget.isExtraction ? null : 'MT',
+                              suffixStyle: TextStyle(
+                                color: enabled ? _violet : Colors.grey.shade400,
+                                fontWeight: FontWeight.w600, fontSize: 13,
+                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: _violet, width: 1.2),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: _violet, width: 1.8),
+                              ),
+                              disabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: Colors.grey.shade200),
+                              ),
+                              filled: true,
+                              fillColor: enabled ? Colors.white : Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
+                          ),
+                        ),
+                        // UOM toggle — only for Silo Extraction
+                        if (widget.isExtraction) ...[
+                          const SizedBox(width: 8),
+                          _UomToggle(
+                            selected: _uoms[i],
+                            enabled: enabled,
+                            onChanged: (v) => setState(() => _uoms[i] = v),
+                          ),
+                        ],
+                      ]),
+                    ]),
+                  );
+                }),
+                const Divider(height: 24),
+                // notes
+                TextField(
+                  controller: _notesCtrl,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    hintText: 'Notes (optional)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: _violet, width: 1.5),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // save button
+                SizedBox(
+                  width: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [_violet, _violetDark]),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _saving ? null : _save,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Save Entry',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── UOM Toggle ───────────────────────────────────────────────────────────────
+
+class _UomToggle extends StatelessWidget {
+  final String selected;
+  final bool enabled;
+  final void Function(String) onChanged;
+  const _UomToggle({required this.selected, required this.enabled, required this.onChanged});
+
+  static const _violet = Color(0xFF7C3AED);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      _btn('MT'),
+      const SizedBox(width: 4),
+      _btn('KG'),
+    ]);
+  }
+
+  Widget _btn(String label) {
+    final active = selected == label && enabled;
+    final inactive = !enabled;
+    return GestureDetector(
+      onTap: enabled ? () => onChanged(label) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? _violet : (inactive ? Colors.grey.shade100 : Colors.white),
+          border: Border.all(
+            color: active ? _violet : (inactive ? Colors.grey.shade200 : Colors.grey.shade400),
+            width: 1.2,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: active ? Colors.white : (inactive ? Colors.grey.shade400 : Colors.grey.shade700),
+          ),
+        ),
       ),
     );
   }
@@ -1443,8 +2123,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
   bool _showSearch  = false;
   String _recSearch = '';
   final _searchCtrl = TextEditingController();
-  String _preset = '';
 
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from;
   late DateTime _to;
 
@@ -1458,8 +2140,36 @@ class _LoadingScreenState extends State<LoadingScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _loadAll();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -1643,40 +2353,6 @@ class _LoadingScreenState extends State<LoadingScreen> {
     }
   }
 
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday',
-      'this_week': 'This Week', 'last_week': 'Last Week',
-      'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') {
-      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    }
-    return 'Filter by Date';
-  }
-
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _loadAll();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
-          _loadAll();
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final today     = DateTime.now();
@@ -1752,8 +2428,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
                   title: const Text('Loading',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -1765,12 +2443,14 @@ class _LoadingScreenState extends State<LoadingScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
                 ),
 
@@ -1833,12 +2513,18 @@ class _LoadingScreenState extends State<LoadingScreen> {
                         final rateType = rec['rateType'] ?? 'per_pipe';
                         final chNo    = (rec['customerPoNo'] ?? '').toString();
                         final custName = (rec['customerName'] ?? '').toString();
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.grey.shade200)),
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 3)),
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4,  offset: const Offset(0, 1)),
+                            ],
+                          ),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             onTap: () => _openChallanSheet(rec),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
@@ -3007,57 +3693,104 @@ class ExtraVehiclesScreen extends StatefulWidget {
 }
 
 class _ExtraVehiclesScreenState extends State<ExtraVehiclesScreen> {
-  static const _color = Color(0xFFC026D3);
-  List<_ExtraVehicleEntry> _items = [];
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF4C1D95);
+
+  List<_ExtraVehicleEntry> _allItems = [];
   bool _loading = true;
-  DateTime? _filterDate;
+
+  // date filter
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
+
+  // bottom nav
+  String _activeTab      = 'all';
+  bool   _searchExpanded = false;
+  String _search         = '';
+  final  _searchCtrl     = TextEditingController();
 
   @override
-  void initState() { super.initState(); _load(); }
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
+  }
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final dateStr = _filterDate != null ? _fmt(_filterDate!) : null;
       final raw = await ApiService().getExtraVehicles(
-        size: 200,
-        fromDate: dateStr,
-        toDate: dateStr,
+        size: 500,
+        fromDate: _fmt(_from),
+        toDate: _fmt(_to),
       );
       setState(() {
-        _items = raw.map((e) => _ExtraVehicleEntry.fromJson(e as Map<String, dynamic>)).toList();
-        _loading = false;
+        _allItems = raw.map((e) => _ExtraVehicleEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _loading  = false;
       });
     } catch (_) { setState(() => _loading = false); }
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _filterDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _color)),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() => _filterDate = picked);
-      _load();
-    }
-  }
-
-  void _clearDate() {
-    setState(() => _filterDate = null);
-    _load();
+  List<_ExtraVehicleEntry> get _filtered {
+    return _allItems.where((e) {
+      if (_activeTab == 'crane' && e.vehicles['crane']?.enabled != true) return false;
+      if (_activeTab == 'jcb'   && e.vehicles['jcb']?.enabled   != true) return false;
+      if (_activeTab == 'other') {
+        final otherKeys = _vehicleKeys.where((k) => k != 'crane' && k != 'jcb');
+        if (!otherKeys.any((k) => e.vehicles[k]?.enabled == true)) return false;
+      }
+      if (_search.trim().isNotEmpty) {
+        final q = _search.toLowerCase();
+        return e.vendor.toLowerCase().contains(q) ||
+               (e.notes ?? '').toLowerCase().contains(q) ||
+               e.activeKeys.any((k) => (_vehicleLabels[k] ?? k).toLowerCase().contains(q));
+      }
+      return true;
+    }).toList();
   }
 
   List<String> get _vendorSuggestions {
     final seen = <String>{};
-    return _items.map((e) => e.vendor).where((v) => v.isNotEmpty && seen.add(v)).toList()..sort();
+    return _allItems.map((e) => e.vendor).where((v) => v.isNotEmpty && seen.add(v)).toList()..sort();
   }
 
   Future<void> _showAddEdit(BuildContext context, {_ExtraVehicleEntry? editing}) async {
@@ -3102,81 +3835,204 @@ class _ExtraVehiclesScreenState extends State<ExtraVehiclesScreen> {
     }
   }
 
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
+  Widget _buildFloatingNav() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 20, offset: const Offset(0, 4))],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() => Row(
+    key: const ValueKey('search'),
+    children: [
+      Container(
+        margin: const EdgeInsets.all(8),
+        width: 46, height: 46,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [_color, _colorDark]),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.search, color: Colors.white, size: 20),
+      ),
+      Expanded(
+        child: TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search vendor or vehicle…',
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      ),
+      GestureDetector(
+        onTap: () {
+          _searchCtrl.clear();
+          setState(() { _search = ''; _searchExpanded = false; });
+        },
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          width: 46, height: 46,
+          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+          child: const Icon(Icons.close, size: 20, color: Colors.grey),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildNavItems() => Row(
+    key: const ValueKey('nav'),
+    children: [
+      _navItem(Icons.search,                            'Search', '',      onTap: () => setState(() => _searchExpanded = true)),
+      _navItem(Icons.list_outlined,                    'All',    'all'),
+      _navItem(Icons.precision_manufacturing_outlined,  'Crane',  'crane'),
+      _navItem(Icons.construction_outlined,             'JCB',    'jcb'),
+      _navItem(Icons.directions_car_outlined,           'Other',  'other'),
+    ],
+  );
+
+  Widget _navItem(IconData icon, String label, String tab, {VoidCallback? onTap}) {
+    final active = tab.isNotEmpty && _activeTab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap ?? () => setState(() => _activeTab = tab),
+        child: Container(
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? BoxDecoration(
+                  gradient: const LinearGradient(colors: [_color, _colorDark]),
+                  borderRadius: BorderRadius.circular(26),
+                )
+              : null,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: active ? Colors.white : Colors.grey.shade500),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                color: active ? Colors.white : Colors.grey.shade500)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final hasFilter = _filterDate != null;
+    final items = _filtered;
+    final totalAmount = items.fold(0.0, (s, e) => s + e.totalAmount);
+    final fmt = NumberFormat('#,##0', 'en_IN');
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: const Text('Extra Vehicles'),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        actions: [
-          if (hasFilter)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: TextButton.icon(
-                onPressed: _clearDate,
-                icon: const Icon(Icons.close, size: 14, color: Colors.white),
-                label: Text(
-                  DateFormat('dd MMM').format(_filterDate!),
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.20),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      bottomNavigationBar: _buildFloatingNav(),
+      body: CustomScrollView(slivers: [
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 120,
+          backgroundColor: _color,
+          foregroundColor: Colors.white,
+          leading: context.canPop()
+              ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+              : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
+          title: const Text('Extra Vehicles'),
+          actions: [
+            CompositedTransformTarget(
+              link: _layerLink,
+              child: GestureDetector(
+                onTap: _toggleDateOverlay,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                    const SizedBox(width: 5),
+                    Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 3),
+                    const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                  ]),
                 ),
               ),
             ),
-          IconButton(
-            icon: Icon(
-              hasFilter ? Icons.calendar_today : Icons.calendar_today_outlined,
-              color: Colors.white,
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.add, color: Colors.white),
+              onPressed: () => _showAddEdit(context),
             ),
-            tooltip: 'Filter by date',
-            onPressed: _pickDate,
+            const SizedBox(width: 4),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_color, _colorDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                  child: Row(children: [
+                    _hStat('${items.length}', 'Entries'),
+                    _hStat(totalAmount > 0 ? '₹${fmt.format(totalAmount)}' : '—', 'Total ₹'),
+                  ]),
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _items.isEmpty
-                  ? Center(
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.directions_car_outlined, size: 48, color: Colors.grey.shade300),
-                        const SizedBox(height: 12),
-                        Text(
-                          hasFilter
-                              ? 'No entries for ${DateFormat('dd MMM yyyy').format(_filterDate!)}'
-                              : 'No extra vehicle entries',
-                          style: TextStyle(color: Colors.grey.shade500),
+        ),
+        SliverFillRemaining(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: items.isEmpty
+                      ? Center(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.directions_car_outlined, size: 48, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('No extra vehicle entries',
+                                style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                          ]),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                          itemCount: items.length,
+                          itemBuilder: (_, i) => _ExtraVehicleCard(
+                            entry: items[i],
+                            color: _color,
+                            onEdit: () => _showAddEdit(context, editing: items[i]),
+                            onDelete: () => _delete(items[i]),
+                          ),
                         ),
-                        if (hasFilter) ...[
-                          const SizedBox(height: 8),
-                          TextButton(onPressed: _clearDate, child: const Text('Clear filter')),
-                        ],
-                      ]),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _items.length,
-                      itemBuilder: (_, i) => _ExtraVehicleCard(
-                        entry: _items[i],
-                        color: _color,
-                        onEdit: () => _showAddEdit(context, editing: _items[i]),
-                        onDelete: () => _delete(_items[i]),
-                      ),
-                    ),
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEdit(context),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+                ),
+        ),
+      ]),
     );
   }
 }
@@ -3531,16 +4387,62 @@ class ConversionScreen extends StatefulWidget {
 }
 
 class _ConversionScreenState extends State<ConversionScreen> {
-  static const _color = Color(0xFF9333EA);
+  static const _color     = Color(0xFF9333EA);
+  static const _colorDark = Color(0xFF6B21A8);
+
   List<_ConversionEntry> _items = [];
   bool _loading = true;
-  // pipe configs: diameter → sorted list of kg strings
   Map<String, List<String>> _pipesByDiameter = {};
   List<String> _diameters = [];
   bool _loadingPipes = true;
 
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
+
   @override
-  void initState() { super.initState(); _loadAll(); }
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _loadAll();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
+  }
+
+  String _fmtDate2(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
   Future<void> _loadAll() async {
     await Future.wait([_load(), _loadPipes()]);
@@ -3549,7 +4451,7 @@ class _ConversionScreenState extends State<ConversionScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final raw = await ApiService().getConversions();
+      final raw = await ApiService().getConversions(fromDate: _fmtDate2(_from), toDate: _fmtDate2(_to));
       setState(() {
         _items = raw.map((e) => _ConversionEntry.fromJson(e as Map<String, dynamic>)).toList();
         _loading = false;
@@ -3620,31 +4522,109 @@ class _ConversionScreenState extends State<ConversionScreen> {
     if (confirmed == true) { await ApiService().deleteConversion(entry.id); _load(); }
   }
 
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final totalQty = _items.fold(0.0, (s, e) => s + (double.tryParse(e.quantity) ?? 0));
+    final uniquePipes = _items.map((e) => e.fromPipe).toSet().length;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(title: const Text('Conversion'), backgroundColor: _color, foregroundColor: Colors.white),
+      backgroundColor: Colors.white,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadAll,
-              child: _items.isEmpty
-                  ? const Center(child: Text('No conversion entries'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _items.length,
-                      itemBuilder: (_, i) => _ConversionCard(entry: _items[i], color: _color,
-                          onEdit: () => _showAddEdit(editing: _items[i]),
-                          onDelete: () => _delete(_items[i])),
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 120,
+                  backgroundColor: _color,
+                  foregroundColor: Colors.white,
+                  leading: context.canPop()
+                      ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+                      : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
+                  title: const Text('Conversion'),
+                  actions: [
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      onPressed: () => _showAddEdit(),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [_color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                          child: Row(children: [
+                            _hStat('${_items.length}', 'Conversions'),
+                            _hStat('${totalQty.toInt()}', 'Total Pipes'),
+                            _hStat('$uniquePipes', 'Pipe Types'),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                _items.isEmpty
+                    ? SliverFillRemaining(
+                        child: Center(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.sync_outlined, size: 48, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('No conversion entries', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                          ]),
+                        ),
+                      )
+                    : SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (_, i) => _ConversionCard(entry: _items[i], color: _color,
+                                onEdit: () => _showAddEdit(editing: _items[i]),
+                                onDelete: () => _delete(_items[i])),
+                            childCount: _items.length,
+                          ),
+                        ),
+                      ),
+              ]),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEdit(),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
@@ -4081,26 +5061,63 @@ class LoadedPipesScreen extends StatefulWidget {
 }
 
 class _LoadedPipesScreenState extends State<LoadedPipesScreen> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF4C1D95);
+
   List<dynamic> _records = [];
   bool _loading = true;
   String _search = '';
 
-  // date range
-  DateTime _from = DateTime.now().subtract(const Duration(days: 30));
-  DateTime _to   = DateTime.now();
+  // date filter
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
 
-  final _searchCtrl = TextEditingController();
+  // bottom nav
+  bool   _searchExpanded = false;
+  final  _searchCtrl     = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
     _loadData();
   }
 
   @override
   void dispose() {
+    _closeDateOverlay();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _loadData();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String get _fromStr => DateFormat('yyyy-MM-dd').format(_from);
@@ -4130,168 +5147,195 @@ class _LoadedPipesScreenState extends State<LoadedPipesScreen> {
     }).toList();
   }
 
-  void _applyPreset(String preset) {
-    final now = DateTime.now();
-    setState(() {
-      switch (preset) {
-        case 'Today':
-          _from = DateTime(now.year, now.month, now.day);
-          _to   = now;
-          break;
-        case 'Last 7d':
-          _from = now.subtract(const Duration(days: 7));
-          _to   = now;
-          break;
-        case 'Last 30d':
-          _from = now.subtract(const Duration(days: 30));
-          _to   = now;
-          break;
-        case 'This Month':
-          _from = DateTime(now.year, now.month, 1);
-          _to   = now;
-          break;
-        case 'This Quarter':
-          final q = ((now.month - 1) ~/ 3) * 3 + 1;
-          _from = DateTime(now.year, q, 1);
-          _to   = now;
-          break;
-        case 'This Year':
-          _from = DateTime(now.year, 1, 1);
-          _to   = now;
-          break;
-      }
-    });
-    _loadData();
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
+  Widget _buildFloatingNav() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 20, offset: const Offset(0, 4))],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
+          ),
+        ),
+      ),
+    );
   }
 
-  // stats
-  int get _totalDispatches => _filtered.length;
-  int get _totalPipes => _filtered.fold(0, (s, r) =>
-      s + (int.tryParse(r['quantity']?.toString() ?? '0') ?? 0));
-  int get _uniqueTypes => _filtered.map((r) => r['pipeName']?.toString() ?? '').toSet().length;
+  Widget _buildSearchExpanded() => Row(
+    key: const ValueKey('search'),
+    children: [
+      Container(
+        margin: const EdgeInsets.all(8),
+        width: 46, height: 46,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [_color, _colorDark]),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.search, color: Colors.white, size: 20),
+      ),
+      Expanded(
+        child: TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search pipe, vehicle, driver, vendor…',
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      ),
+      GestureDetector(
+        onTap: () {
+          _searchCtrl.clear();
+          setState(() { _search = ''; _searchExpanded = false; });
+        },
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          width: 46, height: 46,
+          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+          child: const Icon(Icons.close, size: 20, color: Colors.grey),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildNavItems() => Row(
+    key: const ValueKey('nav'),
+    children: [
+      _navItem(Icons.search,        'Search', active: false, onTap: () => setState(() => _searchExpanded = true)),
+      _navItem(Icons.list_outlined, 'All',    active: true),
+    ],
+  );
+
+  Widget _navItem(IconData icon, String label, {required bool active, VoidCallback? onTap}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? BoxDecoration(
+                  gradient: const LinearGradient(colors: [_color, _colorDark]),
+                  borderRadius: BorderRadius.circular(26),
+                )
+              : null,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: active ? Colors.white : Colors.grey.shade500),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                color: active ? Colors.white : Colors.grey.shade500)),
+          ]),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final items       = _filtered;
+    final totalPipes  = items.fold(0, (s, r) => s + (int.tryParse(r['quantity']?.toString() ?? '0') ?? 0));
+    final uniqueTypes = items.map((r) => r['pipeName']?.toString() ?? '').toSet().length;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF16A34A),
-        foregroundColor: Colors.white,
-        title: const Text('Loaded Pipes'),
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          _buildPresets(),
-          _buildSearchBar(),
-          _buildStats(),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _filtered.isEmpty
-                    ? const Center(child: Text('No records found', style: TextStyle(color: Colors.grey)))
-                    : RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: _filtered.length,
+      backgroundColor: Colors.white,
+      bottomNavigationBar: _buildFloatingNav(),
+      body: CustomScrollView(slivers: [
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 120,
+          backgroundColor: _color,
+          foregroundColor: Colors.white,
+          leading: context.canPop()
+              ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+              : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
+          title: const Text('Loaded Pipes'),
+          actions: [
+            CompositedTransformTarget(
+              link: _layerLink,
+              child: GestureDetector(
+                onTap: _toggleDateOverlay,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                    const SizedBox(width: 5),
+                    Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 3),
+                    const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_color, _colorDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                  child: Row(children: [
+                    _hStat('${items.length}', 'Dispatches'),
+                    _hStat('$totalPipes', 'Pipes Loaded'),
+                    _hStat('$uniqueTypes', 'Pipe Types'),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SliverFillRemaining(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: items.isEmpty
+                      ? Center(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.local_shipping_outlined, size: 48, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('No records found',
+                                style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                          ]),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                          itemCount: items.length,
                           itemBuilder: (ctx, i) => _RecordCard(
-                            record: _filtered[i],
+                            record: items[i],
                             onUpdated: _loadData,
                           ),
                         ),
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPresets() {
-    const presets = ['Today', 'Last 7d', 'Last 30d', 'This Month', 'This Quarter', 'This Year'];
-    return Container(
-      color: Colors.white,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: presets.map((p) => Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: ActionChip(
-              label: Text(p, style: const TextStyle(fontSize: 12)),
-              backgroundColor: const Color(0xFF16A34A),
-              labelStyle: const TextStyle(color: Colors.white),
-              onPressed: () => _applyPreset(p),
-            ),
-          )).toList(),
+                ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: TextField(
-        controller: _searchCtrl,
-        decoration: InputDecoration(
-          hintText: 'Search pipe, vehicle, driver, vendor, CH.NO…',
-          prefixIcon: const Icon(Icons.search, size: 18),
-          suffixIcon: _search.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
-                  onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); },
-                )
-              : null,
-          isDense: true,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        ),
-        onChanged: (v) => setState(() => _search = v),
-      ),
-    );
-  }
-
-  Widget _buildStats() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          _StatChip(label: 'Dispatches', value: '$_totalDispatches', color: const Color(0xFF16A34A)),
-          const SizedBox(width: 8),
-          _StatChip(label: 'Pipes Loaded', value: '$_totalPipes', color: const Color(0xFF2563EB)),
-          const SizedBox(width: 8),
-          _StatChip(label: 'Pipe Types', value: '$_uniqueTypes', color: const Color(0xFF7C3AED)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  const _StatChip({required this.label, required this.value, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        children: [
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 16)),
-          Text(label, style: TextStyle(fontSize: 11, color: color.withOpacity(0.8))),
-        ],
-      ),
+      ]),
     );
   }
 }
@@ -4316,10 +5360,16 @@ class _RecordCard extends StatelessWidget {
     final hasPhoto  = record['challanPhotoUrl'] != null && (record['challanPhotoUrl'] as String).isNotEmpty;
     final id        = record['id'] is int ? record['id'] as int : int.tryParse(record['id']?.toString() ?? '') ?? 0;
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 1,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 3)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4,  offset: const Offset(0, 1)),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -4837,6 +5887,13 @@ class _PdiScreenState extends State<PdiScreen> {
   late DateTime _from;
   late DateTime _to;
   String _search = '';
+  bool _searchExpanded = false;
+  final _searchCtrl = TextEditingController();
+
+  // Date filter overlay
+  final _layerLink  = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
 
   @override
   void initState() {
@@ -4844,6 +5901,40 @@ class _PdiScreenState extends State<PdiScreen> {
     _to   = DateTime.now();
     _from = _to.subtract(const Duration(days: 29));
     _loadAll();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _loadAll();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -4907,7 +5998,7 @@ class _PdiScreenState extends State<PdiScreen> {
       builder: (_) => _PdiSheet(
         pipeOptions: _pipeOptions,
         thirdPartyOptions: _allThirdPartyOptions,
-        accentColor: _emerald,
+        accentColor: _violet,
         onSave: (rows) async {
           final created = await Future.wait(rows.map((r) => ApiService().createPdiEntry(r)));
           setState(() => _entries = [...created.reversed.toList(), ..._entries]);
@@ -4925,7 +6016,7 @@ class _PdiScreenState extends State<PdiScreen> {
         initial: entry,
         pipeOptions: _pipeOptions,
         thirdPartyOptions: _allThirdPartyOptions,
-        accentColor: _emerald,
+        accentColor: _violet,
         onSave: (rows) async {
           final updated = await ApiService().updatePdiEntry(entry['id'] as int, rows.first);
           setState(() => _entries = _entries.map((e) => e['id'] == updated['id'] ? updated : e).toList());
@@ -4967,87 +6058,124 @@ class _PdiScreenState extends State<PdiScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: const Text('PDI'),
-        backgroundColor: _violet,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
-            onPressed: _openAdd,
-            tooltip: 'Add Entry',
-          ),
-        ],
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _loadAll,
               child: CustomScrollView(slivers: [
-                // Stats strip
-                SliverToBoxAdapter(child: Container(
-                  color: _violet,
-                  child: Row(children: [
-                    _stat('${filtered.length}', 'Total Entries'),
-                    _stat(totalQty.toStringAsFixed(0), 'Pipes Inspected'),
-                    _stat(filtered.isEmpty ? '—' : avgPassed.toStringAsFixed(1), 'Avg Checks\n(of ${_pdiChecks.length})'),
-                  ]),
-                )),
-
-                // Date range bar
-                SliverToBoxAdapter(child: Container(
-                  color: _violet.withOpacity(0.06),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(children: [
-                    const Icon(Icons.date_range_outlined, size: 14, color: Color(0xFF7C3AED)),
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: () async {
-                        final r = await showDateRangePicker(context: context,
-                          firstDate: DateTime(2023), lastDate: DateTime(2030),
-                          initialDateRange: DateTimeRange(start: _from, end: _to),
-                          builder: (ctx, child) => Theme(data: Theme.of(ctx).copyWith(
-                            colorScheme: const ColorScheme.light(primary: Color(0xFF7C3AED))), child: child!));
-                        if (r != null) { setState(() { _from = r.start; _to = r.end; }); _loadAll(); }
-                      },
-                      child: Text(
-                        '${DateFormat('dd MMM yy').format(_from)} – ${DateFormat('dd MMM yy').format(_to)}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF7C3AED), fontWeight: FontWeight.w600),
-                      ),
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 120,
+                  backgroundColor: _violet,
+                  leading: context.canPop()
+                      ? IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => context.pop(),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.menu_outlined, color: Colors.white),
+                          onPressed: openAppDrawer,
+                          tooltip: 'Open menu',
+                        ),
+                  title: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _searchExpanded
+                        ? TextField(
+                            key: const ValueKey('search'),
+                            controller: _searchCtrl,
+                            autofocus: true,
+                            onChanged: (v) => setState(() => _search = v),
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            cursorColor: Colors.white,
+                            decoration: InputDecoration(
+                              hintText: 'Search pipe or third party…',
+                              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.12),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              isDense: true,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.white.withOpacity(0.3))),
+                            ),
+                          )
+                        : const Align(
+                            key: ValueKey('title'),
+                            alignment: Alignment.centerLeft,
+                            child: Text('PDI', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w600)),
+                          ),
+                  ),
+                  actions: [
+                    IconButton(
+                      icon: Icon(
+                        _searchExpanded ? Icons.search_off_rounded : Icons.search_rounded,
+                        color: Colors.white, size: 22),
+                      onPressed: () => setState(() {
+                        _searchExpanded = !_searchExpanded;
+                        if (!_searchExpanded) { _searchCtrl.clear(); _search = ''; }
+                      }),
                     ),
-                    const Spacer(),
-                    // Quick presets
-                    for (final p in [('Today', 0), ('7d', 6), ('30d', 29)])
-                      GestureDetector(
-                        onTap: () {
-                          final t = DateTime.now();
-                          setState(() { _to = t; _from = t.subtract(Duration(days: p.$2)); });
-                          _loadAll();
-                        },
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
-                          margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: const Color(0xFF7C3AED).withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
-                          child: Text(p.$1, style: const TextStyle(fontSize: 10, color: Color(0xFF7C3AED), fontWeight: FontWeight.w600)),
+                          margin: const EdgeInsets.only(right: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(
+                              _dateFilter.isActive ? _dateFilter.label : 'Date',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
                         ),
                       ),
-                  ]),
-                )),
-
-                // Search bar
-                SliverToBoxAdapter(child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                  child: TextField(
-                    onChanged: (v) => setState(() => _search = v),
-                    decoration: InputDecoration(
-                      hintText: 'Search pipe name or third party…',
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      filled: true, fillColor: Colors.white,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      onPressed: _openAdd,
+                      tooltip: 'Add Entry',
+                    ),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF7C3AED), Color(0xFF4C1D95)],
+                        ),
+                      ),
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 64, 16, 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                _statChip('${filtered.length}', 'Total'),
+                                _statChip(totalQty.toStringAsFixed(0), 'Inspected'),
+                                _statChip(
+                                  filtered.isEmpty ? '—' : avgPassed.toStringAsFixed(1),
+                                  'Avg Checks',
+                                ),
+                              ]),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                )),
+                ),
 
                 if (filtered.isEmpty)
                   const SliverFillRemaining(child: Center(child: Text('No PDI entries found')))
@@ -5135,15 +6263,24 @@ class _PdiScreenState extends State<PdiScreen> {
                   ),
               ]),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAdd,
-        backgroundColor: _emerald,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Entry'),
-      ),
     );
   }
+
+  Widget _statChip(String value, String label) => Expanded(
+    child: Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(children: [
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 1),
+        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.w500)),
+      ]),
+    ),
+  );
 
   Widget _stat(String val, String label) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(vertical: 10),
@@ -5159,6 +6296,15 @@ class _PdiScreenState extends State<PdiScreen> {
     Text(text, style: const TextStyle(fontSize: 11, color: Colors.grey)),
   ]);
 }
+
+// ── PDI Date Filter ───────────────────────────────────────────────────────────
+
+// Aliases so existing code in this file continues to work unchanged
+typedef _PdiDateFilter = BizDateFilter;
+typedef _PdiDateDropdown = BizDateDropdown;
+DateTime _pdiResolveFrom(String key) => bizResolveFrom(key);
+DateTime _pdiResolveTo(String key)   => bizResolveTo(key);
+const _pdiPresets = bizDatePresets;
 
 // ── PDI Add/Edit Sheet ────────────────────────────────────────────────────────
 
@@ -5274,34 +6420,48 @@ class _PdiSheetState extends State<_PdiSheet> {
     final passed = _checks.values.where((v) => v).length;
 
     return Container(
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      child: Padding(
-        padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: bottom + 20),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          // Header
-          Row(children: [
-            Expanded(child: Text(_isEdit ? 'Edit PDI Entry' : 'Add PDI Entry',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-            // Date picker in header
-            GestureDetector(
-              onTap: () async {
-                final picked = await showDatePicker(context: context, initialDate: _date,
-                    firstDate: DateTime(2023), lastDate: DateTime(2030));
-                if (picked != null) setState(() => _date = picked);
-              },
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF7C3AED)),
-                const SizedBox(width: 4),
-                Text(DateFormat('dd MMM yy').format(_date),
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF7C3AED), fontWeight: FontWeight.w600)),
-                const Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF7C3AED)),
-              ]),
+      decoration: const BoxDecoration(color: Color(0xFFF9FAFB), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Gradient header
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF7C3AED), Color(0xFF4C1D95)],
             ),
-            const SizedBox(width: 4),
-            IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Row(children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_isEdit ? 'Edit PDI Entry' : 'New PDI Entry',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+              const SizedBox(height: 2),
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(context: context, initialDate: _date,
+                      firstDate: DateTime(2023), lastDate: DateTime(2030),
+                      builder: (ctx, child) => Theme(
+                        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF7C3AED), onPrimary: Colors.white)),
+                        child: child!));
+                  if (picked != null) setState(() => _date = picked);
+                },
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.calendar_today_outlined, size: 12, color: Colors.white60),
+                  const SizedBox(width: 4),
+                  Text(DateFormat('dd MMM yyyy').format(_date),
+                      style: const TextStyle(fontSize: 12, color: Colors.white60, fontWeight: FontWeight.w500)),
+                  const Icon(Icons.arrow_drop_down, size: 14, color: Colors.white60),
+                ]),
+              ),
+            ])),
+            IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
           ]),
+        ),
 
-          Flexible(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Flexible(child: SingleChildScrollView(child: Padding(
+          padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: bottom + 20),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SizedBox(height: 8),
 
             // Third party
@@ -5384,7 +6544,7 @@ class _PdiSheetState extends State<_PdiSheet> {
                 onPressed: () => setState(() => _pipeRows.add({'pipeName': '', 'qty': ''})),
                 icon: const Icon(Icons.add_circle_outline, size: 16),
                 label: const Text('Add Pipe'),
-                style: TextButton.styleFrom(foregroundColor: const Color(0xFF059669)),
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFF7C3AED)),
               ),
             ],
             const SizedBox(height: 16),
@@ -5439,18 +6599,30 @@ class _PdiSheetState extends State<_PdiSheet> {
             ),
             const SizedBox(height: 20),
 
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _submit,
-                style: FilledButton.styleFrom(backgroundColor: widget.accentColor, padding: const EdgeInsets.symmetric(vertical: 14)),
-                icon: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_circle_outline),
-                label: Text(_saving ? 'Saving…' : _isEdit ? 'Save Changes' : _pipeRows.length > 1 ? 'Add ${_pipeRows.length} Entries' : 'Add Entry'),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFF4C1D95), Color(0xFF2563EB)]),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: const Color(0xFF7C3AED).withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _saving ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent, shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_circle_outline, color: Colors.white),
+                  label: Text(_saving ? 'Saving…' : _isEdit ? 'Save Changes' : _pipeRows.length > 1 ? 'Add ${_pipeRows.length} Entries' : 'Add Entry',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
               ),
             ),
-          ]))),
-        ]),
-      ),
+          ]),
+        ))),
+      ]),
     );
   }
 }
@@ -5509,7 +6681,10 @@ class _LabourScreenState extends State<LabourScreen> {
   bool _showSearch = false;
   String _search = '';
   final _searchCtrl = TextEditingController();
-  String _preset = '';
+
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
 
   @override
@@ -5522,8 +6697,36 @@ class _LabourScreenState extends State<LabourScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -5537,40 +6740,6 @@ class _LabourScreenState extends State<LabourScreen> {
       if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
     } catch (_) {}
     if (mounted) setState(() => _loadingData = false);
-  }
-
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
-          _load();
-        },
-      ),
-    );
-  }
-
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday',
-      'this_week': 'This Week', 'last_week': 'Last Week',
-      'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') {
-      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    }
-    return 'Filter by Date';
   }
 
   static double _toD(dynamic v) {
@@ -5727,8 +6896,10 @@ class _LabourScreenState extends State<LabourScreen> {
                   title: const Text('Labour',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -5740,13 +6911,14 @@ class _LabourScreenState extends State<LabourScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel,
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
                                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
                 ),
 
@@ -6776,8 +7948,8 @@ class StoreMaterialScreen extends StatefulWidget {
 }
 
 class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
-  static const _color = Color(0xFF7C3AED);
-  static const _colorDark = Color(0xFF2563EB);
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF4C1D95);
 
   bool _loadingData = true;
   List<Map<String, dynamic>> _items = [];
@@ -6785,7 +7957,11 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
   bool _showSearch = false;
   String _search = '';
   final _searchCtrl = TextEditingController();
-  String _preset = '';
+
+  // date filter
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
 
   @override
@@ -6799,6 +7975,7 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -6823,38 +8000,31 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
     } catch (_) {}
   }
 
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
-          _load();
-        },
-      ),
-    );
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
   }
 
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday',
-      'this_week': 'This Week', 'last_week': 'Last Week',
-      'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') {
-      return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    }
-    return 'Filter by Date';
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   static int _toI(dynamic v) {
@@ -6987,8 +8157,10 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
                   title: const Text('Store Material',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -7000,13 +8172,14 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel,
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Filter by Date',
                                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
                 ),
 
@@ -7666,11 +8839,15 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
   bool _loadingData = true;
   List<Map<String, dynamic>> _items = [];
-  bool _showSearch = false;
+  bool _searchExpanded = false;
   String _search = '';
   final _searchCtrl = TextEditingController();
   String _preset = '';
   late DateTime _from, _to;
+
+  final _layerLink  = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
 
   @override
   void initState() {
@@ -7682,8 +8859,37 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _preset = f.preset;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -7833,66 +9039,74 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               child: CustomScrollView(slivers: [
                 SliverAppBar(
                   pinned: true,
-                  expandedHeight: 106,
-                  toolbarHeight: 46,
-                  backgroundColor: Colors.transparent,
+                  expandedHeight: 120,
+                  backgroundColor: const Color(0xFF7C3AED),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   scrolledUnderElevation: 0,
-                  flexibleSpace: FlexibleSpaceBar(
-                    collapseMode: CollapseMode.pin,
-                    background: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF6D28D9), _color, _colorDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                  leading: context.canPop()
+                      ? IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => context.pop(),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.menu_outlined, color: Colors.white),
+                          onPressed: openAppDrawer,
+                          tooltip: 'Open menu',
                         ),
-                      ),
-                      child: Stack(children: [
-                        Positioned(
-                          right: -24, top: -24,
-                          child: Container(
-                            width: 110, height: 110,
-                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.bottomLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
-                            child: Row(children: [
-                              _hStat('${_items.length}', 'Entries'),
-                              _hStat(total > 0 ? _fmtAmount(total) : '—', 'Total Cost'),
-                            ]),
-                          ),
-                        ),
-                      ]),
-                    ),
-                  ),
-                  title: const Text('Maintenance',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  title: const Text('Maintenance', style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w600)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
-                          margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: Colors.white.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                            border: Border.all(color: Colors.white.withOpacity(0.25)),
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            Text(
+                              _dateFilter.isActive ? _dateFilter.label : 'Date',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      onPressed: () => _showAddEdit(),
+                      tooltip: 'Add Entry',
+                    ),
                   ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF7C3AED), Color(0xFF4C1D95)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                          child: Row(children: [
+                            _hStat('${filtered.length}', 'Entries'),
+                            _hStat(total > 0 ? _fmtAmount(total) : '—', 'Total Cost'),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
 
                 if (filtered.isEmpty)
@@ -7939,12 +9153,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
               ]),
             ),
       bottomNavigationBar: _buildFloatingNav(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEdit(),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
@@ -7972,7 +9180,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 260),
                   transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-                  child: _showSearch ? _buildSearchExpanded() : _buildNavItems(),
+                  child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
                 ),
               ),
             ),
@@ -8008,7 +9216,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
           ),
         ),
         GestureDetector(
-          onTap: () => setState(() { _showSearch = false; _search = ''; _searchCtrl.clear(); }),
+          onTap: () => setState(() { _searchExpanded = false; _search = ''; _searchCtrl.clear(); }),
           child: Container(
             margin: const EdgeInsets.all(10), width: 40, height: 40,
             decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(20)),
@@ -8023,7 +9231,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     return Row(
       key: const ValueKey('mtnav'),
       children: [
-        _mtFloatItem(icon: Icons.search, label: 'Search', active: false, onTap: () => setState(() => _showSearch = true)),
+        _mtFloatItem(icon: Icons.search, label: 'Search', active: false, onTap: () => setState(() => _searchExpanded = true)),
         _mtFloatItem(icon: Icons.build_outlined, label: 'All Entries', active: true, onTap: () {}),
       ],
     );
@@ -8056,7 +9264,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
   Widget _buildSuggestions() {
     final suggs = _vendorSuggestions;
-    if (!_showSearch || suggs.isEmpty) return const SizedBox.shrink();
+    if (!_searchExpanded || suggs.isEmpty) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 6),
       decoration: BoxDecoration(
@@ -8491,7 +9699,7 @@ class CuttingScreen extends StatefulWidget {
 
 class _CuttingScreenState extends State<CuttingScreen> {
   static const _color     = Color(0xFF7C3AED);
-  static const _colorDark = Color(0xFF2563EB);
+  static const _colorDark = Color(0xFF4C1D95);
   static const _pink      = Color(0xFFDB2777);
 
   bool _loadingData = true;
@@ -8499,7 +9707,9 @@ class _CuttingScreenState extends State<CuttingScreen> {
   List<String> _sheets = [];
   bool _loadingSheets = true;
 
-  String _preset = '';
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
 
   static final _sheetRe = RegExp(r'^1\.6MM SHEET \d+$');
@@ -8516,7 +9726,35 @@ class _CuttingScreenState extends State<CuttingScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -8543,37 +9781,6 @@ class _CuttingScreenState extends State<CuttingScreen> {
       if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
     } catch (_) {}
     if (mounted) setState(() => _loadingData = false);
-  }
-
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
-          _load();
-        },
-      ),
-    );
-  }
-
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
-      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    return 'Filter by Date';
   }
 
   static int _toI(dynamic v) {
@@ -8679,8 +9886,10 @@ class _CuttingScreenState extends State<CuttingScreen> {
                   title: const Text('Sheet Cutting',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -8692,12 +9901,14 @@ class _CuttingScreenState extends State<CuttingScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
                 ),
 
@@ -9145,7 +10356,7 @@ class DieselMaintenanceScreen extends StatefulWidget {
 
 class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
   static const _color     = Color(0xFF7C3AED);
-  static const _colorDark = Color(0xFF2563EB);
+  static const _colorDark = Color(0xFF4C1D95);
 
   static const _processes = [
     'Fabrication', 'Fabrication Testing', 'Moulding', 'Spinning',
@@ -9153,10 +10364,24 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
     'General / Other',
   ];
 
+  static const _productionProcesses = {
+    'Fabrication', 'Moulding', 'Spinning', 'Demoulding',
+    'Curing 1', 'Winding', 'Coating',
+  };
+  static const _testingProcesses = {'Fabrication Testing', 'Final Testing'};
+
   bool _loadingData = true;
   List<Map<String, dynamic>> _items = [];
-  String _preset = '';
+
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
+
+  String _activeTab      = 'all';
+  bool   _searchExpanded = false;
+  String _search         = '';
+  final  _searchCtrl     = TextEditingController();
 
   @override
   void initState() {
@@ -9168,7 +10393,51 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
+    _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    return _items.where((e) {
+      final process = (e['process'] ?? '').toString();
+      if (_activeTab == 'production' && !_productionProcesses.contains(process)) return false;
+      if (_activeTab == 'testing'    && !_testingProcesses.contains(process))    return false;
+      if (_activeTab == 'general'    && process != 'General / Other')             return false;
+      if (_search.trim().isNotEmpty) {
+        final q = _search.toLowerCase();
+        return process.toLowerCase().contains(q) ||
+               (e['notes'] ?? '').toString().toLowerCase().contains(q);
+      }
+      return true;
+    }).toList();
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -9183,37 +10452,6 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
     if (mounted) setState(() => _loadingData = false);
   }
 
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
-          _load();
-        },
-      ),
-    );
-  }
-
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
-      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    return 'Filter by Date';
-  }
-
   static int _toI(dynamic v) {
     if (v == null) return 0;
     if (v is int) return v;
@@ -9226,8 +10464,6 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
     if (v is num) return v.toDouble();
     return double.tryParse(v.toString()) ?? 0;
   }
-
-  double get _totalLitres => _items.fold(0.0, (s, e) => s + _toD(e['quantity']));
 
   void _showAddEdit([Map<String, dynamic>? editing]) {
     showModalBottomSheet(
@@ -9269,10 +10505,12 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final total = _totalLitres;
+    final items = _filtered;
+    final total = items.fold(0.0, (s, e) => s + _toD(e['quantity']));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
+      bottomNavigationBar: _buildFloatingNav(),
       body: _loadingData
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -9309,7 +10547,7 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
                             child: Row(children: [
-                              _hStat('${_items.length}', 'Entries'),
+                              _hStat('${items.length}', 'Entries'),
                               _hStat(total > 0 ? '${total.toStringAsFixed(1)}L' : '—', 'Total Diesel'),
                             ]),
                           ),
@@ -9320,8 +10558,15 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
                   title: const Text('Diesel Maintenance',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      onPressed: () => _showAddEdit(),
+                      tooltip: 'Add Entry',
+                    ),
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -9333,16 +10578,18 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
                 ),
 
-                if (_items.isEmpty)
+                if (items.isEmpty)
                   SliverFillRemaining(
                     child: Center(
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -9358,15 +10605,15 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (_, i) => _DieselCard(
-                          entry: _items[i],
-                          onEdit:   () => _showAddEdit(_items[i]),
+                          entry: items[i],
+                          onEdit:   () => _showAddEdit(items[i]),
                           onDelete: () => _delete(
-                            _toI(_items[i]['id']),
-                            _items[i]['date']?.toString() ?? '',
-                            _items[i]['process']?.toString() ?? '',
+                            _toI(items[i]['id']),
+                            items[i]['date']?.toString() ?? '',
+                            items[i]['process']?.toString() ?? '',
                           ),
                         ),
-                        childCount: _items.length,
+                        childCount: items.length,
                       ),
                     ),
                   ),
@@ -9389,12 +10636,6 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
                 ],
               ]),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEdit(),
-        backgroundColor: _color,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
@@ -9404,6 +10645,94 @@ class _DieselMaintenanceScreenState extends State<DieselMaintenanceScreen> {
       Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
     ]),
   );
+
+  Widget _buildFloatingNav() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.10), blurRadius: 20, offset: const Offset(0, 4))],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() => Row(
+    key: const ValueKey('search'),
+    children: [
+      Container(
+        margin: const EdgeInsets.all(8),
+        width: 48, height: 48,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [_color, _colorDark]),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.search, color: Colors.white, size: 20),
+      ),
+      Expanded(
+        child: TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Search process or notes…', border: InputBorder.none, isDense: true),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      ),
+      GestureDetector(
+        onTap: () => setState(() { _searchExpanded = false; _search = ''; _searchCtrl.clear(); }),
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          width: 40, height: 40,
+          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+          child: Icon(Icons.close, size: 18, color: Colors.grey.shade500),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildNavItems() => Row(
+    key: const ValueKey('nav'),
+    children: [
+      _navItem(Icons.search, 'Search', '', onTap: () => setState(() => _searchExpanded = true)),
+      _navItem(Icons.list_outlined, 'All', 'all'),
+      _navItem(Icons.factory_outlined, 'Production', 'production'),
+      _navItem(Icons.science_outlined, 'Testing', 'testing'),
+      _navItem(Icons.miscellaneous_services_outlined, 'General', 'general'),
+    ],
+  );
+
+  Widget _navItem(IconData icon, String label, String tab, {VoidCallback? onTap}) {
+    final active = tab.isNotEmpty && _activeTab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap ?? () => setState(() => _activeTab = tab),
+        child: Container(
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? BoxDecoration(
+                  gradient: const LinearGradient(colors: [_color, _colorDark]),
+                  borderRadius: BorderRadius.circular(26),
+                )
+              : null,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: active ? Colors.white : Colors.grey.shade500),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600,
+                color: active ? Colors.white : Colors.grey.shade500)),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 // ── Diesel Card ───────────────────────────────────────────────────────────────
@@ -9760,7 +11089,7 @@ class TransportReportScreen extends StatefulWidget {
 
 class _TransportReportScreenState extends State<TransportReportScreen> {
   static const _color     = Color(0xFF7C3AED);
-  static const _colorDark = Color(0xFF2563EB);
+  static const _colorDark = Color(0xFF4C1D95);
 
   bool _loading = true;
   List<_TripData> _trips = [];
@@ -9769,9 +11098,12 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
   String _search = '';
   String _vendorFilter = '';
   final _searchCtrl = TextEditingController();
-  bool _showSearch = false;
+  bool _searchExpanded = false;
 
-  String _preset = '';
+  // date filter
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
 
   // expanded sets
@@ -9789,8 +11121,36 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -9814,37 +11174,6 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
       }
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
-  }
-
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = now.subtract(const Duration(days: 29)); });
-          _load();
-        },
-      ),
-    );
-  }
-
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
-      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    return 'Filter by Date';
   }
 
   List<_TripData> get _filtered {
@@ -9948,6 +11277,7 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
+      bottomNavigationBar: _buildFloatingNav(),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -9980,7 +11310,6 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
                             decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
                           ),
                         ),
-                        // Stats strip
                         Align(
                           alignment: Alignment.bottomLeft,
                           child: Padding(
@@ -9999,8 +11328,10 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
                   title: const Text('Transport Report',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -10012,32 +11343,32 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Filter by Date',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
-                  bottom: PreferredSize(
-                    preferredSize: const Size.fromHeight(44),
+                ),
+
+                // ── Vendor filter chips ──────────────────────────────────────
+                if (_allVendors.isNotEmpty)
+                  SliverToBoxAdapter(
                     child: Container(
-                      color: const Color(0xFF5B21B6),
-                      child: Row(
-                        children: [
-                          _tabBtn(_TransportTab.transporter, Icons.business_outlined,  'Transporter'),
-                          _tabBtn(_TransportTab.customer,    Icons.location_on_outlined, 'Customer'),
-                          _tabBtn(_TransportTab.trips,       Icons.local_shipping_outlined, 'All Trips'),
-                        ],
+                      color: Colors.white,
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      child: SizedBox(
+                        height: 30,
+                        child: ListView(scrollDirection: Axis.horizontal, children: [
+                          _vendorChip('All', ''),
+                          ..._allVendors.map((v) => _vendorChip(v, v)),
+                        ]),
                       ),
                     ),
                   ),
-                ),
-
-                // ── Search + vendor filter ───────────────────────────────────
-                SliverToBoxAdapter(
-                  child: _buildFilterBar(),
-                ),
 
                 // ── Tab content ──────────────────────────────────────────────
                 if (filtered.isEmpty)
@@ -10061,76 +11392,97 @@ class _TransportReportScreenState extends State<TransportReportScreen> {
     );
   }
 
-  Widget _tabBtn(_TransportTab t, IconData icon, String label) {
-    final active = _tab == t;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _tab = t),
+  Widget _buildFloatingNav() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
         child: Container(
-          height: 44,
-          decoration: active
-              ? const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.white, width: 2)),
-                )
-              : null,
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 13, color: active ? Colors.white : Colors.white54),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 11, fontWeight: active ? FontWeight.w700 : FontWeight.w500, color: active ? Colors.white : Colors.white54)),
-          ]),
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 20, offset: const Offset(0, 4))],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildFilterBar() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Search
-        Row(children: [
-          Expanded(
-            child: Container(
-              height: 38,
-              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade200)),
-              child: Row(children: [
-                const SizedBox(width: 10),
-                Icon(Icons.search, size: 16, color: Colors.grey.shade400),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    style: const TextStyle(fontSize: 13),
-                    onChanged: (v) => setState(() => _search = v),
-                    decoration: InputDecoration(
-                      hintText: 'Search pipe, vehicle, driver, site…',
-                      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                      border: InputBorder.none, isDense: true,
-                    ),
-                  ),
-                ),
-                if (_search.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => setState(() { _search = ''; _searchCtrl.clear(); }),
-                    child: Padding(padding: const EdgeInsets.all(8), child: Icon(Icons.close, size: 14, color: Colors.grey.shade400)),
-                  ),
-              ]),
-            ),
+  Widget _buildSearchExpanded() => Row(
+    key: const ValueKey('search'),
+    children: [
+      Container(
+        margin: const EdgeInsets.all(8),
+        width: 46, height: 46,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [_color, _colorDark]),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.search, color: Colors.white, size: 20),
+      ),
+      Expanded(
+        child: TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search pipe, vehicle, driver, site…',
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+            border: InputBorder.none,
           ),
-        ]),
-        if (_allVendors.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          // Vendor filter chips
-          SizedBox(
-            height: 30,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              _vendorChip('All', ''),
-              ..._allVendors.map((v) => _vendorChip(v, v)),
-            ]),
-          ),
-        ],
-      ]),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      ),
+      GestureDetector(
+        onTap: () {
+          _searchCtrl.clear();
+          setState(() { _search = ''; _searchExpanded = false; });
+        },
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          width: 46, height: 46,
+          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+          child: const Icon(Icons.close, size: 20, color: Colors.grey),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildNavItems() => Row(
+    key: const ValueKey('nav'),
+    children: [
+      _navItem(Icons.search,                 'Search',      null, onTap: () => setState(() => _searchExpanded = true)),
+      _navItem(Icons.business_outlined,      'Transporter', _TransportTab.transporter),
+      _navItem(Icons.location_on_outlined,   'Customer',    _TransportTab.customer),
+      _navItem(Icons.local_shipping_outlined,'All Trips',   _TransportTab.trips),
+    ],
+  );
+
+  Widget _navItem(IconData icon, String label, _TransportTab? tab, {VoidCallback? onTap}) {
+    final active = tab != null && _tab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap ?? () { if (tab != null) setState(() => _tab = tab); },
+        child: Container(
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? BoxDecoration(
+                  gradient: const LinearGradient(colors: [_color, _colorDark]),
+                  borderRadius: BorderRadius.circular(26),
+                )
+              : null,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: active ? Colors.white : Colors.grey.shade500),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600,
+                color: active ? Colors.white : Colors.grey.shade500)),
+          ]),
+        ),
+      ),
     );
   }
 
@@ -11000,7 +12352,7 @@ class DiscardScreen extends StatefulWidget {
 
 class _DiscardScreenState extends State<DiscardScreen> {
   static const _color     = Color(0xFF7C3AED);
-  static const _colorDark = Color(0xFF2563EB);
+  static const _colorDark = Color(0xFF4C1D95);
   static const _red       = Color(0xFFEF4444);
 
   static const _processes = [
@@ -11012,7 +12364,9 @@ class _DiscardScreenState extends State<DiscardScreen> {
   List<_DiscardData> _entries = [];
   List<String> _pipes = [];
 
-  String _preset = '';
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
 
   @override
@@ -11026,7 +12380,35 @@ class _DiscardScreenState extends State<DiscardScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime(_to.year, _to.month, 1);
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -11052,37 +12434,6 @@ class _DiscardScreenState extends State<DiscardScreen> {
         ..sort();
       if (mounted) setState(() => _pipes = names);
     } catch (_) {}
-  }
-
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = DateTime(now.year, now.month, 1); });
-          _load();
-        },
-      ),
-    );
-  }
-
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
-      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    return 'Filter by Date';
   }
 
   double get _totalQty => _entries.fold(0.0, (s, e) => s + e.qty);
@@ -11220,8 +12571,10 @@ class _DiscardScreenState extends State<DiscardScreen> {
                     const Text('Discard', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
                   ]),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
                           margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -11233,12 +12586,14 @@ class _DiscardScreenState extends State<DiscardScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
                   ],
                 ),
 
@@ -11704,6 +13059,8 @@ class ExtraFabScreen extends StatefulWidget {
 }
 
 class _ExtraFabScreenState extends State<ExtraFabScreen> {
+  static const _color    = Color(0xFFB45309);
+  static const _colorDark = Color(0xFF92400E);
   static const _amber    = Color(0xFFD97706);
   static const _yellow   = Color(0xFFCA8A04);
   static const _amberBg  = Color(0xFFFEF3C7);
@@ -11712,7 +13069,9 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
   List<_ExtraFabData> _entries = [];
   List<String> _vendors = [];
 
-  String _preset = '';
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
   late DateTime _from, _to;
 
   @override
@@ -11726,7 +13085,35 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
 
   @override
   void dispose() {
+    _closeDateOverlay();
     super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime(_to.year, _to.month, 1);
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
   }
 
   String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
@@ -11748,37 +13135,6 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
       final names = vendors.map((v) => (v['name'] ?? v['vendorName'] ?? '').toString()).where((n) => n.isNotEmpty).toList()..sort();
       if (mounted) setState(() => _vendors = names);
     } catch (_) {}
-  }
-
-  void _showDateSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _BizDateSheet(
-        preset: _preset, from: _from, to: _to,
-        onApply: (preset, from, to) {
-          setState(() { _preset = preset; _from = from; _to = to; });
-          _load();
-        },
-        onClear: () {
-          final now = DateTime.now();
-          setState(() { _preset = ''; _to = now; _from = DateTime(now.year, now.month, 1); });
-          _load();
-        },
-      ),
-    );
-  }
-
-  String get _filterLabel {
-    const labels = {
-      'today': 'Today', 'yesterday': 'Yesterday', 'this_week': 'This Week',
-      'last_week': 'Last Week', 'this_month': 'This Month', 'last_month': 'Last Month',
-      'this_quarter': 'This Quarter', 'this_year': 'This Year',
-    };
-    if (labels.containsKey(_preset)) return labels[_preset]!;
-    if (_preset == 'custom') return '${DateFormat('dd MMM').format(_from)} – ${DateFormat('dd MMM').format(_to)}';
-    return 'Filter by Date';
   }
 
   double get _totalFinalBill => _entries.fold(0.0, (s, e) => s + e.finalBillAmt);
@@ -11853,69 +13209,27 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAdd,
-        backgroundColor: _amber,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      backgroundColor: Colors.white,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
               child: CustomScrollView(slivers: [
-                // ── AppBar ──────────────────────────────────────────────────
                 SliverAppBar(
                   pinned: true,
-                  expandedHeight: 106,
-                  toolbarHeight: 46,
-                  backgroundColor: Colors.transparent,
+                  expandedHeight: 120,
+                  backgroundColor: _color,
                   foregroundColor: Colors.white,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  flexibleSpace: FlexibleSpaceBar(
-                    collapseMode: CollapseMode.pin,
-                    background: Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: Stack(children: [
-                        Positioned(
-                          right: -24, top: -24,
-                          child: Container(
-                            width: 110, height: 110,
-                            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.06)),
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.bottomLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
-                            child: Row(children: [
-                              _hStat('${_entries.length}', 'Entries'),
-                              _hStat(_totalFinalBill > 0 ? _fmtAmt(_totalFinalBill) : '—', 'Final Bill'),
-                              _hStat(_entries.map((e) => e.vendorName).toSet().length.toString(), 'Vendors'),
-                              _hStat(_entries.where((e) => e.gstInclusive).length.toString(), 'GST Bills'),
-                            ]),
-                          ),
-                        ),
-                      ]),
-                    ),
-                  ),
-                  title: Row(children: [
-                    const Icon(Icons.hardware_outlined, size: 18, color: Color(0xFFFDE68A)),
-                    const SizedBox(width: 6),
-                    const Text('Extra Fabrication', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
-                  ]),
+                  leading: context.canPop()
+                      ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+                      : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
+                  title: const Text('Extra Fabrication'),
                   actions: [
-                    GestureDetector(
-                        onTap: _showDateSheet,
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
                         child: Container(
-                          margin: const EdgeInsets.only(right: 12),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.15),
@@ -11925,16 +13239,45 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
                             const SizedBox(width: 5),
-                            Text(_filterLabel, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                             const SizedBox(width: 3),
                             const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
                           ]),
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      onPressed: _openAdd,
+                    ),
+                    const SizedBox(width: 4),
                   ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [_color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                          child: Row(children: [
+                            _hStat('${_entries.length}', 'Entries'),
+                            _hStat(_totalFinalBill > 0 ? _fmtAmt(_totalFinalBill) : '—', 'Final Bill'),
+                            _hStat(_entries.map((e) => e.vendorName).toSet().length.toString(), 'Vendors'),
+                            _hStat(_entries.where((e) => e.gstInclusive).length.toString(), 'GST Bills'),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
 
-                // ── List ──────────────────────────────────────────────────────
                 if (_entries.isEmpty)
                   SliverFillRemaining(
                     child: Center(
@@ -11947,25 +13290,9 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
                       ]),
                     ),
                   )
-                else ...[
+                else
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                    sliver: SliverToBoxAdapter(
-                      child: Row(children: [
-                        Text('${_entries.length} entr${_entries.length != 1 ? 'ies' : 'y'}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                        const Spacer(),
-                        if (_totalFinalBill > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(20)),
-                            child: Text('Total: ${_fmtAmt(_totalFinalBill)}',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _yellow)),
-                          ),
-                      ]),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (_, i) => _buildCard(_entries[i]),
@@ -11973,7 +13300,6 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
                       ),
                     ),
                   ),
-                ],
               ]),
             ),
     );
@@ -12055,8 +13381,8 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
 
   Widget _hStat(String value, String label) => Expanded(
     child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
-      Text(label, style: const TextStyle(fontSize: 8, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
     ]),
   );
 }
@@ -12523,11 +13849,1885 @@ class _ExtraFabSheetState extends State<_ExtraFabSheet> {
   );
 }
 
+// ─────────────────────────────────────────────
+// Testing Lab Screen
+// ─────────────────────────────────────────────
+
+class TestingLabScreen extends StatefulWidget {
+  const TestingLabScreen({super.key});
+  @override
+  State<TestingLabScreen> createState() => _TestingLabScreenState();
+}
+
+class _TestingLabEntry {
+  final int id;
+  final String date;
+  final bool csEnabled;
+  final String csDay7;
+  final String csDay28;
+  final bool ppEnabled;
+  final String ppNotes;
+  final bool npEnabled;
+  final String npNotes;
+  final bool btEnabled;
+  final String btNotes;
+
+  const _TestingLabEntry({
+    required this.id, required this.date,
+    required this.csEnabled, required this.csDay7, required this.csDay28,
+    required this.ppEnabled, required this.ppNotes,
+    required this.npEnabled, required this.npNotes,
+    required this.btEnabled, required this.btNotes,
+  });
+
+  factory _TestingLabEntry.fromJson(Map<String, dynamic> j) => _TestingLabEntry(
+    id: (j['id'] as num).toInt(),
+    date: j['date']?.toString() ?? '',
+    csEnabled: j['csEnabled'] == true,
+    csDay7: j['csDay7']?.toString() ?? '',
+    csDay28: j['csDay28']?.toString() ?? '',
+    ppEnabled: j['ppEnabled'] == true,
+    ppNotes: j['ppNotes']?.toString() ?? '',
+    npEnabled: j['npEnabled'] == true,
+    npNotes: j['npNotes']?.toString() ?? '',
+    btEnabled: j['btEnabled'] == true,
+    btNotes: j['btNotes']?.toString() ?? '',
+  );
+}
+
+class _TestingLabScreenState extends State<TestingLabScreen> {
+  static const _color     = Color(0xFF0891B2);
+  static const _colorDark = Color(0xFF0E7490);
+
+  List<_TestingLabEntry> _allItems = [];
+  bool _loading = true;
+
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
+
+  String _activeTab      = 'all';
+  bool   _searchExpanded = false;
+  String _search         = '';
+  final  _searchCtrl     = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
+  }
+
+  String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final raw = await ApiService().getTestingLabEntries(
+        fromDate: _fmt(_from), toDate: _fmt(_to),
+      );
+      setState(() {
+        _allItems = raw.map((e) => _TestingLabEntry.fromJson(e as Map<String, dynamic>)).toList();
+        _loading  = false;
+      });
+    } catch (_) { setState(() => _loading = false); }
+  }
+
+  List<_TestingLabEntry> get _filtered {
+    return _allItems.where((e) {
+      if (_activeTab == 'cs'      && !e.csEnabled) return false;
+      if (_activeTab == 'perm'    && !e.ppEnabled && !e.npEnabled) return false;
+      if (_activeTab == 'boiling' && !e.btEnabled) return false;
+      if (_search.trim().isNotEmpty) {
+        final q = _search.toLowerCase();
+        return e.date.contains(q) ||
+               e.csDay7.contains(q) || e.csDay28.contains(q) ||
+               e.ppNotes.toLowerCase().contains(q) ||
+               e.npNotes.toLowerCase().contains(q) ||
+               e.btNotes.toLowerCase().contains(q);
+      }
+      return true;
+    }).toList();
+  }
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    final p = s.split('-');
+    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : s;
+  }
+
+  Future<void> _showAddEdit({_TestingLabEntry? editing}) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TestingLabSheet(
+        initial: editing,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateTestingLabEntry(editing.id, data);
+          } else {
+            await ApiService().createTestingLabEntry(data);
+          }
+          await _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(_TestingLabEntry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: Text('Delete testing lab entry for ${_fmtDate(entry.date)}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ApiService().deleteTestingLabEntry(entry.id);
+      _load();
+    }
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
+  Widget _buildFloatingNav() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 20, offset: const Offset(0, 4))],
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchExpanded() => Row(
+    key: const ValueKey('search'),
+    children: [
+      Container(
+        margin: const EdgeInsets.all(8),
+        width: 46, height: 46,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [_color, _colorDark]),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.search, color: Colors.white, size: 20),
+      ),
+      Expanded(
+        child: TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search entries…',
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      ),
+      GestureDetector(
+        onTap: () {
+          _searchCtrl.clear();
+          setState(() { _search = ''; _searchExpanded = false; });
+        },
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          width: 46, height: 46,
+          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+          child: const Icon(Icons.close, size: 20, color: Colors.grey),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildNavItems() => Row(
+    key: const ValueKey('nav'),
+    children: [
+      _navItem(Icons.search,             'Search',  '',        onTap: () => setState(() => _searchExpanded = true)),
+      _navItem(Icons.list_outlined,      'All',     'all'),
+      _navItem(Icons.compress_outlined,  'CS',      'cs'),
+      _navItem(Icons.water_drop_outlined,'Perm',    'perm'),
+      _navItem(Icons.local_fire_department_outlined, 'Boiling', 'boiling'),
+    ],
+  );
+
+  Widget _navItem(IconData icon, String label, String tab, {VoidCallback? onTap}) {
+    final active = tab.isNotEmpty && _activeTab == tab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap ?? () => setState(() => _activeTab = tab),
+        child: Container(
+          margin: const EdgeInsets.all(6),
+          decoration: active
+              ? const BoxDecoration(
+                  gradient: LinearGradient(colors: [_color, _colorDark]),
+                  borderRadius: BorderRadius.all(Radius.circular(26)),
+                )
+              : null,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 20, color: active ? Colors.white : Colors.grey.shade500),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600,
+                color: active ? Colors.white : Colors.grey.shade500)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+    final csCount      = items.where((e) => e.csEnabled).length;
+    final permCount    = items.where((e) => e.ppEnabled || e.npEnabled).length;
+    final boilingCount = items.where((e) => e.btEnabled).length;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      bottomNavigationBar: _buildFloatingNav(),
+      body: CustomScrollView(slivers: [
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 120,
+          backgroundColor: _color,
+          foregroundColor: Colors.white,
+          leading: context.canPop()
+              ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+              : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
+          title: const Text('Testing Lab'),
+          actions: [
+            CompositedTransformTarget(
+              link: _layerLink,
+              child: GestureDetector(
+                onTap: _toggleDateOverlay,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                    const SizedBox(width: 5),
+                    Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 3),
+                    const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.add, color: Colors.white),
+              onPressed: _showAddEdit,
+            ),
+            const SizedBox(width: 4),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_color, _colorDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                  child: Row(children: [
+                    _hStat('${items.length}', 'Entries'),
+                    _hStat('$csCount', 'CS Tests'),
+                    _hStat('$permCount', 'Perm'),
+                    _hStat('$boilingCount', 'Boiling'),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SliverFillRemaining(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: items.isEmpty
+                      ? Center(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.science_outlined, size: 48, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('No testing lab entries',
+                                style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                          ]),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                          itemCount: items.length,
+                          itemBuilder: (_, i) => _TestingLabCard(
+                            entry: items[i],
+                            color: _color,
+                            onEdit: () => _showAddEdit(editing: items[i]),
+                            onDelete: () => _delete(items[i]),
+                          ),
+                        ),
+                ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _TestingLabCard extends StatelessWidget {
+  final _TestingLabEntry entry;
+  final Color color;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  const _TestingLabCard({required this.entry, required this.color, required this.onEdit, required this.onDelete});
+
+  static String _fmtDate(String s) {
+    if (s.length < 10) return s;
+    final p = s.split('-');
+    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : s;
+  }
+
+  Widget _testBadge(String label, Color c) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: c.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+    child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final anyEnabled = entry.csEnabled || entry.ppEnabled || entry.npEnabled || entry.btEnabled;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 3)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4,  offset: const Offset(0, 1)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+              child: Icon(Icons.science_outlined, color: color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(_fmtDate(entry.date),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+            IconButton(icon: const Icon(Icons.edit_outlined, size: 18), color: Colors.grey, onPressed: onEdit, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+            const SizedBox(width: 4),
+            IconButton(icon: const Icon(Icons.delete_outline, size: 18), color: Colors.red[300], onPressed: onDelete, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+          ]),
+          if (anyEnabled) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              if (entry.csEnabled) _testBadge('CS', color),
+              if (entry.ppEnabled) _testBadge('Press. Perm', Colors.indigo),
+              if (entry.npEnabled) _testBadge('Norm. Perm', Colors.teal),
+              if (entry.btEnabled) _testBadge('Boiling', Colors.orange),
+            ]),
+            if (entry.csEnabled && (entry.csDay7.isNotEmpty || entry.csDay28.isNotEmpty)) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                if (entry.csDay7.isNotEmpty)
+                  Expanded(child: _csValue('Day 7', entry.csDay7, color)),
+                if (entry.csDay7.isNotEmpty && entry.csDay28.isNotEmpty)
+                  const SizedBox(width: 8),
+                if (entry.csDay28.isNotEmpty)
+                  Expanded(child: _csValue('Day 28', entry.csDay28, color)),
+              ]),
+            ],
+            if (entry.ppEnabled && entry.ppNotes.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _noteRow('Press. Perm', entry.ppNotes, Colors.indigo),
+            ],
+            if (entry.npEnabled && entry.npNotes.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _noteRow('Norm. Perm', entry.npNotes, Colors.teal),
+            ],
+            if (entry.btEnabled && entry.btNotes.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _noteRow('Boiling', entry.btNotes, Colors.orange),
+            ],
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _csValue(String label, String value, Color c) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(color: c.withOpacity(0.06), borderRadius: BorderRadius.circular(8)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: c.withOpacity(0.7))),
+      const SizedBox(height: 2),
+      Text('$value N/mm²', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: c)),
+    ]),
+  );
+
+  Widget _noteRow(String label, String note, Color c) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('$label: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c)),
+      Expanded(child: Text(note, style: const TextStyle(fontSize: 11, color: Colors.grey))),
+    ],
+  );
+}
+
+class _TestingLabSheet extends StatefulWidget {
+  final _TestingLabEntry? initial;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+  const _TestingLabSheet({this.initial, required this.onSubmit});
+  @override
+  State<_TestingLabSheet> createState() => _TestingLabSheetState();
+}
+
+class _TestingLabSheetState extends State<_TestingLabSheet> {
+  static const _color = Color(0xFF0891B2);
+
+  late DateTime _date;
+
+  bool _csEnabled = false;
+  final _csDay7Ctrl  = TextEditingController();
+  final _csDay28Ctrl = TextEditingController();
+
+  bool _ppEnabled = false;
+  final _ppNotesCtrl = TextEditingController();
+
+  bool _npEnabled = false;
+  final _npNotesCtrl = TextEditingController();
+
+  bool _btEnabled = false;
+  final _btNotesCtrl = TextEditingController();
+
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    _date = e != null
+        ? (DateTime.tryParse(e.date) ?? DateTime.now())
+        : DateTime.now();
+    if (e != null) {
+      _csEnabled = e.csEnabled;
+      _csDay7Ctrl.text  = e.csDay7;
+      _csDay28Ctrl.text = e.csDay28;
+      _ppEnabled = e.ppEnabled;
+      _ppNotesCtrl.text = e.ppNotes;
+      _npEnabled = e.npEnabled;
+      _npNotesCtrl.text = e.npNotes;
+      _btEnabled = e.btEnabled;
+      _btNotesCtrl.text = e.btNotes;
+    }
+  }
+
+  @override
+  void dispose() {
+    _csDay7Ctrl.dispose(); _csDay28Ctrl.dispose();
+    _ppNotesCtrl.dispose(); _npNotesCtrl.dispose(); _btNotesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _color)),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _submit() async {
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date':      DateFormat('yyyy-MM-dd').format(_date),
+        'csEnabled': _csEnabled,
+        'csDay7':    _csDay7Ctrl.text.trim(),
+        'csDay28':   _csDay28Ctrl.text.trim(),
+        'ppEnabled': _ppEnabled,
+        'ppNotes':   _ppNotesCtrl.text.trim(),
+        'npEnabled': _npEnabled,
+        'npNotes':   _npNotesCtrl.text.trim(),
+        'btEnabled': _btEnabled,
+        'btNotes':   _btNotesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (err) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $err')));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Widget _lbl(String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(t, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+        color: Colors.grey.shade400, letterSpacing: 1.2)),
+  );
+
+  InputDecoration _iDeco({required String hint}) => InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    filled: true,
+    fillColor: Colors.grey.shade50,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade200)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _color)),
+  );
+
+  Widget _section({required IconData icon, required String title, required Color color,
+      required bool enabled, required ValueChanged<bool> onToggle, required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: enabled ? color.withOpacity(0.04) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: enabled ? color.withOpacity(0.2) : Colors.grey.shade200),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          onTap: () => setState(() => onToggle(!enabled)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(children: [
+              Icon(icon, size: 18, color: enabled ? color : Colors.grey.shade400),
+              const SizedBox(width: 10),
+              Text(title, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13,
+                  color: enabled ? color : Colors.grey.shade600)),
+              const Spacer(),
+              Switch(value: enabled, onChanged: onToggle, activeColor: color,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            ]),
+          ),
+        ),
+        if (enabled)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: child,
+          ),
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [_color, Color(0xFF0E7490)]),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Row(children: [
+              const Icon(Icons.science_outlined, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(widget.initial != null ? 'Edit Lab Entry' : 'Add Lab Entry',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.close, color: Colors.white70, size: 20),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _lbl('DATE'),
+                GestureDetector(
+                  onTap: _pickDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.shade50,
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.calendar_today_outlined, size: 15, color: Colors.grey.shade500),
+                      const SizedBox(width: 10),
+                      Text(DateFormat('dd MMM yyyy').format(_date),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _section(
+                  icon: Icons.compress_outlined,
+                  title: 'Compressive Strength (CS)',
+                  color: _color,
+                  enabled: _csEnabled,
+                  onToggle: (v) => setState(() => _csEnabled = v),
+                  child: Column(children: [
+                    Row(children: [
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        _lbl('DAY 7 (N/mm²)'),
+                        TextField(
+                          controller: _csDay7Ctrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: _iDeco(hint: '0.0'),
+                        ),
+                      ])),
+                      const SizedBox(width: 10),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        _lbl('DAY 28 (N/mm²)'),
+                        TextField(
+                          controller: _csDay28Ctrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: _iDeco(hint: '0.0'),
+                        ),
+                      ])),
+                    ]),
+                  ]),
+                ),
+
+                _section(
+                  icon: Icons.water_drop_outlined,
+                  title: 'Pressure Permeability (PP)',
+                  color: Colors.indigo,
+                  enabled: _ppEnabled,
+                  onToggle: (v) => setState(() => _ppEnabled = v),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('NOTES'),
+                    TextField(controller: _ppNotesCtrl, maxLines: 2,
+                        decoration: _iDeco(hint: 'Test notes or observations…')),
+                  ]),
+                ),
+
+                _section(
+                  icon: Icons.water_outlined,
+                  title: 'Normal Permeability (NP)',
+                  color: Colors.teal,
+                  enabled: _npEnabled,
+                  onToggle: (v) => setState(() => _npEnabled = v),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('NOTES'),
+                    TextField(controller: _npNotesCtrl, maxLines: 2,
+                        decoration: _iDeco(hint: 'Test notes or observations…')),
+                  ]),
+                ),
+
+                _section(
+                  icon: Icons.local_fire_department_outlined,
+                  title: 'Boiling Test (BT)',
+                  color: Colors.orange,
+                  enabled: _btEnabled,
+                  onToggle: (v) => setState(() => _btEnabled = v),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('NOTES'),
+                    TextField(controller: _btNotesCtrl, maxLines: 2,
+                        decoration: _iDeco(hint: 'Test notes or observations…')),
+                  ]),
+                ),
+
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _submitting ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _color,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _submitting
+                        ? const SizedBox(width: 20, height: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(widget.initial != null ? 'Update Entry' : 'Save Entry',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 extension on double {
   String toLocaleString() {
     if (this >= 10000000) return '${(this / 10000000).toStringAsFixed(2)}Cr';
     if (this >= 100000) return '${(this / 100000).toStringAsFixed(2)}L';
     if (this >= 1000) return '${(this / 1000).toStringAsFixed(1)}K';
     return toStringAsFixed(2);
+  }
+}
+
+// ── PCCP Production Processes ─────────────────────────────────────────────────
+
+class _StageInfo {
+  final String stageType;
+  final String name;
+  final IconData icon;
+  final Color color;
+  const _StageInfo(this.stageType, this.name, this.icon, this.color);
+}
+
+const _pccpStages = [
+  _StageInfo('FABRICATION',         'Fabrication',     Icons.hardware_outlined,            Color(0xFF7C3AED)),
+  _StageInfo('FABRICATION_TESTING', 'Fab Testing',     Icons.science_outlined,             Color(0xFF0891B2)),
+  _StageInfo('MOULDING',            'Moulding',        Icons.view_in_ar_outlined,          Color(0xFF2563EB)),
+  _StageInfo('SPINNING',            'Spinning',        Icons.rotate_right_outlined,        Color(0xFF0D9488)),
+  _StageInfo('DEMOULDING',          'Demoulding',      Icons.open_in_new_outlined,         Color(0xFF059669)),
+  _StageInfo('CURING_1',            'Curing 1',        Icons.water_drop_outlined,          Color(0xFF0284C7)),
+  _StageInfo('WINDING',             'Winding',         Icons.loop_outlined,                Color(0xFFCA8A04)),
+  _StageInfo('COATING',             'Coating',         Icons.format_paint_outlined,        Color(0xFFEA580C)),
+  _StageInfo('CURING_2',            'Curing 2',        Icons.water_outlined,               Color(0xFF6366F1)),
+  _StageInfo('FINAL_TESTING',       'Final Testing',   Icons.check_circle_outline,         Color(0xFF16A34A)),
+  _StageInfo('PDI',                 'PDI',             Icons.assignment_turned_in_outlined, Color(0xFF059669)),
+];
+
+class PccpScreen extends StatefulWidget {
+  const PccpScreen({super.key});
+  @override
+  State<PccpScreen> createState() => _PccpScreenState();
+}
+
+class _PccpScreenState extends State<PccpScreen> {
+  static const _color     = Color(0xFF7C3AED);
+  static const _colorDark = Color(0xFF5B21B6);
+
+  bool _loading = true;
+  Map<String, int> _stageCounts = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    try {
+      final entries = await ApiService().getProductionEntries(from: today, to: today, size: 2000);
+      final counts = <String, int>{};
+      for (final raw in entries) {
+        final e = raw as Map;
+        final st = e['stageType']?.toString() ?? '';
+        counts[st] = (counts[st] ?? 0) + ((e['pipesCompleted'] as num?)?.toInt() ?? 0);
+      }
+      if (mounted) setState(() { _stageCounts = counts; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalToday = _stageCounts.values.fold(0, (s, v) => s + v);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: CustomScrollView(
+          slivers: [
+            // ── Hero ──
+            SliverToBoxAdapter(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_colorDark, _color],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          GestureDetector(
+                            onTap: () => context.pop(),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.18),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text('PCCP', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                              Text('Production Processes', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                            ]),
+                          ),
+                          if (_loading)
+                            const SizedBox(width: 20, height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                        ]),
+                        const SizedBox(height: 14),
+                        // Stat strip
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(children: [
+                            const Icon(Icons.layers_outlined, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              totalToday > 0 ? '$totalToday pipes completed today' : 'No entries today',
+                              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                            const Spacer(),
+                            Text(DateFormat('d MMM').format(DateTime.now()),
+                              style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                          ]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Stage cards grid ──
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(14, 16, 14, 32),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) {
+                    final s = _pccpStages[i];
+                    final count = _stageCounts[s.stageType] ?? 0;
+                    return _PccpStageCard(
+                      info: s,
+                      count: count,
+                      onTap: () {
+                        if (s.stageType == 'PDI') {
+                          context.push('/business/pdi');
+                        } else {
+                          context.push('/business/pccp/stage', extra: {
+                            'stageType': s.stageType,
+                            'name': s.name,
+                            'colorValue': s.color.value,
+                          });
+                        }
+                      },
+                    );
+                  },
+                  childCount: _pccpStages.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 138,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PccpStageCard extends StatelessWidget {
+  final _StageInfo info;
+  final int count;
+  final VoidCallback onTap;
+  const _PccpStageCard({required this.info, required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(info.icon, color: info.color, size: 30),
+            const SizedBox(height: 10),
+            Text(info.name,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey[800]),
+              textAlign: TextAlign.center),
+            const SizedBox(height: 4),
+            Text(
+              count > 0 ? '$count pipes today' : '—',
+              style: TextStyle(
+                fontSize: 11,
+                color: count > 0 ? info.color : Colors.grey[400],
+                fontWeight: count > 0 ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── PCCP Stage Detail ─────────────────────────────────────────────────────────
+
+class PccpStageScreen extends StatefulWidget {
+  final String stageType;
+  final String stageName;
+  final Color color;
+  const PccpStageScreen({super.key, required this.stageType, required this.stageName, required this.color});
+  @override
+  State<PccpStageScreen> createState() => _PccpStageScreenState();
+}
+
+class _PccpStageScreenState extends State<PccpStageScreen> {
+  bool _loading = true;
+  List<Map<String, dynamic>> _entries = [];
+  late DateTime _from, _to;
+  String _search = '';
+  bool _searchOpen = false;
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  // Date filter overlay (PDI-style)
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter(preset: 'this_month');
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _to   = now;
+    _from = DateTime(now.year, now.month, 1);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime(DateTime.now().year, DateTime.now().month, 1);
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
+  }
+
+  String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final data = await ApiService().getProductionEntries(
+        stageType: widget.stageType,
+        from: _fmt(_from),
+        to: _fmt(_to),
+        size: 1000,
+      );
+      if (mounted) setState(() { _entries = data.cast<Map<String, dynamic>>(); _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_search.trim().isEmpty) return _entries;
+    final q = _search.toLowerCase();
+    return _entries.where((e) {
+      final pipe = (e['pipeConfig']?['name'] ?? '').toString().toLowerCase();
+      final date = (e['entryDate'] as String? ?? '').toLowerCase();
+      return pipe.contains(q) || date.contains(q);
+    }).toList();
+  }
+
+  int get _totalPipes => _entries.fold(0, (s, e) => s + ((e['pipesCompleted'] as num?)?.toInt() ?? 0));
+
+  void _showAddSheet(BuildContext context, Color color) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ProductionEntrySheet(
+        stageType: widget.stageType,
+        stageName: widget.stageName,
+        color: color,
+        onSuccess: (int count) {
+          _load();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('$count ${count == 1 ? 'entry' : 'entries'} saved'),
+              backgroundColor: color,
+              duration: const Duration(seconds: 2),
+            ));
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color     = widget.color;
+    final colorDark = HSLColor.fromColor(color).withLightness(
+      (HSLColor.fromColor(color).lightness - 0.15).clamp(0, 1)).toColor();
+    final filtered = _filtered;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: color,
+        onPressed: () => _showAddSheet(context, color),
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: CustomScrollView(
+          slivers: [
+            // ── Hero ──
+            SliverToBoxAdapter(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [colorDark, color],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          if (!_searchOpen) ...[
+                            GestureDetector(
+                              onTap: () => context.pop(),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.18),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(widget.stageName,
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                              const Text('PCCP Production Stage', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                            ])),
+                          ] else
+                            Expanded(
+                              child: TextField(
+                                controller: _searchCtrl,
+                                focusNode: _searchFocus,
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: 'Search pipe or date…',
+                                  hintStyle: const TextStyle(color: Colors.white54),
+                                  prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 18),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.15),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                ),
+                                onChanged: (v) => setState(() => _search = v),
+                              ),
+                            ),
+                          if (_loading && !_searchOpen)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 6),
+                              child: SizedBox(width: 18, height: 18,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                            ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _searchOpen = !_searchOpen;
+                                if (!_searchOpen) { _search = ''; _searchCtrl.clear(); }
+                              });
+                              if (_searchOpen) {
+                                Future.delayed(const Duration(milliseconds: 50), () => _searchFocus.requestFocus());
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.18),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(_searchOpen ? Icons.close : Icons.search, color: Colors.white, size: 18),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          CompositedTransformTarget(
+                            link: _layerLink,
+                            child: GestureDetector(
+                              onTap: _toggleDateOverlay,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.18),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.calendar_today_outlined, color: Colors.white, size: 13),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _dateFilter.isActive ? _dateFilter.label : 'Date',
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 14),
+                                ]),
+                              ),
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 14),
+                        // Stats strip
+                        Row(children: [
+                          Expanded(child: _statChip(Icons.bar_chart_outlined, '${_entries.length}', 'entries')),
+                          const SizedBox(width: 8),
+                          Expanded(child: _statChip(Icons.layers_outlined, '$_totalPipes', 'pipes total')),
+                        ]),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Entries list ──
+            filtered.isEmpty && !_loading
+              ? SliverFillRemaining(
+                  child: Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[300]),
+                      const SizedBox(height: 10),
+                      Text('No ${widget.stageName} entries found',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+                    ]),
+                  ),
+                )
+              : SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 32),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _EntryTile(entry: filtered[i], color: color),
+                      childCount: filtered.length,
+                    ),
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statChip(IconData icon, String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, color: Colors.white70, size: 14),
+        const SizedBox(width: 6),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+          Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _EntryTile extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final Color color;
+  const _EntryTile({required this.entry, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final pipeName  = entry['pipeConfig']?['name']?.toString() ?? 'Pipe #${entry['pipeConfigId']}';
+    final pipes     = (entry['pipesCompleted'] as num?)?.toInt() ?? 0;
+    final rawDate   = entry['entryDate'] as String? ?? '';
+    final dateStr   = rawDate.isNotEmpty
+      ? DateFormat('d MMM yyyy').format(DateTime.tryParse(rawDate) ?? DateTime.now())
+      : '—';
+    final shift     = entry['shiftName']?.toString();
+    final batchNo   = entry['batchNumber']?.toString();
+    final orderNo   = entry['productionOrderId'] != null ? 'PRD #${entry['productionOrderId']}' : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 1))],
+      ),
+      child: Row(children: [
+        Container(
+          width: 5,
+          height: 60,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+          ),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(children: [
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(pipeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+                const SizedBox(height: 3),
+                Row(children: [
+                  const Icon(Icons.calendar_today_outlined, size: 11, color: Color(0xFF9CA3AF)),
+                  const SizedBox(width: 4),
+                  Text(dateStr, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                  if (shift != null) ...[
+                    const SizedBox(width: 10),
+                    const Icon(Icons.schedule_outlined, size: 11, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 4),
+                    Text('Shift $shift', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                  ],
+                ]),
+                if (batchNo != null || orderNo != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      [if (batchNo != null) 'Batch $batchNo', if (orderNo != null) orderNo].join(' · '),
+                      style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+                    ),
+                  ),
+              ])),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text('$pipes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: color)),
+                Text('pipes', style: TextStyle(fontSize: 10, color: color.withOpacity(0.7), fontWeight: FontWeight.w500)),
+              ]),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Production Entry Sheet ───────────────────────────────────────────────────
+
+class _OrderEntry {
+  final Map<String, dynamic> order;
+  final TextEditingController processedCtrl = TextEditingController();
+  final TextEditingController completedCtrl = TextEditingController();
+  _OrderEntry(this.order);
+  void dispose() {
+    processedCtrl.dispose();
+    completedCtrl.dispose();
+  }
+}
+
+class _ProductionEntrySheet extends StatefulWidget {
+  final String stageType;
+  final String stageName;
+  final Color color;
+  final void Function(int count) onSuccess;
+
+  const _ProductionEntrySheet({
+    required this.stageType,
+    required this.stageName,
+    required this.color,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_ProductionEntrySheet> createState() => _ProductionEntrySheetState();
+}
+
+class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
+  final _api = ApiService();
+  List<Map<String, dynamic>> _orders = [];
+  bool _loading = true;
+  String _search = '';
+  DateTime _date = DateTime.now();
+  final Map<int, _OrderEntry> _selected = {};
+  bool _submitting = false;
+  // Coating-only: sand mix selection
+  String _sandType = 'plaster'; // 'plaster' | 'crushed'
+  // Cache of pipeConfigId → COATING materials (fetched lazily for COATING stage)
+  final Map<int, List<dynamic>> _coatingMaterials = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  @override
+  void dispose() {
+    for (final e in _selected.values) e.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadOrders() async {
+    try {
+      final raw = await _api.getProductionOrders(size: 200);
+      final filtered = raw
+          .where((o) {
+            final s = (o['status'] ?? '').toString();
+            return s != 'COMPLETED' && s != 'CANCELLED';
+          })
+          .cast<Map<String, dynamic>>()
+          .toList();
+      if (mounted) setState(() { _orders = filtered; _loading = false; });
+
+      // For COATING, pre-fetch pipe config materials for all unique configs
+      if (widget.stageType == 'COATING') {
+        final configIds = filtered
+            .map((o) => o['pipeConfigId'])
+            .whereType<int>()
+            .toSet();
+        for (final id in configIds) {
+          if (_coatingMaterials.containsKey(id)) continue;
+          try {
+            final config = await _api.getPipeConfig(id);
+            final mats = (config['materials'] as List? ?? [])
+                .cast<Map<String, dynamic>>()
+                .where((m) => m['stageType'] == 'COATING')
+                .toList();
+            _coatingMaterials[id] = mats;
+          } catch (_) {}
+        }
+      }
+    } catch (_) {
+      if (mounted) setState(() { _loading = false; });
+    }
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_search.trim().isEmpty) return _orders;
+    final q = _search.toLowerCase();
+    return _orders.where((o) {
+      final name = (o['pipeConfig']?['name'] ?? o['pipeName'] ?? '').toString().toLowerCase();
+      final num = (o['poNumber'] ?? '').toString().toLowerCase();
+      return name.contains(q) || num.contains(q);
+    }).toList();
+  }
+
+  void _toggleOrder(Map<String, dynamic> order) {
+    final id = order['id'] as int;
+    setState(() {
+      if (_selected.containsKey(id)) {
+        _selected[id]!.dispose();
+        _selected.remove(id);
+      } else {
+        _selected[id] = _OrderEntry(order);
+      }
+    });
+  }
+
+  Widget _sandToggleBtn(String type, String label) {
+    final active = _sandType == type;
+    return GestureDetector(
+      onTap: () => setState(() => _sandType = type),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? Colors.grey[900] : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: active ? Colors.white : Colors.grey[600],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    if (_selected.isEmpty) return;
+    setState(() => _submitting = true);
+    int successCount = 0;
+    final dateStr = _date.toIso8601String().split('T')[0];
+    for (final entry in _selected.values) {
+      final processed = int.tryParse(entry.processedCtrl.text.trim()) ?? 0;
+      final completed = int.tryParse(entry.completedCtrl.text.trim()) ?? 0;
+      if (processed == 0 && completed == 0) continue;
+      try {
+        final payload = <String, dynamic>{
+          'productionOrderId': entry.order['id'],
+          'stageType': widget.stageType,
+          'pipesProcessed': processed,
+          'pipesCompleted': completed,
+          'entryDate': dateStr,
+        };
+
+        // COATING: send explicit consumption for the selected sand only
+        if (widget.stageType == 'COATING') {
+          final configId = entry.order['pipeConfigId'] as int?;
+          final mats = configId != null ? (_coatingMaterials[configId] ?? []) : [];
+          final sandKey = _sandType == 'plaster' ? 'plaster sand' : 'crushed sand';
+          final sandMat = mats.cast<Map<String, dynamic>>().where((m) {
+            final name = (m['materialProduct']?['name'] ?? '').toString().toLowerCase();
+            return name.contains(sandKey);
+          }).toList();
+          if (sandMat.isNotEmpty) {
+            final mat = sandMat.first;
+            final qtyPerPipe = double.tryParse(mat['quantityPerPipe']?.toString() ?? '0') ?? 0;
+            final scrap = double.tryParse(mat['scrapPercent']?.toString() ?? '0') ?? 0;
+            final rawQty = qtyPerPipe * completed;
+            final consumedQty = scrap > 0 ? rawQty * (1 + scrap / 100) : rawQty;
+            payload['consumptions'] = [
+              {
+                'pipeConfigMaterialId': mat['id'],
+                'materialProductId': mat['materialProductId'],
+                'consumedQty': consumedQty,
+                'uom': mat['uom'] ?? 'kg',
+              }
+            ];
+          }
+        }
+
+        await _api.createProductionEntry(payload);
+        successCount++;
+      } catch (_) {}
+    }
+    if (mounted) {
+      Navigator.pop(context);
+      widget.onSuccess(successCount);
+    }
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return Container(
+      height: mq.size.height * 0.88,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(children: [
+        // Handle
+        Center(
+          child: Container(
+            margin: const EdgeInsets.only(top: 10),
+            width: 36, height: 4,
+            decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+          ),
+        ),
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+          child: Row(children: [
+            Icon(Icons.add_task, color: widget.color, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Add ${widget.stageName} Entry',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1A1A2E)),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 22),
+              onPressed: () => Navigator.pop(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ]),
+        ),
+        const Divider(height: 18),
+        // Date icon + Search bar row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(children: [
+            // Calendar icon button
+            GestureDetector(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _date,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) setState(() => _date = picked);
+              },
+              child: Container(
+                width: 42, height: 42,
+                decoration: BoxDecoration(
+                  color: widget.color.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: widget.color.withOpacity(0.25)),
+                ),
+                child: Icon(Icons.calendar_today, size: 18, color: widget.color),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Search field
+            Expanded(
+              child: TextField(
+                onChanged: (v) => setState(() => _search = v),
+                decoration: InputDecoration(
+                  hintText: 'Search pipe orders…',
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                  prefixIcon: const Icon(Icons.search, size: 18),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  filled: true, fillColor: Colors.grey[50],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[200]!),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[200]!),
+                  ),
+                ),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        // Coating: Sand Mix toggle
+        if (widget.stageType == 'COATING') ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(children: [
+              const Text('Sand Mix', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(children: [
+                    Expanded(child: _sandToggleBtn('plaster', 'Plaster Sand')),
+                    const SizedBox(width: 4),
+                    Expanded(child: _sandToggleBtn('crushed', 'Crushed & Dust')),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 10),
+        ],
+        // Order list
+        Expanded(
+          child: _loading
+              ? Center(child: CircularProgressIndicator(color: widget.color))
+              : _filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        _search.isEmpty ? 'No active production orders' : 'No orders match "$_search"',
+                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                      itemCount: _filtered.length,
+                      itemBuilder: (ctx, i) {
+                        final order = _filtered[i];
+                        final id = order['id'] as int;
+                        final isSelected = _selected.containsKey(id);
+                        final pipeName = (order['pipeConfig']?['name'] ?? order['pipeName'] ?? 'Unknown').toString();
+                        final poNum = (order['poNumber'] ?? '#$id').toString();
+                        final planned = order['plannedQty'] ?? 0;
+                        final entry = _selected[id];
+                        return GestureDetector(
+                          onTap: () => _toggleOrder(order),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? widget.color.withOpacity(0.07) : Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? widget.color : Colors.grey[200]!,
+                                width: isSelected ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Column(children: [
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    width: 20, height: 20,
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? widget.color : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(
+                                        color: isSelected ? widget.color : Colors.grey[400]!,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: isSelected
+                                        ? const Icon(Icons.check, size: 13, color: Colors.white)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(pipeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+                                      const SizedBox(height: 2),
+                                      Text('$poNum · Planned: $planned pipes', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                    ],
+                                  )),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange[50],
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      (order['status'] ?? '').toString().replaceAll('_', ' '),
+                                      style: TextStyle(fontSize: 10, color: Colors.orange[700], fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ]),
+                              ),
+                              if (isSelected) ...[
+                                Divider(height: 1, color: widget.color.withOpacity(0.2)),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                                  child: Row(children: [
+                                    Expanded(
+                                      child: _QtyField(
+                                        controller: entry!.processedCtrl,
+                                        label: 'Processed',
+                                        color: widget.color,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _QtyField(
+                                        controller: entry.completedCtrl,
+                                        label: 'Completed',
+                                        color: widget.color,
+                                      ),
+                                    ),
+                                  ]),
+                                ),
+                              ],
+                            ]),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+        // Submit button
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(18, 10, 18, mq.viewInsets.bottom > 0 ? 8 : 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: (_selected.isEmpty || _submitting) ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.color,
+                  disabledBackgroundColor: Colors.grey[200],
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: _submitting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(
+                        _selected.isEmpty
+                            ? 'Select orders to save'
+                            : 'Save ${_selected.length} ${_selected.length == 1 ? 'Entry' : 'Entries'}',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _QtyField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final Color color;
+
+  const _QtyField({required this.controller, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: '0',
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            filled: true, fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: color.withOpacity(0.4)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: color.withOpacity(0.3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: color, width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

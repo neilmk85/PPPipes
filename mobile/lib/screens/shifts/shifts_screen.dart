@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_mobile/main.dart';
 import '../../models/models.dart';
@@ -14,9 +15,13 @@ class ShiftsScreen extends ConsumerStatefulWidget {
 }
 
 class _ShiftsScreenState extends ConsumerState<ShiftsScreen> {
+  static const _color = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF3730A3);
+
   Shift? _currentShift;
   bool _loading = true;
   String? _error;
+  final _fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
 
   @override
   void initState() {
@@ -46,57 +51,163 @@ class _ShiftsScreenState extends ConsumerState<ShiftsScreen> {
     }
   }
 
+  Widget _hStat(String value, String label) => Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white),
+            ),
+            Text(
+              label,
+              style: const TextStyle(
+                  fontSize: 9, color: Colors.white70, letterSpacing: 0.2),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const SliverFillRemaining(
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_error != null) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const SizedBox(height: 12),
+              Text(_error!),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _load,
+                style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5)),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          children: [
+            _ShiftStatusCard(shift: _currentShift, fmt: _fmt),
+            const SizedBox(height: 24),
+            if (_currentShift == null || _currentShift!.status == 'CLOSED')
+              _OpenShiftCard(onOpened: _load)
+            else if (_currentShift!.status == 'OPEN')
+              _CloseShiftCard(
+                  shift: _currentShift!, onClosed: _load, fmt: _fmt),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    final statusLabel =
+        _currentShift != null && _currentShift!.status == 'OPEN'
+            ? 'OPEN'
+            : 'CLOSED';
+    final balanceLabel = _currentShift != null
+        ? _fmt.format(_currentShift!.openingBalance)
+        : '—';
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu_outlined),
-          onPressed: openAppDrawer,
-          tooltip: 'Open menu',
-        ),
-        title: const Text('Shift Management'),
-        backgroundColor: const Color(0xFF00BCD4),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.error_outline, color: cs.error, size: 48),
-                      const SizedBox(height: 12),
-                      Text(_error!),
-                      const SizedBox(height: 16),
-                      FilledButton(onPressed: _load, child: const Text('Retry')),
-                    ],
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 106,
+            toolbarHeight: 46,
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: context.canPop()
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => context.pop(),
+                  )
+                : const IconButton(
+                    icon: Icon(Icons.menu_outlined),
+                    onPressed: openAppDrawer,
+                    tooltip: 'Open menu',
                   ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _ShiftStatusCard(shift: _currentShift, fmt: fmt),
-                      const SizedBox(height: 24),
-                      if (_currentShift == null || _currentShift!.status == 'CLOSED')
-                        _OpenShiftCard(onOpened: _load)
-                      else if (_currentShift!.status == 'OPEN')
-                        _CloseShiftCard(
-                            shift: _currentShift!, onClosed: _load, fmt: fmt),
-                    ],
+            title: const Text(
+              'Shift Management',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: Colors.white),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _load,
+                color: Colors.white,
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_color, _colorDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -24,
+                      top: -24,
+                      child: Container(
+                        width: 110,
+                        height: 110,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                        child: Row(
+                          children: [
+                            _hStat(statusLabel, 'Status'),
+                            _hStat(balanceLabel, 'Opening Balance'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          _buildBody(),
+        ],
+      ),
     );
   }
 }
@@ -113,10 +224,10 @@ class _ShiftStatusCard extends StatelessWidget {
 
     return Card(
       elevation: 0,
-      color: color.withOpacity(0.08),
+      color: color.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: color.withOpacity(0.3)),
+        side: BorderSide(color: color.withValues(alpha: 0.3)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -128,7 +239,7 @@ class _ShiftStatusCard extends StatelessWidget {
                   width: 50,
                   height: 50,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.18),
+                    color: color.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -144,12 +255,15 @@ class _ShiftStatusCard extends StatelessWidget {
                     Text(
                       isOpen ? 'Shift Open' : 'No Active Shift',
                       style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold, color: color),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: color),
                     ),
                     if (shift != null && shift!.openedAt != null)
                       Text(
-                        'Opened: ${_fmt(shift!.openedAt!)}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        'Opened: ${_fmtDate(shift!.openedAt!)}',
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                   ],
                 ),
@@ -180,7 +294,7 @@ class _ShiftStatusCard extends StatelessWidget {
     );
   }
 
-  String _fmt(String dateStr) {
+  String _fmtDate(String dateStr) {
     try {
       return DateFormat('dd MMM, hh:mm a').format(DateTime.parse(dateStr));
     } catch (_) {
@@ -238,7 +352,8 @@ class _OpenShiftCardState extends ConsumerState<_OpenShiftCard> {
                 border: OutlineInputBorder(),
                 prefixText: '₹ ',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -247,7 +362,8 @@ class _OpenShiftCardState extends ConsumerState<_OpenShiftCard> {
                 onPressed: _saving ? null : _open,
                 icon: const Icon(Icons.lock_open),
                 label: const Text('Open Shift'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4CAF50)),
+                style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF4CAF50)),
               ),
             ),
           ],
@@ -296,7 +412,7 @@ class _CloseShiftCardState extends State<_CloseShiftCard> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: const Color(0xFFFF9800).withOpacity(0.05),
+      color: const Color(0xFFFF9800).withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: const BorderSide(color: Color(0xFFFF9800), width: 0.5),
@@ -316,7 +432,8 @@ class _CloseShiftCardState extends State<_CloseShiftCard> {
                 border: OutlineInputBorder(),
                 prefixText: '₹ ',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -325,7 +442,8 @@ class _CloseShiftCardState extends State<_CloseShiftCard> {
                 onPressed: _saving ? null : _close,
                 icon: const Icon(Icons.lock),
                 label: const Text('Close Shift'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF9800)),
+                style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF9800)),
               ),
             ),
           ],

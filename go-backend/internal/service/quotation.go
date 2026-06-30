@@ -237,6 +237,10 @@ func (qs *QuotationService) UpdateStatus(id int, status string) (*models.Quotati
 	return qs.GetByID(id)
 }
 
+func (qs *QuotationService) PeekNextNumber() (string, error) {
+	return util.PeekNextQuotationNumber(qs.db)
+}
+
 func (qs *QuotationService) Delete(id int) error {
 	quotation := &models.Quotation{}
 	if err := qs.db.First(quotation, id).Error; err != nil {

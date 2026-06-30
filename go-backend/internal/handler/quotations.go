@@ -124,6 +124,15 @@ func (qh *QuotationHandler) UpdateStatus(w http.ResponseWriter, r *http.Request)
 	util.SendSuccess(w, "Status updated", quotation)
 }
 
+func (qh *QuotationHandler) PeekNextNumber(w http.ResponseWriter, r *http.Request) {
+	next, err := qh.service.PeekNextNumber()
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Next quotation number", map[string]string{"nextNumber": next})
+}
+
 func (qh *QuotationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {

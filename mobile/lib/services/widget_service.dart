@@ -13,9 +13,18 @@ class WidgetService {
     try {
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
+      // Fetch all data in parallel
+      final results = await Future.wait([
+        _api.getInventoryByOutlet(outletId, size: 500),
+        _api.getLoadingRecords(date: today, size: 500),
+        _api.getSalesSummary(outletId, today, today),
+      ]);
+
+      final inventory    = results[0] as List<dynamic>;
+      final loadRecs     = results[1] as List<dynamic>;
+      final salesSummary = results[2] as Map<String, dynamic>;
+
       // Total available finished-pipe inventory
-      // quantityOnHand comes as a decimal string from Go — use p.d() to parse safely
-      final inventory = await _api.getInventoryByOutlet(outletId, size: 500);
       final available = inventory
           .where((i) =>
               (i['product']?['itemType'] ?? '') == 'FINISHED_PIPE' &&
@@ -23,15 +32,27 @@ class WidgetService {
           .fold<int>(0, (sum, i) => sum + p.d(i['quantityOnHand']).toInt());
 
       // Total pipes loaded today
-      final records = await _api.getLoadingRecords(date: today, size: 500);
-      final loaded = records.fold<int>(
+      final loaded = loadRecs.fold<int>(
           0, (sum, r) => sum + p.d(r['quantity']).toInt());
+
+      // Sales orders placed today
+      final ordersToday = (salesSummary['totalOrders'] as num?)?.toInt() ?? 0;
+
+      // Items below reorder level (all item types)
+      final lowStock = inventory.where((i) {
+        final qty = p.d(i['quantityOnHand']).toDouble();
+        final reorder =
+            (i['product']?['reorderLevel'] as num?)?.toDouble() ?? 10.0;
+        return qty <= reorder;
+      }).length;
 
       final timestamp = DateFormat('d MMM, h:mm a').format(DateTime.now());
 
       await Future.wait([
         HomeWidget.saveWidgetData<int>('pipes_available', available),
         HomeWidget.saveWidgetData<int>('pipes_loaded_today', loaded),
+        HomeWidget.saveWidgetData<int>('widget_orders_today', ordersToday),
+        HomeWidget.saveWidgetData<int>('widget_low_stock', lowStock),
         HomeWidget.saveWidgetData<String>('widget_updated_at', timestamp),
       ]);
 

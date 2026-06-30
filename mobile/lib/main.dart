@@ -12,8 +12,6 @@ import 'screens/customers/customers_screen.dart';
 import 'screens/orders/orders_screen.dart';
 import 'screens/reports/reports_screen.dart';
 import 'screens/settings/settings_screen.dart';
-import 'screens/commerce/commerce_hub_screen.dart';
-import 'screens/operations/operations_hub_screen.dart';
 import 'screens/sales_orders/sales_orders_screen.dart';
 import 'screens/purchases/purchases_screen.dart';
 import 'screens/invoices/invoices_screen.dart';
@@ -83,14 +81,12 @@ class PosApp extends ConsumerWidget {
           routes: [
             GoRoute(path: '/dashboard',   builder: (_, __) => const DashboardScreen()),
             GoRoute(path: '/pos',         builder: (_, __) => const POSScreen()),
-            GoRoute(path: '/commerce',    builder: (_, __) => const CommerceHubScreen()),
             GoRoute(path: '/sales-orders',builder: (_, __) => const SalesOrdersScreen()),
             GoRoute(path: '/purchases',   builder: (_, __) => const PurchasesScreen()),
             GoRoute(path: '/invoices',    builder: (_, __) => const InvoicesScreen()),
             GoRoute(path: '/vendors',     builder: (_, __) => const VendorsScreen()),
             GoRoute(path: '/orders',      builder: (_, __) => const OrdersScreen()),
             GoRoute(path: '/customers',   builder: (_, __) => const CustomersScreen()),
-            GoRoute(path: '/operations',  builder: (_, __) => const OperationsHubScreen()),
             GoRoute(path: '/expenses',    builder: (_, __) => const ExpensesScreen()),
             GoRoute(path: '/shifts',      builder: (_, __) => const ShiftsScreen()),
             GoRoute(path: '/production',  builder: (_, __) => const ProductionScreen()),
@@ -98,6 +94,7 @@ class PosApp extends ConsumerWidget {
             GoRoute(path: '/business/cement-bags',     builder: (_, __) => const CementBagsScreen()),
             GoRoute(path: '/business/vehicles',        builder: (_, __) => const VehiclesScreen()),
             GoRoute(path: '/business/silo',            builder: (_, __) => const SiloScreen()),
+            GoRoute(path: '/business/silo-extraction', builder: (_, __) => const SiloScreen(isExtraction: true)),
             GoRoute(path: '/business/pdi',             builder: (_, __) => const PdiScreen()),
             GoRoute(path: '/business/loading',         builder: (_, __) => const LoadingScreen()),
             GoRoute(path: '/business/extra-vehicles',  builder: (_, __) => const ExtraVehiclesScreen()),
@@ -111,6 +108,19 @@ class PosApp extends ConsumerWidget {
             GoRoute(path: '/business/transport-report',  builder: (_, __) => const TransportReportScreen()),
             GoRoute(path: '/business/discard',           builder: (_, __) => const DiscardScreen()),
             GoRoute(path: '/business/extra-fab',         builder: (_, __) => const ExtraFabScreen()),
+            GoRoute(path: '/business/testing-lab',       builder: (_, __) => const TestingLabScreen()),
+            GoRoute(path: '/business/pccp',              builder: (_, __) => const PccpScreen()),
+            GoRoute(
+              path: '/business/pccp/stage',
+              builder: (_, state) {
+                final extra = state.extra as Map<String, dynamic>;
+                return PccpStageScreen(
+                  stageType: extra['stageType'] as String,
+                  stageName: extra['name'] as String,
+                  color: Color(extra['colorValue'] as int),
+                );
+              },
+            ),
             GoRoute(path: '/products',    builder: (_, __) => const ProductsScreen()),
             GoRoute(path: '/inventory',   builder: (_, __) => const InventoryScreen()),
             GoRoute(path: '/reports',     builder: (_, __) => const ReportsScreen()),
@@ -153,15 +163,13 @@ class PosApp extends ConsumerWidget {
 enum _Section { dashboard, commerce, operations, reports, settings }
 
 _Section _sectionOf(String path) {
-  if (path.startsWith('/commerce')     ||
-      path.startsWith('/sales-orders') ||
+  if (path.startsWith('/sales-orders') ||
       path.startsWith('/purchases')    ||
       path.startsWith('/invoices')     ||
       path.startsWith('/vendors')      ||
       path.startsWith('/orders')       ||
       path.startsWith('/customers'))   return _Section.commerce;
-  if (path.startsWith('/operations')  ||
-      path.startsWith('/expenses')     ||
+  if (path.startsWith('/expenses')     ||
       path.startsWith('/shifts')       ||
       path.startsWith('/production')   ||
       path.startsWith('/business')     ||
@@ -191,23 +199,23 @@ List<_BotItem> _itemsFor(_Section section) {
   switch (section) {
     case _Section.dashboard:
       return const [
-        _BotItem(path: '/dashboard',  icon: Icons.dashboard_outlined,    activeIcon: Icons.dashboard,    label: 'Dashboard'),
-        _BotItem(path: '/commerce',   icon: Icons.shopping_bag_outlined,  activeIcon: Icons.shopping_bag, label: 'Commerce'),
-        _BotItem(path: '/operations', icon: Icons.factory_outlined,       activeIcon: Icons.factory,      label: 'Operations'),
+        _BotItem(path: '/dashboard',    icon: Icons.dashboard_outlined,    activeIcon: Icons.dashboard,    label: 'Dashboard'),
+        _BotItem(path: '/sales-orders', icon: Icons.shopping_bag_outlined, activeIcon: Icons.shopping_bag, label: 'Commerce'),
+        _BotItem(path: '/production',   icon: Icons.factory_outlined,      activeIcon: Icons.factory,      label: 'Operations'),
       ];
     case _Section.commerce:
       return const [
-        _BotItem(path: '/commerce',     icon: Icons.storefront_outlined,     activeIcon: Icons.storefront,     label: 'Overview'),
         _BotItem(path: '/sales-orders', icon: Icons.shopping_cart_outlined,  activeIcon: Icons.shopping_cart,  label: 'Sales'),
         _BotItem(path: '/purchases',    icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping, label: 'Purchases'),
         _BotItem(path: '/invoices',     icon: Icons.description_outlined,    activeIcon: Icons.description,    label: 'Invoices'),
+        _BotItem(path: '/customers',    icon: Icons.people_outline,           activeIcon: Icons.people,          label: 'Customers'),
       ];
     case _Section.operations:
       return const [
-        _BotItem(path: '/operations', icon: Icons.apps_outlined,                     activeIcon: Icons.apps,                    label: 'Overview'),
         _BotItem(path: '/production', icon: Icons.precision_manufacturing_outlined,  activeIcon: Icons.precision_manufacturing, label: 'Production'),
         _BotItem(path: '/expenses',   icon: Icons.payments_outlined,                 activeIcon: Icons.payments,                label: 'Expenses'),
         _BotItem(path: '/shifts',     icon: Icons.access_time_outlined,              activeIcon: Icons.access_time_filled,      label: 'Shifts'),
+        _BotItem(path: '/business',   icon: Icons.factory_outlined,                  activeIcon: Icons.factory,                 label: 'Business'),
       ];
     case _Section.reports:
       return const [
@@ -244,8 +252,8 @@ class _AppShellState extends ConsumerState<_AppShell> {
     final activeIdx = items.indexWhere((it) => location.startsWith(it.path));
     final auth     = ref.watch(authProvider);
 
-    // Business hub + every sub-screen: no bottom nav
-    final showBottomNav = !location.startsWith('/business');
+    // Business hub, every sub-screen, and all Operations screens use their own floating nav
+    final showBottomNav = !location.startsWith('/business') && section != _Section.operations;
 
     return Scaffold(
       key: appShellKey,
@@ -306,7 +314,6 @@ class _AppDrawer extends StatelessWidget {
                     // ── COMMERCE ─────────────────────────────────────
                     const SizedBox(height: 6),
                     _sectionLabel('COMMERCE'),
-                    _navItem(context, '/commerce',     Icons.storefront_outlined,        Icons.storefront,        'Commerce Hub'),
                     _navItem(context, '/sales-orders', Icons.shopping_cart_outlined,     Icons.shopping_cart,     'Sales Orders'),
                     _navItem(context, '/purchases',    Icons.local_shipping_outlined,    Icons.local_shipping,    'Purchases'),
                     _navItem(context, '/invoices',     Icons.description_outlined,       Icons.description,       'Invoices'),
@@ -317,7 +324,6 @@ class _AppDrawer extends StatelessWidget {
                     // ── OPERATIONS ───────────────────────────────────
                     const SizedBox(height: 6),
                     _sectionLabel('OPERATIONS'),
-                    _navItem(context, '/operations', Icons.apps_outlined,                      Icons.apps,                       'Operations Hub'),
                     _navItem(context, '/production', Icons.precision_manufacturing_outlined,   Icons.precision_manufacturing,    'Production'),
                     _navItem(context, '/expenses',   Icons.payments_outlined,                  Icons.payments,                   'Expenses'),
                     _navItem(context, '/shifts',     Icons.access_time_outlined,               Icons.access_time_filled,         'Shifts'),

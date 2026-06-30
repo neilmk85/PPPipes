@@ -39,7 +39,7 @@ const _cards = [
   _BizCard('transport-report',   'Transport Report',   'Vehicle trip summary',          'Logistics',  Icons.bar_chart_outlined,            Color(0xFFEA580C)),
 ];
 
-const _routed = {'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'pdi', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes', 'labour', 'store-material', 'maintenance', 'cutting', 'diesel-maintenance', 'transport-report', 'discard', 'extra-fab'};
+const _routed = {'pccp', 'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'pdi', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes', 'labour', 'store-material', 'maintenance', 'cutting', 'diesel-maintenance', 'transport-report', 'discard', 'extra-fab', 'testing-lab'};
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -186,12 +186,16 @@ class _BusinessScreenState extends State<BusinessScreen> {
   }
 
   void _onTap(BuildContext context, String key) {
-    if (key == 'cement-bags') {
+    if (key == 'pccp') {
+      context.push('/business/pccp');
+    } else if (key == 'cement-bags') {
       context.push('/business/cement-bags');
     } else if (key == 'vehicles') {
       context.push('/business/vehicles');
-    } else if (key == 'silo' || key == 'silo-extraction') {
+    } else if (key == 'silo') {
       context.push('/business/silo');
+    } else if (key == 'silo-extraction') {
+      context.push('/business/silo-extraction');
     } else if (key == 'pdi') {
       context.push('/business/pdi');
     } else if (key == 'loading') {
@@ -218,6 +222,8 @@ class _BusinessScreenState extends State<BusinessScreen> {
       context.push('/business/discard');
     } else if (key == 'extra-fab') {
       context.push('/business/extra-fab');
+    } else if (key == 'testing-lab') {
+      context.push('/business/testing-lab');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Coming soon'), duration: Duration(seconds: 2)),
@@ -307,7 +313,7 @@ class _BusinessScreenState extends State<BusinessScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.white.withOpacity(0.25)),
                     ),
-                    child: const Icon(Icons.business_outlined, color: Colors.white, size: 20),
+                    child: const Icon(Icons.business_outlined, color: Color(0xFFFBBF24), size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

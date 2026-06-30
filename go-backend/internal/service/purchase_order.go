@@ -465,3 +465,115 @@ func (pos *PurchaseOrderService) Delete(id int) error {
 		return tx.Delete(order).Error
 	})
 }
+
+// UpdateDirect updates a direct (RECEIVED) purchase order with inventory reversal and re-application
+func (pos *PurchaseOrderService) UpdateDirect(id int, data map[string]interface{}) (*models.PurchaseOrder, error) {
+	order := &models.PurchaseOrder{}
+	if err := pos.db.Preload("Items").First(order, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, &util.ResourceNotFoundException{Message: fmt.Sprintf("Purchase order with ID %d not found", id)}
+		}
+		return nil, err
+	}
+
+	now := time.Now()
+
+	err := pos.db.Transaction(func(tx *gorm.DB) error {
+		// 1. Reverse inventory for all existing items
+		for _, item := range order.Items {
+			tx.Model(&models.Inventory{}).
+				Where("product_id = ? AND outlet_id = ?", item.ProductID, order.OutletID).
+				Updates(map[string]interface{}{
+					"quantity_on_hand":  gorm.Expr("quantity_on_hand - ?", item.OrderedQuantity),
+					"last_stock_update": now,
+				})
+		}
+
+		// 2. Delete existing items
+		if err := tx.Where("purchase_order_id = ?", id).Delete(&models.PurchaseOrderItem{}).Error; err != nil {
+			return err
+		}
+
+		// 3. Process and create new items, re-apply inventory
+		var subtotal, taxAmount decimal.Decimal
+		if itemsInterface, ok := data["items"]; ok {
+			items := itemsInterface.([]interface{})
+			for _, item := range items {
+				itemMap := item.(map[string]interface{})
+				qty := decimal.NewFromFloat(itemMap["quantity"].(float64))
+				cost := decimal.NewFromFloat(itemMap["unitCost"].(float64))
+				taxRate := decimal.Zero
+				if tr, ok := itemMap["taxRate"].(float64); ok {
+					taxRate = decimal.NewFromFloat(tr)
+				}
+				lineSub := qty.Mul(cost)
+				lineTax := lineSub.Mul(taxRate).Div(decimal.NewFromInt(100)).Round(2)
+				lineTotal := lineSub.Add(lineTax)
+				subtotal = subtotal.Add(lineSub)
+				taxAmount = taxAmount.Add(lineTax)
+
+				productId := int(itemMap["productId"].(float64))
+				if err := tx.Create(&models.PurchaseOrderItem{
+					PurchaseOrderID:  id,
+					ProductID:        productId,
+					OrderedQuantity:  qty,
+					ReceivedQuantity: qty,
+					UnitCost:         cost,
+					TaxRate:          taxRate,
+					LineTotal:        lineTotal,
+				}).Error; err != nil {
+					return err
+				}
+
+				// Re-apply inventory for new items
+				var inv models.Inventory
+				result := tx.Where("product_id = ? AND outlet_id = ?", productId, order.OutletID).First(&inv)
+				if result.Error == gorm.ErrRecordNotFound {
+					if err := tx.Create(&models.Inventory{
+						ProductID:       productId,
+						OutletID:        order.OutletID,
+						QuantityOnHand:  qty,
+						LastStockUpdate: &now,
+					}).Error; err != nil {
+						return err
+					}
+				} else if result.Error == nil {
+					if err := tx.Model(&inv).Updates(map[string]interface{}{
+						"quantity_on_hand":  gorm.Expr("quantity_on_hand + ?", qty),
+						"last_stock_update": now,
+					}).Error; err != nil {
+						return err
+					}
+				} else {
+					return result.Error
+				}
+			}
+			order.Subtotal = subtotal
+			order.TaxAmount = taxAmount
+			order.TotalAmount = subtotal.Add(taxAmount)
+		}
+
+		// 4. Update header fields
+		if supplierId, ok := data["supplierId"].(float64); ok && supplierId > 0 {
+			order.SupplierID = int(supplierId)
+		}
+		if purchaseDate, ok := data["purchaseDate"].(string); ok && purchaseDate != "" {
+			if t, err := time.Parse("2006-01-02", purchaseDate); err == nil {
+				order.ReceivedDate = &t
+			}
+		}
+		if notes, ok := data["notes"].(string); ok && notes != "" {
+			order.Notes = &notes
+		} else if _, hasNotes := data["notes"]; hasNotes {
+			order.Notes = nil
+		}
+
+		return tx.Save(order).Error
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pos.GetByPONumber(order.PONumber)
+}

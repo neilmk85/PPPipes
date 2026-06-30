@@ -94,8 +94,19 @@ func GenerateQuotationNumber(db *gorm.DB) (string, error) {
 		return "", err
 	}
 	dateStr := time.Now().Format("20060102")
-	nanoLike := time.Now().UnixNano() % 10000
-	return fmt.Sprintf("QT-%s-%d-%d", dateStr, num, nanoLike), nil
+	return fmt.Sprintf("QT-%s-%d", dateStr, num), nil
+}
+
+func PeekNextQuotationNumber(db *gorm.DB) (string, error) {
+	var seq Sequence
+	err := db.Where("name = ?", "quotation_sequence").First(&seq).Error
+	if err == gorm.ErrRecordNotFound {
+		return fmt.Sprintf("QT-%s-1", time.Now().Format("20060102")), nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("QT-%s-%d", time.Now().Format("20060102"), seq.Value+1), nil
 }
 
 func GenerateProductionOrderNumber(db *gorm.DB) (string, error) {

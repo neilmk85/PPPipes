@@ -40,19 +40,23 @@ class PipesWidget : AppWidgetProvider() {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
             // home_widget may save ints as Int, Long, or serialised String depending on version
-            val available = readInt(prefs, "pipes_available")
-            val loaded    = readInt(prefs, "pipes_loaded_today")
-            val updatedAt = prefs.getString("widget_updated_at", null)
+            val available   = readInt(prefs, "pipes_available")
+            val loaded      = readInt(prefs, "pipes_loaded_today")
+            val ordersToday = readInt(prefs, "widget_orders_today")
+            val lowStock    = readInt(prefs, "widget_low_stock")
+            val updatedAt   = prefs.getString("widget_updated_at", null)
 
-            Log.d(TAG, "Widget data — available=$available loaded=$loaded ts=$updatedAt")
+            Log.d(TAG, "Widget data — available=$available loaded=$loaded orders=$ordersToday lowStock=$lowStock ts=$updatedAt")
 
-            views.setTextViewText(R.id.tv_available, if (available >= 0) fmt(available) else "—")
-            views.setTextViewText(R.id.tv_loaded,    if (loaded    >= 0) fmt(loaded)    else "—")
-            views.setTextViewText(R.id.tv_updated,   updatedAt ?: "Open app to load data")
+            views.setTextViewText(R.id.tv_available,    if (available   >= 0) fmt(available)   else "—")
+            views.setTextViewText(R.id.tv_loaded,       if (loaded      >= 0) fmt(loaded)       else "—")
+            views.setTextViewText(R.id.tv_orders_today, if (ordersToday >= 0) fmt(ordersToday)  else "—")
+            views.setTextViewText(R.id.tv_low_stock,    if (lowStock    >= 0) fmt(lowStock)     else "—")
+            views.setTextViewText(R.id.tv_updated,      updatedAt ?: "Open app to load data")
 
             // Draw donut chart
             val dp = context.resources.displayMetrics.density
-            val chartPx = (80 * dp).toInt()
+            val chartPx = (72 * dp).toInt()
             val chartBitmap = drawDonut(
                 if (available > 0) available else 0,
                 if (loaded    > 0) loaded    else 0,
@@ -110,38 +114,38 @@ class PipesWidget : AppWidgetProvider() {
             if (total > 0) {
                 val availDeg = (available.toFloat() / total) * 360f
 
-                // Available — purple arc
-                paint.color = Color.parseColor("#7C3AED")
+                // Available — amber arc
+                paint.color = Color.parseColor("#F59E0B")
                 canvas.drawArc(oval, -90f, availDeg, false, paint)
 
-                // Loaded today — blue arc
+                // Loaded today — orange arc
                 val loadedDeg = 360f - availDeg
                 if (loadedDeg > 0.5f) {
-                    paint.color = Color.parseColor("#3B82F6")
+                    paint.color = Color.parseColor("#F97316")
                     canvas.drawArc(oval, -90f + availDeg, loadedDeg, false, paint)
                 }
             }
 
-            // Center total
+            // Center number — properly vertically centered using font metrics
             paint.style     = Paint.Style.FILL
             paint.typeface  = Typeface.DEFAULT_BOLD
             paint.textAlign = Paint.Align.CENTER
-            paint.textSize  = sizePx * 0.20f
+            paint.textSize  = sizePx * 0.26f
             paint.color     = Color.WHITE
             val cx = sizePx / 2f
             val cy = sizePx / 2f
+            // Offset by half the text height so it's truly centered
+            val textY = cy - (paint.ascent() + paint.descent()) / 2f
             canvas.drawText(
                 if (total > 0) shortNum(total) else "—",
-                cx, cy + paint.textSize * 0.38f, paint
+                cx, textY, paint
             )
 
-            // "total" sub-label
-            if (total > 0) {
-                paint.typeface = Typeface.DEFAULT
-                paint.textSize = sizePx * 0.09f
-                paint.color    = Color.parseColor("#64748B")
-                canvas.drawText("total", cx, cy + paint.textSize + sizePx * 0.26f, paint)
-            }
+            // "pipes" sub-label below the number
+            paint.typeface = Typeface.DEFAULT
+            paint.textSize = sizePx * 0.11f
+            paint.color    = Color.parseColor("#94A3B8")
+            canvas.drawText("pipes", cx, textY + paint.textSize * 1.2f, paint)
 
             return bmp
         }

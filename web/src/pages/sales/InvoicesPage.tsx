@@ -479,9 +479,8 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
     setItems(prev => prev.map(it => {
       if (it.id !== id) return it
       const updated = { ...it, [field]: value }
-      if (field === 'meters') {
-        updated.quantity = Math.ceil((value as number) / METERS_PER_PIPE)
-      }
+      if (field === 'meters')   updated.quantity = Math.ceil((value as number) / METERS_PER_PIPE)
+      if (field === 'quantity') updated.meters   = (value as number) * METERS_PER_PIPE
       return updated
     }))
   }
@@ -712,9 +711,9 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
 
                 {/* Table header */}
                 <div className="grid text-[10px] font-bold text-gray-600 uppercase tracking-widest bg-gray-200 border-b border-gray-200"
-                  style={{ gridTemplateColumns: '2.5fr 100px 120px 80px 72px 116px 36px' }}>
+                  style={{ gridTemplateColumns: '2.5fr 120px 120px 80px 72px 116px 36px' }}>
                   <div className="px-5 py-3">Description</div>
-                  <div className="px-3 py-3 text-right">Meters (m)</div>
+                  <div className="px-3 py-3 text-right">Meters / Pipes</div>
                   <div className="px-3 py-3 text-right">Price / m (₹)</div>
                   <div className="px-3 py-3 text-right">Disc %</div>
                   <div className="px-3 py-3 text-right">GST %</div>
@@ -730,7 +729,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                   return (
                     <div key={it.id}
                       className={`grid items-center border-b border-gray-100 last:border-0 transition-colors ${idx % 2 === 1 ? 'bg-gray-50/40' : 'bg-white'} hover:bg-blue-50/20`}
-                      style={{ gridTemplateColumns: '2.5fr 100px 120px 80px 72px 116px 36px' }}>
+                      style={{ gridTemplateColumns: '2.5fr 120px 120px 80px 72px 116px 36px' }}>
 
                       {/* Description */}
                       <div className="px-5 py-3">
@@ -741,18 +740,22 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                             <Percent size={8} /> {it.autoDiscountLabel}
                           </span>
                         )}
-                        {it.meters > 0 && it.unitPrice > 0 && (
-                          <p className="text-[10px] text-gray-400 mt-0.5 tabular-nums">
-                            {it.meters}m × ₹{it.unitPrice}/m · ≈ {it.quantity} pipe{it.quantity !== 1 ? 's' : ''}
-                          </p>
-                        )}
                       </div>
 
-                      {/* Meters */}
-                      <div className="px-2 py-2.5">
-                        <input type="number" min="0.01" step="0.01" value={it.meters || ''}
-                          onChange={e => updateItem(it.id, 'meters', parseFloat(e.target.value) || 0)}
-                          className={`w-full px-2 py-1.5 text-sm text-right border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${NO_SPINNER}`} />
+                      {/* Meters + Pipes dual input */}
+                      <div className="px-2 py-2 flex flex-col gap-1">
+                        <div className="relative">
+                          <input type="number" min="0.01" step="0.01" value={it.meters || ''}
+                            onChange={e => updateItem(it.id, 'meters', parseFloat(e.target.value) || 0)}
+                            className={`w-full px-2 pr-5 py-1 text-xs text-right border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${NO_SPINNER}`} />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-gray-400 pointer-events-none">m</span>
+                        </div>
+                        <div className="relative">
+                          <input type="number" min="1" step="1" value={it.quantity || ''}
+                            onChange={e => updateItem(it.id, 'quantity', parseInt(e.target.value) || 0)}
+                            className={`w-full px-2 pr-8 py-1 text-xs text-right border border-blue-200 bg-blue-50/50 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 ${NO_SPINNER}`} />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-blue-400 pointer-events-none">pipes</span>
+                        </div>
                       </div>
 
                       {/* Price/m */}
