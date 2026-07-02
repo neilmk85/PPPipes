@@ -272,10 +272,79 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
         slivers: [
           SliverToBoxAdapter(child: _buildHeader()),
 
+          // ── PCCP stage cards (shown first) ───────────────────────────────
+          if (visibleStages.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 3, height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('PCCP Stages',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Color(0xFF374151), letterSpacing: 0.3)),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) {
+                    final stage = visibleStages[i];
+                    return _PccpStageTile(
+                      stage: stage,
+                      onTap: () => ctx.push('/business/pccp/stage', extra: {
+                        'stageType': stage.stageType,
+                        'name': stage.label,
+                        'colorValue': stage.color.value,
+                      }),
+                    );
+                  },
+                  childCount: visibleStages.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 165,
+                ),
+              ),
+            ),
+          ],
+
           // ── Business cards ────────────────────────────────────────────────
           if (visibleCards.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(14, visibleStages.isNotEmpty ? 20 : 14, 14, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 3, height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('Process Modules',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Color(0xFF374151), letterSpacing: 0.3)),
+                  ],
+                ),
+              ),
+            ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+              padding: EdgeInsets.fromLTRB(14, 0, 14, visibleStages.isEmpty ? 28 : 28),
               sliver: SliverGrid(
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) {
@@ -303,55 +372,6 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                     );
                   },
                   childCount: visibleCards.length,
-                ),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  mainAxisExtent: 165,
-                ),
-              ),
-            ),
-          ],
-
-          // ── PCCP stage cards ──────────────────────────────────────────────
-          if (visibleStages.isNotEmpty) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 20, 14, 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 3, height: 16,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text('PCCP Stages',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                          color: Color(0xFF374151), letterSpacing: 0.3)),
-                  ],
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
-              sliver: SliverGrid(
-                delegate: SliverChildBuilderDelegate(
-                  (ctx, i) {
-                    final stage = visibleStages[i];
-                    return _PccpStageTile(
-                      stage: stage,
-                      onTap: () => ctx.push('/business/pccp/stage', extra: {
-                        'stageType': stage.stageType,
-                        'name': stage.label,
-                        'colorValue': stage.color.value,
-                      }),
-                    );
-                  },
-                  childCount: visibleStages.length,
                 ),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
@@ -612,37 +632,54 @@ class _PccpStageTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
+          border: Border.all(color: stage.color.withOpacity(0.30)),
+          boxShadow: [
+            BoxShadow(
+              color: stage.color.withOpacity(0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: stage.color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.hardEdge,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top accent stripe
+            Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
                 ),
-                child: Icon(stage.icon, color: stage.color, size: 22),
               ),
-              const Spacer(),
-              Text(stage.label,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF111827)),
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: stage.color.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text('PCCP Stage',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: stage.color)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(stage.icon, color: stage.color, size: 32),
+                  const SizedBox(height: 10),
+                  Text(
+                    stage.label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF111827)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'PCCP Stage',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF9CA3AF)),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
