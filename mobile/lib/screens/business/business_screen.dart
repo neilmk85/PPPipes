@@ -18,6 +18,28 @@ class _BizCard {
   const _BizCard(this.key, this.label, this.subtitle, this.category, this.icon, this.color);
 }
 
+class _PccpStage {
+  final String stageType;
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _PccpStage(this.stageType, this.label, this.icon, this.color);
+}
+
+const _pccpStages = [
+  _PccpStage('FABRICATION',         'Fabrication',   Icons.hardware_outlined,             Color(0xFF7C3AED)),
+  _PccpStage('FABRICATION_TESTING', 'Fab Testing',   Icons.science_outlined,              Color(0xFF0891B2)),
+  _PccpStage('MOULDING',            'Moulding',      Icons.view_in_ar_outlined,           Color(0xFF2563EB)),
+  _PccpStage('SPINNING',            'Spinning',      Icons.rotate_right_outlined,         Color(0xFF0D9488)),
+  _PccpStage('DEMOULDING',          'Demoulding',    Icons.open_in_new_outlined,          Color(0xFF059669)),
+  _PccpStage('CURING_1',            'Curing 1',      Icons.water_drop_outlined,           Color(0xFF0284C7)),
+  _PccpStage('WINDING',             'Winding',       Icons.loop_outlined,                 Color(0xFFCA8A04)),
+  _PccpStage('COATING',             'Coating',       Icons.format_paint_outlined,         Color(0xFFEA580C)),
+  _PccpStage('CURING_2',            'Curing 2',      Icons.water_outlined,                Color(0xFF6366F1)),
+  _PccpStage('FINAL_TESTING',       'Final Testing', Icons.check_circle_outline,          Color(0xFF16A34A)),
+  _PccpStage('PDI',                 'PDI',           Icons.assignment_turned_in_outlined, Color(0xFF059669)),
+];
+
 const _cards = [
   _BizCard('pccp',               'PCCP',               'Pre-stressed concrete pipes',  'Production', Icons.layers_outlined,               Color(0xFF7C3AED)),
   _BizCard('psc',                'PSC',                'Pre-stressed concrete spun',    'Production', Icons.inventory_2_outlined,          Color(0xFF2563EB)),
@@ -240,49 +262,124 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
         ? _cards
         : _cards.where((c) => perms.business.contains(c.key)).toList();
 
+    final visibleStages = perms == null
+        ? _pccpStages
+        : _pccpStages.where((s) => perms.pccp.contains(s.stageType)).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader()),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
-            sliver: SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                (ctx, i) {
-                  final card = visibleCards[i];
-                  String? stat;
-                  if (card.key == 'cement-bags' && _totalCementKg != null) {
-                    final bags = _totalCementBags!.toStringAsFixed(0);
-                    final kg = _totalCementKg!;
-                    stat = '$bags bags · ${kg.toStringAsFixed(0)} kg';
-                  } else if (card.key == 'diesel-maintenance' && _dieselToday != null) {
-                    stat = '${_dieselToday!.toStringAsFixed(1)} L today';
-                  } else if (card.key == 'loaded-pipes' && _pipesToday != null) {
-                    stat = '$_pipesToday pipes today';
-                  } else if (card.key == 'vehicles' && _vehiclesToday != null) {
-                    stat = _vehiclesToday;
-                  } else if (card.key == 'extra-vehicles' && _extraVehiclesToday != null) {
-                    stat = _extraVehiclesToday;
-                  } else if (card.key == 'silo-extraction' && _siloExtractionToday != null) {
-                    stat = _siloExtractionToday;
-                  }
-                  return _CardTile(
-                    card: card,
-                    stat: stat,
-                    onTap: () => _onTap(ctx, card.key),
-                  );
-                },
-                childCount: visibleCards.length,
-              ),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                mainAxisExtent: 165,
+
+          // ── Business cards ────────────────────────────────────────────────
+          if (visibleCards.isNotEmpty) ...[
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) {
+                    final card = visibleCards[i];
+                    String? stat;
+                    if (card.key == 'cement-bags' && _totalCementKg != null) {
+                      final bags = _totalCementBags!.toStringAsFixed(0);
+                      final kg = _totalCementKg!;
+                      stat = '$bags bags · ${kg.toStringAsFixed(0)} kg';
+                    } else if (card.key == 'diesel-maintenance' && _dieselToday != null) {
+                      stat = '${_dieselToday!.toStringAsFixed(1)} L today';
+                    } else if (card.key == 'loaded-pipes' && _pipesToday != null) {
+                      stat = '$_pipesToday pipes today';
+                    } else if (card.key == 'vehicles' && _vehiclesToday != null) {
+                      stat = _vehiclesToday;
+                    } else if (card.key == 'extra-vehicles' && _extraVehiclesToday != null) {
+                      stat = _extraVehiclesToday;
+                    } else if (card.key == 'silo-extraction' && _siloExtractionToday != null) {
+                      stat = _siloExtractionToday;
+                    }
+                    return _CardTile(
+                      card: card,
+                      stat: stat,
+                      onTap: () => _onTap(ctx, card.key),
+                    );
+                  },
+                  childCount: visibleCards.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 165,
+                ),
               ),
             ),
-          ),
+          ],
+
+          // ── PCCP stage cards ──────────────────────────────────────────────
+          if (visibleStages.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 20, 14, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 3, height: 16,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('PCCP Stages',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Color(0xFF374151), letterSpacing: 0.3)),
+                  ],
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 28),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) {
+                    final stage = visibleStages[i];
+                    return _PccpStageTile(
+                      stage: stage,
+                      onTap: () => ctx.push('/business/pccp/stage', extra: {
+                        'stageType': stage.stageType,
+                        'name': stage.label,
+                        'colorValue': stage.color.value,
+                      }),
+                    );
+                  },
+                  childCount: visibleStages.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 165,
+                ),
+              ),
+            ),
+          ],
+
+          if (visibleCards.isEmpty && visibleStages.isEmpty)
+            const SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, size: 48, color: Color(0xFFD1D5DB)),
+                    SizedBox(height: 12),
+                    Text('No modules assigned',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF6B7280))),
+                    SizedBox(height: 4),
+                    Text('Contact your admin to get access',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF))),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -494,6 +591,58 @@ class _CardTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── PCCP Stage Tile ───────────────────────────────────────────────────────────
+
+class _PccpStageTile extends StatelessWidget {
+  final _PccpStage stage;
+  final VoidCallback onTap;
+  const _PccpStageTile({required this.stage, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: stage.color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(stage.icon, color: stage.color, size: 22),
+              ),
+              const Spacer(),
+              Text(stage.label,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF111827)),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: stage.color.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('PCCP Stage',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: stage.color)),
+              ),
+            ],
+          ),
         ),
       ),
     );
