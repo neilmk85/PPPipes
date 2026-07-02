@@ -288,6 +288,9 @@ class _AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final roles = auth?.user?.roles as List<String>? ?? [];
+    final isAdmin = roles.contains('SUPER_ADMIN') || roles.contains('ADMIN');
+
     return Drawer(
       width: 285,
       shape: const RoundedRectangleBorder(
@@ -308,37 +311,39 @@ class _AppDrawer extends StatelessWidget {
                   children: [
                     // ── HOME ─────────────────────────────────────────
                     _sectionLabel('HOME'),
-                    _navItem(context, '/dashboard',  Icons.dashboard_outlined,         Icons.dashboard,         'Dashboard'),
-                    _navItem(context, '/business',   Icons.business_center_outlined,   Icons.business_center,   'Business'),
+                    _navItem(context, '/dashboard', Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
+                    _navItem(context, '/business',  Icons.business_center_outlined, Icons.business_center, 'Business'),
 
-                    // ── COMMERCE ─────────────────────────────────────
-                    const SizedBox(height: 6),
-                    _sectionLabel('COMMERCE'),
-                    _navItem(context, '/sales-orders', Icons.shopping_cart_outlined,     Icons.shopping_cart,     'Sales Orders'),
-                    _navItem(context, '/purchases',    Icons.local_shipping_outlined,    Icons.local_shipping,    'Purchases'),
-                    _navItem(context, '/invoices',     Icons.description_outlined,       Icons.description,       'Invoices'),
-                    _navItem(context, '/vendors',      Icons.business_outlined,          Icons.business,          'Vendors'),
-                    _navItem(context, '/customers',    Icons.people_outline,             Icons.people,            'Customers'),
-                    _navItem(context, '/orders',       Icons.receipt_long_outlined,      Icons.receipt_long,      'Orders'),
+                    if (isAdmin) ...[
+                      // ── COMMERCE ───────────────────────────────────
+                      const SizedBox(height: 6),
+                      _sectionLabel('COMMERCE'),
+                      _navItem(context, '/sales-orders', Icons.shopping_cart_outlined,     Icons.shopping_cart,     'Sales Orders'),
+                      _navItem(context, '/purchases',    Icons.local_shipping_outlined,    Icons.local_shipping,    'Purchases'),
+                      _navItem(context, '/invoices',     Icons.description_outlined,       Icons.description,       'Invoices'),
+                      _navItem(context, '/vendors',      Icons.business_outlined,          Icons.business,          'Vendors'),
+                      _navItem(context, '/customers',    Icons.people_outline,             Icons.people,            'Customers'),
+                      _navItem(context, '/orders',       Icons.receipt_long_outlined,      Icons.receipt_long,      'Orders'),
 
-                    // ── OPERATIONS ───────────────────────────────────
-                    const SizedBox(height: 6),
-                    _sectionLabel('OPERATIONS'),
-                    _navItem(context, '/production', Icons.precision_manufacturing_outlined,   Icons.precision_manufacturing,    'Production'),
-                    _navItem(context, '/expenses',   Icons.payments_outlined,                  Icons.payments,                   'Expenses'),
-                    _navItem(context, '/shifts',     Icons.access_time_outlined,               Icons.access_time_filled,         'Shifts'),
-                    _navItem(context, '/products',   Icons.inventory_2_outlined,               Icons.inventory_2,                'Products'),
-                    _navItem(context, '/inventory',  Icons.warehouse_outlined,                 Icons.warehouse,                  'Inventory'),
+                      // ── OPERATIONS ─────────────────────────────────
+                      const SizedBox(height: 6),
+                      _sectionLabel('OPERATIONS'),
+                      _navItem(context, '/production', Icons.precision_manufacturing_outlined, Icons.precision_manufacturing, 'Production'),
+                      _navItem(context, '/expenses',   Icons.payments_outlined,                Icons.payments,                'Expenses'),
+                      _navItem(context, '/shifts',     Icons.access_time_outlined,             Icons.access_time_filled,      'Shifts'),
+                      _navItem(context, '/products',   Icons.inventory_2_outlined,             Icons.inventory_2,             'Products'),
+                      _navItem(context, '/inventory',  Icons.warehouse_outlined,               Icons.warehouse,               'Inventory'),
 
-                    // ── ANALYTICS ────────────────────────────────────
-                    const SizedBox(height: 6),
-                    _sectionLabel('ANALYTICS'),
-                    _navItem(context, '/reports',  Icons.bar_chart_outlined,  Icons.bar_chart,  'Reports'),
+                      // ── ANALYTICS ──────────────────────────────────
+                      const SizedBox(height: 6),
+                      _sectionLabel('ANALYTICS'),
+                      _navItem(context, '/reports', Icons.bar_chart_outlined, Icons.bar_chart, 'Reports'),
 
-                    // ── ACCOUNT ──────────────────────────────────────
-                    const SizedBox(height: 6),
-                    _sectionLabel('ACCOUNT'),
-                    _navItem(context, '/settings', Icons.settings_outlined, Icons.settings, 'Settings'),
+                      // ── ACCOUNT ────────────────────────────────────
+                      const SizedBox(height: 6),
+                      _sectionLabel('ACCOUNT'),
+                      _navItem(context, '/settings', Icons.settings_outlined, Icons.settings, 'Settings'),
+                    ],
                   ],
                 ),
               ),
