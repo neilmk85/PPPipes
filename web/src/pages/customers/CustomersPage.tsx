@@ -181,7 +181,6 @@ export default function CustomersPage() {
             <tr className="bg-slate-50 border-y border-slate-200">
               <th className="px-6 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest">Customer</th>
               <th className="px-6 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest">Phone / Email</th>
-              <th className="px-6 py-3 text-center text-[11px] font-bold text-slate-500 uppercase tracking-widest">Segment</th>
               <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Total Spent</th>
               <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Due Amount</th>
               <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Actions</th>
@@ -189,16 +188,13 @@ export default function CustomersPage() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">Loading...</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">Loading...</td></tr>
             ) : customers.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-gray-400">No customers found</td></tr>
+              <tr><td colSpan={5} className="text-center py-12 text-gray-400">No customers found</td></tr>
             ) : customers.map((c) => (
               <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${!c.active ? 'opacity-50' : ''}`}>
                 <td className="px-6 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center">
-                      <User size={16} className="text-primary-600" />
-                    </div>
+                  <div>
                     <div>
                       <p className="font-medium text-gray-900 text-sm">{c.name}</p>
                       <p className="text-xs text-gray-400">{c.city}</p>
@@ -223,11 +219,6 @@ export default function CustomersPage() {
                 <td className="px-6 py-3 text-sm text-gray-600">
                   <p>{c.phone}</p>
                   <p className="text-xs text-gray-400">{c.email}</p>
-                </td>
-                <td className="px-6 py-3 text-center">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${segmentBadge[c.segment] || ''}`}>
-                    {c.segment}
-                  </span>
                 </td>
                 <td className="px-6 py-3 text-sm font-semibold text-gray-900 text-right">₹{c.totalSpent?.toLocaleString()}</td>
                 <td className="px-6 py-3 text-sm text-right">
