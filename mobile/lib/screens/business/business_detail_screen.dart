@@ -14359,7 +14359,8 @@ class _TestingLabSheet extends StatefulWidget {
 }
 
 class _TestingLabSheetState extends State<_TestingLabSheet> {
-  static const _color = Color(0xFF4F46E5);
+  static const _color     = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF4338CA);
 
   late DateTime _date;
 
