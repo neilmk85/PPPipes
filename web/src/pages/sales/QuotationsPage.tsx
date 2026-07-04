@@ -58,151 +58,180 @@ function calcLine(item: LineItem) {
 
 // ─── PDF Builder ─────────────────────────────────────────────────────────────
 
+const INR = (n: number) => Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const DEFAULT_TERMS = `Following terms & conditions:-
+The pipe rates are for at Site and based on the present rates of raw materials and other inputs. Any increase in the above prices of raw materials will be paid at actuals to us plus taxes & duties applicable there on.
+
+1) Taxes & duties :-
+i) Our Price is Exclusive of GST. The prevailing rate of GST is 18%.
+ii) If there is any rise in present taxes/duties, or imposition of any new taxes or any LBT/Octroi, etc. are levied on supply of PCC pipes, the same shall be made applicable and paid to us extra.
+iii) The rates are including third party inspection charges.
+iv) Rates are including with TCS as per Govt. norms.
+
+2) Transportation:-
+We have considered prevailing transport.
+The pipes shall be transported up to motorable roads only.
+Unloading of the pipes at site will be done by you at your cost.
+
+3) Specification: The PCC pipes shall be manufactured conforming to IS 784-2019.
+
+4) Payment:-
+a) Interest free advance of 80% of total order value shall be paid to us along with confirmed order and will be adjusted in the Last Bill.
+b) Remaining amount will be paid after receiving Performa-invoice.
+c) We shall raise the Invoice(s)/Bill(s) every week and it will be promptly verified and cleared for payment by you.
+d) All charges towards usance period interest including Letter of Credit Opening and charges towards Letter of Credit amendments, if any, shall be borne and paid by you.`
+
 function buildQuotationDoc(q: any) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const L = 14   // left margin
+  const R = 196  // right margin
+  const W = 182  // usable width
 
-  // Header bar
-  doc.setFillColor(79, 70, 229)
-  doc.rect(0, 0, 210, 28, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(20)
-  doc.setFont('helvetica', 'bold')
-  doc.text('QUOTATION', 14, 12)
-  doc.setFontSize(8.5)
-  doc.setFont('helvetica', 'normal')
-  doc.text('PP Pipes Products', 14, 20)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text(q.quotationNumber ?? '', 196, 10, { align: 'right' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.text(`Date: ${q.createdAt ? format(new Date(q.createdAt), 'dd MMM yyyy') : '—'}`, 196, 17, { align: 'right' })
-  doc.text(`Valid Until: ${q.validUntil ? format(new Date(q.validUntil), 'dd MMM yyyy') : '—'}`, 196, 23, { align: 'right' })
+  const dateStr = q.createdAt
+    ? format(new Date(q.createdAt), 'dd-MM-yyyy')
+    : format(new Date(), 'dd-MM-yyyy')
 
-  doc.setTextColor(30, 30, 30)
-
-  // Customer section
-  doc.setFontSize(7.5)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(120, 120, 120)
-  doc.text('BILL TO', 14, 36)
-  doc.setTextColor(30, 30, 30)
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-  doc.text(q.customer?.name ?? 'Walk-in Customer', 14, 43)
+  // ── Reference & date line ──────────────────────────────────────────────
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
-  let custY = 49
-  if (q.customer?.phone) { doc.text(q.customer.phone, 14, custY); custY += 5 }
-  if (q.customer?.email) { doc.text(q.customer.email, 14, custY) }
-
-  // Status badge
-  doc.setFillColor(239, 246, 255)
-  doc.roundedRect(140, 32, 56, 22, 3, 3, 'F')
-  doc.setTextColor(79, 70, 229)
-  doc.setFontSize(7.5)
-  doc.setFont('helvetica', 'bold')
-  doc.text('STATUS', 168, 38, { align: 'center' })
-  doc.setFontSize(12)
-  doc.text(q.status ?? 'DRAFT', 168, 47, { align: 'center' })
   doc.setTextColor(30, 30, 30)
+  doc.text(q.quotationNumber ?? 'P&P/Quotation/2026-27', L, 16)
+  doc.text(`Date: - ${dateStr}`, R, 16, { align: 'right' })
 
-  // Items table
-  const tableBody = (q.items ?? []).map((item: any) => [
-    item.productName + (item.productSku ? `\n${item.productSku}` : ''),
-    Number(item.quantity).toFixed(2),
-    '₹' + Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
-    Number(item.discountPercent ?? 0) > 0 ? `${Number(item.discountPercent).toFixed(1)}%` : '—',
-    `${Number(item.taxRate ?? 0)}%`,
-    '₹' + Number(item.lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+  // ── QUOTATION heading ──────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text('QUOTATION', 105, 26, { align: 'center' })
+
+  // underline
+  doc.setDrawColor(30, 30, 30)
+  doc.setLineWidth(0.4)
+  doc.line(72, 28, 138, 28)
+
+  // ── To block ──────────────────────────────────────────────────────────
+  let y = 38
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9.5)
+  doc.text('To,', L, y); y += 6
+
+  doc.setFont('helvetica', 'bold')
+  doc.text((q.customer?.name ?? 'Customer').toUpperCase() + ',', L, y); y += 5.5
+  doc.setFont('helvetica', 'normal')
+
+  if (q.customer?.address) {
+    const addrLines = doc.splitTextToSize(q.customer.address.toUpperCase() + ',', 110)
+    doc.text(addrLines, L, y)
+    y += addrLines.length * 5.5
+  }
+  if (q.customer?.city) {
+    doc.text(`DIST-${q.customer.city.toUpperCase()},`, L, y); y += 5.5
+  }
+  if (q.customer?.state) {
+    doc.text(`STATE-${q.customer.state.toUpperCase()}.`, L, y); y += 5.5
+  }
+
+  y += 3
+
+  // ── Subject line ───────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold')
+  const subject = q.notes
+    ? `Sub: - ${q.notes}`
+    : `Sub: - Quotation for supply of PCC pipes.`
+  const subLines = doc.splitTextToSize(subject, W)
+  doc.text(subLines, L, y); y += subLines.length * 5.5 + 4
+
+  // ── Dear Sir intro ─────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9.5)
+  doc.text('Dear Sir,', L, y); y += 5.5
+  const intro = 'With reference to above our quotation for supply of PCC pipes as mentioned below.-'
+  const introLines = doc.splitTextToSize(intro, W)
+  doc.text(introLines, L, y); y += introLines.length * 5.5 + 4
+
+  // ── Items table ────────────────────────────────────────────────────────
+  const items = q.items ?? []
+  const tableBody = items.map((item: any, idx: number) => [
+    String(idx + 1),
+    item.productName ?? '',
+    Number(item.quantity).toLocaleString('en-IN'),
+    INR(Number(item.unitPrice)),
+    INR(Number(item.lineTotal)),
   ])
 
+  const totalQty = items.reduce((s: number, i: any) => s + Number(i.quantity), 0)
+  const subtotal = Number(q.subtotal ?? 0)
+  const taxAmount = Number(q.taxAmount ?? 0)
+  const grandTotal = Number(q.totalAmount ?? 0)
+  const taxRate = items.length > 0 ? (Number(items[0].taxRate ?? 18)) : 18
+
+  tableBody.push(['', 'TOTAL', totalQty.toLocaleString('en-IN'), '', INR(subtotal)])
+  tableBody.push(['', `GST ${taxRate}%`, '', '', INR(taxAmount)])
+  tableBody.push(['', 'GRAND TOTAL', '', '', INR(grandTotal)])
+
   autoTable(doc, {
-    startY: 60,
-    head: [['Product', 'Qty (m)', 'Unit Price', 'Disc%', 'GST%', 'Amount']],
+    startY: y,
+    head: [['SR\nNO.', 'DIA OF PCC PIPE', 'QTY\nRMT', 'RATE/ RMT', 'AMOUNT (RS)']],
     body: tableBody,
-    styles: { fontSize: 8, cellPadding: 3 },
-    headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-    alternateRowStyles: { fillColor: [249, 250, 251] },
+    theme: 'grid',
+    styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [20, 20, 20], lineColor: [100, 100, 100], lineWidth: 0.2 },
+    headStyles: { fillColor: [255, 255, 255], textColor: [20, 20, 20], fontStyle: 'bold', fontSize: 8.5, halign: 'center', lineColor: [60, 60, 60], lineWidth: 0.3 },
     columnStyles: {
-      0: { cellWidth: 65 },
-      1: { halign: 'right' as const },
-      2: { halign: 'right' as const },
-      3: { halign: 'center' as const },
-      4: { halign: 'center' as const },
-      5: { halign: 'right' as const, fontStyle: 'bold' as const },
+      0: { cellWidth: 12, halign: 'center' as const },
+      1: { cellWidth: 72 },
+      2: { cellWidth: 22, halign: 'right' as const },
+      3: { cellWidth: 34, halign: 'right' as const },
+      4: { cellWidth: 42, halign: 'right' as const },
+    },
+    didParseCell: (data: any) => {
+      const totRows = tableBody.length
+      const dataRows = items.length
+      if (data.section === 'body' && data.row.index >= dataRows) {
+        data.cell.styles.fontStyle = 'bold'
+        data.cell.styles.fillColor = [245, 245, 245]
+      }
     },
   })
 
-  const finalY = (doc as any).lastAutoTable.finalY + 6
+  const afterTable = (doc as any).lastAutoTable.finalY
 
-  // Totals block
-  const totX = 130
-  const totXR = 196
-  let yOff = 0
+  // ── Page 2: Terms & Conditions ─────────────────────────────────────────
+  const terms = q.termsConditions || DEFAULT_TERMS
+  doc.addPage()
 
-  const totRow = (label: string, value: string, bold = false) => {
-    doc.setFont('helvetica', bold ? 'bold' : 'normal')
-    doc.setFontSize(bold ? 10 : 9)
-    doc.setTextColor(bold ? 30 : 100, bold ? 30 : 100, bold ? 30 : 100)
-    doc.text(label, totX, finalY + yOff)
-    doc.setTextColor(30, 30, 30)
-    doc.text(value, totXR, finalY + yOff, { align: 'right' })
-    yOff += 7
-  }
-
-  totRow('Subtotal:', '₹' + Number(q.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 }))
-  if (Number(q.discountAmount) > 0)
-    totRow('Discount:', '−₹' + Number(q.discountAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 }))
-  if (Number(q.taxAmount) > 0)
-    totRow('GST:', '₹' + Number(q.taxAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 }))
-
-  doc.setDrawColor(200, 200, 200)
-  doc.line(totX, finalY + yOff, totXR, finalY + yOff)
-  yOff += 4
-  doc.setFillColor(79, 70, 229)
-  doc.rect(totX - 2, finalY + yOff - 1, totXR - totX + 4, 10, 'F')
-  doc.setTextColor(255, 255, 255)
+  let ty = 20
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
-  doc.text('Grand Total:', totX, finalY + yOff + 6)
-  doc.text('₹' + Number(q.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 }), totXR, finalY + yOff + 6, { align: 'right' })
-  doc.setTextColor(30, 30, 30)
-  yOff += 16
+  doc.setTextColor(20, 20, 20)
+  doc.text('Following terms & conditions:-', L, ty); ty += 7
 
-  // Notes & Terms
-  let noteY = finalY + yOff
-  if (q.notes) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(79, 70, 229)
-    doc.text('Notes', 14, noteY)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8.5)
-    doc.setTextColor(60, 60, 60)
-    const noteLines = doc.splitTextToSize(q.notes, 182)
-    doc.text(noteLines, 14, noteY + 5)
-    noteY += 5 + noteLines.length * 4.5 + 7
-  }
-  if (q.termsConditions) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(79, 70, 229)
-    doc.text('Terms & Conditions', 14, noteY)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8.5)
-    doc.setTextColor(60, 60, 60)
-    const termLines = doc.splitTextToSize(q.termsConditions, 182)
-    doc.text(termLines, 14, noteY + 5)
-  }
-
-  // Footer
-  const pageH = doc.internal.pageSize.getHeight()
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor(160, 160, 160)
-  doc.text('This is a computer generated quotation.', 14, pageH - 8)
-  doc.text(`Generated on ${format(new Date(), 'dd MMM yyyy')}`, 196, pageH - 8, { align: 'right' })
+  doc.setFontSize(9)
+  // Split terms into lines, stripping the first "Following..." line if duplicated
+  const termText = terms.replace(/^Following terms.*?:-\s*/i, '')
+  const termLines = doc.splitTextToSize(termText.trim(), W)
+  doc.text(termLines, L, ty)
+  ty += termLines.length * 4.8 + 10
+
+  // ── Closing ────────────────────────────────────────────────────────────
+  const pageH = doc.internal.pageSize.getHeight()
+  const closingY = Math.max(ty + 10, pageH - 60)
+
+  doc.setFontSize(9.5)
+  doc.text('If you need any further clarification/information, please feel free to call us. Assuring you', L, closingY)
+  doc.text('of our best services and now look forward to receive your valued order in return.', L, closingY + 5.5)
+
+  doc.text('Thanking you,', L, closingY + 14)
+  doc.text('Regards,', L, closingY + 20)
+  doc.setFont('helvetica', 'bold')
+  doc.text('For: - P & P Pipe Products Pvt. Ltd.', L, closingY + 26)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Authorized Signatory', L, closingY + 38)
+
+  // signature line
+  doc.setDrawColor(80, 80, 80)
+  doc.setLineWidth(0.3)
+  doc.line(L, closingY + 35, L + 55, closingY + 35)
 
   return doc
 }
