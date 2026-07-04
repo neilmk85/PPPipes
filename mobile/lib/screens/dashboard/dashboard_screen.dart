@@ -7,6 +7,7 @@ import 'package:pos_mobile/main.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/parse.dart' as p;
+import '../../widgets/date_filter_dropdown.dart';
 
 // ── Colour constants ──────────────────────────────────────────────────────────
 const _violet     = Color(0xFF7C3AED);
@@ -28,52 +29,6 @@ String _extractDiameter(String name) {
   return m2 != null ? '${m2.group(1)} mm' : name;
 }
 
-// ── Preset list ───────────────────────────────────────────────────────────────
-const _kPresets = [
-  ('today',        'Today'),
-  ('yesterday',    'Yesterday'),
-  ('this_week',    'This Week'),
-  ('last_week',    'Last Week'),
-  ('this_month',   'This Month'),
-  ('last_month',   'Last Month'),
-  ('this_quarter', 'This Quarter'),
-  ('this_year',    'This Year'),
-];
-
-Map<String, String> _resolvePreset(String key) {
-  final now = DateTime.now();
-  String fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
-  final today = fmt(now);
-
-  switch (key) {
-    case 'today':
-      return {'from': today, 'to': today};
-    case 'yesterday':
-      final y = now.subtract(const Duration(days: 1));
-      return {'from': fmt(y), 'to': fmt(y)};
-    case 'this_week':
-      final monday = now.subtract(Duration(days: now.weekday - 1));
-      return {'from': fmt(monday), 'to': today};
-    case 'last_week':
-      final lastMonday = now.subtract(Duration(days: now.weekday + 6));
-      final lastSunday = lastMonday.add(const Duration(days: 6));
-      return {'from': fmt(lastMonday), 'to': fmt(lastSunday)};
-    case 'this_month':
-      return {'from': fmt(DateTime(now.year, now.month, 1)), 'to': today};
-    case 'last_month':
-      final firstOfMonth = DateTime(now.year, now.month, 1);
-      final lastOfPrev = firstOfMonth.subtract(const Duration(days: 1));
-      final firstOfPrev = DateTime(lastOfPrev.year, lastOfPrev.month, 1);
-      return {'from': fmt(firstOfPrev), 'to': fmt(lastOfPrev)};
-    case 'this_quarter':
-      final q = ((now.month - 1) ~/ 3) * 3 + 1;
-      return {'from': fmt(DateTime(now.year, q, 1)), 'to': today};
-    case 'this_year':
-      return {'from': fmt(DateTime(now.year, 1, 1)), 'to': today};
-    default:
-      return {'from': '', 'to': ''};
-  }
-}
 
 // ── Decorative hero painter ───────────────────────────────────────────────────
 class _HeroPainter extends CustomPainter {
@@ -321,13 +276,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _loading = true;
   String? _error;
 
-  List<dynamic> _inventory        = [];
+  List<dynamic> _inventory         = [];
   List<dynamic> _intermediateStock = [];
   List<dynamic> _allStagesStock    = [];
+  List<dynamic> _productionOrders  = [];
 
-  String _fromDate = '';
-  String _toDate   = '';
-  String _preset   = '';
+  BizDateFilter _dateFilter = const BizDateFilter();
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
 
   @override
   void initState() {
@@ -344,19 +300,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final results = await Future.wait([
         ApiService().getInventoryByOutlet(outletId),
         ApiService().getIntermediateStock(
-          fromDate: _fromDate.isNotEmpty ? _fromDate : null,
-          toDate:   _toDate.isNotEmpty   ? _toDate   : null,
+          fromDate: _dateFilter.from != null ? DateFormat('yyyy-MM-dd').format(_dateFilter.from!) : null,
+          toDate:   _dateFilter.to   != null ? DateFormat('yyyy-MM-dd').format(_dateFilter.to!)   : null,
         ),
         ApiService().getAllStagesStock(
-          fromDate: _fromDate.isNotEmpty ? _fromDate : null,
-          toDate:   _toDate.isNotEmpty   ? _toDate   : null,
+          fromDate: _dateFilter.from != null ? DateFormat('yyyy-MM-dd').format(_dateFilter.from!) : null,
+          toDate:   _dateFilter.to   != null ? DateFormat('yyyy-MM-dd').format(_dateFilter.to!)   : null,
         ),
+        ApiService().getProductionOrderSummaries(),
       ]);
       if (!mounted) return;
+      final allOrders = results[3];
+      final filtered = allOrders.where((o) {
+        final s = (o['status'] ?? '').toString();
+        return s == 'IN_PROGRESS' || s == 'PLANNED';
+      }).toList()
+        ..sort((a, b) {
+          final aScore = a['status'] == 'IN_PROGRESS' ? 0 : 1;
+          final bScore = b['status'] == 'IN_PROGRESS' ? 0 : 1;
+          return aScore.compareTo(bScore);
+        });
       setState(() {
         _inventory         = results[0];
         _intermediateStock = results[1];
         _allStagesStock    = results[2];
+        _productionOrders  = filtered;
         _loading = false;
       });
     } catch (e) {
@@ -398,21 +366,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int get _grandFinalTesting => _intermediateStock.fold(0, (s, r) => s + p.i(r['finalTesting']));
   int get _grandTotal        => _intermediateStock.fold(0, (s, r) => s + p.i(r['total']));
   int get _allStagesTotal    => _allStagesStock.fold(0, (s, r) => s + p.i(r['total']));
-  bool get _hasFilter        => _fromDate.isNotEmpty || _toDate.isNotEmpty;
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    super.dispose();
+  }
 
-  void _showDatePicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _DateSheet(
-        fromDate: _fromDate, toDate: _toDate, preset: _preset,
-        onApply: (f, t, preset) {
-          setState(() { _fromDate = f; _toDate = t; _preset = preset; });
-          _load();
-        },
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final overlay = Overlay.of(context);
+    _dateOverlay = OverlayEntry(
+      builder: (_) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _closeDateOverlay,
+        child: Stack(children: [
+          CompositedTransformFollower(
+            link: _layerLink,
+            targetAnchor: Alignment.bottomRight,
+            followerAnchor: Alignment.topRight,
+            offset: const Offset(0, 6),
+            child: Material(
+              color: Colors.transparent,
+              child: BizDateDropdown(
+                layerLink: _layerLink,
+                filter: _dateFilter,
+                onApply: (f) {
+                  setState(() => _dateFilter = f);
+                  _closeDateOverlay();
+                  _load();
+                },
+                onDismiss: _closeDateOverlay,
+              ),
+            ),
+          ),
+        ]),
       ),
     );
+    overlay.insert(_dateOverlay!);
   }
 
   // ── Build ────────────────────────────────────────────────────────────────────
@@ -432,6 +427,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       );
     }
 
+    final roles = ref.watch(authProvider).user?.roles ?? [];
+    final isAdmin = roles.contains('SUPER_ADMIN') || roles.contains('ADMIN');
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: CustomScrollView(
@@ -440,15 +438,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           SliverPadding(
             padding: const EdgeInsets.all(12),
             sliver: SliverList(delegate: SliverChildListDelegate([
-              _buildMsFlat(),
-              const SizedBox(height: 12),
-              _buildReorder(),
-              const SizedBox(height: 12),
-              _buildShellPlates(),
-              const SizedBox(height: 12),
-              _buildIntermediate(),
-              const SizedBox(height: 12),
-              _buildAllStages(),
+              _buildProductionOrders(),
+              if (isAdmin) ...[
+                const SizedBox(height: 12),
+                _buildMsFlat(),
+                const SizedBox(height: 12),
+                _buildReorder(),
+                const SizedBox(height: 12),
+                _buildShellPlates(),
+                const SizedBox(height: 12),
+                _buildIntermediate(),
+                const SizedBox(height: 12),
+                _buildAllStages(),
+              ],
               const SizedBox(height: 20),
             ])),
           ),
@@ -459,6 +461,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   // ── Hero ─────────────────────────────────────────────────────────────────────
   Widget _buildHero() {
+    final roles   = ref.watch(authProvider).user?.roles ?? [];
+    final isAdmin = roles.contains('SUPER_ADMIN') || roles.contains('ADMIN');
     final todayStr = DateFormat('EEEE, d MMMM yyyy').format(DateTime.now());
     return Container(
       decoration: const BoxDecoration(
@@ -511,47 +515,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         fontSize: 8.5, color: Colors.blue.shade200,
                         fontWeight: FontWeight.w500)),
                     const SizedBox(height: 5),
-                    GestureDetector(
-                      onTap: _showDatePicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 9, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: _hasFilter
-                              ? Colors.white.withValues(alpha: 0.2)
-                              : Colors.white.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(9),
-                          border: Border.all(color: _hasFilter
-                              ? Colors.white.withValues(alpha: 0.4)
-                              : Colors.white.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.date_range, color: Colors.white, size: 12),
-                          const SizedBox(width: 5),
-                          Text(
-                            _hasFilter
-                                ? (_preset.isNotEmpty
-                                    ? _kPresets.firstWhere(
-                                        (e) => e.$1 == _preset,
-                                        orElse: () => ('', 'Custom')).$2
-                                    : 'Custom')
-                                : 'Filter',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 10,
-                                fontWeight: FontWeight.w500),
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _dateFilter.isActive
+                                ? Colors.white.withValues(alpha: 0.2)
+                                : Colors.white.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(color: _dateFilter.isActive
+                                ? Colors.white.withValues(alpha: 0.4)
+                                : Colors.white.withValues(alpha: 0.2)),
                           ),
-                          if (_hasFilter) ...[
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() { _fromDate=''; _toDate=''; _preset=''; });
-                                _load();
-                              },
-                              child: const Icon(Icons.close,
-                                  color: Colors.white70, size: 11),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.date_range, color: Colors.white, size: 12),
+                            const SizedBox(width: 5),
+                            Text(
+                              _dateFilter.isActive ? _dateFilter.label : 'Filter',
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 10,
+                                  fontWeight: FontWeight.w500),
                             ),
-                          ],
-                        ]),
+                            if (_dateFilter.isActive) ...[
+                              const SizedBox(width: 4),
+                              GestureDetector(
+                                onTap: () {
+                                  _closeDateOverlay();
+                                  setState(() => _dateFilter = const BizDateFilter());
+                                  _load();
+                                },
+                                child: const Icon(Icons.close,
+                                    color: Colors.white70, size: 11),
+                              ),
+                            ],
+                          ]),
+                        ),
                       ),
                     ),
                   ]),
@@ -566,7 +568,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
                 child: IntrinsicHeight(
-                  child: Row(children: [
+                  child: isAdmin ? Row(children: [
                     _StatTile(value: _fmt(_shellTotal),   label: 'Shell Plate Items',
                         sub: 'kg total weight', warn: false),
                     _StatTile(value: _fmt(_msFlatTotal),  label: 'MS Flat Weight',
@@ -575,6 +577,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         sub: 'intermediate',    warn: false),
                     _StatTile(value: _reorderItems.length.toString(), label: 'Reorder Alerts',
                         sub: 'materials low', warn: _reorderItems.isNotEmpty, last: true),
+                  ]) : Row(children: [
+                    _StatTile(
+                        value: _productionOrders.where((o) => o['status'] == 'IN_PROGRESS').length.toString(),
+                        label: 'Active Orders', sub: 'in progress', warn: false),
+                    _StatTile(
+                        value: _productionOrders.where((o) => o['status'] == 'PLANNED').length.toString(),
+                        label: 'Planned', sub: 'queued orders', warn: false),
+                    _StatTile(
+                        value: _productionOrders.fold<int>(0, (s, o) => s + p.i(o['plannedQty'])).toString(),
+                        label: 'Total Pipes', sub: 'to produce', warn: false),
+                    _StatTile(
+                        value: _productionOrders.fold<int>(0, (s, o) => s + p.i(o['finishedPipes'])).toString(),
+                        label: 'Done', sub: 'at final testing', warn: false, last: true),
                   ]),
                 ),
               ),
@@ -582,6 +597,55 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ── Production Schedule ───────────────────────────────────────────────────────
+  Widget _buildProductionOrders() {
+    final inProgressCount = _productionOrders.where((o) => o['status'] == 'IN_PROGRESS').length;
+    final plannedCount    = _productionOrders.where((o) => o['status'] == 'PLANNED').length;
+    return _Card(
+      header: _CardHeader(
+        icon: Icons.factory_outlined,
+        title: 'Production Schedule',
+        subtitle: '$inProgressCount in progress · $plannedCount planned',
+      ),
+      child: Column(children: [
+        _tHead([
+          ('Pipe Type', TextAlign.left),
+          ('Total',     TextAlign.right),
+          ('Done',      TextAlign.right),
+          ('Left',      TextAlign.right),
+          ('Status',    TextAlign.right),
+        ]),
+        _hdiv(),
+        if (_productionOrders.isEmpty)
+          _empty('No active production orders')
+        else ..._productionOrders.map((order) {
+          final diameter = p.i(order['diameterMm']);
+          final pressure = (order['pressureClass'] ?? '').toString();
+          final name     = diameter > 0
+              ? '$diameter mm${pressure.isNotEmpty ? ' · $pressure' : ''}'
+              : (order['pipeConfigName'] ?? order['pipeName'] ?? '—').toString();
+          final planned  = p.i(order['plannedQty']);
+          final done     = p.i(order['finishedPipes']);
+          final left     = (planned - done).clamp(0, planned);
+          final status   = (order['status'] ?? '').toString();
+          final isActive = status == 'IN_PROGRESS';
+          return Column(children: [
+            _DRow([
+              (name,                         TextAlign.left,  null),
+              (planned.toString(),           TextAlign.right, null),
+              (done.toString(),              TextAlign.right, const Color(0xFF059669)),
+              (left.toString(),              TextAlign.right, const Color(0xFFD97706)),
+              (isActive ? 'Active' : 'Planned',
+                                             TextAlign.right,
+                                             isActive ? const Color(0xFF059669) : const Color(0xFF9CA3AF)),
+            ]),
+            _div(),
+          ]);
+        }),
+      ]),
     );
   }
 
@@ -775,9 +839,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   // ── Intermediate Stock ────────────────────────────────────────────────────────
   Widget _buildIntermediate() {
-    final subtitle = _hasFilter
-        ? '${_fromDate.isNotEmpty ? _fromDate : '…'} → ${_toDate.isNotEmpty ? _toDate : '…'}'
-        : 'Pipes at key stages';
+    final subtitle = _dateFilter.isActive ? _dateFilter.label : 'Pipes at key stages';
     return _Card(
       header: _CardHeader(
         icon: Icons.account_tree_outlined,
@@ -809,7 +871,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ]),
             _hdiv(),
             if (_intermediateStock.isEmpty)
-              _empty(_hasFilter
+              _empty(_dateFilter.isActive
                   ? 'No pipes in stages for this range'
                   : 'No pipes in intermediate stages yet')
             else ...[
@@ -870,9 +932,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   ];
 
   Widget _buildAllStages() {
-    final subtitle = _hasFilter
-        ? '${_fromDate.isNotEmpty ? _fromDate : '…'} → ${_toDate.isNotEmpty ? _toDate : '…'}'
-        : 'Cumulative pipes at every stage';
+    final subtitle = _dateFilter.isActive ? _dateFilter.label : 'Cumulative pipes at every stage';
     final stageTotals = List.generate(_allStages.length, (i) =>
         _allStagesStock.fold<int>(0, (s, r) => s + p.i(r[_allStages[i].$1])));
     const colW = 52.0;
@@ -930,7 +990,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             _hdiv(),
             if (_allStagesStock.isEmpty)
-              _empty(_hasFilter ? 'No data for this range' : 'No production entries yet')
+              _empty(_dateFilter.isActive ? 'No data for this range' : 'No production entries yet')
             else ...[
               ..._allStagesStock.map((row) {
                 final name = row['pipeName'] ?? 'Config #${row['pipeConfigId']}';
@@ -1001,163 +1061,3 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
-// ── Date bottom sheet ─────────────────────────────────────────────────────────
-class _DateSheet extends StatefulWidget {
-  final String fromDate, toDate, preset;
-  final void Function(String from, String to, String preset) onApply;
-
-  const _DateSheet({
-    required this.fromDate, required this.toDate,
-    required this.preset, required this.onApply,
-  });
-
-  @override
-  State<_DateSheet> createState() => _DateSheetState();
-}
-
-class _DateSheetState extends State<_DateSheet> {
-  late String _from, _to, _preset;
-
-  @override
-  void initState() {
-    super.initState();
-    _from = widget.fromDate; _to = widget.toDate; _preset = widget.preset;
-  }
-
-  void _pickPreset(String key) {
-    final d = _resolvePreset(key);
-    setState(() { _from = d['from']!; _to = d['to']!; _preset = key; });
-    widget.onApply(_from, _to, key);
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Center(child: Container(
-          margin: const EdgeInsets.only(top: 12, bottom: 14),
-          width: 36, height: 4,
-          decoration: BoxDecoration(
-              color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
-        )),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text('Filter by Date', style: TextStyle(
-              fontSize: 15, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Wrap(spacing: 8, runSpacing: 8,
-            children: _kPresets.map((pr) {
-              final active = _preset == pr.$1;
-              return GestureDetector(
-                onTap: () => _pickPreset(pr.$1),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: active ? _violet.withValues(alpha: 0.1) : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                    border: active ? Border.all(color: _violet.withValues(alpha: 0.4)) : null,
-                  ),
-                  child: Text(pr.$2, style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                      color: active ? _violet : Colors.grey.shade700)),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Divider(indent: 16, endIndent: 16),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('CUSTOM RANGE', style: TextStyle(
-                fontSize: 10, fontWeight: FontWeight.w600,
-                color: Colors.grey, letterSpacing: 0.8)),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: _DtField(label: 'From', value: _from,
-                  onChanged: (v) => setState(() { _from = v; _preset = 'custom'; }))),
-              const SizedBox(width: 10),
-              Expanded(child: _DtField(label: 'To', value: _to,
-                  onChanged: (v) => setState(() { _to = v; _preset = 'custom'; }))),
-            ]),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_violet, _blue]),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent, shadowColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: (_from.isEmpty && _to.isEmpty) ? null : () {
-                    widget.onApply(_from, _to, _preset);
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Apply Range',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-class _DtField extends StatelessWidget {
-  final String label, value;
-  final ValueChanged<String> onChanged;
-  const _DtField({required this.label, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        DateTime initial = DateTime.now();
-        if (value.isNotEmpty) {
-          try { initial = DateFormat('yyyy-MM-dd').parse(value); } catch (_) {}
-        }
-        final picked = await showDatePicker(
-          context: context, initialDate: initial,
-          firstDate: DateTime(2020), lastDate: DateTime.now(),
-        );
-        if (picked != null) onChanged(DateFormat('yyyy-MM-dd').format(picked));
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-          const SizedBox(height: 2),
-          Text(
-            value.isNotEmpty ? value : 'Select date',
-            style: TextStyle(
-                fontSize: 12,
-                color: value.isNotEmpty ? Colors.grey.shade800 : Colors.grey.shade400),
-          ),
-        ]),
-      ),
-    );
-  }
-}

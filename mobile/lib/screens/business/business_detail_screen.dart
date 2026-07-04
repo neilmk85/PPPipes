@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -2111,7 +2112,7 @@ class LoadingScreen extends StatefulWidget {
 }
 
 class _LoadingScreenState extends State<LoadingScreen> {
-  static const _color  = Color(0xFF0D9488);
+  static const _color  = Color(0xFF1E40AF);
   static const _violet = Color(0xFF7C3AED);
 
   bool _loadingData = true;
@@ -2482,10 +2483,10 @@ class _LoadingScreenState extends State<LoadingScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         child: Row(children: [
                           Expanded(flex: 3, child: Text(r.pipeName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
-                          Expanded(child: Center(child: _badge(r.day5,         const Color(0xFFECFEFF), const Color(0xFF0E7490)))),
+                          Expanded(child: Center(child: _badge(r.day5,         const Color(0xFFEDE9FE), const Color(0xFF4338CA)))),
                           Expanded(child: Center(child: _badge(r.day6,         const Color(0xFFEFF6FF), const Color(0xFF1D4ED8)))),
                           Expanded(child: Center(child: _badge(r.day7plus,     const Color(0xFFEEF2FF), const Color(0xFF4338CA)))),
-                          Expanded(child: Center(child: _badge(r.finalTesting, const Color(0xFFF0FDF4), const Color(0xFF15803D)))),
+                          Expanded(child: Center(child: _badge(r.finalTesting, const Color(0xFFEDE9FE), const Color(0xFF7C3AED)))),
                         ]),
                       );
                     }, childCount: _rows.length)),
@@ -2536,7 +2537,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                     decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(12)),
-                                    child: Text('$qty pipes', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF15803D))),
+                                    child: Text('$qty pipes', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF7C3AED))),
                                   ),
                                 ]),
                                 if (chNo.isNotEmpty || custName.isNotEmpty) Padding(
@@ -5382,10 +5383,10 @@ class _RecordCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF16A34A).withOpacity(0.1),
+                    color: const Color(0xFF7C3AED).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(date, style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+                  child: Text(date, style: const TextStyle(fontSize: 11, color: Color(0xFF7C3AED), fontWeight: FontWeight.w600)),
                 ),
                 const Spacer(),
                 if (chNo.isNotEmpty)
@@ -5878,7 +5879,7 @@ class PdiScreen extends StatefulWidget {
 }
 
 class _PdiScreenState extends State<PdiScreen> {
-  static const _emerald = Color(0xFF059669);
+  static const _emerald = Color(0xFF9333EA);
   static const _violet  = Color(0xFF7C3AED);
 
   bool _loading = true;
@@ -6201,12 +6202,12 @@ class _PdiScreenState extends State<PdiScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: passed == _pdiChecks.length ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                                  color: passed == _pdiChecks.length ? const Color(0xFFEDE9FE) : const Color(0xFFE0E7FF),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text('$passed/${_pdiChecks.length}', style: TextStyle(
                                   fontSize: 11, fontWeight: FontWeight.w700,
-                                  color: passed == _pdiChecks.length ? const Color(0xFF065F46) : const Color(0xFF92400E),
+                                  color: passed == _pdiChecks.length ? const Color(0xFF5B21B6) : const Color(0xFF4338CA),
                                 )),
                               ),
                               const SizedBox(width: 8),
@@ -6249,7 +6250,7 @@ class _PdiScreenState extends State<PdiScreen> {
                                   const SizedBox(width: 4),
                                   Text(c.$2, style: TextStyle(
                                     fontSize: 10, fontWeight: FontWeight.w600,
-                                    color: ok ? const Color(0xFF065F46) : Colors.grey.shade400,
+                                    color: ok ? const Color(0xFF5B21B6) : Colors.grey.shade400,
                                   )),
                                 ]),
                               );
@@ -6557,7 +6558,7 @@ class _PdiSheetState extends State<_PdiSheet> {
               if (passed > 0) Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(10)),
-                child: Text('$passed/${_pdiChecks.length} passed', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF065F46))),
+                child: Text('$passed/${_pdiChecks.length} passed', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF5B21B6))),
               ),
             ]),
             GridView.count(
@@ -6577,10 +6578,10 @@ class _PdiSheetState extends State<_PdiSheet> {
                     ),
                     child: Row(children: [
                       Icon(ok ? Icons.check_circle_outline : Icons.circle_outlined,
-                          size: 14, color: ok ? const Color(0xFF059669) : Colors.grey.shade300),
+                          size: 14, color: ok ? const Color(0xFF7C3AED) : Colors.grey.shade300),
                       const SizedBox(width: 6),
                       Expanded(child: Text(c.$2, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: ok ? const Color(0xFF065F46) : Colors.grey.shade400))),
+                          color: ok ? const Color(0xFF5B21B6) : Colors.grey.shade400))),
                     ]),
                   ),
                 );
@@ -7304,16 +7305,16 @@ class _LabourCard extends StatelessWidget {
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
               child: Row(children: [
-                const Icon(Icons.access_time, size: 13, color: Color(0xFFF59E0B)),
+                const Icon(Icons.access_time, size: 13, color: Color(0xFF7C3AED)),
                 const SizedBox(width: 6),
                 Text('$otCount × ${otHours}h OT',
                     style: const TextStyle(
-                        fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+                        fontSize: 11, color: Color(0xFF5B21B6), fontWeight: FontWeight.w600)),
                 const Spacer(),
                 if (otCost > 0)
                   Text('₹${otCost.toStringAsFixed(0)}',
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF065F46), fontWeight: FontWeight.w700)),
+                          fontSize: 11, color: Color(0xFF5B21B6), fontWeight: FontWeight.w700)),
               ]),
             ),
           ],
@@ -7333,13 +7334,13 @@ class _LabourCard extends StatelessWidget {
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.access_time,
-                      size: 12, color: hasOT ? const Color(0xFFF59E0B) : Colors.grey),
+                      size: 12, color: hasOT ? const Color(0xFF7C3AED) : Colors.grey),
                   const SizedBox(width: 4),
                   Text(hasOT ? 'Edit OT' : 'Add OT',
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: hasOT ? const Color(0xFFF59E0B) : Colors.grey)),
+                          color: hasOT ? const Color(0xFF7C3AED) : Colors.grey)),
                 ]),
               ),
             ),
@@ -7664,7 +7665,7 @@ class _LabourOTSheet extends StatefulWidget {
 }
 
 class _LabourOTSheetState extends State<_LabourOTSheet> {
-  static const _amber = Color(0xFFF59E0B);
+  static const _amber = Color(0xFF7C3AED);
 
   final _hoursCtrl = TextEditingController();
   final _countCtrl = TextEditingController();
@@ -7764,7 +7765,7 @@ class _LabourOTSheetState extends State<_LabourOTSheet> {
           // Header
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFF97316)]),
+              gradient: LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFF4338CA)]),
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -7797,10 +7798,10 @@ class _LabourOTSheetState extends State<_LabourOTSheet> {
                     border: Border.all(color: const Color(0xFFFDE68A)),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.people_outline, size: 14, color: Color(0xFFF59E0B)),
+                    const Icon(Icons.people_outline, size: 14, color: Color(0xFF7C3AED)),
                     const SizedBox(width: 6),
                     Text('$labourCount labours present on ${_fmtDate(date)}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF5B21B6))),
                   ]),
                 ),
                 const SizedBox(height: 16),
@@ -7853,24 +7854,24 @@ class _LabourOTSheetState extends State<_LabourOTSheet> {
                     ),
                     child: Column(children: [
                       Row(children: [
-                        const Icon(Icons.access_time, size: 13, color: Color(0xFFF59E0B)),
+                        const Icon(Icons.access_time, size: 13, color: Color(0xFF7C3AED)),
                         const SizedBox(width: 6),
                         const Text('OT Summary',
-                            style: TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+                            style: TextStyle(fontSize: 12, color: Color(0xFF5B21B6), fontWeight: FontWeight.w600)),
                         const Spacer(),
                         Text('${totalHrs.toStringAsFixed(1)} labour-hrs',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B21B6))),
                         Text(' ($c × ${h}h)',
-                            style: const TextStyle(fontSize: 10, color: Color(0xFFF59E0B))),
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF8B5CF6))),
                       ]),
                       if (totalCost > 0) ...[
                         const SizedBox(height: 4),
                         Row(children: [
                           const Text('OT Cost',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+                              style: TextStyle(fontSize: 12, color: Color(0xFF5B21B6), fontWeight: FontWeight.w600)),
                           const Spacer(),
                           Text('₹${totalCost.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF065F46))),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF5B21B6))),
                         ]),
                       ],
                     ]),
@@ -8431,7 +8432,7 @@ class _StoreMaterialCard extends StatelessWidget {
 
   Color _badgeColor(String type) {
     switch (type) {
-      case 'RAW_MATERIAL': return const Color(0xFFF59E0B);
+      case 'RAW_MATERIAL': return const Color(0xFF7C3AED);
       case 'FINISHED_PIPE': return const Color(0xFF7C3AED);
       default: return const Color(0xFF64748B);
     }
@@ -9385,10 +9386,10 @@ class _MaintenanceCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
+                        color: const Color(0xFFEDE9FE),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(process, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                      child: Text(process, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF5B21B6))),
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -12671,8 +12672,8 @@ class _DiscardScreenState extends State<DiscardScreen> {
                 // Process badge (amber)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)),
-                  child: Text(e.process.isEmpty ? '—' : e.process, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFB45309))),
+                  decoration: BoxDecoration(color: const Color(0xFFEDE9FE), borderRadius: BorderRadius.circular(8)),
+                  child: Text(e.process.isEmpty ? '—' : e.process, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF6D28D9))),
                 ),
               ]),
               const SizedBox(height: 3),
@@ -12877,11 +12878,11 @@ class _DiscardSheetState extends State<_DiscardSheet> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: sel ? const Color(0xFFFEF3C7) : Colors.grey.shade100,
+                        color: sel ? const Color(0xFFEDE9FE) : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: sel ? const Color(0xFFD97706) : Colors.transparent, width: 1.5),
+                        border: Border.all(color: sel ? const Color(0xFF7C3AED) : Colors.transparent, width: 1.5),
                       ),
-                      child: Text(p, style: TextStyle(fontSize: 11, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? const Color(0xFFB45309) : Colors.grey.shade600)),
+                      child: Text(p, style: TextStyle(fontSize: 11, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? const Color(0xFF5B21B6) : Colors.grey.shade600)),
                     ),
                   );
                 }).toList()),
@@ -13061,11 +13062,11 @@ class ExtraFabScreen extends StatefulWidget {
 }
 
 class _ExtraFabScreenState extends State<ExtraFabScreen> {
-  static const _color    = Color(0xFFB45309);
-  static const _colorDark = Color(0xFF92400E);
-  static const _amber    = Color(0xFFD97706);
-  static const _yellow   = Color(0xFFCA8A04);
-  static const _amberBg  = Color(0xFFFEF3C7);
+  static const _color    = Color(0xFF6D28D9);
+  static const _colorDark = Color(0xFF5B21B6);
+  static const _amber    = Color(0xFF7C3AED);
+  static const _yellow   = Color(0xFF8B5CF6);
+  static const _amberBg  = Color(0xFFEDE9FE);
 
   bool _loading = true;
   List<_ExtraFabData> _entries = [];
@@ -13333,7 +13334,7 @@ class _ExtraFabScreenState extends State<ExtraFabScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(8)),
-                    child: const Text('GST', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
+                    child: const Text('GST', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF7C3AED))),
                   ),
                 ],
               ]),
@@ -13403,9 +13404,9 @@ class _ExtraFabSheet extends StatefulWidget {
 }
 
 class _ExtraFabSheetState extends State<_ExtraFabSheet> {
-  static const _amber   = Color(0xFFD97706);
+  static const _amber   = Color(0xFF7C3AED);
   static const _yellow  = Color(0xFFCA8A04);
-  static const _amberBg = Color(0xFFFEF3C7);
+  static const _amberBg = Color(0xFFEDE9FE);
 
   late DateTime _date;
   bool _gstInclusive       = false;
@@ -13561,7 +13562,7 @@ class _ExtraFabSheetState extends State<_ExtraFabSheet> {
           // Header
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xFFB45309), Color(0xFFD97706), Color(0xFFF59E0B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              gradient: LinearGradient(colors: [Color(0xFF5B21B6), Color(0xFF7C3AED), Color(0xFF8B5CF6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
@@ -13617,7 +13618,7 @@ class _ExtraFabSheetState extends State<_ExtraFabSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(color: _amberBg, borderRadius: BorderRadius.circular(8)),
                     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      const Text('Line Total', style: TextStyle(fontSize: 11, color: Color(0xFF92400E))),
+                      const Text('Line Total', style: TextStyle(fontSize: 11, color: Color(0xFF5B21B6))),
                       Text('₹$_lineTotal', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: _yellow)),
                     ]),
                   ),
@@ -13898,8 +13899,8 @@ class _TestingLabEntry {
 }
 
 class _TestingLabScreenState extends State<TestingLabScreen> {
-  static const _color     = Color(0xFF0891B2);
-  static const _colorDark = Color(0xFF0E7490);
+  static const _color     = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF4338CA);
 
   List<_TestingLabEntry> _allItems = [];
   bool _loading = true;
@@ -14358,7 +14359,7 @@ class _TestingLabSheet extends StatefulWidget {
 }
 
 class _TestingLabSheetState extends State<_TestingLabSheet> {
-  static const _color = Color(0xFF0891B2);
+  static const _color = Color(0xFF4F46E5);
 
   late DateTime _date;
 
@@ -14507,7 +14508,7 @@ class _TestingLabSheetState extends State<_TestingLabSheet> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(colors: [_color, Color(0xFF0E7490)]),
+              gradient: LinearGradient(colors: [_color, _colorDark]),
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -14662,17 +14663,17 @@ class _StageInfo {
 }
 
 const _pccpStages = [
-  _StageInfo('FABRICATION',         'Fabrication',     Icons.hardware_outlined,            Color(0xFF7C3AED)),
-  _StageInfo('FABRICATION_TESTING', 'Fab Testing',     Icons.science_outlined,             Color(0xFF0891B2)),
-  _StageInfo('MOULDING',            'Moulding',        Icons.view_in_ar_outlined,          Color(0xFF2563EB)),
-  _StageInfo('SPINNING',            'Spinning',        Icons.rotate_right_outlined,        Color(0xFF0D9488)),
-  _StageInfo('DEMOULDING',          'Demoulding',      Icons.open_in_new_outlined,         Color(0xFF059669)),
-  _StageInfo('CURING_1',            'Curing 1',        Icons.water_drop_outlined,          Color(0xFF0284C7)),
-  _StageInfo('WINDING',             'Winding',         Icons.loop_outlined,                Color(0xFFCA8A04)),
-  _StageInfo('COATING',             'Coating',         Icons.format_paint_outlined,        Color(0xFFEA580C)),
-  _StageInfo('CURING_2',            'Curing 2',        Icons.water_outlined,               Color(0xFF6366F1)),
-  _StageInfo('FINAL_TESTING',       'Final Testing',   Icons.check_circle_outline,         Color(0xFF16A34A)),
-  _StageInfo('PDI',                 'PDI',             Icons.assignment_turned_in_outlined, Color(0xFF059669)),
+  _StageInfo('FABRICATION',         'Fabrication',     Icons.hardware_outlined,             Color(0xFF7C3AED)),
+  _StageInfo('FABRICATION_TESTING', 'Fab Testing',     Icons.science_outlined,              Color(0xFF6D28D9)),
+  _StageInfo('MOULDING',            'Moulding',        Icons.view_in_ar_outlined,           Color(0xFF5B21B6)),
+  _StageInfo('SPINNING',            'Spinning',        Icons.rotate_right_outlined,         Color(0xFF4F46E5)),
+  _StageInfo('DEMOULDING',          'Demoulding',      Icons.open_in_new_outlined,          Color(0xFF4338CA)),
+  _StageInfo('CURING_1',            'Curing 1',        Icons.water_drop_outlined,           Color(0xFF2563EB)),
+  _StageInfo('WINDING',             'Winding',         Icons.loop_outlined,                 Color(0xFF1D4ED8)),
+  _StageInfo('COATING',             'Coating',         Icons.format_paint_outlined,         Color(0xFF1E40AF)),
+  _StageInfo('CURING_2',            'Curing 2',        Icons.water_outlined,               Color(0xFF3730A3)),
+  _StageInfo('FINAL_TESTING',       'Final Testing',   Icons.check_circle_outline,          Color(0xFF8B5CF6)),
+  _StageInfo('PDI',                 'PDI',             Icons.assignment_turned_in_outlined,  Color(0xFF9333EA)),
 ];
 
 class PccpScreen extends ConsumerStatefulWidget {
@@ -14840,38 +14841,83 @@ class _PccpStageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorDark = Color.lerp(info.color, const Color(0xFF1E1B4B), 0.3)!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          gradient: LinearGradient(
+            colors: [colorDark, info.color],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2)),
+            BoxShadow(color: info.color.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4)),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Icon(info.icon, color: info.color, size: 30),
-            const SizedBox(height: 10),
-            Text(info.name,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey[800]),
-              textAlign: TextAlign.center),
-            const SizedBox(height: 4),
-            Text(
-              count > 0 ? '$count pipes today' : '—',
-              style: TextStyle(
-                fontSize: 11,
-                color: count > 0 ? info.color : Colors.grey[400],
-                fontWeight: count > 0 ? FontWeight.w600 : FontWeight.normal,
+            // Subtle dot pattern
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: CustomPaint(painter: _DotPatternPainter()),
               ),
+            ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 48, height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
+                  ),
+                  child: Icon(info.icon, color: Colors.white, size: 24),
+                ),
+                const SizedBox(height: 10),
+                Text(info.name,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                  textAlign: TextAlign.center),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(count > 0 ? 0.22 : 0.10),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    count > 0 ? '$count pipes today' : 'No entries',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white.withOpacity(count > 0 ? 1.0 : 0.6),
+                      fontWeight: count > 0 ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _DotPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white.withOpacity(0.06);
+    const spacing = 18.0;
+    for (double x = 0; x < size.width; x += spacing) {
+      for (double y = 0; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.2, paint);
+      }
+    }
+  }
+  @override bool shouldRepaint(_) => false;
 }
 
 // ── PCCP Stage Detail ─────────────────────────────────────────────────────────
@@ -15257,10 +15303,13 @@ class _OrderEntry {
   final Map<String, dynamic> order;
   final TextEditingController processedCtrl = TextEditingController();
   final TextEditingController completedCtrl = TextEditingController();
+  final TextEditingController notesCtrl = TextEditingController();
+  String? processedError;
   _OrderEntry(this.order);
   void dispose() {
     processedCtrl.dispose();
     completedCtrl.dispose();
+    notesCtrl.dispose();
   }
 }
 
@@ -15293,6 +15342,16 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   String _sandType = 'plaster'; // 'plaster' | 'crushed'
   // Cache of pipeConfigId → COATING materials (fetched lazily for COATING stage)
   final Map<int, List<dynamic>> _coatingMaterials = {};
+  // Cache of pipeConfigId → FABRICATION materials
+  final Map<int, List<dynamic>> _fabricationMaterials = {};
+  // Shift selector (shared across all orders)
+  String _shift = '';
+  // Cache: materialProductId → quantityOnHand (for FABRICATION stock check)
+  final Map<int, double> _fabricationStock = {};
+  // Total pipesProcessed already logged for this stage, per productionOrderId
+  final Map<int, int> _orderProgress = {};
+  // pipesCompleted in the prior stage, per productionOrderId (null = not yet loaded)
+  final Map<int, int> _priorCompleted = {};
 
   @override
   void initState() {
@@ -15308,7 +15367,26 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
 
   Future<void> _loadOrders() async {
     try {
-      final raw = await _api.getProductionOrders(size: 200);
+      // Fetch orders and existing stage entries in parallel
+      final results = await Future.wait([
+        _api.getProductionOrders(size: 200),
+        _api.getProductionEntries(stageType: widget.stageType, size: 2000),
+      ]);
+
+      final raw = results[0];
+      final existingEntries = results[1];
+
+      // Build per-order progress map (total pipesProcessed already logged)
+      final progress = <int, int>{};
+      for (final e in existingEntries) {
+        final orderId = (e as Map)['productionOrderId'] as int?;
+        final processed = ((e)['pipesProcessed'] as num?)?.toInt() ?? 0;
+        if (orderId != null) progress[orderId] = (progress[orderId] ?? 0) + processed;
+      }
+      _orderProgress
+        ..clear()
+        ..addAll(progress);
+
       final filtered = raw
           .where((o) {
             final s = (o['status'] ?? '').toString();
@@ -15317,6 +15395,17 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           .cast<Map<String, dynamic>>()
           .toList();
       if (mounted) setState(() { _orders = filtered; _loading = false; });
+
+      // Fetch prior-stage completed count for all orders in parallel
+      final priorFutures = filtered.map((o) {
+        final oid = o['id'] as int;
+        return _api.getPriorStageInfo(oid, widget.stageType).then((info) {
+          final completed = (info['pipesCompleted'] as num?)?.toInt() ?? 0;
+          _priorCompleted[oid] = completed;
+        });
+      }).toList();
+      await Future.wait(priorFutures);
+      if (mounted) setState(() {});
 
       // For COATING, pre-fetch pipe config materials for all unique configs
       if (widget.stageType == 'COATING') {
@@ -15336,18 +15425,70 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           } catch (_) {}
         }
       }
+
+      // For FABRICATION, pre-fetch pipe config materials for all unique configs
+      if (widget.stageType == 'FABRICATION') {
+        final configIds = filtered
+            .map((o) => o['pipeConfigId'])
+            .whereType<int>()
+            .toSet();
+        for (final id in configIds) {
+          if (_fabricationMaterials.containsKey(id)) continue;
+          try {
+            final config = await _api.getPipeConfig(id);
+            final mats = (config['materials'] as List? ?? [])
+                .cast<Map<String, dynamic>>()
+                .where((m) => m['stageType'] == 'FABRICATION')
+                .toList();
+            _fabricationMaterials[id] = mats;
+          } catch (_) {}
+        }
+      }
+
+      // For FABRICATION: also pre-fetch inventory levels for each material
+      if (widget.stageType == 'FABRICATION') {
+        final int? outletId = filtered.isNotEmpty
+            ? (filtered.first['outletId'] as int?)
+            : null;
+        if (outletId != null) {
+          final productIds = <int>{};
+          for (final mats in _fabricationMaterials.values) {
+            for (final m in mats.cast<Map<String, dynamic>>()) {
+              final pid = m['materialProductId'] as int?;
+              if (pid != null) productIds.add(pid);
+            }
+          }
+          for (final pid in productIds) {
+            if (_fabricationStock.containsKey(pid)) continue;
+            final inv = await _api.getInventoryForProduct(pid, outletId);
+            final qty = double.tryParse(inv['quantityOnHand']?.toString() ?? '') ?? 0.0;
+            _fabricationStock[pid] = qty;
+            if (mounted) setState(() {});
+          }
+        }
+      }
     } catch (_) {
       if (mounted) setState(() { _loading = false; });
     }
   }
 
   List<Map<String, dynamic>> get _filtered {
-    if (_search.trim().isEmpty) return _orders;
-    final q = _search.toLowerCase();
     return _orders.where((o) {
-      final name = (o['pipeConfig']?['name'] ?? o['pipeName'] ?? '').toString().toLowerCase();
-      final num = (o['poNumber'] ?? '').toString().toLowerCase();
-      return name.contains(q) || num.contains(q);
+      final id = o['id'] as int;
+      // Once prior-stage data is loaded, hide orders with nothing left to process
+      if (_priorCompleted.containsKey(id)) {
+        final prior = _priorCompleted[id]!;
+        final done = _orderProgress[id] ?? 0;
+        if ((prior - done) <= 0) return false;
+      }
+      // Search filter
+      if (_search.trim().isNotEmpty) {
+        final q = _search.toLowerCase();
+        final name = (o['pipeConfig']?['name'] ?? o['pipeName'] ?? '').toString().toLowerCase();
+        final num = (o['poNumber'] ?? '').toString().toLowerCase();
+        return name.contains(q) || num.contains(q);
+      }
+      return true;
     }).toList();
   }
 
@@ -15358,7 +15499,39 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
         _selected[id]!.dispose();
         _selected.remove(id);
       } else {
-        _selected[id] = _OrderEntry(order);
+        final entry = _OrderEntry(order);
+        _selected[id] = entry;
+        final planned = (order['plannedQty'] as num?)?.toInt() ?? 0;
+        // priorCompleted = pipes completed in the prior stage (the true ceiling)
+        // alreadyDone   = pipes already logged at THIS stage for this order
+        final priorCompleted = _priorCompleted[id] ?? planned;
+        final alreadyDone = _orderProgress[id] ?? 0;
+        final remaining = (priorCompleted - alreadyDone).clamp(0, priorCompleted);
+        entry.completedCtrl.addListener(() {
+          if (mounted) setState(() {});
+        });
+        entry.processedCtrl.addListener(() {
+          final text = entry.processedCtrl.text.trim();
+          final processed = int.tryParse(text) ?? 0;
+          // Auto-fill completed with same value
+          if (entry.completedCtrl.text != text) {
+            entry.completedCtrl.text = text;
+            entry.completedCtrl.selection =
+                TextSelection.collapsed(offset: text.length);
+          }
+          // Inline validation: warn if exceeds prior-stage capacity
+          final String? err;
+          if (remaining == 0 && processed > 0) {
+            err = 'No pipes available from prior stage';
+          } else if (remaining > 0 && processed > remaining) {
+            err = 'Exceeds available from prior stage ($remaining)';
+          } else {
+            err = null;
+          }
+          if (entry.processedError != err) {
+            setState(() => entry.processedError = err);
+          }
+        });
       }
     });
   }
@@ -15387,22 +15560,214 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
     );
   }
 
+  Widget _shiftBtn(String value, String label) {
+    final active = _shift == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _shift = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          decoration: BoxDecoration(
+            gradient: active
+                ? const LinearGradient(
+                    colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : null,
+            color: active ? null : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12, fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              color: active ? Colors.white : Colors.grey[600],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStockWarning(Map<String, dynamic> order, int processed) {
+    if (widget.stageType != 'FABRICATION') return const SizedBox.shrink();
+    final configId = order['pipeConfigId'] as int?;
+    final mats = (configId != null ? (_fabricationMaterials[configId] ?? []) : [])
+        .cast<Map<String, dynamic>>();
+    if (mats.isEmpty) return const SizedBox.shrink();
+
+    bool hasShortfall = false;
+    int? minMaxPipes;
+    final matInfos = <Map<String, dynamic>>[];
+
+    for (final mat in mats) {
+      final name = (mat['materialProduct']?['name'] ?? 'Material').toString();
+      final uom = (mat['uom'] ?? 'kg').toString();
+      final qtyPerPipe = double.tryParse(mat['quantityPerPipe']?.toString() ?? '') ?? 0.0;
+      final productId = mat['materialProductId'] as int?;
+      final available = productId != null ? (_fabricationStock[productId] ?? -1.0) : -1.0;
+      final required = qtyPerPipe * processed;
+      final maxPipes = (qtyPerPipe > 0 && available >= 0)
+          ? (available / qtyPerPipe).floor()
+          : null;
+      final shortfall = available >= 0
+          ? (required - available).clamp(0, double.infinity).toDouble()
+          : 0.0;
+      final ok = available < 0 || required <= available + 0.0001;
+      if (!ok && processed > 0) hasShortfall = true;
+      if (maxPipes != null && (minMaxPipes == null || maxPipes < minMaxPipes!)) {
+        minMaxPipes = maxPipes;
+      }
+      matInfos.add({
+        'name': name, 'uom': uom, 'available': available,
+        'required': required, 'shortfall': shortfall, 'ok': ok, 'maxPipes': maxPipes,
+      });
+    }
+
+    final bool warn = hasShortfall && processed > 0;
+    final bool idle = processed == 0;
+    final bgColor = warn ? Colors.red[50]! : idle ? Colors.grey[50]! : Colors.green[50]!;
+    final borderColor = warn ? Colors.red[200]! : idle ? Colors.grey[200]! : Colors.green[200]!;
+    final iconColor = warn ? Colors.red[600]! : idle ? Colors.grey[400]! : Colors.green[600]!;
+    final labelColor = warn ? Colors.red[700]! : idle ? Colors.grey[500]! : Colors.green[700]!;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
+      ),
+      padding: const EdgeInsets.all(10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(
+            warn ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
+            size: 13, color: iconColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            warn ? 'Insufficient Stock' : idle ? 'Raw Material Stock' : 'Stock OK',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                color: labelColor, letterSpacing: 0.5),
+          ),
+          const Spacer(),
+          if (minMaxPipes != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: warn ? Colors.red[100] : Colors.green[100],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$minMaxPipes pipes possible',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                    color: warn ? Colors.red[700] : Colors.green[700]),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 6),
+        ...matInfos.map((m) => Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: Row(children: [
+            Expanded(
+              child: Text(
+                m['name'] as String,
+                style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600,
+                  color: !(m['ok'] as bool) && processed > 0
+                      ? Colors.red[700] : Colors.grey[700],
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              (m['available'] as double) >= 0
+                  ? 'Avail: ${(m['available'] as double).toStringAsFixed(1)} ${m['uom']}'
+                  : 'Stock: loading…',
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+            if (processed > 0) ...[
+              const SizedBox(width: 6),
+              Text(
+                (m['ok'] as bool)
+                    ? '✓ ${(m['required'] as double).toStringAsFixed(1)} ${m['uom']}'
+                    : '-${(m['shortfall'] as double).toStringAsFixed(1)} ${m['uom']}',
+                style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w600,
+                  color: (m['ok'] as bool) ? Colors.green[600] : Colors.red[600],
+                ),
+              ),
+            ],
+          ]),
+        )),
+      ]),
+    );
+  }
+
   Future<void> _submit() async {
     if (_selected.isEmpty) return;
+
+    // Validate: at least one order has processed qty > 0
+    final hasValidEntry = _selected.values.any(
+      (e) => (int.tryParse(e.processedCtrl.text.trim()) ?? 0) > 0,
+    );
+    if (!hasValidEntry) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter processed quantity for at least one order')),
+        );
+      }
+      return;
+    }
+
+    // Block if any order has an inline processed error (e.g. exceeds planned qty)
+    final hasInlineError = _selected.values.any((e) => e.processedError != null);
+    if (hasInlineError) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fix validation errors before saving')),
+        );
+      }
+      return;
+    }
+
     setState(() => _submitting = true);
     int successCount = 0;
-    final dateStr = _date.toIso8601String().split('T')[0];
+    // Send full RFC3339 UTC so Go's *time.Time decoder accepts it
+    final dateStr = DateTime.utc(_date.year, _date.month, _date.day).toIso8601String();
+
     for (final entry in _selected.values) {
       final processed = int.tryParse(entry.processedCtrl.text.trim()) ?? 0;
       final completed = int.tryParse(entry.completedCtrl.text.trim()) ?? 0;
-      if (processed == 0 && completed == 0) continue;
+      if (processed == 0) continue;
+
+      // Validate: completed cannot exceed processed
+      if (completed > processed) {
+        final pipeName = (entry.order['pipeConfig']?['name'] ?? entry.order['pipeName'] ?? 'Order').toString();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$pipeName: Completed ($completed) cannot exceed Processed ($processed)')),
+          );
+        }
+        continue;
+      }
+
       try {
         final payload = <String, dynamic>{
           'productionOrderId': entry.order['id'],
           'stageType': widget.stageType,
           'pipesProcessed': processed,
           'pipesCompleted': completed,
+          'pipesRejected': processed - completed,
           'entryDate': dateStr,
+          if (_shift.isNotEmpty) 'shiftName': _shift,
+          if (entry.notesCtrl.text.trim().isNotEmpty)
+            'notes': entry.notesCtrl.text.trim(),
         };
 
         // COATING: send explicit consumption for the selected sand only
@@ -15431,13 +15796,57 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           }
         }
 
+        // FABRICATION: send consumptions for all fabrication materials
+        if (widget.stageType == 'FABRICATION') {
+          final configId = entry.order['pipeConfigId'] as int?;
+          final mats = configId != null ? (_fabricationMaterials[configId] ?? []) : [];
+          if (mats.isNotEmpty) {
+            final consumptions = <Map<String, dynamic>>[];
+            for (final mat in mats.cast<Map<String, dynamic>>()) {
+              final qtyPerPipe = double.tryParse(mat['quantityPerPipe']?.toString() ?? '0') ?? 0;
+              final scrap = double.tryParse(mat['scrapPercent']?.toString() ?? '0') ?? 0;
+              final rawQty = qtyPerPipe * completed;
+              final consumedQty = scrap > 0 ? rawQty * (1 + scrap / 100) : rawQty;
+              consumptions.add({
+                'pipeConfigMaterialId': mat['id'],
+                'materialProductId': mat['materialProductId'],
+                'consumedQty': consumedQty,
+                'uom': mat['uom'] ?? 'kg',
+              });
+            }
+            if (consumptions.isNotEmpty) payload['consumptions'] = consumptions;
+          }
+        }
+
         await _api.createProductionEntry(payload);
         successCount++;
-      } catch (_) {}
+      } catch (e) {
+        if (mounted) {
+          final pipeName = (entry.order['pipeConfig']?['name'] ?? entry.order['pipeName'] ?? 'Order').toString();
+          String msg;
+          if (e is DioException && e.response?.data != null) {
+            final data = e.response!.data;
+            msg = (data is Map ? data['message'] : null)?.toString()
+                ?? 'Server error ${e.response?.statusCode}';
+          } else {
+            msg = e.toString().split('\n').first;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save $pipeName: $msg'),
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        }
+      }
     }
+
     if (mounted) {
-      Navigator.pop(context);
-      widget.onSuccess(successCount);
+      setState(() => _submitting = false);
+      if (successCount > 0) {
+        Navigator.pop(context);
+        widget.onSuccess(successCount);
+      }
     }
   }
 
@@ -15557,6 +15966,33 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           ),
           const SizedBox(height: 10),
         ],
+        // Shift selector
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          child: Row(children: [
+            Text('Shift', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A2E))),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(children: [
+                  _shiftBtn('', 'None'),
+                  const SizedBox(width: 3),
+                  _shiftBtn('A', 'Shift A'),
+                  const SizedBox(width: 3),
+                  _shiftBtn('B', 'Shift B'),
+                  const SizedBox(width: 3),
+                  _shiftBtn('C', 'Shift C'),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 10),
         // Order list
         Expanded(
           child: _loading
@@ -15564,7 +16000,11 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
               : _filtered.isEmpty
                   ? Center(
                       child: Text(
-                        _search.isEmpty ? 'No active production orders' : 'No orders match "$_search"',
+                        _search.isNotEmpty
+                            ? 'No orders match "$_search"'
+                            : _orders.isNotEmpty && _priorCompleted.isNotEmpty
+                                ? 'All orders are fully processed at this stage'
+                                : 'No active production orders',
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                     )
@@ -15617,7 +16057,23 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                     children: [
                                       Text(pipeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
                                       const SizedBox(height: 2),
-                                      Text('$poNum · Planned: $planned pipes', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                      Builder(builder: (_) {
+                                        final prior = _priorCompleted[id];
+                                        final done = _orderProgress[id] ?? 0;
+                                        final pl = (planned as num).toInt();
+                                        if (prior == null) {
+                                          // Still loading prior-stage info
+                                          return Text('$poNum · Planned: $pl pipes',
+                                              style: TextStyle(fontSize: 11, color: Colors.grey[500]));
+                                        }
+                                        final left = (prior - done).clamp(0, prior);
+                                        return Text(
+                                          done > 0
+                                              ? '$poNum · Done: $done · Left: $left'
+                                              : '$poNum · Available: $prior pipes',
+                                          style: TextStyle(fontSize: 11, color: done > 0 ? Colors.orange[700] : Colors.grey[500]),
+                                        );
+                                      }),
                                     ],
                                   )),
                                   Container(
@@ -15637,21 +16093,85 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                 Divider(height: 1, color: widget.color.withOpacity(0.2)),
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                                  child: Row(children: [
-                                    Expanded(
-                                      child: _QtyField(
-                                        controller: entry!.processedCtrl,
-                                        label: 'Processed',
-                                        color: widget.color,
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    // Processed / Completed row
+                                    Row(children: [
+                                      Expanded(
+                                        child: _QtyField(
+                                          controller: entry!.processedCtrl,
+                                          label: () {
+                                            final pl = (order['plannedQty'] as num?)?.toInt() ?? 0;
+                                            final prior = _priorCompleted[id] ?? pl;
+                                            final dn = _orderProgress[id] ?? 0;
+                                            final rem = (prior - dn).clamp(0, prior);
+                                            return dn > 0
+                                                ? 'Processed (max: $rem left)'
+                                                : 'Processed (max: $prior from prior stage)';
+                                          }(),
+                                          color: widget.color,
+                                          errorText: entry.processedError,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: _QtyField(
-                                        controller: entry.completedCtrl,
-                                        label: 'Completed',
-                                        color: widget.color,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _QtyField(
+                                          controller: entry.completedCtrl,
+                                          label: 'Completed',
+                                          color: widget.color,
+                                        ),
                                       ),
+                                    ]),
+                                    // Rejected display (computed)
+                                    Builder(builder: (ctx) {
+                                      final proc = int.tryParse(entry.processedCtrl.text) ?? 0;
+                                      final comp = int.tryParse(entry.completedCtrl.text) ?? 0;
+                                      final rej = (proc - comp).clamp(0, proc);
+                                      if (rej == 0) return const SizedBox.shrink();
+                                      return Container(
+                                        margin: const EdgeInsets.only(top: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red[50],
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: Colors.red[200]!),
+                                        ),
+                                        child: Row(children: [
+                                          Icon(Icons.cancel_outlined, size: 13, color: Colors.red[400]),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Rejected: $rej pipe${rej == 1 ? '' : 's'}',
+                                            style: TextStyle(fontSize: 12, color: Colors.red[700], fontWeight: FontWeight.w600),
+                                          ),
+                                        ]),
+                                      );
+                                    }),
+                                    // Material stock warning (FABRICATION only)
+                                    _buildStockWarning(order, int.tryParse(entry.processedCtrl.text) ?? 0),
+                                    const SizedBox(height: 8),
+                                    TextField(
+                                      controller: entry.notesCtrl,
+                                      decoration: InputDecoration(
+                                        hintText: 'Notes (optional)',
+                                        hintStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                        filled: true,
+                                        fillColor: Colors.grey[50],
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: BorderSide(color: Colors.grey[200]!),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: BorderSide(color: Colors.grey[200]!),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: BorderSide(color: widget.color.withOpacity(0.5)),
+                                        ),
+                                      ),
+                                      style: const TextStyle(fontSize: 12),
+                                      maxLines: 2,
                                     ),
                                   ]),
                                 ),
@@ -15669,24 +16189,47 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
             padding: EdgeInsets.fromLTRB(18, 10, 18, mq.viewInsets.bottom > 0 ? 8 : 16),
             child: SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: (_selected.isEmpty || _submitting) ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.color,
-                  disabledBackgroundColor: Colors.grey[200],
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: _submitting
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(
-                        _selected.isEmpty
-                            ? 'Select orders to save'
-                            : 'Save ${_selected.length} ${_selected.length == 1 ? 'Entry' : 'Entries'}',
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+              child: (_selected.isEmpty || _submitting)
+                  ? ElevatedButton(
+                      onPressed: null,
+                      style: ElevatedButton.styleFrom(
+                        disabledBackgroundColor: Colors.grey[200],
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
                       ),
-              ),
+                      child: _submitting
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text(
+                              'Select orders to save',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.grey[400]),
+                            ),
+                    )
+                  : DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: const Color(0xFF7C3AED).withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Save ${_selected.length} ${_selected.length == 1 ? 'Entry' : 'Entries'}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ),
             ),
           ),
         ),
@@ -15699,8 +16242,9 @@ class _QtyField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final Color color;
+  final String? errorText;
 
-  const _QtyField({required this.controller, required this.label, required this.color});
+  const _QtyField({required this.controller, required this.label, required this.color, this.errorText});
 
   @override
   Widget build(BuildContext context) {
@@ -15717,6 +16261,7 @@ class _QtyField extends StatelessWidget {
           decoration: InputDecoration(
             isDense: true,
             hintText: '0',
+            errorText: errorText,
             contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             filled: true, fillColor: Colors.white,
             border: OutlineInputBorder(

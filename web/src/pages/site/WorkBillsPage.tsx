@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Search, X, Loader2, FileText, HardHat,
   Calendar, CheckCircle2, Clock, IndianRupee, CreditCard,
-  Edit2, ChevronRight, Printer, Send, ClipboardList,
+  Edit2, ChevronRight, Printer, ClipboardList,
   AlertCircle, BadgePercent, ArrowLeft,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -13,7 +13,7 @@ import { workBillApi, workOrderApi } from '@/services/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type WBStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'PAID'
+type WBStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'PAID' // SUBMITTED kept for legacy records only
 type SupplyType = 'INTRA_STATE' | 'INTER_STATE'
 type PayMode = 'BANK_TRANSFER' | 'CHEQUE' | 'UPI' | 'CASH'
 
@@ -62,21 +62,49 @@ const PAY_MODES: { value: PayMode; label: string }[] = [
 ]
 
 const STATUS_CONFIG: Record<WBStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  DRAFT:     { label: 'Draft',     color: 'text-gray-500',   bg: 'bg-gray-100',    icon: <Edit2 size={11} /> },
-  SUBMITTED: { label: 'Submitted', color: 'text-blue-500',   bg: 'bg-blue-50',     icon: <Send size={11} /> },
-  APPROVED:  { label: 'Approved',  color: 'text-green-700',  bg: 'bg-green-50',    icon: <CheckCircle2 size={11} /> },
-  PAID:      { label: 'Paid',      color: 'text-violet-700', bg: 'bg-violet-50',   icon: <IndianRupee size={11} /> },
+  DRAFT:     { label: 'Draft',     color: 'text-gray-500',   bg: 'bg-gray-100',   icon: <Edit2 size={11} /> },
+  SUBMITTED: { label: 'Draft',     color: 'text-gray-500',   bg: 'bg-gray-100',   icon: <Edit2 size={11} /> },
+  APPROVED:  { label: 'Approved',  color: 'text-green-700',  bg: 'bg-green-50',   icon: <CheckCircle2 size={11} /> },
+  PAID:      { label: 'Paid',      color: 'text-violet-700', bg: 'bg-violet-50',  icon: <IndianRupee size={11} /> },
 }
-const STATUS_TABS: Array<WBStatus | 'ALL'> = ['ALL', 'DRAFT', 'SUBMITTED', 'APPROVED', 'PAID']
+const STATUS_TABS: Array<WBStatus | 'ALL'> = ['ALL', 'DRAFT', 'APPROVED', 'PAID']
 const STATUS_TAB_ACTIVE: Record<string, string> = {
   ALL: 'bg-gray-800 text-white', DRAFT: 'bg-gray-500 text-white',
-  SUBMITTED: 'bg-blue-500 text-white', APPROVED: 'bg-green-600 text-white', PAID: 'bg-violet-600 text-white',
+  APPROVED: 'bg-green-600 text-white', PAID: 'bg-violet-600 text-white',
 }
 
 function fmt(n: number) { return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 function fmtDate(d: string) {
   if (!d) return '—'
-  const [y, m, day] = d.split('-'); return `${day}/${m}/${y}`
+  // Plain date string YYYY-MM-DD — no timezone conversion needed
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split('-')
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    return `${parseInt(day)} ${months[parseInt(m) - 1]} ${y}`
+  }
+  // Full datetime string — parse and display in IST
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return d
+  return dt.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+function fmtDateTime(d: string) {
+  if (!d) return '—'
+  const dt = new Date(d)
+  if (isNaN(dt.getTime())) return d
+  return dt.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }) + ' IST'
 }
 function today() { return new Date().toISOString().split('T')[0] }
 function addDays(d: string, n: number) {
@@ -608,6 +636,7 @@ function BillDetail({ bill, onClose, onUpdated }: {
 }) {
   const [visible, setVisible] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
+  const navigate = useNavigate()
   const cfg = STATUS_CONFIG[bill.status]
   const calc = calcBill(bill.items, bill.tdsRate, bill.supplyType)
   const paid = bill.payments.reduce((s, p) => s + p.amount, 0)
@@ -619,13 +648,13 @@ function BillDetail({ bill, onClose, onUpdated }: {
 
   async function advanceStatus() {
     const next: Record<WBStatus, WBStatus | null> = {
-      DRAFT: 'SUBMITTED', SUBMITTED: 'APPROVED', APPROVED: null, PAID: null
+      DRAFT: 'APPROVED', SUBMITTED: 'APPROVED', APPROVED: null, PAID: null
     }
     const ns = next[bill.status]
     if (!ns) return
     try {
       await workBillApi.updateStatus(bill.id, ns)
-      toast.success(`Bill ${STATUS_CONFIG[ns].label}`)
+      toast.success('Bill Approved')
       await queryClient.invalidateQueries({ queryKey: ['work-bills'] })
       onUpdated()
       handleClose()
@@ -635,10 +664,10 @@ function BillDetail({ bill, onClose, onUpdated }: {
   }
 
   const nextLabel: Record<WBStatus, string | null> = {
-    DRAFT: 'Submit Bill', SUBMITTED: 'Approve Bill', APPROVED: null, PAID: null
+    DRAFT: 'Approve Bill', SUBMITTED: 'Approve Bill', APPROVED: null, PAID: null
   }
   const nextColor: Record<WBStatus, string> = {
-    DRAFT: 'bg-blue-500 hover:bg-blue-600', SUBMITTED: 'bg-green-600 hover:bg-green-700',
+    DRAFT: 'bg-green-600 hover:bg-green-700', SUBMITTED: 'bg-green-600 hover:bg-green-700',
     APPROVED: '', PAID: '',
   }
 
@@ -796,6 +825,10 @@ function BillDetail({ bill, onClose, onUpdated }: {
                 <IndianRupee size={15} /> Record Payment
               </button>
             )}
+            <button onClick={() => navigate(`/site/work-bills/${bill.id}/invoice`)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              <Printer size={15} /> Print Invoice
+            </button>
             <button onClick={handleClose}
               className="w-full py-2.5 text-sm font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
               Close
@@ -870,7 +903,6 @@ export default function WorkBillsPage() {
 
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<WBStatus | 'ALL'>('ALL')
-  const [showCreate, setShowCreate] = useState(!!initialWoId)
   const [detailBill, setDetailBill] = useState<WorkBill | undefined>()
   const [addBtnHovered, setAddBtnHovered] = useState(false)
 
@@ -902,76 +934,44 @@ export default function WorkBillsPage() {
   return (
     <>
       {/* Header */}
-      <div className="border-b border-gray-200"
-        style={{ background: 'linear-gradient(135deg, #c2d8f0 0%, #eaedf5 100%)' }}>
-        <div className="px-6 py-5 flex items-center gap-4">
-          <div className="flex items-center gap-3 shrink-0">
-            <button onClick={() => navigate('/site')}
-              className="text-blue-500 hover:text-blue-900 transition-colors">
-              <ArrowLeft size={18} />
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">Work Bills</h1>
-              <p className="text-xs text-gray-500">GST billing for sub-contractor work</p>
-            </div>
-          </div>
-
+      <div style={{ background: 'linear-gradient(180deg, #ddd6fe 0%, #ede9fe 35%, #f5f3ff 65%, #faf9ff 85%, #ffffff 100%)' }}>
+        {/* Nav row */}
+        <div className="px-6 pt-4 pb-2 flex items-center gap-4">
+          <button onClick={() => navigate('/site')}
+            className="text-violet-500 hover:text-violet-900 transition-colors shrink-0">
+            <ArrowLeft size={18} />
+          </button>
           <div className="flex-1 flex justify-center">
             <SiteFloatingNav theme="light" inline />
           </div>
+        </div>
 
-          <div
-            className="shrink-0"
-            style={{ position: 'relative', width: 36, height: 36 }}
-            onMouseEnter={() => setAddBtnHovered(true)}
-            onMouseLeave={() => setAddBtnHovered(false)}
-          >
-            {/* Multicolor glow layer */}
-            <div style={{
-              position: 'absolute',
-              inset: -10,
-              borderRadius: '50%',
-              background: 'conic-gradient(from 0deg, #f43f5e, #f97316, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #f43f5e)',
-              filter: 'blur(10px)',
-              opacity: addBtnHovered ? 0.85 : 0,
-              transition: 'opacity 0.3s ease',
-              zIndex: 0,
-            }} />
+        {/* Title + add button */}
+        {bills.length > 0 && (
+          <div className="px-6 pt-6 pb-5 flex items-center justify-between">
+            <div className="shrink-0">
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">Work Bills</h1>
+              <p className="text-xs text-gray-500">GST billing for sub-contractor work</p>
+            </div>
             <button
-              onClick={() => setShowCreate(true)}
-              className="active:scale-95"
+              onClick={() => navigate(`/site/work-bills/new${initialWoId ? `?woId=${initialWoId}` : ''}`)}
+              onMouseEnter={() => setAddBtnHovered(true)}
+              onMouseLeave={() => setAddBtnHovered(false)}
+              className="active:scale-95 shrink-0"
               style={{
-                position: 'relative', zIndex: 1,
                 width: 36, height: 36, borderRadius: '50%',
-                background: 'rgba(255,255,255,0.97)',
-                border: 'none',
-                color: '#3b82f6',
+                background: addBtnHovered
+                  ? 'linear-gradient(135deg, #6d28d9, #4f46e5)'
+                  : 'linear-gradient(135deg, #7c3aed, #6366f1)',
+                border: 'none', color: '#fff',
                 fontSize: 22, fontWeight: 300,
                 fontFamily: '"Roboto", sans-serif',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', lineHeight: 1,
                 transform: addBtnHovered ? 'scale(1.08)' : 'scale(1)',
-                transition: 'transform 0.2s ease',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-              }}>
-              +
-            </button>
-          </div>
-        </div>
-
-        {/* Summary strip */}
-        {bills.length > 0 && (
-          <div className="px-6 pb-4 flex gap-8">
-            {[
-              { l: 'Total Payable', v: `₹${fmt(totalPayable)}`, color: 'text-gray-900' },
-              { l: 'Total Paid', v: `₹${fmt(totalPaid)}`, color: 'text-green-600' },
-              { l: 'Outstanding', v: `₹${fmt(totalPayable - totalPaid)}`, color: 'text-orange-600' },
-            ].map(s => (
-              <div key={s.l}>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s.l}</p>
-                <p className={`text-sm font-bold ${s.color}`}>{s.v}</p>
-              </div>
-            ))}
+                transition: 'transform 0.2s ease, background 0.2s ease',
+                boxShadow: '0 2px 8px rgba(124,58,237,0.4)',
+              }}>+</button>
           </div>
         )}
       </div>
@@ -991,7 +991,23 @@ export default function WorkBillsPage() {
             )}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-xl bg-gray-50 focus-within:bg-white focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-400/20 transition-all min-w-[200px]">
+        {bills.length > 0 && (
+          <div className="ml-auto flex items-center shrink-0 mr-8 divide-x divide-gray-200">
+            <div className="px-8" style={{ filter: 'drop-shadow(0 2px 6px rgba(124,58,237,0.10))' }}>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Total Payable</p>
+              <p className="text-sm font-bold text-gray-900">₹{fmt(totalPayable)}</p>
+            </div>
+            <div className="px-8" style={{ filter: 'drop-shadow(0 2px 6px rgba(124,58,237,0.10))' }}>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Total Paid</p>
+              <p className="text-sm font-bold text-green-600">₹{fmt(totalPaid)}</p>
+            </div>
+            <div className="px-8" style={{ filter: 'drop-shadow(0 2px 6px rgba(124,58,237,0.10))' }}>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Outstanding</p>
+              <p className="text-sm font-bold text-orange-600">₹{fmt(totalPayable - totalPaid)}</p>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-xl bg-gray-50 focus-within:bg-white focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-400/20 transition-all min-w-[200px]">
           <Search size={13} className="text-gray-400 shrink-0" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search bills…"
             className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder-gray-400" />
@@ -1013,7 +1029,7 @@ export default function WorkBillsPage() {
               {search || activeTab !== 'ALL' ? 'Try changing your filters' : 'Generate a bill from a completed work order'}
             </p>
             {!search && activeTab === 'ALL' && (
-              <button onClick={() => setShowCreate(true)}
+              <button onClick={() => navigate('/site/work-bills/new')}
                 className="flex items-center gap-2 px-5 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm">
                 <Plus size={15} /> New Work Bill
               </button>
@@ -1027,14 +1043,6 @@ export default function WorkBillsPage() {
           </div>
         )}
       </div>
-
-      {showCreate && (
-        <CreateBillPanel
-          initialWoId={initialWoId}
-          onClose={() => setShowCreate(false)}
-          onSaved={() => setShowCreate(false)}
-        />
-      )}
 
       {detailBill && (
         <BillDetail

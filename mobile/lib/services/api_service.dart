@@ -57,6 +57,9 @@ class ApiService {
       roles: List<String>.from(data['roles'] ?? []),
       outletId: data['outletId'],
       outletName: data['outlet'] != null ? data['outlet']['name'] as String? : null,
+      cardPermissions: data['cardPermissions'] != null
+          ? CardPermissions.fromJson(data['cardPermissions'])
+          : null,
     );
   }
 
@@ -345,9 +348,27 @@ class ApiService {
     return [];
   }
 
+  Future<List<dynamic>> getProductionOrderSummaries() async {
+    final res = await _dio.get('/production/orders/summaries');
+    final data = res.data['data'];
+    if (data is List) return data;
+    return [];
+  }
+
   Future<Map<String, dynamic>> createProductionEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/production/entries', data: data);
     return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getInventoryForProduct(int productId, int outletId) async {
+    try {
+      final res = await _dio.get('/inventory/product/$productId/outlet/$outletId');
+      final data = res.data['data'];
+      if (data is Map<String, dynamic>) return data;
+      return {};
+    } catch (_) {
+      return {};
+    }
   }
 
   Future<List<dynamic>> getEntriesByOrder(int orderId) async {
@@ -682,6 +703,18 @@ class ApiService {
     if (data is Map && data.containsKey('content')) return data['content'] as List;
     if (data is List) return data;
     return [];
+  }
+
+  Future<Map<String, dynamic>> getPriorStageInfo(int orderId, String stageType) async {
+    try {
+      final res = await _dio.get('/production/entries/prior-stage',
+          queryParameters: {'orderId': orderId, 'stage': stageType});
+      final data = res.data['data'];
+      if (data is Map<String, dynamic>) return data;
+      return {};
+    } catch (_) {
+      return {};
+    }
   }
 
   Future<List<dynamic>> getProductionEntries({String? stageType, String? from, String? to, int size = 500}) async {

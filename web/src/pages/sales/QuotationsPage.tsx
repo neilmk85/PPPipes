@@ -4,7 +4,7 @@ import {
   Plus, Search, FileText, X, Loader2, ChevronLeft, ChevronRight,
   Trash2, CheckCircle, Send, Ban,
   ArrowRightCircle, Eye, Mail, ClipboardList,
-  Building2, Percent, Pencil, Download,
+  Building2, Percent, Pencil, Download, Printer,
 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -56,9 +56,9 @@ function calcLine(item: LineItem) {
   return { base, disc, tax, total: afterDisc + tax }
 }
 
-// ─── PDF Download ─────────────────────────────────────────────────────────────
+// ─── PDF Builder ─────────────────────────────────────────────────────────────
 
-function downloadQuotationPdf(q: any) {
+function buildQuotationDoc(q: any) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   // Header bar
@@ -204,7 +204,17 @@ function downloadQuotationPdf(q: any) {
   doc.text('This is a computer generated quotation.', 14, pageH - 8)
   doc.text(`Generated on ${format(new Date(), 'dd MMM yyyy')}`, 196, pageH - 8, { align: 'right' })
 
-  doc.save(`Quotation-${q.quotationNumber ?? 'draft'}.pdf`)
+  return doc
+}
+
+function downloadQuotationPdf(q: any) {
+  buildQuotationDoc(q).save(`Quotation-${q.quotationNumber ?? 'draft'}.pdf`)
+}
+
+function printQuotationPdf(q: any) {
+  const doc = buildQuotationDoc(q)
+  doc.autoPrint()
+  window.open(doc.output('bloburl'), '_blank')
 }
 
 // ─── Product search dropdown ───────────────────────────────────────────────────
@@ -1367,6 +1377,10 @@ function ViewQuotationModal({ id, onClose, onStatusChange, onEdit }: { id: numbe
         {q && (
           <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-between shrink-0 rounded-b-2xl">
             <div className="flex gap-2">
+              <button onClick={() => printQuotationPdf(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-white transition-colors">
+                <Printer size={12} /> Print
+              </button>
               <button onClick={() => downloadQuotationPdf(q)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-white transition-colors">
                 <Download size={12} /> Download PDF
@@ -1571,7 +1585,8 @@ export default function QuotationsPage() {
                 </td>
               </tr>
             ) : filtered.map((q: any) => (
-              <tr key={q.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={q.id} onClick={() => setViewId(q.id)}
+                className="hover:bg-violet-50/40 transition-colors cursor-pointer">
                 <td className="px-4 py-3">
                   <span className="text-sm font-mono font-medium text-primary-600">{q.quotationNumber}</span>
                 </td>
@@ -1600,7 +1615,7 @@ export default function QuotationsPage() {
                 <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                   {q.createdAt ? format(new Date(q.createdAt), 'dd MMM yyyy') : '—'}
                 </td>
-                <td className="px-4 py-3 text-center">
+                <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-center gap-1">
                     <button onClick={() => setViewId(q.id)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors" title="View">
@@ -1612,6 +1627,10 @@ export default function QuotationsPage() {
                         <Pencil size={15} />
                       </button>
                     )}
+                    <button onClick={() => printQuotationPdf(q)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors" title="Print">
+                      <Printer size={15} />
+                    </button>
                     <button onClick={() => downloadQuotationPdf(q)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Download PDF">
                       <Download size={15} />

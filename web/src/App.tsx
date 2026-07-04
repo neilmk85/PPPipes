@@ -95,6 +95,8 @@ import ProjectDetailPage from '@/pages/site/ProjectDetailPage'
 import ContractorsPage from '@/pages/site/ContractorsPage'
 import WorkOrdersPage from '@/pages/site/WorkOrdersPage'
 import WorkBillsPage from '@/pages/site/WorkBillsPage'
+import NewWorkBillPage from '@/pages/site/NewWorkBillPage'
+import WorkBillInvoicePage from '@/pages/site/WorkBillInvoicePage'
 import MaterialIssuesPage from '@/pages/site/MaterialIssuesPage'
 import ProgressClaimsPage from '@/pages/site/ProgressClaimsPage'
 import DailyProgressPage from '@/pages/site/DailyProgressPage'
@@ -218,6 +220,8 @@ export default function App() {
           <Route path="/site/contractors" element={<ProtectedRoute><ContractorsPage /></ProtectedRoute>} />
           <Route path="/site/work-orders" element={<ProtectedRoute><WorkOrdersPage /></ProtectedRoute>} />
           <Route path="/site/work-bills" element={<ProtectedRoute><WorkBillsPage /></ProtectedRoute>} />
+          <Route path="/site/work-bills/new" element={<ProtectedRoute><NewWorkBillPage /></ProtectedRoute>} />
+          <Route path="/site/work-bills/:id/invoice" element={<ProtectedRoute><WorkBillInvoicePage /></ProtectedRoute>} />
           <Route path="/site/material-issues" element={<ProtectedRoute><MaterialIssuesPage /></ProtectedRoute>} />
           <Route path="/site/progress-claims" element={<ProtectedRoute><ProgressClaimsPage /></ProtectedRoute>} />
           <Route path="/site/daily-progress" element={<ProtectedRoute><DailyProgressPage /></ProtectedRoute>} />

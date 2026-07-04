@@ -29,7 +29,7 @@ export default function SiteFloatingNav({ theme = 'light', inline = false }: { t
     }}>
       <nav style={{
         display: 'flex', alignItems: 'center', gap: 2,
-        padding: '6px 8px',
+        padding: '8px 10px',
         borderRadius: 999,
         background: theme === 'dark'
           ? 'rgba(15,23,42,0.88)'
@@ -50,7 +50,7 @@ export default function SiteFloatingNav({ theme = 'light', inline = false }: { t
               key={item.key}
               onClick={() => navigate(`/site/${item.key}`)}
               style={{
-                padding: '7px 14px',
+                padding: '10px 16px',
                 borderRadius: 999,
                 border: 'none',
                 background: isActive ? '#0f172a' : 'transparent',
