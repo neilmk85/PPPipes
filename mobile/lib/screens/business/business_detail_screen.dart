@@ -15341,12 +15341,12 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   bool _submitting = false;
   // Coating-only: sand mix selection
   String _sandType = 'plaster'; // 'plaster' | 'crushed'
+  // Demoulding-only: bed type selection
+  String _bedType = 'SMALL_BED'; // 'SMALL_BED' | 'LARGE_BED'
   // Cache of pipeConfigId → COATING materials (fetched lazily for COATING stage)
   final Map<int, List<dynamic>> _coatingMaterials = {};
   // Cache of pipeConfigId → FABRICATION materials
   final Map<int, List<dynamic>> _fabricationMaterials = {};
-  // Shift selector (shared across all orders)
-  String _shift = '';
   // Cache: materialProductId → quantityOnHand (for FABRICATION stock check)
   final Map<int, double> _fabricationStock = {};
   // Total pipesProcessed already logged for this stage, per productionOrderId
@@ -15561,11 +15561,11 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
     );
   }
 
-  Widget _shiftBtn(String value, String label) {
-    final active = _shift == value;
+  Widget _bedTypeBtn(String value, String label) {
+    final active = _bedType == value;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _shift = value),
+        onTap: () => setState(() => _bedType = value),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 7),
@@ -15766,7 +15766,7 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           'pipesCompleted': completed,
           'pipesRejected': processed - completed,
           'entryDate': dateStr,
-          if (_shift.isNotEmpty) 'shiftName': _shift,
+          if (widget.stageType == 'DEMOULDING') 'bedType': _bedType,
           if (entry.notesCtrl.text.trim().isNotEmpty)
             'notes': entry.notesCtrl.text.trim(),
         };
@@ -15967,33 +15967,31 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           ),
           const SizedBox(height: 10),
         ],
-        // Shift selector
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(children: [
-            Text('Shift', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A2E))),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(10),
+        // Bed type selector (DEMOULDING only)
+        if (widget.stageType == 'DEMOULDING') ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(children: [
+              Text('Bed Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A2E))),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(children: [
+                    _bedTypeBtn('SMALL_BED', 'Small Bed'),
+                    const SizedBox(width: 3),
+                    _bedTypeBtn('LARGE_BED', 'Large Bed'),
+                  ]),
                 ),
-                child: Row(children: [
-                  _shiftBtn('', 'None'),
-                  const SizedBox(width: 3),
-                  _shiftBtn('A', 'Shift A'),
-                  const SizedBox(width: 3),
-                  _shiftBtn('B', 'Shift B'),
-                  const SizedBox(width: 3),
-                  _shiftBtn('C', 'Shift C'),
-                ]),
               ),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 10),
+            ]),
+          ),
+          const SizedBox(height: 10),
+        ],
         // Order list
         Expanded(
           child: _loading
