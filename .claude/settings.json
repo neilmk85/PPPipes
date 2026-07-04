@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 60,
+            "statusMessage": "Auto-committing session changes...",
+            "command": "cd /Users/nilesh/development/PPPipesProducts && FILES=$(git diff --name-only HEAD | grep -v '^go-backend/ppp-backend' | grep -v '^\\.dart_tool' | grep -v '^mobile/\\.dart_tool' | grep -v '^mobile/web/' | grep -v '^go-backend/ppp-backend-new') && if [ -n \"$FILES\" ]; then echo \"$FILES\" | xargs git add && git commit -m 'chore: auto-commit session changes' && git push origin main && echo '{\"systemMessage\": \"✓ Session changes committed and pushed to git\"}'; else echo '{\"systemMessage\": \"✓ No uncommitted changes\"}'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
