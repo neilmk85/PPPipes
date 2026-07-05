@@ -4,7 +4,7 @@ const NAV_ITEMS = [
   { key: 'projects',                  label: 'Projects',         disabled: false },
   { key: 'contractors',               label: 'Contractors',      disabled: false },
   { key: 'work-orders',               label: 'Work Orders',      disabled: false },
-  { key: 'material-stock',            label: 'Material Stock',   disabled: false },
+  { key: 'material-stock',            label: 'Material Stock',   disabled: true  },
   { key: 'work-bills',                label: 'Work Bills',       disabled: false },
   { key: 'material-issues',           label: 'Material Issues',  disabled: true  },
   { key: 'progress-claims',           label: 'Progress Claims',  disabled: true  },
