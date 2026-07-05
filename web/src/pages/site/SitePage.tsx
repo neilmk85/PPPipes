@@ -75,12 +75,14 @@ const CARDS: SiteCard[] = [
     description: 'Get a full picture of billing, contractor payments, outstanding balances and cost summary.',
     icon: <IndianRupee size={20} />, buttonLabel: 'View Report',
     accentColor: '#10b981', lightBg: '#ecfdf5', lightBorder: '#a7f3d0', lightText: '#065f46',
+    disabled: true,
   },
   {
     key: 'reports/progress-report', tag: 'ANALYTICS', label: 'Progress Report',
     description: 'Analyse phase-wise completion percentages, daily trends and project velocity over time.',
     icon: <TrendingUp size={20} />, buttonLabel: 'View Report',
     accentColor: '#8b5cf6', lightBg: '#f5f3ff', lightBorder: '#ddd6fe', lightText: '#5b21b6',
+    disabled: true,
   },
 ]
 
