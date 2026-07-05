@@ -14,6 +14,7 @@ interface SiteCard {
   lightBg: string
   lightBorder: string
   lightText: string
+  disabled?: boolean
 }
 
 const CARDS: SiteCard[] = [
@@ -40,30 +41,35 @@ const CARDS: SiteCard[] = [
     description: 'Monitor site inventory levels, material receipts and consumption at each project location.',
     icon: <Archive size={20} />, buttonLabel: 'View Stock',
     accentColor: '#14b8a6', lightBg: '#f0fdfa', lightBorder: '#99f6e4', lightText: '#0f766e',
+    disabled: true,
   },
   {
     key: 'work-bills', tag: 'BILLING', label: 'Work Bills',
     description: 'Raise and manage sub-contractor bills with GST, TDS deductions and payment tracking.',
     icon: <FileText size={20} />, buttonLabel: 'View Bills',
     accentColor: '#a855f7', lightBg: '#faf5ff', lightBorder: '#e9d5ff', lightText: '#7e22ce',
+    disabled: true,
   },
   {
     key: 'material-issues', tag: 'LOGISTICS', label: 'Material Issues',
     description: 'Record materials issued to contractors on-site with quantity, date and approval tracking.',
     icon: <Truck size={20} />, buttonLabel: 'View Issues',
     accentColor: '#22c55e', lightBg: '#f0fdf4', lightBorder: '#bbf7d0', lightText: '#15803d',
+    disabled: true,
   },
   {
     key: 'progress-claims', tag: 'CLAIMS', label: 'Progress Claims',
     description: 'Process contractor progress claims, verify completed work and approve payments.',
     icon: <ClipboardCheck size={20} />, buttonLabel: 'View Claims',
     accentColor: '#f43f5e', lightBg: '#fff1f2', lightBorder: '#fecdd3', lightText: '#be123c',
+    disabled: true,
   },
   {
     key: 'daily-progress', tag: 'TRACKING', label: 'Daily Progress',
     description: 'Log daily in-house work, labour attendance, equipment usage and site activity notes.',
     icon: <CalendarDays size={20} />, buttonLabel: 'View Progress',
     accentColor: '#06b6d4', lightBg: '#ecfeff', lightBorder: '#a5f3fc', lightText: '#0e7490',
+    disabled: true,
   },
   {
     key: 'reports/financial-summary', tag: 'REPORTS', label: 'Financial Report',
@@ -82,23 +88,25 @@ const CARDS: SiteCard[] = [
 function SiteCard({ card }: { card: SiteCard }) {
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
+  const active = hovered && !card.disabled
 
   return (
     <div
-      onClick={() => navigate(`/site/${card.key}`)}
+      onClick={() => !card.disabled && navigate(`/site/${card.key}`)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         background: '#ffffff',
         borderRadius: 16,
         padding: '28px 28px 24px',
-        cursor: 'pointer',
-        border: `1px solid ${hovered ? card.lightBorder : '#e2e8f0'}`,
-        boxShadow: hovered
+        cursor: card.disabled ? 'default' : 'pointer',
+        border: `1px solid ${active ? card.lightBorder : '#e2e8f0'}`,
+        boxShadow: active
           ? '0 16px 40px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.06)'
           : '0 1px 4px rgba(0,0,0,0.05)',
-        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
+        transform: active ? 'translateY(-4px)' : 'translateY(0)',
         transition: 'transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease',
+        opacity: card.disabled ? 0.55 : 1,
       }}
     >
       {/* Label */}
@@ -114,11 +122,11 @@ function SiteCard({ card }: { card: SiteCard }) {
       {/* CTA */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 5,
-        color: card.accentColor, fontWeight: 600, fontSize: 13,
-        transform: hovered ? 'translateX(4px)' : 'translateX(0)',
+        color: card.disabled ? '#94a3b8' : card.accentColor, fontWeight: 600, fontSize: 13,
+        transform: active ? 'translateX(4px)' : 'translateX(0)',
         transition: 'transform 0.22s ease',
       }}>
-        {card.buttonLabel} →
+        {card.disabled ? 'Coming Soon' : `${card.buttonLabel} →`}
       </div>
     </div>
   )
