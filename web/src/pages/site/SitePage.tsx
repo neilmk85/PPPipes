@@ -47,7 +47,6 @@ const CARDS: SiteCard[] = [
     description: 'Raise and manage sub-contractor bills with GST, TDS deductions and payment tracking.',
     icon: <FileText size={20} />, buttonLabel: 'View Bills',
     accentColor: '#a855f7', lightBg: '#faf5ff', lightBorder: '#e9d5ff', lightText: '#7e22ce',
-    disabled: true,
   },
   {
     key: 'material-issues', tag: 'LOGISTICS', label: 'Material Issues',

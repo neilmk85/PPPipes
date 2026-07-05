@@ -1,16 +1,16 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 
 const NAV_ITEMS = [
-  { key: 'projects',                  label: 'Projects' },
-  { key: 'contractors',               label: 'Contractors' },
-  { key: 'work-orders',               label: 'Work Orders' },
-  { key: 'material-stock',            label: 'Material Stock' },
-  { key: 'work-bills',                label: 'Work Bills' },
-  { key: 'material-issues',           label: 'Material Issues' },
-  { key: 'progress-claims',           label: 'Progress Claims' },
-  { key: 'daily-progress',            label: 'Daily Progress' },
-  { key: 'reports/financial-summary', label: 'Financial Report' },
-  { key: 'reports/progress-report',   label: 'Progress Report' },
+  { key: 'projects',                  label: 'Projects',         disabled: false },
+  { key: 'contractors',               label: 'Contractors',      disabled: false },
+  { key: 'work-orders',               label: 'Work Orders',      disabled: false },
+  { key: 'material-stock',            label: 'Material Stock',   disabled: false },
+  { key: 'work-bills',                label: 'Work Bills',       disabled: false },
+  { key: 'material-issues',           label: 'Material Issues',  disabled: true  },
+  { key: 'progress-claims',           label: 'Progress Claims',  disabled: true  },
+  { key: 'daily-progress',            label: 'Daily Progress',   disabled: true  },
+  { key: 'reports/financial-summary', label: 'Financial Report', disabled: true  },
+  { key: 'reports/progress-report',   label: 'Progress Report',  disabled: true  },
 ]
 
 type NavTheme = 'dark' | 'light'
@@ -48,31 +48,34 @@ export default function SiteFloatingNav({ theme = 'light', inline = false }: { t
           return (
             <button
               key={item.key}
-              onClick={() => navigate(`/site/${item.key}`)}
+              onClick={() => !item.disabled && navigate(`/site/${item.key}`)}
               style={{
                 padding: '10px 16px',
                 borderRadius: 999,
                 border: 'none',
                 background: isActive ? '#0f172a' : 'transparent',
-                color: isActive
-                  ? '#fff'
-                  : theme === 'dark' ? 'rgba(255,255,255,0.55)' : '#64748b',
+                color: item.disabled
+                  ? (theme === 'dark' ? 'rgba(255,255,255,0.25)' : '#cbd5e1')
+                  : isActive
+                    ? '#fff'
+                    : theme === 'dark' ? 'rgba(255,255,255,0.55)' : '#64748b',
                 fontSize: 12,
                 fontWeight: isActive ? 500 : 300,
                 fontFamily: '"Roboto", sans-serif',
-                cursor: 'pointer',
+                cursor: item.disabled ? 'default' : 'pointer',
                 whiteSpace: 'nowrap',
                 transition: 'background 0.18s ease, color 0.18s ease',
                 letterSpacing: isActive ? '0.03em' : '0.04em',
                 boxShadow: 'none',
+                opacity: item.disabled ? 0.5 : 1,
               }}
               onMouseEnter={e => {
-                if (isActive) return
+                if (isActive || item.disabled) return
                 e.currentTarget.style.background = theme === 'dark' ? 'rgba(255,255,255,0.10)' : '#f1f5f9'
                 e.currentTarget.style.color = theme === 'dark' ? '#fff' : '#0f172a'
               }}
               onMouseLeave={e => {
-                if (isActive) return
+                if (isActive || item.disabled) return
                 e.currentTarget.style.background = 'transparent'
                 e.currentTarget.style.color = theme === 'dark' ? 'rgba(255,255,255,0.55)' : '#64748b'
               }}
