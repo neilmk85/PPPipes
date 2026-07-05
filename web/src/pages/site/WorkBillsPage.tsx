@@ -858,9 +858,9 @@ function BillRow({ bill, onClick }: { bill: WorkBill; onClick: () => void }) {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 mb-1">
-            <span className="text-xs font-bold font-mono text-blue-500 bg-blue-50 px-2 py-0.5 rounded-lg">{bill.billNumber}</span>
+            <span className="text-xs font-bold font-mono text-blue-500">{bill.billNumber}</span>
             <span className="text-xs font-mono text-gray-400">{bill.woNumber}</span>
-            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${cfg.color}`}>
               {cfg.icon} {cfg.label}
             </span>
           </div>
