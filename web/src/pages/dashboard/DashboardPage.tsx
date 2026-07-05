@@ -371,10 +371,12 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50/60 p-6 space-y-6">
 
       {/* ── Hero header ──────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-700 via-violet-600 to-blue-600 shadow-[0_8px_40px_rgba(109,40,217,0.35)]">
-        {/* decorative blobs */}
-        <div className="pointer-events-none absolute -top-10 -right-10 w-56 h-56 rounded-full bg-white/5 blur-2xl" />
-        <div className="pointer-events-none absolute bottom-0 left-1/3 w-72 h-32 rounded-full bg-blue-400/10 blur-3xl" />
+      <div className="relative rounded-2xl bg-gradient-to-br from-violet-700 via-violet-600 to-blue-600 shadow-[0_8px_40px_rgba(109,40,217,0.35)]">
+        {/* decorative blobs — clipped separately so they don't escape */}
+        <div className="pointer-events-none absolute inset-0 rounded-2xl overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-56 h-56 rounded-full bg-white/5 blur-2xl" />
+          <div className="absolute bottom-0 left-1/3 w-72 h-32 rounded-full bg-blue-400/10 blur-3xl" />
+        </div>
         {/* dot grid */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
