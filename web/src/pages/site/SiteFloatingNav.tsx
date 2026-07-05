@@ -9,8 +9,8 @@ const NAV_ITEMS = [
   { key: 'material-issues',           label: 'Material Issues',  disabled: true  },
   { key: 'progress-claims',           label: 'Progress Claims',  disabled: true  },
   { key: 'daily-progress',            label: 'Daily Progress',   disabled: true  },
-  { key: 'reports/financial-summary',         label: 'Financial Report',      disabled: false },
-  { key: 'reports/progress-report',           label: 'Progress Report',       disabled: false },
+  { key: 'reports/financial-summary',         label: 'Financial Report',      disabled: true  },
+  { key: 'reports/progress-report',           label: 'Progress Report',       disabled: true  },
   { key: 'reports/work-bills-by-contractor',  label: 'Bills by Contractor',   disabled: false },
 ]
 
