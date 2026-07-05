@@ -971,7 +971,7 @@ export const workOrderApi = {
 }
 
 export const workBillApi = {
-  getAll: (params?: { search?: string; status?: string }) =>
+  getAll: (params?: { search?: string; status?: string; projectId?: number }) =>
     api.get<ApiResponse<any[]>>('/work-bills', { params }),
   getById: (id: number) => api.get<ApiResponse<any>>(`/work-bills/${id}`),
   create: (data: any) => api.post<ApiResponse<any>>('/work-bills', data),

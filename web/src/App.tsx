@@ -103,6 +103,7 @@ import DailyProgressPage from '@/pages/site/DailyProgressPage'
 import MaterialStockPage from '@/pages/site/MaterialStockPage'
 import FinancialSummaryPage from '@/pages/site/reports/FinancialSummaryPage'
 import ProgressReportPage from '@/pages/site/reports/ProgressReportPage'
+import WorkBillsReportPage from '@/pages/site/reports/WorkBillsReportPage'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 0 } }
@@ -228,6 +229,7 @@ export default function App() {
           <Route path="/site/material-stock" element={<ProtectedRoute><MaterialStockPage /></ProtectedRoute>} />
           <Route path="/site/reports/financial-summary" element={<ProtectedRoute><FinancialSummaryPage /></ProtectedRoute>} />
           <Route path="/site/reports/progress-report" element={<ProtectedRoute><ProgressReportPage /></ProtectedRoute>} />
+          <Route path="/site/reports/work-bills-by-contractor" element={<ProtectedRoute><WorkBillsReportPage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

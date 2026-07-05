@@ -85,7 +85,8 @@ func (r workBillRequest) toModel() models.WorkBill {
 func (h *WorkBillHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	search := r.URL.Query().Get("search")
 	status := r.URL.Query().Get("status")
-	bills, err := h.svc.GetAll(search, status)
+	projectID, _ := strconv.Atoi(r.URL.Query().Get("projectId"))
+	bills, err := h.svc.GetAll(search, status, projectID)
 	if err != nil {
 		util.SendError(w, http.StatusInternalServerError, err.Error())
 		return

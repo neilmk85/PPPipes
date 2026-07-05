@@ -84,6 +84,12 @@ const CARDS: SiteCard[] = [
     accentColor: '#8b5cf6', lightBg: '#f5f3ff', lightBorder: '#ddd6fe', lightText: '#5b21b6',
     disabled: true,
   },
+  {
+    key: 'reports/work-bills-by-contractor', tag: 'BILLING', label: 'Bills by Contractor',
+    description: 'Contractor-wise work bill summary with subtotal, GST, TDS, net payable, paid and outstanding.',
+    icon: <FileText size={20} />, buttonLabel: 'View Report',
+    accentColor: '#7c3aed', lightBg: '#f5f3ff', lightBorder: '#ddd6fe', lightText: '#5b21b6',
+  },
 ]
 
 function SiteCard({ card }: { card: SiteCard }) {

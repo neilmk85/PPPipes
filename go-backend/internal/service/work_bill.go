@@ -14,15 +14,19 @@ func NewWorkBillService(db *gorm.DB) *WorkBillService {
 	return &WorkBillService{db: db}
 }
 
-func (s *WorkBillService) GetAll(search string, status string) ([]models.WorkBill, error) {
+func (s *WorkBillService) GetAll(search string, status string, projectID int) ([]models.WorkBill, error) {
 	var bills []models.WorkBill
-	q := s.db.Preload("Items").Preload("Payments").Order("created_at DESC")
+	q := s.db.Preload("Items").Preload("Payments").Order("contractor_name ASC, created_at DESC")
+	if projectID != 0 {
+		q = q.Joins("JOIN work_orders ON work_orders.id = work_bills.work_order_id").
+			Where("work_orders.site_id = ?", projectID)
+	}
 	if search != "" {
 		like := "%" + search + "%"
-		q = q.Where("bill_number LIKE ? OR wo_number LIKE ? OR contractor_name LIKE ?", like, like, like)
+		q = q.Where("work_bills.bill_number LIKE ? OR work_bills.wo_number LIKE ? OR work_bills.contractor_name LIKE ?", like, like, like)
 	}
 	if status != "" && status != "ALL" {
-		q = q.Where("status = ?", status)
+		q = q.Where("work_bills.status = ?", status)
 	}
 	return bills, q.Find(&bills).Error
 }
