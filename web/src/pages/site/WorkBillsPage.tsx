@@ -115,12 +115,12 @@ function addDays(d: string, n: number) {
 // ─── Calculations ─────────────────────────────────────────────────────────────
 
 function calcBill(items: BillItem[], tdsRate: number, supplyType: SupplyType) {
-  const subtotal = items.reduce((s, it) => s + it.actualQty * it.rate, 0)
-  const gstTotal = items.reduce((s, it) => s + it.actualQty * it.rate * it.gstRate / 100, 0)
+  const subtotal = items.reduce((s, it) => s + Number(it.actualQty) * Number(it.rate), 0)
+  const gstTotal = items.reduce((s, it) => s + Number(it.actualQty) * Number(it.rate) * Number(it.gstRate) / 100, 0)
   const cgst = supplyType === 'INTRA_STATE' ? gstTotal / 2 : 0
   const sgst = supplyType === 'INTRA_STATE' ? gstTotal / 2 : 0
   const igst = supplyType === 'INTER_STATE' ? gstTotal : 0
-  const tds = subtotal * tdsRate / 100
+  const tds = subtotal * Number(tdsRate) / 100
   const netPayable = subtotal + gstTotal - tds
   return { subtotal, gstTotal, cgst, sgst, igst, tds, netPayable }
 }
@@ -531,7 +531,7 @@ function RecordPaymentModal({ bill, onClose, onDone }: {
   bill: WorkBill; onClose: () => void; onDone: () => void
 }) {
   const calc = calcBill(bill.items, bill.tdsRate, bill.supplyType)
-  const paid = bill.payments.reduce((s, p) => s + p.amount, 0)
+  const paid = bill.payments.reduce((s, p) => s + Number(p.amount), 0)
   const balance = calc.netPayable - paid
   const queryClient = useQueryClient()
 
@@ -639,7 +639,7 @@ function BillDetail({ bill, onClose, onUpdated }: {
   const navigate = useNavigate()
   const cfg = STATUS_CONFIG[bill.status]
   const calc = calcBill(bill.items, bill.tdsRate, bill.supplyType)
-  const paid = bill.payments.reduce((s, p) => s + p.amount, 0)
+  const paid = bill.payments.reduce((s, p) => s + Number(p.amount), 0)
   const balance = calc.netPayable - paid
   const queryClient = useQueryClient()
 
@@ -849,7 +849,7 @@ function BillDetail({ bill, onClose, onUpdated }: {
 function BillRow({ bill, onClick }: { bill: WorkBill; onClick: () => void }) {
   const cfg = STATUS_CONFIG[bill.status]
   const calc = calcBill(bill.items, bill.tdsRate, bill.supplyType)
-  const paid = bill.payments.reduce((s, p) => s + p.amount, 0)
+  const paid = bill.payments.reduce((s, p) => s + Number(p.amount), 0)
   const pct = calc.netPayable > 0 ? Math.min(100, (paid / calc.netPayable) * 100) : 0
 
   return (
@@ -874,12 +874,19 @@ function BillRow({ bill, onClick }: { bill: WorkBill; onClick: () => void }) {
             </span>
           </div>
           {bill.status !== 'DRAFT' && bill.status !== 'SUBMITTED' && (
-            <div className="mt-2.5 flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all"
-                  style={{ width: `${pct}%` }} />
+            <div className="mt-2.5">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all"
+                    style={{ width: `${pct}%` }} />
+                </div>
               </div>
-              <span className="text-xs text-gray-400 shrink-0">₹{fmt(paid)} paid</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-green-600 font-medium">₹{fmt(paid)} paid</span>
+                {calc.netPayable - paid > 0.01 && (
+                  <span className="text-xs text-orange-500 font-medium">₹{fmt(calc.netPayable - paid)} due</span>
+                )}
+              </div>
             </div>
           )}
         </div>
