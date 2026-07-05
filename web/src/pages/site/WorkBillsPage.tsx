@@ -928,8 +928,9 @@ export default function WorkBillsPage() {
     return acc
   }, {} as Record<string, number>)
 
-  const totalPayable = filtered.reduce((s, b) => s + calcBill(b.items, b.tdsRate, b.supplyType).netPayable, 0)
-  const totalPaid = filtered.reduce((s, b) => s + b.payments.reduce((ps, p) => ps + p.amount, 0), 0)
+  const approvedBills = bills.filter(b => b.status === 'APPROVED' || b.status === 'PAID' || b.status === 'SUBMITTED')
+  const totalPayable = approvedBills.reduce((s, b) => s + calcBill(b.items, b.tdsRate, b.supplyType).netPayable, 0)
+  const totalPaid = approvedBills.reduce((s, b) => s + b.payments.reduce((ps, p) => ps + Number(p.amount), 0), 0)
 
   return (
     <>
