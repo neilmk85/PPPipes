@@ -60,7 +60,14 @@ export default function LoginPage() {
       )
       navigate('/dashboard')
     } catch (err: any) {
-      setLoginError('Incorrect username or password. Please try again.')
+      const msg: string = err.response?.data?.message ?? ''
+      if (msg === 'User not found') {
+        setLoginError('No account found with this email address.')
+      } else if (msg === 'Invalid credentials') {
+        setLoginError('Incorrect password. Please try again.')
+      } else {
+        setLoginError('Login failed. Please check your email and password.')
+      }
     } finally {
       setLoading(false)
     }
