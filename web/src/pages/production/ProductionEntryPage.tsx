@@ -1843,21 +1843,20 @@ export default function ProductionEntryPage() {
 
           {/* Right: stat chips + stage badge + date */}
           <div className="flex items-center gap-2">
-            {[
-              { label: 'Active Orders', value: activeOrders.length,  warn: false },
-              { label: 'Orders Queued', value: selectedIds.length,   warn: selectedIds.length > 0 },
-            ].map(s => (
-              <div key={s.label} className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
-                <p className={`text-base font-extrabold tabular-nums leading-none ${s.warn ? 'text-amber-300' : 'text-white'}`}>{s.value}</p>
-                <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">{s.label}</p>
-              </div>
-            ))}
+            <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
+              <p className="text-base font-extrabold tabular-nums leading-none text-white">{activeOrders.length}</p>
+              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Active Orders</p>
+            </div>
             {selectedStage && (
               <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg">
                 {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
                 {PROD_STAGES.find(s => s.key === selectedStage)?.label}
               </div>
             )}
+            <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
+              <p className={`text-base font-extrabold tabular-nums leading-none ${selectedIds.length > 0 ? 'text-amber-300' : 'text-white'}`}>{selectedIds.length}</p>
+              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Orders Queued</p>
+            </div>
             <div className="ml-2 border-l border-white/15 pl-4">
               <p className="text-[11px] text-blue-200 font-medium whitespace-nowrap">{today}</p>
             </div>
