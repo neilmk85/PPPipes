@@ -62,11 +62,15 @@ export default function PipeConfigsPage() {
               <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Production</p>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Pipe Configurations</h1>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-white text-xs font-bold tabular-nums">{configs.length} total</span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-green-400/20 border border-green-300/30 text-green-200 text-xs font-bold tabular-nums">{activeCount} active</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-white text-sm font-bold tabular-nums">{configs.length} total</span>
+                  <span className="w-px h-3.5 bg-white/30" />
+                  <span className="text-green-200 text-sm font-bold tabular-nums">{activeCount} active</span>
                   {inactiveCount > 0 && (
-                    <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-300/30 text-amber-200 text-xs font-bold tabular-nums">{inactiveCount} inactive</span>
+                    <>
+                      <span className="w-px h-3.5 bg-white/30" />
+                      <span className="text-amber-200 text-sm font-bold tabular-nums">{inactiveCount} inactive</span>
+                    </>
                   )}
                 </div>
               </div>
