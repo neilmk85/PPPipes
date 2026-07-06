@@ -1845,9 +1845,9 @@ export default function ProductionEntryPage() {
           <div className="flex items-center gap-2">
             {selectedStage && (
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-white">Selected —</span>
-                {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={16} className="text-amber-300" /> : null })()}
-                <span className="text-base font-extrabold text-amber-300">{PROD_STAGES.find(s => s.key === selectedStage)?.label}</span>
+                <span className="text-xl font-semibold text-white">Selected —</span>
+                {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={22} className="text-amber-300" /> : null })()}
+                <span className="text-xl font-extrabold text-amber-300">{PROD_STAGES.find(s => s.key === selectedStage)?.label}</span>
               </div>
             )}
             <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
