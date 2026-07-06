@@ -20,14 +20,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPass, setShowPass] = useState(false)
   const [visible, setVisible] = useState(false)
+  const [loginError, setLoginError] = useState('')
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'admin@pppipeproducts.com',
       password: 'admin@123',
     },
   })
+
+  const watchedFields = watch(['email', 'password'])
+  useEffect(() => { setLoginError('') }, [watchedFields[0], watchedFields[1]])
 
   // fade-in on mount
   useEffect(() => {
@@ -37,6 +41,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true)
+    setLoginError('')
     try {
       const res = await authApi.login(data.email, data.password)
       const { data: auth } = res.data
@@ -55,7 +60,7 @@ export default function LoginPage() {
       )
       navigate('/dashboard')
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Login failed')
+      setLoginError('Incorrect username or password. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -263,6 +268,18 @@ export default function LoginPage() {
               <p className="text-[#fca5a5] text-xs mt-1.5">{errors.password.message}</p>
             )}
           </div>
+
+          {/* Login error */}
+          {loginError && (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
+              style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="#fca5a5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p className="text-[#fca5a5] text-sm">{loginError}</p>
+            </div>
+          )}
 
           {/* Sign In button */}
           <div className="pt-2">
