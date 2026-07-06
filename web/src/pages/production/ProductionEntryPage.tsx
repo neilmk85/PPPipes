@@ -193,12 +193,12 @@ function ProductionStageTable({ selectedStage }: { selectedStage: string }) {
                             {done > 0 ? `${done} ✓` : '—'}
                           </span>
                           {/* Due */}
-                          <span className={`tabular-nums text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                          <span className={`tabular-nums text-[10px] font-medium ${
                             due === 0
                               ? 'text-gray-300'
                               : due === planned
-                                ? 'bg-red-50 text-red-500'
-                                : 'bg-amber-50 text-amber-600'
+                                ? 'text-red-500'
+                                : 'text-amber-600'
                           }`}>
                             {due === 0 ? 'done' : `${due} due`}
                           </span>
@@ -231,8 +231,8 @@ function ProductionStageTable({ selectedStage }: { selectedStage: string }) {
                       <span className={`tabular-nums font-bold ${totalDone > 0 ? 'text-green-700' : 'text-gray-300'}`}>
                         {totalDone > 0 ? `${totalDone} ✓` : '—'}
                       </span>
-                      <span className={`tabular-nums text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                        totalDue === 0 ? 'text-gray-300' : 'bg-amber-50 text-amber-700'
+                      <span className={`tabular-nums text-[10px] font-semibold ${
+                        totalDue === 0 ? 'text-gray-300' : 'text-amber-700'
                       }`}>
                         {totalDue === 0 ? 'done' : `${totalDue} due`}
                       </span>
