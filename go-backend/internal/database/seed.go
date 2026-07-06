@@ -244,6 +244,11 @@ func Seed(db *gorm.DB) error {
 		return err
 	}
 
+	// 7. Seed pipe configs (5.25m and 6.5m) with material consumption rows
+	if err := SeedPipeConfigs(db); err != nil {
+		return err
+	}
+
 	slog.Info("[Database] All seed data inserted successfully")
 	return nil
 }
