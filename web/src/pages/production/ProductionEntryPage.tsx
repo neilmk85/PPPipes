@@ -1830,26 +1830,18 @@ export default function ProductionEntryPage() {
           style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
         <div className="relative flex items-center justify-between px-8 py-4">
-          {/* Left: icon + title + selected stage badge */}
+          {/* Left: icon + title */}
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner flex-shrink-0">
               <PenLine size={18} className="text-amber-300" />
             </div>
             <div>
               <p className="text-[10px] font-semibold text-blue-200 uppercase tracking-widest">Production</p>
-              <div className="flex items-center gap-3">
-                <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">Process Entry</h1>
-                {selectedStage ? (
-                  <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-1.5 rounded-full shadow-lg">
-                    {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
-                    {PROD_STAGES.find(s => s.key === selectedStage)?.label}
-                  </div>
-                ) : null}
-              </div>
+              <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">Process Entry</h1>
             </div>
           </div>
 
-          {/* Right: stat chips + date */}
+          {/* Right: stat chips + stage badge + date */}
           <div className="flex items-center gap-2">
             {[
               { label: 'Active Orders', value: activeOrders.length,  warn: false },
@@ -1860,6 +1852,12 @@ export default function ProductionEntryPage() {
                 <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">{s.label}</p>
               </div>
             ))}
+            {selectedStage && (
+              <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg">
+                {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
+                {PROD_STAGES.find(s => s.key === selectedStage)?.label}
+              </div>
+            )}
             <div className="ml-2 border-l border-white/15 pl-4">
               <p className="text-[11px] text-blue-200 font-medium whitespace-nowrap">{today}</p>
             </div>
