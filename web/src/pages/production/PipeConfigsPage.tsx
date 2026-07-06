@@ -60,7 +60,16 @@ export default function PipeConfigsPage() {
             </div>
             <div>
               <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Production</p>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Pipe Configurations</h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Pipe Configurations</h1>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-white/15 border border-white/20 text-white text-xs font-bold tabular-nums">{configs.length} total</span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-green-400/20 border border-green-300/30 text-green-200 text-xs font-bold tabular-nums">{activeCount} active</span>
+                  {inactiveCount > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-300/30 text-amber-200 text-xs font-bold tabular-nums">{inactiveCount} inactive</span>
+                  )}
+                </div>
+              </div>
               <p className="text-sm text-blue-200 mt-0.5">Manage PCCP pipe types and raw material formulas</p>
             </div>
           </div>
@@ -72,58 +81,43 @@ export default function PipeConfigsPage() {
           </button>
         </div>
 
-        {/* Stat strip */}
-        <div className="relative border-t border-white/10 grid grid-cols-3 divide-x divide-white/10">
-          {[
-            { label: 'Total Configs', value: configs.length,  sub: 'all pipe types' },
-            { label: 'Active',        value: activeCount,     sub: 'in production',  warn: false },
-            { label: 'Inactive',      value: inactiveCount,   sub: 'deactivated',    warn: inactiveCount > 0 },
-          ].map(s => (
-            <div key={s.label} className="px-6 py-3.5">
-              <p className={`text-xl font-extrabold tabular-nums leading-none ${s.warn ? 'text-amber-300' : 'text-white'}`}>{s.value}</p>
-              <p className="text-xs text-blue-200 mt-0.5">{s.label}</p>
-              <p className="text-[10px] text-white/40 mt-0.5">{s.sub}</p>
-            </div>
-          ))}
+        {/* Search & Filters */}
+        <div className="relative border-t border-white/10 px-8 py-4 flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={15} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name..."
+              className="pl-9 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/15 transition-all w-52"
+            />
+          </div>
+          <select
+            value={filterDiam}
+            onChange={e => setFilterDiam(e.target.value)}
+            className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30 transition-all [&>option]:text-gray-900"
+          >
+            <option value="">All Diameters</option>
+            {PIPE_DIAMETERS.map(d => <option key={d} value={d}>{d}mm</option>)}
+          </select>
+          <select
+            value={filterPc}
+            onChange={e => setFilterPc(e.target.value)}
+            className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30 transition-all [&>option]:text-gray-900"
+          >
+            <option value="">All Pressure Classes</option>
+            {PRESSURE_CLASSES.map(pc => <option key={pc} value={pc}>{pc}</option>)}
+          </select>
+          <select
+            value={filterLen}
+            onChange={e => setFilterLen(e.target.value)}
+            className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white font-medium focus:outline-none focus:ring-2 focus:ring-white/30 transition-all [&>option]:text-gray-900"
+          >
+            <option value="">All Lengths</option>
+            <option value="5.25">5.25m</option>
+            <option value="6.5">6.5m</option>
+          </select>
         </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name..."
-            className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
-        <select
-          value={filterDiam}
-          onChange={e => setFilterDiam(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-        >
-          <option value="">All Diameters</option>
-          {PIPE_DIAMETERS.map(d => <option key={d} value={d}>{d}mm</option>)}
-        </select>
-        <select
-          value={filterPc}
-          onChange={e => setFilterPc(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-        >
-          <option value="">All Pressure Classes</option>
-          {PRESSURE_CLASSES.map(pc => <option key={pc} value={pc}>{pc}</option>)}
-        </select>
-        <select
-          value={filterLen}
-          onChange={e => setFilterLen(e.target.value)}
-          className="border border-violet-300 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
-        >
-          <option value="">All Lengths</option>
-          <option value="5.25">5.25m</option>
-          <option value="6.5">6.5m</option>
-        </select>
       </div>
 
       {/* Grid */}
