@@ -438,10 +438,11 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	case "orders":
 		num := label(req, resp, "orderNumber", "order_number", "number")
 		base := descLine(action, "order", num)
-		if action == "CREATED" {
-			if total := label(req, resp, "totalAmount", "total"); total != "" {
-				base += " — total: ₹" + total
-			}
+		if customer := nestedRespField(resp, "customer", "name"); customer != "" {
+			base += " — customer: " + customer
+		}
+		if total := label(req, resp, "totalAmount", "total"); total != "" {
+			base += " — ₹" + total
 		}
 		return action, "ORDERS", base
 
@@ -449,6 +450,9 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	case "invoices":
 		num := label(req, resp, "invoiceNumber", "invoice_number", "number")
 		base := descLine(action, "invoice", num)
+		if customer := nestedRespField(resp, "customer", "name"); customer != "" {
+			base += " — customer: " + customer
+		}
 		if total := label(req, resp, "totalAmount", "grandTotal"); total != "" {
 			base += " — ₹" + total
 		}
@@ -457,7 +461,14 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	// ── Quotations ────────────────────────────────────────────────────────────
 	case "quotations":
 		num := label(req, resp, "quotationNumber", "quotation_number", "number")
-		return action, "QUOTATIONS", descLine(action, "quotation", num)
+		base := descLine(action, "quotation", num)
+		if customer := nestedRespField(resp, "customer", "name"); customer != "" {
+			base += " — customer: " + customer
+		}
+		if total := label(req, resp, "totalAmount", "grandTotal"); total != "" {
+			base += " — ₹" + total
+		}
+		return action, "QUOTATIONS", base
 
 	// ── Sales orders ──────────────────────────────────────────────────────────
 	case "sales-orders":
@@ -481,8 +492,15 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	case "purchase-orders":
 		num := label(req, resp, "poNumber", "orderNumber", "number")
 		base := descLine(action, "purchase order", num)
-		if vendor := label(req, resp, "vendorName", "vendor"); vendor != "" {
+		vendor := label(req, resp, "vendorName", "vendor")
+		if vendor == "" {
+			vendor = nestedRespField(resp, "vendor", "name")
+		}
+		if vendor != "" {
 			base += " — vendor: " + vendor
+		}
+		if total := label(req, resp, "totalAmount", "grandTotal"); total != "" {
+			base += " — ₹" + total
 		}
 		return action, "PURCHASES", base
 
@@ -490,6 +508,13 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	case "purchase-bills":
 		num := label(req, resp, "billNumber", "invoiceNumber", "number")
 		base := descLine(action, "purchase bill", num)
+		vendor := label(req, resp, "vendorName")
+		if vendor == "" {
+			vendor = nestedRespField(resp, "vendor", "name")
+		}
+		if vendor != "" {
+			base += " — vendor: " + vendor
+		}
 		if total := label(req, resp, "totalAmount", "grandTotal"); total != "" {
 			base += " — ₹" + total
 		}
@@ -498,17 +523,35 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	// ── Bulk purchases ────────────────────────────────────────────────────────
 	case "bulk-purchases":
 		num := label(req, resp, "referenceNumber", "number")
-		return action, "PURCHASES", descLine(action, "bulk purchase", num)
+		base := descLine(action, "bulk purchase", num)
+		if vendor := label(req, resp, "vendorName"); vendor != "" {
+			base += " — vendor: " + vendor
+		}
+		if total := label(req, resp, "totalAmount", "grandTotal"); total != "" {
+			base += " — ₹" + total
+		}
+		return action, "PURCHASES", base
 
 	// ── Purchase returns ──────────────────────────────────────────────────────
 	case "purchase-returns":
 		num := label(req, resp, "returnNumber", "referenceNumber", "number")
-		return action, "PURCHASES", descLine(action, "purchase return", num)
+		base := descLine(action, "purchase return", num)
+		if vendor := nestedRespField(resp, "vendor", "name"); vendor != "" {
+			base += " — vendor: " + vendor
+		}
+		return action, "PURCHASES", base
 
 	// ── Credit notes ──────────────────────────────────────────────────────────
 	case "credit-notes":
 		num := label(req, resp, "creditNoteNumber", "number")
-		return action, "CREDIT_NOTES", descLine(action, "credit note", num)
+		base := descLine(action, "credit note", num)
+		if customer := nestedRespField(resp, "customer", "name"); customer != "" {
+			base += " — customer: " + customer
+		}
+		if amt := label(req, resp, "totalAmount", "amount"); amt != "" {
+			base += " — ₹" + amt
+		}
+		return action, "CREDIT_NOTES", base
 
 	// ── Inventory ─────────────────────────────────────────────────────────────
 	case "inventory":
@@ -636,14 +679,28 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	case "vendor-payments":
 		ref := label(req, resp, "referenceNumber", "number")
 		base := descLine(action, "vendor payment", ref)
-		if amt := label(req, resp, "amount"); amt != "" {
+		vendor := label(req, resp, "vendorName")
+		if vendor == "" {
+			vendor = nestedRespField(resp, "vendor", "name")
+		}
+		if vendor != "" {
+			base += " — vendor: " + vendor
+		}
+		if amt := label(req, resp, "amount", "totalAmount"); amt != "" {
 			base += " — ₹" + amt
 		}
 		return action, "PURCHASES", base
 
 	case "vendor-credits":
 		ref := label(req, resp, "referenceNumber", "number")
-		return action, "PURCHASES", descLine(action, "vendor credit", ref)
+		base := descLine(action, "vendor credit", ref)
+		if vendor := nestedRespField(resp, "vendor", "name"); vendor != "" {
+			base += " — vendor: " + vendor
+		}
+		if amt := label(req, resp, "amount", "totalAmount"); amt != "" {
+			base += " — ₹" + amt
+		}
+		return action, "PURCHASES", base
 
 	// ── Default ───────────────────────────────────────────────────────────────
 	default:
