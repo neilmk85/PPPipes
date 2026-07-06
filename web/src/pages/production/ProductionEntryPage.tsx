@@ -355,7 +355,7 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
                     </span>
                     {o.diameterMm > 0 && (
                       <span className="text-xs text-gray-400 shrink-0">
-                        {o.diameterMm}mm · {o.pressureClass}
+                        {o.diameterMm}mm · {o.pressureClass} · {o.lengthM ?? 5.25}m
                       </span>
                     )}
                     <span className="shrink-0 text-[10px] font-semibold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-100">
