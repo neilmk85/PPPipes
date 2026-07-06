@@ -1830,41 +1830,38 @@ export default function ProductionEntryPage() {
           style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
         <div className="relative flex items-center justify-between px-8 py-4">
-          {/* Left: icon + title */}
+          {/* Left: icon + title + selected stage badge */}
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner flex-shrink-0">
               <PenLine size={18} className="text-amber-300" />
             </div>
             <div>
               <p className="text-[10px] font-semibold text-blue-200 uppercase tracking-widest">Production</p>
-              <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">Process Entry</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-lg font-extrabold text-white tracking-tight leading-tight">Process Entry</h1>
+                {selectedStage ? (
+                  <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-1.5 rounded-full shadow-lg">
+                    {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
+                    {PROD_STAGES.find(s => s.key === selectedStage)?.label}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
           {/* Right: stat chips + date */}
           <div className="flex items-center gap-2">
             {[
-              { label: 'Active Orders', value: activeOrders.length,  sub: 'available to log',  warn: false },
-              { label: 'Stage Selected', value: selectedStage ? PROD_STAGES.find(s => s.key === selectedStage)?.label ?? '—' : '—', sub: selectedStage ? 'current stage' : 'none yet', warn: false },
-              { label: 'Orders Queued', value: selectedIds.length,   sub: 'ready to save',     warn: selectedIds.length > 0 },
+              { label: 'Active Orders', value: activeOrders.length,  warn: false },
+              { label: 'Orders Queued', value: selectedIds.length,   warn: selectedIds.length > 0 },
             ].map(s => (
               <div key={s.label} className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
                 <p className={`text-base font-extrabold tabular-nums leading-none ${s.warn ? 'text-amber-300' : 'text-white'}`}>{s.value}</p>
                 <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">{s.label}</p>
               </div>
             ))}
-            <div className="ml-2 border-l border-white/15 pl-4 flex flex-col items-end gap-1.5">
+            <div className="ml-2 border-l border-white/15 pl-4">
               <p className="text-[11px] text-blue-200 font-medium whitespace-nowrap">{today}</p>
-              {selectedStage ? (
-                <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-1.5 rounded-full shadow-lg">
-                  {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
-                  {PROD_STAGES.find(s => s.key === selectedStage)?.label}
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 text-white/50 text-xs px-3 py-1.5 rounded-full">
-                  No stage selected
-                </div>
-              )}
             </div>
           </div>
         </div>
