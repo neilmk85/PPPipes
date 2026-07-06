@@ -197,3 +197,75 @@ All third-party pipe purchases are stored in `biz_third_party_pipe_purchases` an
 - **Backend:** `hold_reason`, `hold_at`, `hold_qty_produced` columns on `production_orders` table (auto-migrated). Resuming from hold clears all three fields.
 
 ---
+
+## REQ-007 · 6.5m Pipe Config Support
+**Status:** Implemented
+
+Two pipe lengths are now supported alongside each other: the original **5.25m** and the new **6.5m**. The 6.5m quantities are the 5.25m values × 1.24 (sourced from `pccp_formulas_6.5m_scaled_2dp.xlsx`).
+
+### Files Changed
+| File | Change |
+|---|---|
+| `go-backend/internal/database/seed_pipe_configs.go` | **New file** — seeds 230 pipe configs per length (460 total) in two clearly labelled sections: 5.25m and 6.5m. Idempotent (uses FirstOrCreate). |
+| `go-backend/internal/database/seed.go` | Added step 7 call to `SeedPipeConfigs(db)` so seed runs on every backend startup. |
+
+### Pipe Configs Page (`/production/pipe-configs`)
+| File | Change |
+|---|---|
+| `web/src/pages/production/PipeConfigsPage.tsx` | Added `filterLen` state and a **Length filter dropdown** (All / 5.25m / 6.5m). Configs are grouped into two colour-coded sections: blue header for 5.25m, violet header for 6.5m. |
+
+### Production Entry Dropdown (`/production/entry`)
+| File | Change |
+|---|---|
+| `web/src/pages/production/ProductionEntryPage.tsx` | Pipe search dropdown now shows the pipe length alongside diameter and pressure class — e.g. `350mm · 10kg · 5.25m` or `350mm · 4kg · 6.5m`. |
+| `go-backend/internal/service/production_order.go` | `OrderSummary` struct already included `LengthM float64` and the `GetSummaries` query already selected `COALESCE(pc.length_m, 5.25) AS length_m` — no backend change needed. |
+
+---
+
+## REQ-008 · Extra Large Bed Type
+**Status:** Implemented
+
+A third bed size — **Extra Large** — added alongside Small Bed and Large Bed for production demoulding and spinning entries.
+
+### Backend
+| File | Change |
+|---|---|
+| `go-backend/internal/models/production_enums.go` | Added `BedExtraLarge BedType = "EXTRA_LARGE_BED"` constant. |
+| `go-backend/internal/service/production_entry.go` | Updated bed type validation in both DEMOULDING (required) and SPINNING (optional) blocks to accept `"EXTRA_LARGE_BED"`. Error message updated to `"bedType must be SMALL_BED, LARGE_BED or EXTRA_LARGE_BED"`. |
+
+### Web — Types & Services
+| File | Change |
+|---|---|
+| `web/src/types/index.ts` | `BED_TYPES` constant: added `{ key: 'EXTRA_LARGE_BED', label: 'Extra Large Bed' }`. `ProductionEntry.bedType` union extended to include `'EXTRA_LARGE_BED'`. |
+| `web/src/services/businessApi.ts` | `SpinningBedRate.bedSize` union extended to include `'EXTRA_LARGE_BED'`. |
+
+### Web — Pages
+| File | Change |
+|---|---|
+| `web/src/pages/production/ProductionEntryPage.tsx` | Bed type selector uses `BED_TYPES.map()` — Extra Large button appears automatically on DEMOULDING (required) and SPINNING (optional) entry forms. |
+| `web/src/pages/production/SpinningReportPage.tsx` | `BED_LABEL` map updated; "Extra Large Bed" stat added to summary strip; green badge for `EXTRA_LARGE_BED` rows. |
+| `web/src/pages/production/ProductionReportsPage.tsx` | `BED_LABEL` map updated; green badge for `EXTRA_LARGE_BED` rows. |
+| `web/src/pages/business/BusinessSettingsPage.tsx` | Spinning Rates table: added "Extra Large Bed (₹/pipe)" column with input cells per diameter row. State, load, and save logic all include `EXTRA_LARGE_BED`. |
+
+### Mobile
+| File | Change |
+|---|---|
+| `mobile/lib/screens/business/business_detail_screen.dart` | Third bed type button `_bedTypeBtn('EXTRA_LARGE_BED', 'Extra Large')` added to the bed selector row in the DEMOULDING entry form. State variable comment updated to include `'EXTRA_LARGE_BED'`. |
+
+---
+
+## REQ-009 · Fabrication Stage — Remove Spurious "Previous Stage" Banner
+**Page:** `/production/entry`
+**Status:** Implemented
+
+On the Process Entry page, selecting the **Fabrication** stage (Step 1) previously showed a misleading blue info banner: *"Previous stage (Fabrication): N pipes completed"* — referencing the stage itself as its own prior stage.
+
+### Root Cause
+The backend `GetPriorStageCompleted` endpoint returned the order's `PlannedQty` labelled as a Fabrication completion when `stage index == 0`, instead of returning nothing.
+
+### Files Changed
+| File | Change |
+|---|---|
+| `go-backend/internal/service/production_entry.go` | `GetPriorStageCompleted`: when `idx == 0` (Fabrication is the first stage), now returns `nil, nil` instead of a self-referencing entry. The frontend already conditionally renders `{priorStageData && ...}` so the banner is suppressed automatically. |
+
+---
