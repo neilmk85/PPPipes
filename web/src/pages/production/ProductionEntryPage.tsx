@@ -481,7 +481,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
     const inv = inventoryResults[idx]?.data
     const available = parseFloat(String(inv?.quantityOnHand ?? 0))
     const qtyPerPipe = parseFloat(String(mat.quantityPerPipe)) || 0
-    const maxPipes = qtyPerPipe > 0 ? Math.floor(available / qtyPerPipe) : Infinity
+    const maxPipes = qtyPerPipe > 0 ? Math.max(0, Math.floor(available / qtyPerPipe)) : Infinity
     const required = qtyPerPipe * pipesEntered
     return {
       name: mat.materialProduct?.name ?? `Material #${mat.materialProductId}`,
