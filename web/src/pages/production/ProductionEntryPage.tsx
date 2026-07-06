@@ -1986,10 +1986,10 @@ export default function ProductionEntryPage() {
         </div>
 
         {selectedStage && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">Selected:</span>
-            <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-violet-50 to-blue-50 border border-violet-200 text-violet-700 text-xs font-semibold px-3 py-1 rounded-full">
-              {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={11} /> : null })()}
+          <div className="flex items-center gap-2.5">
+            <span className="text-sm text-gray-400 font-medium">Selected:</span>
+            <span className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 text-white text-sm font-bold px-4 py-1.5 rounded-full shadow-md shadow-violet-200">
+              {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
               {PROD_STAGES.find(s => s.key === selectedStage)?.label}
             </span>
           </div>
