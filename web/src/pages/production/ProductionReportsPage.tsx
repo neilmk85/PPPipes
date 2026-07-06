@@ -603,9 +603,10 @@ function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
 // ── Tab 4: Contractor Costs ───────────────────────────────────────────────────
 
 const BED_LABEL: Record<string, string> = {
-  SMALL_BED: 'Small Bed',
-  LARGE_BED: 'Large Bed',
-  UNKNOWN:   'Unknown',
+  SMALL_BED:       'Small Bed',
+  LARGE_BED:       'Large Bed',
+  EXTRA_LARGE_BED: 'Extra Large Bed',
+  UNKNOWN:         'Unknown',
 }
 
 type ProcessFilter = 'all' | 'FABRICATION' | 'SPINNING' | 'COATING'
@@ -779,8 +780,9 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
                   <td className="px-4 py-3 text-right">{r.diameterMm}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      r.bedSize === 'SMALL_BED' ? 'bg-amber-100 text-amber-700' :
-                      r.bedSize === 'LARGE_BED' ? 'bg-blue-100 text-blue-700' :
+                      r.bedSize === 'SMALL_BED'       ? 'bg-amber-100 text-amber-700' :
+                      r.bedSize === 'LARGE_BED'       ? 'bg-blue-100 text-blue-700' :
+                      r.bedSize === 'EXTRA_LARGE_BED' ? 'bg-green-100 text-green-700' :
                       'bg-gray-100 text-gray-500'
                     }`}>
                       {BED_LABEL[r.bedSize] ?? r.bedSize}

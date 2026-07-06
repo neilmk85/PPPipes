@@ -305,8 +305,9 @@ export const PROD_STAGES = [
 export const MATERIAL_STAGES = ['FABRICATION', 'SPINNING', 'WINDING', 'COATING']
 
 export const BED_TYPES = [
-  { key: 'SMALL_BED', label: 'Small Bed' },
-  { key: 'LARGE_BED', label: 'Large Bed' },
+  { key: 'SMALL_BED',       label: 'Small Bed' },
+  { key: 'LARGE_BED',       label: 'Large Bed' },
+  { key: 'EXTRA_LARGE_BED', label: 'Extra Large Bed' },
 ] as const
 
 export const MACHINE_TYPES = [
@@ -408,7 +409,7 @@ export interface ProductionEntry {
   pipesRejected: number
   entryDate: string
   notes?: string
-  bedType?: 'SMALL_BED' | 'LARGE_BED'
+  bedType?: 'SMALL_BED' | 'LARGE_BED' | 'EXTRA_LARGE_BED'
   machineId?: number
   shiftName?: 'A' | 'B' | 'C'
   createdAt: string

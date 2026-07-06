@@ -164,15 +164,16 @@ function CoatingRatesSection() {
 
 // ─── Spinning Rates ───────────────────────────────────────────────────────────
 
-const SPINNING_DIAMETERS_LARGE = [500, 600, 700, 800, 900, 1000, 1100, 1200]
-const SPINNING_DIAMETERS_SMALL = [500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1600, 1700]
-const ALL_SPINNING_DIAMETERS   = [...new Set([...SPINNING_DIAMETERS_LARGE, ...SPINNING_DIAMETERS_SMALL])].sort((a, b) => a - b)
+const SPINNING_DIAMETERS_LARGE       = [500, 600, 700, 800, 900, 1000, 1100, 1200]
+const SPINNING_DIAMETERS_SMALL       = [500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1600, 1700]
+const SPINNING_DIAMETERS_EXTRA_LARGE = [500, 600, 700, 800, 900, 1000, 1100, 1200]
+const ALL_SPINNING_DIAMETERS         = [...new Set([...SPINNING_DIAMETERS_LARGE, ...SPINNING_DIAMETERS_SMALL, ...SPINNING_DIAMETERS_EXTRA_LARGE])].sort((a, b) => a - b)
 
 function SpinningRatesSection() {
   const qc = useQueryClient()
   // rates[bedSize][diameterMm] = ratePerPipe string
   const [rates, setRates] = useState<Record<string, Record<number, string>>>({
-    SMALL_BED: {}, LARGE_BED: {},
+    SMALL_BED: {}, LARGE_BED: {}, EXTRA_LARGE_BED: {},
   })
 
   const { data: existing, isLoading } = useQuery({
@@ -182,7 +183,7 @@ function SpinningRatesSection() {
 
   useEffect(() => {
     if (existing) {
-      const map: Record<string, Record<number, string>> = { SMALL_BED: {}, LARGE_BED: {} }
+      const map: Record<string, Record<number, string>> = { SMALL_BED: {}, LARGE_BED: {}, EXTRA_LARGE_BED: {} }
       existing.forEach(r => {
         if (!map[r.bedSize]) map[r.bedSize] = {}
         map[r.bedSize][r.diameterMm] = r.ratePerPipe
@@ -194,7 +195,7 @@ function SpinningRatesSection() {
   const saveMut = useMutation({
     mutationFn: () => {
       const payload: { bedSize: string; diameterMm: number; ratePerPipe: string }[] = []
-      for (const bed of ['SMALL_BED', 'LARGE_BED']) {
+      for (const bed of ['SMALL_BED', 'LARGE_BED', 'EXTRA_LARGE_BED']) {
         for (const dia of ALL_SPINNING_DIAMETERS) {
           const v = rates[bed]?.[dia]
           if (v && parseFloat(v) > 0) payload.push({ bedSize: bed, diameterMm: dia, ratePerPipe: v })
@@ -227,7 +228,7 @@ function SpinningRatesSection() {
           </div>
           <div>
             <h2 className="text-sm font-bold text-white">Spinning Contractor Rates</h2>
-            <p className="text-xs text-blue-100">Rate per pipe by diameter and bed size (Small / Large)</p>
+            <p className="text-xs text-blue-100">Rate per pipe by diameter and bed size (Small / Large / Extra Large)</p>
           </div>
         </div>
         <button
@@ -257,12 +258,16 @@ function SpinningRatesSection() {
                 <th className="py-2 px-3 text-center font-semibold tracking-wide text-amber-700 bg-amber-50 rounded-t-lg">
                   Small Bed (₹/pipe)
                 </th>
+                <th className="py-2 px-3 text-center font-semibold tracking-wide text-green-700 bg-green-50 rounded-t-lg">
+                  Extra Large Bed (₹/pipe)
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {ALL_SPINNING_DIAMETERS.map(dia => {
-                const hasSmall = SPINNING_DIAMETERS_SMALL.includes(dia)
-                const hasLarge = SPINNING_DIAMETERS_LARGE.includes(dia)
+                const hasSmall      = SPINNING_DIAMETERS_SMALL.includes(dia)
+                const hasLarge      = SPINNING_DIAMETERS_LARGE.includes(dia)
+                const hasExtraLarge = SPINNING_DIAMETERS_EXTRA_LARGE.includes(dia)
                 return (
                   <tr key={dia} className="hover:bg-gray-50/60">
                     <td className="py-2 pr-6 font-semibold text-gray-700">{dia} mm</td>
@@ -290,6 +295,22 @@ function SpinningRatesSection() {
                             type="text" inputMode="decimal"
                             value={rates.SMALL_BED?.[dia] ?? ''}
                             onChange={e => setRate('SMALL_BED', dia, e.target.value)}
+                            placeholder="0.00"
+                            className={`${inputCls} pl-6`}
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-gray-300 text-xs pl-2">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 bg-green-50/30">
+                      {hasExtraLarge ? (
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-2.5 flex items-center text-gray-400 text-xs pointer-events-none">₹</span>
+                          <input
+                            type="text" inputMode="decimal"
+                            value={rates.EXTRA_LARGE_BED?.[dia] ?? ''}
+                            onChange={e => setRate('EXTRA_LARGE_BED', dia, e.target.value)}
                             placeholder="0.00"
                             className={`${inputCls} pl-6`}
                           />

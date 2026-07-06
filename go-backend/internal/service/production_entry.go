@@ -201,16 +201,16 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 			return nil, &util.BusinessException{StatusCode: 400, Message: "bedType is required for DEMOULDING stage"}
 		}
 		bt := models.BedType(*req.BedType)
-		if bt != models.BedSmall && bt != models.BedLarge {
-			return nil, &util.BusinessException{StatusCode: 400, Message: "bedType must be SMALL_BED or LARGE_BED"}
+		if bt != models.BedSmall && bt != models.BedLarge && bt != models.BedExtraLarge {
+			return nil, &util.BusinessException{StatusCode: 400, Message: "bedType must be SMALL_BED, LARGE_BED or EXTRA_LARGE_BED"}
 		}
 		bedTypePtr = &bt
 	} else if stage == models.StageSpinning {
 		// Optional for spinning — accept if provided and valid, ignore if empty
 		if req.BedType != nil && *req.BedType != "" {
 			bt := models.BedType(*req.BedType)
-			if bt != models.BedSmall && bt != models.BedLarge {
-				return nil, &util.BusinessException{StatusCode: 400, Message: "bedType must be SMALL_BED or LARGE_BED"}
+			if bt != models.BedSmall && bt != models.BedLarge && bt != models.BedExtraLarge {
+				return nil, &util.BusinessException{StatusCode: 400, Message: "bedType must be SMALL_BED, LARGE_BED or EXTRA_LARGE_BED"}
 			}
 			bedTypePtr = &bt
 		}

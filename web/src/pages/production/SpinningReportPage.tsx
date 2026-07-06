@@ -28,7 +28,7 @@ const PRESETS = [
   { label: 'This Year',    from: () => fmtD(startOf('year')),         to: () => fmtD(new Date()) },
 ]
 
-const BED_LABEL: Record<string, string> = { SMALL_BED: 'Small Bed', LARGE_BED: 'Large Bed', UNKNOWN: 'Unknown' }
+const BED_LABEL: Record<string, string> = { SMALL_BED: 'Small Bed', LARGE_BED: 'Large Bed', EXTRA_LARGE_BED: 'Extra Large Bed', UNKNOWN: 'Unknown' }
 
 function dmy(iso: string) { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 
@@ -118,8 +118,9 @@ export default function SpinningReportPage() {
   const rows  = data ?? []
   const total = rows.reduce((s: number, r: any) => s + Number(r.spinCost), 0)
   const totalPipes = rows.reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
-  const smallBed = rows.filter((r: any) => r.bedSize === 'SMALL_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
-  const largeBed = rows.filter((r: any) => r.bedSize === 'LARGE_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
+  const smallBed      = rows.filter((r: any) => r.bedSize === 'SMALL_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
+  const largeBed      = rows.filter((r: any) => r.bedSize === 'LARGE_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
+  const extraLargeBed = rows.filter((r: any) => r.bedSize === 'EXTRA_LARGE_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -159,6 +160,7 @@ export default function SpinningReportPage() {
             { label: 'Pipes Spun',        value: totalPipes.toLocaleString() },
             { label: 'Small Bed',         value: smallBed.toLocaleString() },
             { label: 'Large Bed',         value: largeBed.toLocaleString() },
+            { label: 'Extra Large Bed',   value: extraLargeBed.toLocaleString() },
           ].map((s, i) => (
             <div key={i} className="flex-1 px-5 py-3 bg-white/5">
               <p className="text-[10px] font-bold text-violet-200 uppercase tracking-widest mb-0.5">{s.label}</p>
@@ -208,8 +210,9 @@ export default function SpinningReportPage() {
                       <td className="px-4 py-3 text-right text-gray-600">{r.diameterMm}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          r.bedSize === 'SMALL_BED' ? 'bg-amber-100 text-amber-700' :
-                          r.bedSize === 'LARGE_BED' ? 'bg-blue-100 text-blue-700' :
+                          r.bedSize === 'SMALL_BED'       ? 'bg-amber-100 text-amber-700' :
+                          r.bedSize === 'LARGE_BED'       ? 'bg-blue-100 text-blue-700' :
+                          r.bedSize === 'EXTRA_LARGE_BED' ? 'bg-green-100 text-green-700' :
                           'bg-gray-100 text-gray-500'
                         }`}>{BED_LABEL[r.bedSize] ?? r.bedSize}</span>
                       </td>

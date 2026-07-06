@@ -507,7 +507,7 @@ export const processContractorApi = {
 
 export interface SpinningBedRate {
   id:          number
-  bedSize:     'SMALL_BED' | 'LARGE_BED'
+  bedSize:     'SMALL_BED' | 'LARGE_BED' | 'EXTRA_LARGE_BED'
   diameterMm:  number
   ratePerPipe: string
   createdAt:   string

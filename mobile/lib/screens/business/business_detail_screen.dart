@@ -15342,7 +15342,7 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   // Coating-only: sand mix selection
   String _sandType = 'plaster'; // 'plaster' | 'crushed'
   // Demoulding-only: bed type selection
-  String _bedType = 'SMALL_BED'; // 'SMALL_BED' | 'LARGE_BED'
+  String _bedType = 'SMALL_BED'; // 'SMALL_BED' | 'LARGE_BED' | 'EXTRA_LARGE_BED'
   // Cache of pipeConfigId → COATING materials (fetched lazily for COATING stage)
   final Map<int, List<dynamic>> _coatingMaterials = {};
   // Cache of pipeConfigId → FABRICATION materials
@@ -15985,6 +15985,8 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                     _bedTypeBtn('SMALL_BED', 'Small Bed'),
                     const SizedBox(width: 3),
                     _bedTypeBtn('LARGE_BED', 'Large Bed'),
+                    const SizedBox(width: 3),
+                    _bedTypeBtn('EXTRA_LARGE_BED', 'Extra Large'),
                   ]),
                 ),
               ),

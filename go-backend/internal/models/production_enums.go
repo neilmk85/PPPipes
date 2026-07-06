@@ -45,8 +45,9 @@ var MaterialStages = map[ProdStageType]bool{
 type BedType string
 
 const (
-	BedSmall BedType = "SMALL_BED"
-	BedLarge BedType = "LARGE_BED"
+	BedSmall      BedType = "SMALL_BED"
+	BedLarge      BedType = "LARGE_BED"
+	BedExtraLarge BedType = "EXTRA_LARGE_BED"
 )
 
 // ProductionOrderStatus tracks the lifecycle of a production order
