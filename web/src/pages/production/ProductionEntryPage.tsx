@@ -1853,12 +1853,16 @@ export default function ProductionEntryPage() {
                 <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">{s.label}</p>
               </div>
             ))}
-            <div className="ml-2 border-l border-white/15 pl-4">
+            <div className="ml-2 border-l border-white/15 pl-4 flex flex-col items-end gap-1.5">
               <p className="text-[11px] text-blue-200 font-medium whitespace-nowrap">{today}</p>
-              {selectedStage && (
-                <div className="mt-1 inline-flex items-center gap-1 bg-white/15 border border-white/25 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full">
-                  {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={10} /> : null })()}
+              {selectedStage ? (
+                <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-1.5 rounded-full shadow-lg">
+                  {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
                   {PROD_STAGES.find(s => s.key === selectedStage)?.label}
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 text-white/50 text-xs px-3 py-1.5 rounded-full">
+                  No stage selected
                 </div>
               )}
             </div>
@@ -1985,15 +1989,6 @@ export default function ProductionEntryPage() {
           </div>
         </div>
 
-        {selectedStage && (
-          <div className="flex items-center gap-2.5">
-            <span className="text-sm text-gray-400 font-medium">Selected:</span>
-            <span className="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 text-white text-sm font-bold px-4 py-1.5 rounded-full shadow-md shadow-violet-200">
-              {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
-              {PROD_STAGES.find(s => s.key === selectedStage)?.label}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* ── Delivery Stage ─────────────────────────────────────────── */}
