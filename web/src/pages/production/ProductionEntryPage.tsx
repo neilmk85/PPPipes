@@ -1843,16 +1843,16 @@ export default function ProductionEntryPage() {
 
           {/* Right: stat chips + stage badge + date */}
           <div className="flex items-center gap-2">
-            <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
-              <p className="text-base font-extrabold tabular-nums leading-none text-white">{activeOrders.length}</p>
-              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Active Orders</p>
-            </div>
             {selectedStage && (
               <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg">
                 {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
                 {PROD_STAGES.find(s => s.key === selectedStage)?.label}
               </div>
             )}
+            <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
+              <p className="text-base font-extrabold tabular-nums leading-none text-white">{activeOrders.length}</p>
+              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Active Orders</p>
+            </div>
             <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
               <p className={`text-base font-extrabold tabular-nums leading-none ${selectedIds.length > 0 ? 'text-amber-300' : 'text-white'}`}>{selectedIds.length}</p>
               <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Orders Queued</p>
