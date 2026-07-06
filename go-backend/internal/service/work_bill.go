@@ -19,7 +19,7 @@ func (s *WorkBillService) GetAll(search string, status string, projectID int) ([
 	q := s.db.Preload("Items").Preload("Payments").Order("contractor_name ASC, created_at DESC")
 	if projectID != 0 {
 		q = q.Joins("JOIN work_orders ON work_orders.id = work_bills.work_order_id").
-			Where("work_orders.site_id = ?", projectID)
+			Where("work_orders.site_project_id = ?", projectID)
 	}
 	if search != "" {
 		like := "%" + search + "%"
