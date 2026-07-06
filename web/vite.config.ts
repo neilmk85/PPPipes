@@ -13,11 +13,11 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8082',
+        target: 'http://187.127.158.26:8083',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:8082',
+        target: 'http://187.127.158.26:8083',
         changeOrigin: true,
       },
     },
