@@ -461,8 +461,14 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 
 	// ── Sales orders ──────────────────────────────────────────────────────────
 	case "sales-orders":
-		num := label(req, resp, "orderNumber", "soNumber", "number")
+		num := label(req, resp, "soNumber", "orderNumber", "number")
 		base := descLine(action, "sales order", num)
+		if customer := nestedRespField(resp, "customer", "name"); customer != "" {
+			base += " — customer: " + customer
+		}
+		if total := label(req, resp, "totalAmount"); total != "" {
+			base += " — ₹" + total
+		}
 		if strings.Contains(path, "/confirm") {
 			return "UPDATED", "SALES_ORDERS", "Confirmed sales order: " + num
 		}
