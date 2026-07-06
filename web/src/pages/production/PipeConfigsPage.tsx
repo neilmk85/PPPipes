@@ -60,7 +60,7 @@ export default function PipeConfigsPage() {
             </div>
             <div>
               <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Production</p>
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-6 flex-wrap">
                 <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Pipe Configurations</h1>
                 <div className="flex items-center gap-3">
                   <span className="text-white text-sm font-bold tabular-nums">{configs.length} total</span>
