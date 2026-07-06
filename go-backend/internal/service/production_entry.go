@@ -124,15 +124,8 @@ func (s *ProductionEntryService) GetPriorStageCompleted(productionOrderID int, s
 		return nil, &util.BusinessException{StatusCode: 400, Message: fmt.Sprintf("unknown stage: %s", stage)}
 	}
 	if idx == 0 {
-		// First stage: limit is the planned qty on the order
-		var order models.ProductionOrder
-		if err := s.db.First(&order, productionOrderID).Error; err != nil {
-			return nil, &util.ResourceNotFoundException{Message: "production order not found"}
-		}
-		return &PriorStageInfo{
-			StageType:      models.StageFabrication,
-			PipesCompleted: order.PlannedQty,
-		}, nil
+		// First stage — no prior stage exists
+		return nil, nil
 	}
 
 	priorStage := models.StageSequence[idx-1]
