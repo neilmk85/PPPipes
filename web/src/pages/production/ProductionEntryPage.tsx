@@ -1844,9 +1844,12 @@ export default function ProductionEntryPage() {
           {/* Right: stat chips + stage badge + date */}
           <div className="flex items-center gap-2">
             {selectedStage && (
-              <div className="inline-flex items-center gap-2 bg-white text-violet-700 text-sm font-bold px-4 py-2.5 rounded-xl shadow-lg">
-                {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={14} /> : null })()}
-                {PROD_STAGES.find(s => s.key === selectedStage)?.label}
+              <div className="flex flex-col items-start">
+                <p className="text-[10px] text-blue-200 font-medium">Selected</p>
+                <div className="flex items-center gap-1.5">
+                  {(() => { const Icon = STAGE_META[selectedStage]?.icon; return Icon ? <Icon size={16} className="text-amber-300" /> : null })()}
+                  <span className="text-base font-extrabold text-white">{PROD_STAGES.find(s => s.key === selectedStage)?.label}</span>
+                </div>
               </div>
             )}
             <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
