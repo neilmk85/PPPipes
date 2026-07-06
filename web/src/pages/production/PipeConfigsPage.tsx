@@ -60,29 +60,29 @@ export default function PipeConfigsPage() {
             </div>
             <div>
               <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Production</p>
-              <div className="flex items-center gap-6 flex-wrap">
-                <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Pipe Configurations</h1>
-                <div className="flex items-center gap-3">
-                  <span className="text-white text-sm font-bold tabular-nums">{configs.length} total</span>
-                  <span className="w-px h-3.5 bg-white/30" />
-                  <span className="text-green-200 text-sm font-bold tabular-nums">{activeCount} active</span>
-                  {inactiveCount > 0 && (
-                    <>
-                      <span className="w-px h-3.5 bg-white/30" />
-                      <span className="text-amber-200 text-sm font-bold tabular-nums">{inactiveCount} inactive</span>
-                    </>
-                  )}
-                </div>
-              </div>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Pipe Configurations</h1>
               <p className="text-sm text-blue-200 mt-0.5">Manage PCCP pipe types and raw material formulas</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/production/pipe-configs/new')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/15 border border-white/25 text-white text-sm font-semibold rounded-xl backdrop-blur-sm hover:bg-white/25 transition-all"
-          >
-            <Plus size={16} /> New Pipe Config
-          </button>
+          <div className="flex items-center gap-10">
+            <div className="flex items-center gap-3">
+              <span className="text-white text-sm font-bold tabular-nums">{configs.length} total</span>
+              <span className="w-px h-3.5 bg-white/30" />
+              <span className="text-green-200 text-sm font-bold tabular-nums">{activeCount} active</span>
+              {inactiveCount > 0 && (
+                <>
+                  <span className="w-px h-3.5 bg-white/30" />
+                  <span className="text-amber-200 text-sm font-bold tabular-nums">{inactiveCount} inactive</span>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => navigate('/production/pipe-configs/new')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/15 border border-white/25 text-white text-sm font-semibold rounded-xl backdrop-blur-sm hover:bg-white/25 transition-all"
+            >
+              <Plus size={16} /> New Pipe Config
+            </button>
+          </div>
         </div>
 
         {/* Search & Filters */}
