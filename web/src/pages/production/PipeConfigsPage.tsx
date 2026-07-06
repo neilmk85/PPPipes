@@ -12,6 +12,7 @@ export default function PipeConfigsPage() {
   const [search, setSearch] = useState('')
   const [filterDiam, setFilterDiam] = useState('')
   const [filterPc, setFilterPc] = useState('')
+  const [filterLen, setFilterLen] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['pipe-configs', filterDiam, filterPc],
@@ -31,9 +32,14 @@ export default function PipeConfigsPage() {
   })
 
   const configs: PipeConfig[] = data?.content ?? []
-  const filtered = configs.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = configs.filter(c => {
+    if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false
+    if (filterLen && String(c.lengthM ?? 5.25) !== filterLen) return false
+    return true
+  })
+
+  const group525 = filtered.filter(c => (c.lengthM ?? 5.25) === 5.25)
+  const group65  = filtered.filter(c => (c.lengthM ?? 5.25) === 6.5)
 
   const activeCount   = configs.filter(c => c.active).length
   const inactiveCount = configs.length - activeCount
@@ -109,6 +115,15 @@ export default function PipeConfigsPage() {
           <option value="">All Pressure Classes</option>
           {PRESSURE_CLASSES.map(pc => <option key={pc} value={pc}>{pc}</option>)}
         </select>
+        <select
+          value={filterLen}
+          onChange={e => setFilterLen(e.target.value)}
+          className="border border-violet-300 rounded-lg px-3 py-2 text-sm font-medium text-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        >
+          <option value="">All Lengths</option>
+          <option value="5.25">5.25m</option>
+          <option value="6.5">6.5m</option>
+        </select>
       </div>
 
       {/* Grid */}
@@ -125,44 +140,62 @@ export default function PipeConfigsPage() {
           <p className="text-sm mt-1">Click "New Pipe Config" to add one</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map(cfg => (
-            <div
-              key={cfg.id}
-              className={`bg-white rounded-xl border p-4 space-y-2 ${!cfg.active ? 'opacity-50' : ''}`}
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm leading-tight">{cfg.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {cfg.diameterMm}mm · {cfg.pressureClass}
-                  </p>
+        <div className="space-y-8">
+          {[
+            { label: '5.25m Pipes', sublabel: 'Standard length', color: 'bg-blue-50 border-blue-200 text-blue-800', dot: 'bg-blue-500', items: group525 },
+            { label: '6.5m Pipes',  sublabel: 'Extended length', color: 'bg-violet-50 border-violet-200 text-violet-800', dot: 'bg-violet-500', items: group65 },
+          ].map(group => {
+            if (filterLen && group.items.length === 0) return null
+            if (group.items.length === 0) return null
+            return (
+              <div key={group.label}>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold mb-4 ${group.color}`}>
+                  <span className={`w-2 h-2 rounded-full ${group.dot}`} />
+                  {group.label}
+                  <span className="text-xs font-normal opacity-70">— {group.sublabel} · {group.items.length} configs</span>
                 </div>
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cfg.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                  {cfg.active ? 'Active' : 'Inactive'}
-                </span>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {group.items.map(cfg => (
+                    <div
+                      key={cfg.id}
+                      className={`bg-white rounded-xl border p-4 space-y-2 ${!cfg.active ? 'opacity-50' : ''}`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm leading-tight">{cfg.name}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {cfg.diameterMm}mm · {cfg.pressureClass}
+                          </p>
+                        </div>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cfg.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {cfg.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        {cfg.materials?.length ?? 0} materials configured
+                      </p>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => navigate(`/production/pipe-configs/${cfg.id}/edit`)}
+                          className="flex-1 flex items-center justify-center gap-1 text-xs border border-gray-200 rounded-lg py-1.5 hover:bg-violet-50/40"
+                        >
+                          <Edit size={12} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => toggleMut.mutate(cfg.id)}
+                          className="flex items-center justify-center gap-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 hover:bg-violet-50/40"
+                          title={cfg.active ? 'Deactivate' : 'Activate'}
+                        >
+                          {cfg.active ? <ToggleRight size={14} className="text-green-600" /> : <ToggleLeft size={14} />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-xs text-gray-400">
-                {cfg.materials?.length ?? 0} materials configured
-              </p>
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => navigate(`/production/pipe-configs/${cfg.id}/edit`)}
-                  className="flex-1 flex items-center justify-center gap-1 text-xs border border-gray-200 rounded-lg py-1.5 hover:bg-violet-50/40"
-                >
-                  <Edit size={12} />
-                  Edit
-                </button>
-                <button
-                  onClick={() => toggleMut.mutate(cfg.id)}
-                  className="flex items-center justify-center gap-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 hover:bg-violet-50/40"
-                  title={cfg.active ? 'Deactivate' : 'Activate'}
-                >
-                  {cfg.active ? <ToggleRight size={14} className="text-green-600" /> : <ToggleLeft size={14} />}
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
