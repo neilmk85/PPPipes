@@ -227,7 +227,7 @@ export default function DashboardPage() {
       inv.product?.name?.toLowerCase().includes('ms flat')
     ), [inventory])
 
-  const msFlatTotalWeight = msFlat.reduce((s: number, i: any) => s + parseFloat(i.quantityOnHand ?? 0), 0)
+  const msFlatTotalWeight = msFlat.reduce((s: number, i: any) => s + Math.max(0, parseFloat(i.quantityOnHand ?? 0)), 0)
 
   // ── Intermediate Stock (date-filterable) ──────────────────────────────────
   const { data: intermediateStock = [], isLoading: stockLoading } = useQuery({
@@ -399,7 +399,7 @@ export default function DashboardPage() {
           <div className="flex items-center divide-x divide-white/10">
             {[
               { label: 'Shell Plate Items',    value: fmt(shellTotalWeight),          sub: 'kg total weight',   anchor: 'section-shell',        warn: false },
-              { label: 'MS Flat Total Weight', value: fmt(msFlatTotalWeight),         sub: 'kg on hand',        anchor: 'section-msflat',       warn: false },
+              { label: 'MS Flat Total Weight', value: fmt(Math.max(0, msFlatTotalWeight)), sub: 'kg on hand',      anchor: 'section-msflat',       warn: false },
               { label: 'Pipes in Stages',      value: grandTotal.toLocaleString(),    sub: 'intermediate stock',anchor: 'section-intermediate', warn: false },
               { label: 'Reorder Alerts',       value: (reorderItems ?? REORDER_DUMMY).length.toString(), sub: (reorderItems ?? REORDER_DUMMY).length === 1 ? 'material low' : 'materials low', anchor: 'section-reorder', warn: (reorderItems ?? REORDER_DUMMY).length > 0 },
             ].map(s => (
@@ -457,7 +457,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-blue-100">Total Weight</p>
                 <p className="text-sm font-bold text-white tabular-nums">
-                  {fmt(msFlat.length > 0 ? msFlatTotalWeight : MSFLAT_DUMMY.reduce((s, r) => s + r.weight, 0))} kg
+                  {fmt(msFlat.length > 0 ? Math.max(0, msFlatTotalWeight) : MSFLAT_DUMMY.reduce((s, r) => s + r.weight, 0))} kg
                 </p>
               </div>
             )}
@@ -490,6 +490,7 @@ export default function DashboardPage() {
                 ) : (
                   msFlat.map((inv: any) => {
                     const weight = parseFloat(inv.quantityOnHand ?? 0)
+                    const isNeg = weight < 0
                     return (
                       <tr key={inv.id} className="hover:bg-violet-50/30 transition-colors">
                         <td className="px-6 py-3.5">
@@ -497,7 +498,10 @@ export default function DashboardPage() {
                           {inv.product?.sku && <span className="text-xs text-gray-400 ml-2">{inv.product.sku}</span>}
                         </td>
                         <td className="px-6 py-3.5 text-right">
-                          <span className="text-sm font-semibold text-gray-900 tabular-nums">{fmt(weight)} kg</span>
+                          <span className={`text-sm font-semibold tabular-nums ${isNeg ? 'text-red-500' : 'text-gray-900'}`}>
+                            {isNeg ? '0' : fmt(weight)} kg
+                            {isNeg && <span className="text-xs ml-1 text-red-400">(deficit)</span>}
+                          </span>
                         </td>
                       </tr>
                     )
@@ -508,7 +512,7 @@ export default function DashboardPage() {
                 <tr className="bg-violet-50 border-t-2 border-violet-200">
                   <td className="px-6 py-3 text-xs font-bold text-violet-700 uppercase tracking-widest">Total</td>
                   <td className="px-6 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">
-                    {fmt(msFlat.length > 0 ? msFlatTotalWeight : MSFLAT_DUMMY.reduce((s, r) => s + r.weight, 0))} kg
+                    {fmt(msFlat.length > 0 ? Math.max(0, msFlatTotalWeight) : MSFLAT_DUMMY.reduce((s, r) => s + r.weight, 0))} kg
                   </td>
                 </tr>
               </tfoot>
