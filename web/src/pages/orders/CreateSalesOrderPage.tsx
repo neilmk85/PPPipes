@@ -17,6 +17,7 @@ interface LineItem {
   pipeConfigName?: string
   diameterMm?: number
   pressureClass?: string
+  lengthM?: number
   meters?: number
   // product fields
   productId?: number
@@ -243,6 +244,7 @@ export default function CreateSalesOrderPage() {
         pipeConfigName: pc.name ?? `${pc.diameterMm}mm ${pc.pressureClass}`,
         diameterMm: pc.diameterMm,
         pressureClass: pc.pressureClass,
+        lengthM: pc.lengthM ?? 5.25,
         productName: pc.name ?? `${pc.diameterMm}mm ${pc.pressureClass}`,
         unitPrice: 0,
         quantity: 1,
@@ -293,7 +295,8 @@ export default function CreateSalesOrderPage() {
   function updateMeters(idx: number, meters: number) {
     setItems(prev => {
       const updated = [...prev]
-      const qty = meters > 0 ? Math.ceil(meters / 5.25) : 1
+      const lengthM = updated[idx].lengthM ?? 5.25
+      const qty = meters > 0 ? Math.ceil(meters / lengthM) : 1
       const item = { ...updated[idx], meters, quantity: qty }
       item.lineTotal = calcLine(item as LineItem)
       updated[idx] = item

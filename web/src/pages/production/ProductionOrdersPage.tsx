@@ -419,7 +419,7 @@ export default function ProductionOrdersPage() {
               <span className="text-xs font-semibold text-white/50">pipes</span>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-base font-bold tabular-nums text-green-200 leading-none">{(totalFinishedPipes * 5.25).toFixed(1)}</span>
+              <span className="text-base font-bold tabular-nums text-green-200 leading-none">{activeSummaries.reduce((acc: number, s: any) => acc + (s.finishedPipes ?? 0) * (s.lengthM ?? 5.25), 0).toFixed(1)}</span>
               <span className="text-xs font-semibold text-white/50">meters</span>
             </div>
           </div>
@@ -432,7 +432,7 @@ export default function ProductionOrdersPage() {
               <span className="text-xs font-semibold text-white/50">pipes</span>
             </div>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-base font-bold tabular-nums leading-none ${totalRemainingPipes > 0 ? 'text-amber-100' : 'text-green-200'}`}>{(totalRemainingPipes * 5.25).toFixed(1)}</span>
+              <span className={`text-base font-bold tabular-nums leading-none ${totalRemainingPipes > 0 ? 'text-amber-100' : 'text-green-200'}`}>{activeSummaries.reduce((acc: number, s: any) => acc + Math.max(0, (s.plannedQty ?? 0) - (s.finishedPipes ?? 0)) * (s.lengthM ?? 5.25), 0).toFixed(1)}</span>
               <span className="text-xs font-semibold text-white/50">meters</span>
             </div>
           </div>

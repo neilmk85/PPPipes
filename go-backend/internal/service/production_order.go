@@ -65,6 +65,7 @@ type OrderSummary struct {
 	PipeConfigName string    `json:"pipeConfigName"`
 	DiameterMm     int       `json:"diameterMm"`
 	PressureClass  string    `json:"pressureClass"`
+	LengthM        float64   `json:"lengthM"`
 	CreatedAt      time.Time `json:"createdAt"`
 }
 
@@ -79,11 +80,11 @@ func (s *ProductionOrderService) GetSummaries(stage string) ([]OrderSummary, err
 	err := s.db.
 		Table("production_orders po").
 		Select(`po.id, po.po_number, po.planned_qty, po.status, po.outlet_id, po.pipe_config_id, po.created_at,
-			pc.name AS pipe_config_name, pc.diameter_mm, pc.pressure_class,
+			pc.name AS pipe_config_name, pc.diameter_mm, pc.pressure_class, COALESCE(pc.length_m, 5.25) AS length_m,
 			COALESCE(SUM(CASE WHEN pe.stage_type = ? THEN pe.pipes_completed ELSE 0 END), 0) AS finished_pipes`, stage).
 		Joins("LEFT JOIN pipe_configs pc ON pc.id = po.pipe_config_id").
 		Joins("LEFT JOIN production_entries pe ON pe.production_order_id = po.id").
-		Group("po.id, po.po_number, po.planned_qty, po.status, po.outlet_id, po.pipe_config_id, po.created_at, pc.name, pc.diameter_mm, pc.pressure_class").
+		Group("po.id, po.po_number, po.planned_qty, po.status, po.outlet_id, po.pipe_config_id, po.created_at, pc.name, pc.diameter_mm, pc.pressure_class, pc.length_m").
 		Order("po.created_at DESC").
 		Scan(&summaries).Error
 	return summaries, err

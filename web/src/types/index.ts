@@ -345,6 +345,7 @@ export interface PipeConfig {
   diameterMm: number
   pressureClass: string
   description?: string
+  lengthM: number
   active: boolean
   createdAt: string
   updatedAt: string

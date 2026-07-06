@@ -45,19 +45,22 @@ export default function PipeConfigFormPage() {
       diameterMm: '',
       pressureClass: '',
       description: '',
+      lengthM: '5.25',
       active: true,
     },
   })
 
   const diamVal = watch('diameterMm')
   const pcVal = watch('pressureClass')
+  const lengthVal = watch('lengthM')
 
-  // Auto-fill name when diameter + pressure selected
+  // Auto-fill name when diameter + pressure + length selected
   useEffect(() => {
     if (diamVal && pcVal && !isEdit) {
-      setValue('name', `PCCP ${diamVal}mm ${pcVal}`)
+      const suffix = lengthVal && parseFloat(lengthVal) !== 5.25 ? ` ${lengthVal}m` : ''
+      setValue('name', `PCCP ${diamVal}mm ${pcVal}${suffix}`)
     }
-  }, [diamVal, pcVal, isEdit, setValue])
+  }, [diamVal, pcVal, lengthVal, isEdit, setValue])
 
   // Load existing config on edit
   const { data: existingData } = useQuery({
@@ -72,6 +75,7 @@ export default function PipeConfigFormPage() {
       setValue('diameterMm', String(existingData.diameterMm))
       setValue('pressureClass', existingData.pressureClass)
       setValue('description', existingData.description ?? '')
+      setValue('lengthM', String(existingData.lengthM ?? '5.25'))
       setValue('active', existingData.active)
 
       // Populate material rows from existing config
@@ -146,6 +150,7 @@ export default function PipeConfigFormPage() {
       diameterMm: Number(data.diameterMm),
       pressureClass: data.pressureClass,
       description: data.description || undefined,
+      lengthM: parseFloat(data.lengthM) || 5.25,
       active: data.active,
     })
   })
@@ -251,6 +256,18 @@ export default function PipeConfigFormPage() {
               placeholder="e.g. PCCP 600mm 10kg"
             />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pipe Length (meters) *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              {...register('lengthM', { required: 'Required' })}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              placeholder="e.g. 5.25"
+            />
+            {errors.lengthM && <p className="text-red-500 text-xs mt-1">{errors.lengthM.message}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>

@@ -674,8 +674,9 @@ function GstPicker({ value, onChange, taxGroups }: {
 interface InvLineItem {
   id: string
   productName: string
+  lengthM: number        // meters per pipe for this config
   meters: number
-  quantity: number       // auto-derived: Math.ceil(meters / METERS_PER_PIPE)
+  quantity: number       // auto-derived: Math.ceil(meters / lengthM)
   unitPrice: number      // price per meter
   discountPercent: number
   taxRate: number
@@ -749,9 +750,11 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
   })
   const taxGroups: any[] = taxGroupsData ?? []
 
+  const recordLengthM = (record as any).pipeConfig?.lengthM ?? (record as any).lengthM ?? 5.25
   const [items, setItems] = useState<InvLineItem[]>([
     { id: '1', productName: record.pipeName ?? '',
-      meters: (record.quantity ?? 1) * METERS_PER_PIPE,
+      lengthM: recordLengthM,
+      meters: (record.quantity ?? 1) * recordLengthM,
       quantity: record.quantity ?? 1,
       unitPrice: 0, discountPercent: 0, taxRate: 18 },
   ])
@@ -784,15 +787,16 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
   }, [])
 
   function addItem() {
-    setItems(prev => [...prev, { id: Date.now().toString(), productName: '', meters: METERS_PER_PIPE, quantity: 1, unitPrice: 0, discountPercent: 0, taxRate: 18 }])
+    setItems(prev => [...prev, { id: Date.now().toString(), productName: '', lengthM: 5.25, meters: 5.25, quantity: 1, unitPrice: 0, discountPercent: 0, taxRate: 18 }])
   }
   function removeItem(id: string) { setItems(prev => prev.filter(i => i.id !== id)) }
   function updateItem(id: string, patch: Partial<InvLineItem>) {
     setItems(prev => prev.map(i => {
       if (i.id !== id) return i
       const merged = { ...i, ...patch }
-      if ('meters' in patch)   merged.quantity = Math.ceil((patch.meters ?? 0) / METERS_PER_PIPE)
-      if ('quantity' in patch) merged.meters   = (patch.quantity ?? 0) * METERS_PER_PIPE
+      const lengthM = merged.lengthM ?? 5.25
+      if ('meters' in patch)   merged.quantity = Math.ceil((patch.meters ?? 0) / lengthM)
+      if ('quantity' in patch) merged.meters   = (patch.quantity ?? 0) * lengthM
       return merged
     }))
   }
@@ -1516,7 +1520,7 @@ export default function LoadingPage() {
     queryFn: () => pipeConfigApi.getAll({ active: true, size: 100 }).then(r => r.data.data?.content ?? r.data.data ?? []),
     staleTime: 5 * 60 * 1000,
   })
-  const pipeConfigs: { id: number; name: string; diameterMm: number; pressureClass: string }[] = pipeConfigsRaw as any[]
+  const pipeConfigs: { id: number; name: string; diameterMm: number; pressureClass: string; lengthM: number }[] = pipeConfigsRaw as any[]
 
   const { data: vendorData } = useQuery({
     queryKey: ['vendors'],

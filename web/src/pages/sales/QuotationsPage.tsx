@@ -31,7 +31,11 @@ const STATUS_TABS = ['ALL', 'DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const METERS_PER_PIPE = 5.25
+// Extract pipe length from product name — "PCCP 600mm 10kg 6.5m" → 6.5, fallback 5.25
+function pipeLength(name: string): number {
+  const m = name.match(/(\d+\.?\d+)m$/)
+  return m ? parseFloat(m[1]) : 5.25
+}
 
 // ─── Line item type ────────────────────────────────────────────────────────────
 
@@ -40,6 +44,7 @@ interface LineItem {
   productId: number | null
   productName: string
   productSku: string
+  lengthM: number
   meters: number
   quantity: number
   unitPrice: number
@@ -511,12 +516,14 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
 
   async function addProduct(p: any) {
     const unitPrice = p.sellingPrice ?? p.price ?? 0
+    const lm2 = p.lengthM ?? pipeLength(p.name ?? '')
     const newItem: LineItem = {
       id: crypto.randomUUID(),
       productId: p.id,
       productName: p.name,
       productSku: p.sku ?? '',
-      meters: METERS_PER_PIPE,
+      lengthM: lm2,
+      meters: lm2,
       quantity: 1,
       unitPrice,
       discountPercent: 0,
@@ -537,8 +544,8 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
     setItems(prev => prev.map(it => {
       if (it.id !== id) return it
       const updated = { ...it, [field]: value }
-      if (field === 'meters')   updated.quantity = Math.ceil((value as number) / METERS_PER_PIPE)
-      if (field === 'quantity') updated.meters   = (value as number) * METERS_PER_PIPE
+      if (field === 'meters')   updated.quantity = Math.ceil((value as number) / (it.lengthM ?? 5.25))
+      if (field === 'quantity') updated.meters   = (value as number) * (it.lengthM ?? 5.25)
       return updated
     }))
   }
@@ -946,17 +953,21 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
       if (q.validUntil) setValidUntil(q.validUntil.split('T')[0])
       if (q.notes) setNotes(q.notes)
       if (q.termsConditions) setTerms(q.termsConditions)
-      setItems((q.items ?? []).map((it: any) => ({
-        id: crypto.randomUUID(),
-        productId: it.productId ?? null,
-        productName: it.productName ?? '',
-        productSku: it.productSku ?? '',
-        meters: Number(it.quantity),
-        quantity: Math.ceil(Number(it.quantity) / METERS_PER_PIPE),
-        unitPrice: Number(it.unitPrice),
-        discountPercent: Number(it.discountPercent ?? 0),
-        taxRate: Number(it.taxRate ?? 0),
-      })))
+      setItems((q.items ?? []).map((it: any) => {
+        const lm = pipeLength(it.productName ?? '')
+        return {
+          id: crypto.randomUUID(),
+          productId: it.productId ?? null,
+          productName: it.productName ?? '',
+          productSku: it.productSku ?? '',
+          lengthM: lm,
+          meters: Number(it.quantity),
+          quantity: Math.ceil(Number(it.quantity) / lm),
+          unitPrice: Number(it.unitPrice),
+          discountPercent: Number(it.discountPercent ?? 0),
+          taxRate: Number(it.taxRate ?? 0),
+        }
+      }))
     }).finally(() => setLoading(false))
   }, [id])
 
@@ -964,12 +975,14 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
 
   async function addProduct(p: any) {
     const unitPrice = p.sellingPrice ?? p.price ?? 0
+    const lm = p.lengthM ?? pipeLength(p.name ?? '')
     const newItem: LineItem = {
       id: crypto.randomUUID(),
       productId: p.id,
       productName: p.name,
       productSku: p.sku ?? '',
-      meters: METERS_PER_PIPE,
+      lengthM: lm,
+      meters: lm,
       quantity: 1,
       unitPrice,
       discountPercent: 0,
@@ -990,7 +1003,7 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
     setItems(prev => prev.map(it => {
       if (it.id !== itemId) return it
       const updated = { ...it, [field]: value }
-      if (field === 'meters') updated.quantity = Math.ceil((value as number) / METERS_PER_PIPE)
+      if (field === 'meters') updated.quantity = Math.ceil((value as number) / (it.lengthM ?? 5.25))
       return updated
     }))
   }

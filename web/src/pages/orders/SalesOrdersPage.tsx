@@ -204,7 +204,9 @@ export default function SalesOrdersPage() {
   const delivered    = allOrders.filter((o: any) => ['DELIVERED','INVOICED'].includes(o.status)).length
   const totalPipes   = allOrders.reduce((sum: number, o: any) =>
     sum + (o.items ?? []).filter((i: any) => i.pipeConfigId).reduce((s: number, i: any) => s + Number(i.quantity), 0), 0)
-  const totalMeters  = +(totalPipes * 5.25).toFixed(2)
+  const totalMeters  = +allOrders.reduce((sum: number, o: any) =>
+    sum + (o.items ?? []).filter((i: any) => i.pipeConfigId).reduce((s: number, i: any) =>
+      s + Number(i.quantity) * (i.pipeConfig?.lengthM ?? 5.25), 0), 0).toFixed(2)
 
   return (
     <div className="min-h-full bg-gray-50/60 p-6 space-y-6">

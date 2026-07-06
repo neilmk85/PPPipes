@@ -99,7 +99,8 @@ export default function SalesOrderDetailPage() {
   const convertedCnt = pipeItems.filter((i: any) => i.productionOrderId).length
   const pendingCnt   = pipeItems.length - convertedCnt
   const totalPipes   = pipeItems.reduce((sum: number, i: any) => sum + Number(i.quantity), 0)
-  const totalMeters  = +(totalPipes * 5.25).toFixed(2)
+  const totalMeters  = +pipeItems.reduce((sum: number, i: any) =>
+    sum + Number(i.quantity) * (i.pipeConfig?.lengthM ?? 5.25), 0).toFixed(2)
 
   async function handleConvertItem(itemId: number) {
     setConvertingItem(itemId)

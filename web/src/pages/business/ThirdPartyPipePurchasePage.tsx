@@ -13,7 +13,7 @@ import { pipeConfigApi, vendorApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
 const NO_SPINNER = '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden'
-const METERS_PER_PIPE = 5.25
+const DEFAULT_LENGTH_M = 5.25
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -484,7 +484,7 @@ function AddForm({
                       const m = e.target.value
                       setMeters(m)
                       if (m && Number(m) > 0) {
-                        setQuantity(String(Math.ceil(Number(m) / METERS_PER_PIPE)))
+                        setQuantity(String(Math.ceil(Number(m) / (selectedPipe?.lengthM ?? DEFAULT_LENGTH_M))))
                       } else {
                         setQuantity('')
                       }
@@ -499,7 +499,7 @@ function AddForm({
                       const q = e.target.value
                       setQuantity(q)
                       if (q && Number(q) > 0) {
-                        setMeters((Number(q) * METERS_PER_PIPE).toFixed(2))
+                        setMeters((Number(q) * (selectedPipe?.lengthM ?? DEFAULT_LENGTH_M)).toFixed(2))
                       } else {
                         setMeters('')
                       }

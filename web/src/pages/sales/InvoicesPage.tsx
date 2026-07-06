@@ -148,7 +148,11 @@ function InvDateFilterDropdown({ from, to, onChange }: {
 
 // ─── Line item type ────────────────────────────────────────────────────────────
 
-const METERS_PER_PIPE = 5.25
+// Extract pipe length from product name — "PCCP 600mm 10kg 6.5m" → 6.5, fallback 5.25
+function pipeLength(name: string): number {
+  const m = name.match(/(\d+\.?\d+)m$/)
+  return m ? parseFloat(m[1]) : 5.25
+}
 const NO_SPINNER = '[appearance:textfield] [&::-webkit-inner-spin-button]:hidden [&::-webkit-outer-spin-button]:hidden'
 
 // ─── GST Picker (portal dropdown) ────────────────────────────────────────────
@@ -211,8 +215,9 @@ interface LineItem {
   productId: number | null
   productName: string
   productSku: string
+  lengthM: number
   meters: number
-  quantity: number             // derived: Math.ceil(meters / METERS_PER_PIPE)
+  quantity: number             // derived: Math.ceil(meters / lengthM)
   unitPrice: number            // price per meter
   discountPercent: number
   taxRate: number
@@ -429,17 +434,21 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
       setDeliveryChallanNo(editInvoice.deliveryChallanNo ?? '')
       setEWayBillNo(editInvoice.eWayBillNo ?? '')
       setEInvoiceNo(editInvoice.eInvoiceNo ?? '')
-      setItems((editInvoice.items ?? []).map((it: any) => ({
-        id: crypto.randomUUID(),
-        productId: it.product?.id ?? null,
-        productName: it.productName,
-        productSku: it.productSku ?? '',
-        meters: Number(it.quantity),
-        quantity: Math.ceil(Number(it.quantity) / METERS_PER_PIPE),
-        unitPrice: Number(it.unitPrice),
-        discountPercent: Number(it.discountPercent ?? 0),
-        taxRate: Number(it.taxRate ?? 0),
-      })))
+      setItems((editInvoice.items ?? []).map((it: any) => {
+        const lm = pipeLength(it.productName ?? '')
+        return {
+          id: crypto.randomUUID(),
+          productId: it.product?.id ?? null,
+          productName: it.productName,
+          productSku: it.productSku ?? '',
+          lengthM: lm,
+          meters: Number(it.quantity),
+          quantity: Math.ceil(Number(it.quantity) / lm),
+          unitPrice: Number(it.unitPrice),
+          discountPercent: Number(it.discountPercent ?? 0),
+          taxRate: Number(it.taxRate ?? 0),
+        }
+      }))
     }
   }, [editInvoice])
 
@@ -453,12 +462,14 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
 
   async function addProduct(p: any) {
     const unitPrice = p.sellingPrice ?? p.price ?? 0
+    const lm = p.lengthM ?? pipeLength(p.name ?? '')
     const newItem: LineItem = {
       id: crypto.randomUUID(),
       productId: p.id,
       productName: p.name,
       productSku: p.sku ?? '',
-      meters: METERS_PER_PIPE,
+      lengthM: lm,
+      meters: lm,
       quantity: 1,
       unitPrice,
       discountPercent: 0,
@@ -479,8 +490,8 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
     setItems(prev => prev.map(it => {
       if (it.id !== id) return it
       const updated = { ...it, [field]: value }
-      if (field === 'meters')   updated.quantity = Math.ceil((value as number) / METERS_PER_PIPE)
-      if (field === 'quantity') updated.meters   = (value as number) * METERS_PER_PIPE
+      if (field === 'meters')   updated.quantity = Math.ceil((value as number) / (it.lengthM ?? 5.25))
+      if (field === 'quantity') updated.meters   = (value as number) * (it.lengthM ?? 5.25)
       return updated
     }))
   }
