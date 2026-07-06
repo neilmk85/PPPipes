@@ -727,8 +727,8 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
                 </span>
                 <span className="text-gray-400 tabular-nums shrink-0">
                   avail:&nbsp;
-                  <span className={`font-bold ${m.available === 0 ? 'text-red-500' : 'text-gray-700'}`}>
-                    {m.available.toFixed(2)}
+                  <span className={`font-bold ${m.available <= 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                    {Math.max(0, m.available).toFixed(2)}
                   </span>
                   &nbsp;{m.uom}
                 </span>
