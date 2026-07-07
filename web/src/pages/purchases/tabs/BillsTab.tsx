@@ -14,7 +14,7 @@ function fmtCur(n: any) {
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT:   'bg-gray-100 text-gray-600',
-  UNPAID:  'bg-red-100 text-red-600',
+  UNPAID:  'text-red-600',
   PARTIAL: 'bg-yellow-100 text-yellow-700',
   PAID:    'bg-green-100 text-green-700',
 }
@@ -105,13 +105,6 @@ export default function BillsTab() {
     },
   })
 
-  const { data: summary } = useQuery({
-    queryKey: ['purchase-bills-summary', outletId],
-    queryFn: async () => {
-      const res = await purchaseBillApi.getSummary(outletId)
-      return res.data.data
-    },
-  })
 
   const payMutation = useMutation({
     mutationFn: (payload: any) => vendorPaymentApi.create(payload),
@@ -164,22 +157,6 @@ export default function BillsTab() {
 
   return (
     <div>
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <p className="text-xs text-gray-500 mb-1">Total Outstanding</p>
-          <p className="text-xl font-bold text-red-600">{fmtCur(summary?.totalOutstanding ?? 0)}</p>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <p className="text-xs text-gray-500 mb-1">Unpaid Bills</p>
-          <p className="text-xl font-bold text-orange-600">{summary?.unpaidCount ?? 0}</p>
-        </div>
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-          <p className="text-xs text-gray-500 mb-1">Total Paid</p>
-          <p className="text-xl font-bold text-green-600">{fmtCur(summary?.totalPaid ?? 0)}</p>
-        </div>
-      </div>
-
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input value={search} onChange={e => setSearch(e.target.value)}
@@ -349,64 +326,75 @@ export default function BillsTab() {
 
       {/* Record Payment Modal */}
       {payBill && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setPayBill(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6" onClick={() => setPayBill(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-8 py-5 border-b">
               <div>
-                <h3 className="font-semibold text-gray-900">Record Payment</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{payBill.billNumber} · {payBill.supplier?.name}</p>
+                <h3 className="text-lg font-bold text-gray-900">Record Payment</h3>
+                <p className="text-sm text-gray-500 mt-0.5">{payBill.billNumber} · {payBill.supplier?.name}</p>
               </div>
-              <button onClick={() => setPayBill(null)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
+              <button onClick={() => setPayBill(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X size={18} /></button>
             </div>
 
-            <div className="px-6 py-5 space-y-4">
-              {/* Balance info */}
-              <div className="bg-red-50 rounded-xl px-4 py-3 flex justify-between items-center">
-                <span className="text-sm text-gray-600">Balance Due</span>
-                <span className="text-lg font-bold text-red-600">
-                  {fmtCur(parseFloat(payBill.totalAmount) - parseFloat(payBill.paidAmount ?? 0))}
-                </span>
+            <div className="px-8 py-6 space-y-6">
+              {/* Balance banner */}
+              <div className="bg-red-50 border border-red-100 rounded-xl px-6 py-4 flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">Balance Due</p>
+                  <p className="text-2xl font-bold text-red-600 mt-0.5">
+                    {fmtCur(parseFloat(payBill.totalAmount) - parseFloat(payBill.paidAmount ?? 0))}
+                  </p>
+                </div>
+                <div className="text-right text-xs text-gray-400 space-y-0.5">
+                  <p>Total: {fmtCur(payBill.totalAmount)}</p>
+                  <p>Paid: {fmtCur(payBill.paidAmount ?? 0)}</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Payment Amount (₹) *</label>
-                  <input type="number" min="0" step="0.01" className={inp}
-                    value={payForm.amount} onChange={e => setPayField('amount', e.target.value)} />
-                </div>
+              {/* Payment fields — 2 cols */}
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Payment Details</p>
+                <div className="grid grid-cols-2 gap-5">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Payment Amount (₹) *</label>
+                    <input type="number" min="0" step="0.01" className={inp}
+                      value={payForm.amount} onChange={e => setPayField('amount', e.target.value)} />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Payment Date *</label>
-                  <input type="date" className={inp}
-                    value={payForm.paymentDate} onChange={e => setPayField('paymentDate', e.target.value)} />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Payment Date *</label>
+                    <input type="date" className={inp}
+                      value={payForm.paymentDate} onChange={e => setPayField('paymentDate', e.target.value)} />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Payment Method</label>
-                  <select className={inp} value={payForm.paymentMethod} onChange={e => setPayField('paymentMethod', e.target.value)}>
-                    {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Payment Method</label>
+                    <select className={inp} value={payForm.paymentMethod} onChange={e => setPayField('paymentMethod', e.target.value)}>
+                      {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    </select>
+                  </div>
 
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Reference / Cheque No.</label>
-                  <input className={inp} placeholder="e.g. UTR123456 or Cheque no."
-                    value={payForm.referenceNumber} onChange={e => setPayField('referenceNumber', e.target.value)} />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Reference / Cheque No.</label>
+                    <input className={inp} placeholder="e.g. UTR123456 or Cheque no."
+                      value={payForm.referenceNumber} onChange={e => setPayField('referenceNumber', e.target.value)} />
+                  </div>
 
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
-                  <input className={inp} placeholder="Optional"
-                    value={payForm.notes} onChange={e => setPayField('notes', e.target.value)} />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
+                    <input className={inp} placeholder="Optional remarks"
+                      value={payForm.notes} onChange={e => setPayField('notes', e.target.value)} />
+                  </div>
                 </div>
               </div>
 
               {/* TDS Section */}
-              <div className="border-t pt-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">TDS Deduction (optional)</p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="border-t pt-6">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">TDS Deduction <span className="normal-case font-normal">(optional)</span></p>
+                <div className="grid grid-cols-2 gap-5">
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">TDS Section</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">TDS Section</label>
                     <select className={inp} value={payForm.tdsSectionId} onChange={e => setPayField('tdsSectionId', e.target.value)}>
                       <option value="">No TDS</option>
                       {tdsSections.map((s: any) => (
@@ -417,13 +405,13 @@ export default function BillsTab() {
                   {payForm.tdsSectionId && (
                     <>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">TDS Rate (%)</label>
-                        <input type="number" className={inp} placeholder="auto"
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">TDS Rate (%)</label>
+                        <input type="number" className={inp} placeholder="auto-filled"
                           value={payForm.tdsRate} onChange={e => setPayField('tdsRate', e.target.value)} />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">TDS Amount (₹)</label>
-                        <input type="number" className={inp} placeholder="auto"
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">TDS Amount (₹)</label>
+                        <input type="number" className={inp} placeholder="auto-calculated"
                           value={payForm.tdsAmount} onChange={e => setPayField('tdsAmount', e.target.value)} />
                       </div>
                     </>
@@ -431,14 +419,15 @@ export default function BillsTab() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-1">
+              {/* Actions */}
+              <div className="flex gap-4 pt-2">
                 <button onClick={() => setPayBill(null)}
-                  className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">
+                  className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
                 <button onClick={handlePay} disabled={payMutation.isPending || !payForm.amount}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
-                  {payMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 transition-colors">
+                  {payMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <CreditCard size={15} />}
                   Save Payment
                 </button>
               </div>

@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Building2, ShoppingBag, PackageCheck, Receipt, CreditCard, FileX } from 'lucide-react'
 import VendorsTab from './tabs/VendorsTab'
 import PurchaseOrdersTab from './tabs/PurchaseOrdersTab'
@@ -7,6 +8,8 @@ import BillsTab from './tabs/BillsTab'
 import PaymentsMadeTab from './tabs/PaymentsMadeTab'
 import VendorCreditsTab from './tabs/VendorCreditsTab'
 import PurchaseReturnsPage from './PurchaseReturnsPage'
+import { purchaseBillApi } from '@/services/api'
+import { useAuthStore } from '@/store/authStore'
 
 const SEGMENT_META: Record<string, { icon: React.ElementType; title: string }> = {
   'vendors':         { icon: Building2,    title: 'Vendors' },
@@ -17,12 +20,29 @@ const SEGMENT_META: Record<string, { icon: React.ElementType; title: string }> =
   'vendor-credits':  { icon: FileX,        title: 'Vendor Credits' },
 }
 
+function fmtCur(n: any) {
+  const v = parseFloat(String(n ?? 0))
+  if (isNaN(v)) return '₹0'
+  return '₹' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+}
+
 export default function PurchasesPage() {
   const { pathname } = useLocation()
+  const { user } = useAuthStore()
+  const outletId = user?.outletId ?? 1
   const segment = pathname.split('/purchases/')[1]?.split('/')[0] ?? 'vendors'
 
   // Purchase Returns is a full standalone page (no card wrapper)
   if (segment === 'returns') return <PurchaseReturnsPage />
+
+  const { data: billSummary } = useQuery({
+    queryKey: ['purchase-bills-summary', outletId],
+    queryFn: async () => {
+      const res = await purchaseBillApi.getSummary(outletId)
+      return res.data.data
+    },
+    enabled: segment === 'bills',
+  })
 
   const renderContent = () => {
     switch (segment) {
@@ -50,8 +70,7 @@ export default function PurchasesPage() {
           <div className="absolute -top-10 -right-10 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl" />
           <div className="absolute -bottom-8 -left-8 w-56 h-56 rounded-full bg-violet-300/20 blur-2xl" />
         </div>
-        {/* Top row */}
-        <div className="relative flex items-center px-8 py-6">
+        <div className="relative flex items-center justify-between px-8 py-6">
           <div className="flex items-center gap-4">
             <Icon size={26} className="text-amber-300" />
             <div>
@@ -59,6 +78,22 @@ export default function PurchasesPage() {
               <h1 className="text-white text-2xl font-bold tracking-tight">{meta.title}</h1>
             </div>
           </div>
+          {segment === 'bills' && billSummary && (
+            <div className="flex items-center gap-3">
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Outstanding</p>
+                <p className="text-white font-bold text-base">{fmtCur(billSummary.totalOutstanding)}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[80px]">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Unpaid</p>
+                <p className="text-orange-300 font-bold text-base">{billSummary.unpaidCount ?? 0}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Paid</p>
+                <p className="text-green-300 font-bold text-base">{fmtCur(billSummary.totalPaid)}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {renderContent()}
