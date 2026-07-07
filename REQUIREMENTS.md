@@ -220,6 +220,12 @@ Two pipe lengths are now supported alongside each other: the original **5.25m** 
 | `web/src/pages/production/ProductionEntryPage.tsx` | Pipe search dropdown now shows the pipe length alongside diameter and pressure class — e.g. `350mm · 10kg · 5.25m` or `350mm · 4kg · 6.5m`. |
 | `go-backend/internal/service/production_order.go` | `OrderSummary` struct already included `LengthM float64` and the `GetSummaries` query already selected `COALESCE(pc.length_m, 5.25) AS length_m` — no backend change needed. |
 
+### Mobile — Order List & Bed Lock
+| File | Change |
+|---|---|
+| `mobile/lib/screens/business/business_detail_screen.dart` | Each order card in the DEMOULDING entry list now shows a pipe length badge — blue `5.25m` or violet `6.5m` — so operators know which length they're selecting. |
+| `mobile/lib/screens/business/business_detail_screen.dart` | When an order with a 6.5m pipe config is selected in DEMOULDING, bed type is auto-set to `LARGE_BED` and the selector is locked (dimmed, non-interactive) with an orange "6.5m pipe — Large Bed required" label. Lock releases when all 6.5m orders are deselected. |
+
 ---
 
 ## REQ-008 · Extra Large Bed Type
@@ -250,7 +256,7 @@ A third bed size — **Extra Large** — added alongside Small Bed and Large Bed
 ### Mobile
 | File | Change |
 |---|---|
-| `mobile/lib/screens/business/business_detail_screen.dart` | Third bed type button `_bedTypeBtn('EXTRA_LARGE_BED', 'Extra Large')` added to the bed selector row in the DEMOULDING entry form. State variable comment updated to include `'EXTRA_LARGE_BED'`. |
+| `mobile/lib/screens/business/business_detail_screen.dart` | Third bed type button `_bedTypeBtn('EXTRA_LARGE_BED', 'Extra Large')` added to the bed selector row in the DEMOULDING entry form. State variable `_bedType` and `_bedTypeLocked` added; `_recalcBedLock()` auto-selects and locks `LARGE_BED` when a 6.5m pipe order is selected (see REQ-007 mobile section). |
 
 ---
 
