@@ -559,19 +559,36 @@ export default function TDSReportPage() {
           <div className="absolute -top-8 -right-8 w-52 h-52 rounded-full bg-white/5 blur-2xl" />
           <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
         </div>
-        <div className="relative px-8 pt-6 pb-5">
-          <div className="flex items-center gap-5">
-            <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors">
-              <ArrowLeft size={16} className="text-white" />
+        <div className="relative px-8 pt-6 pb-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-colors">
+                <ArrowLeft size={16} className="text-white" />
+              </button>
+              <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner">
+                <FileText size={26} className="text-violet-200" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Reports</p>
+                <h1 className="text-2xl font-extrabold text-white tracking-tight">TDS Report</h1>
+                <p className="text-sm text-blue-200 mt-0.5">Tax Deducted at Source — outward (on payments) and inward (by customers)</p>
+              </div>
+            </div>
+          </div>
+          {/* Tabs pinned to bottom of hero */}
+          <div className="flex items-center gap-1 mt-5">
+            <button
+              onClick={() => setMainTab('outward')}
+              className={`px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all ${mainTab === 'outward' ? 'bg-white text-violet-700 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+            >
+              TDS Outward
             </button>
-            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shadow-inner">
-              <FileText size={26} className="text-violet-200" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Reports</p>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">TDS Report</h1>
-              <p className="text-sm text-blue-200 mt-0.5">Tax Deducted at Source — outward (on payments) and inward (by customers)</p>
-            </div>
+            <button
+              onClick={() => setMainTab('inward')}
+              className={`px-5 py-2.5 text-sm font-semibold rounded-t-xl transition-all ${mainTab === 'inward' ? 'bg-white text-teal-700 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+            >
+              TDS Inward
+            </button>
           </div>
         </div>
       </div>
@@ -579,16 +596,6 @@ export default function TDSReportPage() {
       {/* Toolbar */}
       <div className="px-8 py-4 bg-white border-b border-gray-100 flex flex-wrap items-center gap-3">
         <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
-        <div className="ml-auto flex items-center bg-gray-100 rounded-xl p-1 gap-1">
-          <button onClick={() => setMainTab('outward')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${mainTab === 'outward' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            TDS Outward
-          </button>
-          <button onClick={() => setMainTab('inward')}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${mainTab === 'inward' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-            TDS Inward
-          </button>
-        </div>
       </div>
 
       {outletId && mainTab === 'outward' && <TDSOutwardTab outletId={outletId} from={from} to={to} />}
