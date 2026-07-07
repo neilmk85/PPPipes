@@ -1,15 +1,11 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns'
 import { Download, Truck, ArrowUpDown } from 'lucide-react'
 import { vehiclesApi, VehicleEntry } from '@/services/businessApi'
+import { DateRangePicker } from '@/components/DateRangePicker'
 
-const PRESETS = [
-  { label: 'This Month', from: () => format(startOfMonth(new Date()), 'yyyy-MM-dd'),               to: () => format(endOfMonth(new Date()), 'yyyy-MM-dd') },
-  { label: 'Last Month', from: () => format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'), to: () => format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd') },
-  { label: 'Last 3M',    from: () => format(startOfMonth(subMonths(new Date(), 2)), 'yyyy-MM-dd'), to: () => format(endOfMonth(new Date()), 'yyyy-MM-dd') },
-  { label: 'This Year',  from: () => format(startOfYear(new Date()), 'yyyy-MM-dd'),                to: () => format(endOfMonth(new Date()), 'yyyy-MM-dd') },
-]
+function isoToday() { return new Date().toISOString().slice(0, 10) }
+function isoStartOfMonth() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` }
 
 function dmy(iso: string) {
   const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`
@@ -32,8 +28,8 @@ function exportCsv(rows: VehicleEntry[], from: string, to: string) {
 type VehicleFilter = 'all' | 'crane' | 'jcb'
 
 export default function VehiclesReportPage() {
-  const [from, setFrom] = useState(PRESETS[0].from())
-  const [to,   setTo]   = useState(PRESETS[0].to())
+  const [from, setFrom] = useState(isoStartOfMonth())
+  const [to,   setTo]   = useState(isoToday())
   const [filter, setFilter] = useState<VehicleFilter>('all')
   const [sortKey, setSortKey] = useState('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
@@ -43,8 +39,6 @@ export default function VehiclesReportPage() {
     queryFn:  () => vehiclesApi.list(from, to),
     staleTime: 0,
   })
-
-  const activePreset = PRESETS.findIndex(p => from === p.from() && to === p.to())
 
   // Totals
   const craneRows = useMemo(() => rows.filter(r => r.craneEnabled), [rows])
@@ -117,22 +111,7 @@ export default function VehiclesReportPage() {
             </button>
           </div>
 
-          {/* Presets */}
-          <div className="bg-white/10 rounded-xl p-1 backdrop-blur-sm flex items-center gap-1 w-fit">
-            {PRESETS.map((p, i) => (
-              <button key={p.label} onClick={() => { setFrom(p.from()); setTo(p.to()) }}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${activePreset === i ? 'bg-white text-blue-700 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'}`}>
-                {p.label}
-              </button>
-            ))}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white/70">
-              <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-                className="bg-transparent border-b border-white/30 text-white text-xs outline-none w-28" />
-              <span>–</span>
-              <input type="date" value={to} onChange={e => setTo(e.target.value)}
-                className="bg-transparent border-b border-white/30 text-white text-xs outline-none w-28" />
-            </div>
-          </div>
+          <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
         </div>
 
         {/* Stats strip */}

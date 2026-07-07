@@ -1,9 +1,10 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Package, Download, Search, AlertTriangle, TrendingUp, Boxes, X, BarChart2, Calendar } from 'lucide-react'
+import { Package, Download, Search, AlertTriangle, TrendingUp, Boxes, X, BarChart2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer } from 'recharts'
 import { reportApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import { DateRangePicker } from '@/components/DateRangePicker'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,122 +28,11 @@ interface StockRow {
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10)
 }
-function startOf(unit: 'month' | 'week' | 'quarter' | 'year', d = new Date()) {
+function startOf(unit: 'month' | 'year', d = new Date()) {
   const r = new Date(d)
   if (unit === 'month')   { r.setDate(1); r.setHours(0,0,0,0); return r }
-  if (unit === 'week')    { r.setDate(r.getDate() - r.getDay() + 1); r.setHours(0,0,0,0); return r }
-  if (unit === 'quarter') { r.setMonth(Math.floor(r.getMonth()/3)*3, 1); r.setHours(0,0,0,0); return r }
   if (unit === 'year')    { r.setMonth(0, 1); r.setHours(0,0,0,0); return r }
   return r
-}
-type PresetKey = 'today'|'yesterday'|'this_week'|'last_week'|'this_month'|'last_month'|'this_quarter'|'this_year'|'custom'
-const PRESETS: { key: PresetKey; label: string }[] = [
-  { key: 'today',        label: 'Today' },
-  { key: 'yesterday',    label: 'Yesterday' },
-  { key: 'this_week',    label: 'This Week' },
-  { key: 'last_week',    label: 'Last Week' },
-  { key: 'this_month',   label: 'This Month' },
-  { key: 'last_month',   label: 'Last Month' },
-  { key: 'this_quarter', label: 'This Quarter' },
-  { key: 'this_year',    label: 'This Year' },
-  { key: 'custom',       label: 'Custom Range' },
-]
-function resolvePreset(k: PresetKey): [string, string] {
-  const t = new Date(), fmt = isoDate
-  if (k === 'today')        return [fmt(t), fmt(t)]
-  if (k === 'yesterday')    { const y = new Date(t); y.setDate(y.getDate()-1); return [fmt(y), fmt(y)] }
-  if (k === 'this_week')    { const e = new Date(startOf('week')); e.setDate(e.getDate()+6); return [fmt(startOf('week')), fmt(e)] }
-  if (k === 'last_week')    { const s = startOf('week'); s.setDate(s.getDate()-7); const e = new Date(s); e.setDate(e.getDate()+6); return [fmt(s), fmt(e)] }
-  if (k === 'this_month')   { const e = new Date(t.getFullYear(), t.getMonth()+1, 0); return [fmt(startOf('month')), fmt(e)] }
-  if (k === 'last_month')   { const s = new Date(t.getFullYear(), t.getMonth()-1, 1); const e = new Date(t.getFullYear(), t.getMonth(), 0); return [fmt(s), fmt(e)] }
-  if (k === 'this_quarter') { const e = new Date(startOf('quarter')); e.setMonth(e.getMonth()+3); e.setDate(e.getDate()-1); return [fmt(startOf('quarter')), fmt(e)] }
-  if (k === 'this_year')    { const e = new Date(t.getFullYear(), 11, 31); return [fmt(startOf('year')), fmt(e)] }
-  return [fmt(t), fmt(t)]
-}
-
-function DateRangePicker({ fromDate, toDate, onChange }: { fromDate: string; toDate: string; onChange: (f: string, t: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [preset, setPreset] = useState<PresetKey>('this_month')
-  const [customFrom, setCustomFrom] = useState(fromDate)
-  const [customTo, setCustomTo]     = useState(toDate)
-  const [pos, setPos] = useState({ top: 0, right: 0 })
-  const ref    = useRef<HTMLDivElement>(null)
-  const btnRef = useRef<HTMLButtonElement>(null)
-
-  function handleOpen() {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
-    }
-    setOpen(v => !v)
-  }
-
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node) &&
-          btnRef.current && !btnRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [])
-
-  function pickPreset(k: PresetKey) {
-    setPreset(k)
-    if (k !== 'custom') {
-      const [f, t] = resolvePreset(k)
-      onChange(f, t)
-      setOpen(false)
-    }
-  }
-  function applyCustom() {
-    onChange(customFrom, customTo)
-    setPreset('custom')
-    setOpen(false)
-  }
-
-  const label = preset === 'custom'
-    ? `${fromDate} → ${toDate}`
-    : PRESETS.find(p => p.key === preset)?.label ?? 'Date Range'
-
-  return (
-    <div className="relative">
-      <button ref={btnRef} onClick={handleOpen}
-        className="flex items-center gap-2 px-3 py-2 bg-white/15 hover:bg-white/25 border border-white/25 text-white text-sm font-semibold rounded-xl transition-all">
-        <Calendar size={14} />{label}
-      </button>
-      {open && (
-        <div ref={ref} style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 9999 }}
-          className="bg-white rounded-2xl shadow-xl border border-gray-100 w-72">
-          <div className="p-3 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Quick Select</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              {PRESETS.filter(p => p.key !== 'custom').map(p => (
-                <button key={p.key} onClick={() => pickPreset(p.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold text-left transition-all ${
-                    preset === p.key ? 'bg-teal-600 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                  }`}>{p.label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="p-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Custom Range</p>
-            <div className="flex flex-col gap-2">
-              <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 w-full" />
-              <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 w-full" />
-              <button onClick={applyCustom}
-                className="w-full py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
-                Apply Range
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
 }
 
 function fmtQty(n: string | number): string {

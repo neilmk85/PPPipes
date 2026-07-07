@@ -1,19 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
-import { format, subDays } from 'date-fns'
+import { useState, useEffect } from 'react'
+import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, FileText, Calendar, ChevronDown, Loader2,
+  ArrowLeft, FileText, Loader2,
   Building2, LayoutList, Plus, X, Trash2, CheckCircle2, Clock,
 } from 'lucide-react'
 import { reportApi, tdsApi, customerApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
-
-const PRESETS = [
-  { label: 'Last 30d',     from: () => format(subDays(new Date(), 29), 'yyyy-MM-dd'),                                                                to: () => format(new Date(), 'yyyy-MM-dd') },
-  { label: 'This Month',   from: () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),                            to: () => format(new Date(), 'yyyy-MM-dd') },
-  { label: 'This Quarter', from: () => { const q = Math.floor(new Date().getMonth()/3)*3; return format(new Date(new Date().getFullYear(), q, 1), 'yyyy-MM-dd') }, to: () => format(new Date(), 'yyyy-MM-dd') },
-  { label: 'This Year',    from: () => format(new Date(new Date().getFullYear(), 0, 1), 'yyyy-MM-dd'),                                                to: () => format(new Date(), 'yyyy-MM-dd') },
-]
+import { DateRangePicker } from '@/components/DateRangePicker'
 
 function dmy(iso: string) { const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}` }
 function fmt(v: any) {
@@ -24,45 +18,6 @@ function fmt(v: any) {
 function fmtPlain(v: any) {
   const n = parseFloat(v ?? 0)
   return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function DateRangePicker({ from, to, onChange }: { from: string; to: string; onChange: (f: string, t: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [tmpFrom, setTmpFrom] = useState(from)
-  const [tmpTo, setTmpTo] = useState(to)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-  return (
-    <div className="relative" ref={ref}>
-      <button onClick={() => { setTmpFrom(from); setTmpTo(to); setOpen(true) }}
-        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 hover:border-violet-400 transition-colors shadow-sm">
-        <Calendar size={14} className="text-violet-500" />
-        {dmy(from)} – {dmy(to)}
-        <ChevronDown size={13} className="text-gray-400" />
-      </button>
-      {open && (
-        <div className="absolute top-full mt-2 left-0 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-72">
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {PRESETS.map(p => (
-              <button key={p.label} onClick={() => { const f=p.from(),t=p.to(); setTmpFrom(f);setTmpTo(t);onChange(f,t);setOpen(false) }}
-                className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${from===p.from()&&to===p.to() ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-violet-100'}`}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <input type="date" value={tmpFrom} onChange={e => setTmpFrom(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
-            <input type="date" value={tmpTo} onChange={e => setTmpTo(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400/50" />
-          </div>
-          <button onClick={() => { onChange(tmpFrom, tmpTo); setOpen(false) }} className="mt-3 w-full py-2 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700">Apply</button>
-        </div>
-      )}
-    </div>
-  )
 }
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
@@ -607,7 +562,7 @@ export default function TDSReportPage() {
 
       {/* Toolbar */}
       <div className="px-8 py-4 bg-white border-b border-gray-100 flex flex-wrap items-center gap-3">
-        <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
+        <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
       </div>
 
       {outletId && mainTab === 'outward' && <TDSOutwardTab outletId={outletId} from={from} to={to} />}

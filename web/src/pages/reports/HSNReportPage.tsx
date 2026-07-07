@@ -1,19 +1,13 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
-import { Download, Search, X, Calendar, ChevronDown, Hash, TrendingUp, TrendingDown, ArrowUpDown } from 'lucide-react'
+import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { Download, Search, X, Hash, TrendingUp, TrendingDown, ArrowUpDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { gstApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import { DateRangePicker } from '@/components/DateRangePicker'
 
 type Tab = 'sale' | 'purchase'
-
-const PRESETS = [
-  { label: 'This Month',   from: () => format(startOfMonth(new Date()), 'yyyy-MM-dd'), to: () => format(endOfMonth(new Date()), 'yyyy-MM-dd') },
-  { label: 'Last Month',   from: () => format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd'), to: () => format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd') },
-  { label: 'Last 3M',      from: () => format(startOfMonth(subMonths(new Date(), 2)), 'yyyy-MM-dd'), to: () => format(endOfMonth(new Date()), 'yyyy-MM-dd') },
-  { label: 'This Quarter', from: () => { const m = Math.floor(new Date().getMonth() / 3) * 3; const d = new Date(); d.setMonth(m, 1); return format(d, 'yyyy-MM-dd') }, to: () => format(endOfMonth(new Date()), 'yyyy-MM-dd') },
-]
 
 function dmy(iso: string) {
   const [y, m, d] = iso.split('-')
@@ -23,59 +17,6 @@ function dmy(iso: string) {
 function n(v: any, dec = 2) {
   const x = Number(v)
   return isNaN(x) ? '—' : x.toLocaleString('en-IN', { minimumFractionDigits: dec, maximumFractionDigits: dec })
-}
-
-function CustomDatePicker({ from, to, onChange }: { from: string; to: string; onChange: (f: string, t: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const [tf, setTf] = useState(from)
-  const [tt, setTt] = useState(to)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-
-  const isPreset = PRESETS.some(p => from === p.from() && to === p.to())
-  const isCustom  = !isPreset && !!(from || to)
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => { setTf(from); setTt(to); setOpen(v => !v) }}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-          isCustom ? 'bg-white text-indigo-700 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'
-        }`}
-      >
-        <Calendar size={11} />
-        {isCustom ? `${dmy(from)} – ${dmy(to)}` : 'Custom'}
-        {isCustom
-          ? <X size={10} className="ml-0.5 opacity-70" onClick={e => { e.stopPropagation(); onChange('', ''); setOpen(false) }} />
-          : <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-        }
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-64">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">Custom Range</p>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">From</label>
-              <input type="date" value={tf} onChange={e => setTf(e.target.value)} className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">To</label>
-              <input type="date" value={tt} onChange={e => setTt(e.target.value)} className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            </div>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button onClick={() => { onChange('', ''); setOpen(false) }} className="flex-1 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50">Clear</button>
-            <button onClick={() => { onChange(tf, tt); setOpen(false) }} disabled={!tf && !tt} className="flex-1 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-blue-600 rounded-xl disabled:opacity-40">Apply</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
 }
 
 type SortKey = string
@@ -121,12 +62,10 @@ function useSortable(data: any[], defaultKey: string) {
 export default function HSNReportPage() {
   const { outletId } = useAuthStore()
   const [tab, setTab]       = useState<Tab>('sale')
-  const [from, setFrom]     = useState(PRESETS[0].from())
-  const [to,   setTo]       = useState(PRESETS[0].to())
+  const [from, setFrom]     = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  const [to,   setTo]       = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'))
   const [search, setSearch] = useState('')
   const [exporting, setExporting] = useState(false)
-
-  const activePreset = PRESETS.findIndex(p => from === p.from() && to === p.to())
 
   const saleQuery = useQuery({
     queryKey: ['hsn-sale', outletId, from, to],
@@ -260,20 +199,7 @@ export default function HSNReportPage() {
               ))}
             </div>
 
-            <div className="bg-white/10 rounded-xl p-1 backdrop-blur-sm flex items-center gap-1">
-              {PRESETS.map((p, i) => (
-                <button
-                  key={p.label}
-                  onClick={() => { setFrom(p.from()); setTo(p.to()) }}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                    activePreset === i ? 'bg-white text-gray-800 shadow-sm' : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-              <CustomDatePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
-            </div>
+            <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
           </div>
         </div>
 

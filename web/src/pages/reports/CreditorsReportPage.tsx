@@ -1,90 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import {
   Loader2, RefreshCw, Download, Search,
   ChevronDown, ChevronRight, CheckCircle, BookOpen,
-  Calendar, X, FileText,
+  FileText,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { reportApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import { DateRangePicker } from '@/components/DateRangePicker'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 /* ── date helpers ── */
 const pad = (n: number) => String(n).padStart(2, '0')
-const startOf = (unit: 'month' | 'quarter', d = new Date()) => {
-  if (unit === 'month') return new Date(d.getFullYear(), d.getMonth(), 1)
-  const q = Math.floor(d.getMonth() / 3)
-  return new Date(d.getFullYear(), q * 3, 1)
-}
 const toISO  = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 const dmy    = (iso: string) => { const [y,m,dd] = iso.split('-'); return `${dd}/${m}/${y}` }
-const today  = () => toISO(new Date())
-const nDaysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return toISO(d) }
-
-const PRESETS = [
-  { label: 'Today',       from: () => today(),              to: () => today() },
-  { label: 'Last 7d',     from: () => nDaysAgo(6),          to: () => today() },
-  { label: 'Last 30d',    from: () => nDaysAgo(29),         to: () => today() },
-  { label: 'This Month',  from: () => toISO(startOf('month')), to: () => today() },
-  { label: 'This Quarter',from: () => toISO(startOf('quarter')), to: () => today() },
-]
-
-function CustomRangePicker({ from, to, onChange }: {
-  from: string; to: string; onChange: (f: string, t: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [tmpFrom, setTmpFrom] = useState(from)
-  const [tmpTo,   setTmpTo]   = useState(to)
-  const ref = useRef<HTMLDivElement>(null)
-
-  const activePreset = PRESETS.find(p => p.from() === from && p.to() === to)
-  const customActive = !activePreset
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button onClick={() => { setTmpFrom(from); setTmpTo(to); setOpen(o => !o) }}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-          customActive ? 'bg-white text-violet-700 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'
-        }`}>
-        <Calendar size={12} />
-        {customActive ? `${dmy(from)} – ${dmy(to)}` : 'Custom'}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 w-72">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Custom Range</p>
-          <div className="space-y-3">
-            <label className="block">
-              <span className="text-[11px] text-gray-400 font-medium">From</span>
-              <input type="date" value={tmpFrom} onChange={e => setTmpFrom(e.target.value)}
-                className="mt-1 w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400" />
-            </label>
-            <label className="block">
-              <span className="text-[11px] text-gray-400 font-medium">To</span>
-              <input type="date" value={tmpTo} onChange={e => setTmpTo(e.target.value)}
-                className="mt-1 w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400" />
-            </label>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button onClick={() => { onChange(tmpFrom, tmpTo); setOpen(false) }}
-              className="flex-1 px-3 py-1.5 bg-violet-600 text-white text-xs font-semibold rounded-lg hover:bg-violet-700 transition-colors">Apply</button>
-            <button onClick={() => setOpen(false)}
-              className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-200 transition-colors">
-              <X size={12} />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 const BAR_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316']
 
@@ -127,8 +58,8 @@ export default function CreditorsReportPage() {
   const [expanded, setExpanded]   = useState<Set<number>>(new Set())
   const [search, setSearch]       = useState('')
   const [billSearch, setBillSearch] = useState('')
-  const [from, setFrom]           = useState(PRESETS[2].from())   // Last 30d
-  const [to,   setTo]             = useState(PRESETS[2].to())
+  const [from, setFrom]           = useState(() => { const d = new Date(); d.setDate(d.getDate() - 29); return toISO(d) })
+  const [to,   setTo]             = useState(() => toISO(new Date()))
 
   const load = async () => {
     setLoading(true)
@@ -378,21 +309,7 @@ export default function CreditorsReportPage() {
             ))}
           </div>
 
-          {/* Date filters */}
-          <div className="flex items-center gap-1 bg-white/10 rounded-xl p-1 backdrop-blur-sm">
-            {PRESETS.map(p => {
-              const active = from === p.from() && to === p.to()
-              return (
-                <button key={p.label} onClick={() => { setFrom(p.from()); setTo(p.to()) }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    active ? 'bg-white text-violet-700 shadow-sm' : 'text-white/80 hover:text-white hover:bg-white/10'
-                  }`}>
-                  {p.label}
-                </button>
-              )
-            })}
-            <CustomRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
-          </div>
+          <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
         </div>
 
         {/* Stats strip */}
