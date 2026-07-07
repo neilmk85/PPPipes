@@ -69,8 +69,8 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   const textColor = color.replace('border-l-', 'text-').replace('-500', '-600')
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
-      <p className="text-xs font-medium text-gray-500 mb-1">{label}</p>
-      <p className={`text-xl font-bold ${textColor}`}>{value}</p>
+      <p className={`text-xs font-semibold mb-1 ${textColor}`}>{label}</p>
+      <p className="text-xl font-bold text-gray-900">{value}</p>
       {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
     </div>
   )
