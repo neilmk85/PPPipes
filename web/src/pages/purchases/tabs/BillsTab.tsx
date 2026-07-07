@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Search, Receipt, Plus, Loader2, CreditCard, Eye, Trash2, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Receipt, Loader2, CreditCard, X } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { purchaseBillApi } from '@/services/api'
+import { purchaseBillApi, vendorPaymentApi, tdsApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 
 function fmtCur(n: any) {
@@ -18,15 +19,83 @@ const STATUS_COLORS: Record<string, string> = {
   PAID:    'bg-green-100 text-green-700',
 }
 
+const PAYMENT_METHODS = [
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'NEFT',          label: 'NEFT' },
+  { value: 'RTGS',          label: 'RTGS' },
+  { value: 'CHEQUE',        label: 'Cheque' },
+  { value: 'UPI',           label: 'UPI' },
+  { value: 'CASH',          label: 'Cash' },
+  { value: 'OTHER',         label: 'Other' },
+]
+
+const inp = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none'
+
 export default function BillsTab() {
   const { user } = useAuthStore()
   const outletId = user?.outletId ?? 1
   const qc = useQueryClient()
 
-  const [search, setSearch] = useState('')
+  const [search, setSearch]   = useState('')
   const [viewBill, setViewBill] = useState<any>(null)
-  const [payBill, setPayBill] = useState<any>(null)
-  const [payAmount, setPayAmount] = useState('')
+  const [payBill, setPayBill]   = useState<any>(null)
+
+  // Payment form state
+  const [payForm, setPayForm] = useState({
+    amount: '',
+    paymentMethod: 'BANK_TRANSFER',
+    referenceNumber: '',
+    paymentDate: format(new Date(), 'yyyy-MM-dd'),
+    notes: '',
+    tdsSectionId: '',
+    tdsRate: '',
+    tdsAmount: '',
+  })
+  const [tdsSections, setTdsSections] = useState<any[]>([])
+
+  useEffect(() => {
+    tdsApi.getSections().then(r => setTdsSections((r.data as any).data ?? []))
+  }, [])
+
+  function openPayModal(bill: any) {
+    const balance = parseFloat(bill.totalAmount ?? 0) - parseFloat(bill.paidAmount ?? 0)
+    setPayBill(bill)
+    setPayForm({
+      amount: balance.toFixed(2),
+      paymentMethod: 'BANK_TRANSFER',
+      referenceNumber: '',
+      paymentDate: format(new Date(), 'yyyy-MM-dd'),
+      notes: '',
+      tdsSectionId: '',
+      tdsRate: '',
+      tdsAmount: '',
+    })
+  }
+
+  function setPayField(k: string, v: string) {
+    setPayForm(prev => {
+      const next = { ...prev, [k]: v }
+      // Auto-set TDS rate when section selected
+      if (k === 'tdsSectionId') {
+        const sec = tdsSections.find((s: any) => String(s.id) === v)
+        if (sec) {
+          next.tdsRate = String(parseFloat(sec.rate))
+          const base = parseFloat(next.amount) || 0
+          if (base > 0) next.tdsAmount = ((base * parseFloat(sec.rate)) / 100).toFixed(2)
+        } else {
+          next.tdsRate = ''
+          next.tdsAmount = ''
+        }
+      }
+      // Recalc TDS amount when base amount or rate changes
+      if (k === 'amount' || k === 'tdsRate') {
+        const base = parseFloat(k === 'amount' ? v : next.amount) || 0
+        const rate = parseFloat(k === 'tdsRate' ? v : next.tdsRate) || 0
+        if (base > 0 && rate > 0) next.tdsAmount = ((base * rate) / 100).toFixed(2)
+      }
+      return next
+    })
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['purchase-bills', outletId],
@@ -45,14 +114,12 @@ export default function BillsTab() {
   })
 
   const payMutation = useMutation({
-    mutationFn: ({ id, amount }: { id: number; amount: number }) =>
-      purchaseBillApi.recordPayment(id, amount),
+    mutationFn: (payload: any) => vendorPaymentApi.create(payload),
     onSuccess: () => {
       toast.success('Payment recorded')
       qc.invalidateQueries({ queryKey: ['purchase-bills', outletId] })
       qc.invalidateQueries({ queryKey: ['purchase-bills-summary', outletId] })
       setPayBill(null)
-      setPayAmount('')
     },
     onError: () => toast.error('Failed to record payment'),
   })
@@ -75,19 +142,28 @@ export default function BillsTab() {
   )
 
   function handlePay() {
-    const amt = parseFloat(payAmount)
+    const amt = parseFloat(payForm.amount)
     if (!payBill || isNaN(amt) || amt <= 0) return
-    const balance = parseFloat(payBill.balanceDue ?? payBill.totalAmount) - parseFloat(payBill.paidAmount ?? 0)
-    if (amt > balance + 0.01) {
-      toast.error('Amount exceeds balance due')
-      return
+    const balance = parseFloat(payBill.totalAmount) - parseFloat(payBill.paidAmount ?? 0)
+    if (amt > balance + 0.01) { toast.error('Amount exceeds balance due'); return }
+
+    const payload: any = {
+      billId: payBill.id,
+      amount: amt,
+      paymentMethod: payForm.paymentMethod,
+      referenceNumber: payForm.referenceNumber || undefined,
+      paymentDate: payForm.paymentDate,
+      notes: payForm.notes || undefined,
     }
-    payMutation.mutate({ id: payBill.id, amount: amt })
+    if (payForm.tdsSectionId) {
+      payload.tdsSectionId = parseInt(payForm.tdsSectionId)
+      payload.tdsAmount = parseFloat(payForm.tdsAmount) || 0
+    }
+    payMutation.mutate(payload)
   }
 
   return (
     <div>
-
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
@@ -133,42 +209,44 @@ export default function BillsTab() {
                 <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Amount</th>
                 <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Balance Due</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Status</th>
-                <th className="px-4 py-3 text-[11px] font-bold text-violet-500 uppercase tracking-widest"></th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(b => {
                 const balance = parseFloat(b.totalAmount ?? 0) - parseFloat(b.paidAmount ?? 0)
                 return (
-                  <tr key={b.id} className="hover:bg-gray-50">
-                    <td className="py-3 font-mono font-medium text-primary-700">{b.billNumber}</td>
-                    <td className="py-3 text-gray-500">{b.vendorBillNumber || '—'}</td>
-                    <td className="py-3 text-gray-800">{b.supplier?.name}</td>
-                    <td className="py-3 text-gray-500">{b.billDate}</td>
-                    <td className="py-3 text-gray-500">{b.dueDate || '—'}</td>
-                    <td className="py-3 text-right font-semibold">{fmtCur(b.totalAmount)}</td>
-                    <td className="py-3 text-right font-semibold text-red-600">{fmtCur(balance)}</td>
-                    <td className="py-3">
+                  <tr
+                    key={b.id}
+                    onClick={() => setViewBill(b)}
+                    className="hover:bg-violet-50/40 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3 font-mono font-medium text-primary-700">{b.billNumber}</td>
+                    <td className="px-4 py-3 text-gray-500">{b.vendorBillNumber || '—'}</td>
+                    <td className="px-4 py-3 text-gray-800 font-medium">{b.supplier?.name}</td>
+                    <td className="px-4 py-3 text-gray-500">{b.billDate}</td>
+                    <td className="px-4 py-3 text-gray-500">{b.dueDate || '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{fmtCur(b.totalAmount)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-red-600">{fmtCur(balance)}</td>
+                    <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[b.status] ?? 'bg-gray-100 text-gray-600'}`}>
                         {b.status}
                       </span>
                     </td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-2 justify-end">
-                        <button onClick={() => setViewBill(b)}
-                          className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg hover:bg-primary-50" title="View">
-                          <Eye size={14} />
-                        </button>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
                         {b.status !== 'PAID' && (
-                          <button onClick={() => { setPayBill(b); setPayAmount(String(balance.toFixed(2))) }}
-                            className="p-1.5 text-gray-400 hover:text-green-600 rounded-lg hover:bg-green-50" title="Record Payment">
-                            <CreditCard size={14} />
+                          <button
+                            onClick={() => openPayModal(b)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                          >
+                            <CreditCard size={12} /> Pay
                           </button>
                         )}
                         <button onClick={() => {
                           if (confirm(`Delete bill ${b.billNumber}?`)) deleteMutation.mutate(b.id)
-                        }} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50" title="Delete">
-                          <Trash2 size={14} />
+                        }} className="px-2 py-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          Delete
                         </button>
                       </div>
                     </td>
@@ -180,18 +258,28 @@ export default function BillsTab() {
         </div>
       )}
 
-      {/* View Bill Modal */}
+      {/* View Bill Detail Modal */}
       {viewBill && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setViewBill(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b">
               <div>
                 <h3 className="font-semibold text-gray-900">{viewBill.billNumber}</h3>
                 <p className="text-xs text-gray-500 mt-0.5">{viewBill.supplier?.name}</p>
               </div>
-              <button onClick={() => setViewBill(null)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {viewBill.status !== 'PAID' && (
+                  <button
+                    onClick={() => { setViewBill(null); openPayModal(viewBill) }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg"
+                  >
+                    <CreditCard size={12} /> Record Payment
+                  </button>
+                )}
+                <button onClick={() => setViewBill(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -239,57 +327,20 @@ export default function BillsTab() {
                   <span className="text-gray-500">Subtotal</span>
                   <span>{fmtCur(viewBill.subtotal)}</span>
                 </div>
-                {parseFloat(viewBill.cgstAmount ?? 0) > 0 || parseFloat(viewBill.sgstAmount ?? 0) > 0 || parseFloat(viewBill.igstAmount ?? 0) > 0 ? (
+                {(parseFloat(viewBill.cgstAmount ?? 0) > 0 || parseFloat(viewBill.sgstAmount ?? 0) > 0 || parseFloat(viewBill.igstAmount ?? 0) > 0) ? (
                   <>
-                    {parseFloat(viewBill.cgstAmount ?? 0) > 0 && (
-                      <div className="flex justify-between text-blue-600">
-                        <span>CGST</span>
-                        <span>{fmtCur(viewBill.cgstAmount)}</span>
-                      </div>
-                    )}
-                    {parseFloat(viewBill.sgstAmount ?? 0) > 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>SGST</span>
-                        <span>{fmtCur(viewBill.sgstAmount)}</span>
-                      </div>
-                    )}
-                    {parseFloat(viewBill.igstAmount ?? 0) > 0 && (
-                      <div className="flex justify-between text-purple-600">
-                        <span>IGST</span>
-                        <span>{fmtCur(viewBill.igstAmount)}</span>
-                      </div>
-                    )}
+                    {parseFloat(viewBill.cgstAmount ?? 0) > 0 && <div className="flex justify-between text-blue-600"><span>CGST</span><span>{fmtCur(viewBill.cgstAmount)}</span></div>}
+                    {parseFloat(viewBill.sgstAmount ?? 0) > 0 && <div className="flex justify-between text-green-600"><span>SGST</span><span>{fmtCur(viewBill.sgstAmount)}</span></div>}
+                    {parseFloat(viewBill.igstAmount ?? 0) > 0 && <div className="flex justify-between text-purple-600"><span>IGST</span><span>{fmtCur(viewBill.igstAmount)}</span></div>}
                   </>
                 ) : (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Tax</span>
-                    <span>{fmtCur(viewBill.taxAmount)}</span>
-                  </div>
+                  <div className="flex justify-between"><span className="text-gray-500">Tax</span><span>{fmtCur(viewBill.taxAmount)}</span></div>
                 )}
-                {viewBill.supplyType && (
-                  <div className="flex justify-between text-xs text-gray-400">
-                    <span>Supply Type</span>
-                    <span>{viewBill.supplyType === 'INTRA_STATE' ? 'Intra-State' : 'Inter-State'}</span>
-                  </div>
-                )}
-                {viewBill.vendorGstin && (
-                  <div className="flex justify-between text-xs text-gray-400">
-                    <span>Vendor GSTIN</span>
-                    <span className="font-mono">{viewBill.vendorGstin}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold text-base border-t pt-1">
-                  <span>Total</span>
-                  <span>{fmtCur(viewBill.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-green-600">
-                  <span>Paid</span>
-                  <span>{fmtCur(viewBill.paidAmount)}</span>
-                </div>
-                <div className="flex justify-between font-semibold text-red-600">
-                  <span>Balance Due</span>
-                  <span>{fmtCur(parseFloat(viewBill.totalAmount) - parseFloat(viewBill.paidAmount))}</span>
-                </div>
+                {viewBill.supplyType && <div className="flex justify-between text-xs text-gray-400"><span>Supply Type</span><span>{viewBill.supplyType === 'INTRA_STATE' ? 'Intra-State' : 'Inter-State'}</span></div>}
+                {viewBill.vendorGstin && <div className="flex justify-between text-xs text-gray-400"><span>Vendor GSTIN</span><span className="font-mono">{viewBill.vendorGstin}</span></div>}
+                <div className="flex justify-between font-semibold text-base border-t pt-1"><span>Total</span><span>{fmtCur(viewBill.totalAmount)}</span></div>
+                <div className="flex justify-between text-green-600"><span>Paid</span><span>{fmtCur(viewBill.paidAmount)}</span></div>
+                <div className="flex justify-between font-semibold text-red-600"><span>Balance Due</span><span>{fmtCur(parseFloat(viewBill.totalAmount) - parseFloat(viewBill.paidAmount))}</span></div>
               </div>
             </div>
           </div>
@@ -298,39 +349,97 @@ export default function BillsTab() {
 
       {/* Record Payment Modal */}
       {payBill && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h3 className="font-semibold text-gray-900">Record Payment</h3>
-              <button onClick={() => setPayBill(null)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <p className="text-sm text-gray-600">
-                Bill: <span className="font-medium">{payBill.billNumber}</span><br />
-                Balance Due: <span className="font-semibold text-red-600">
-                  {fmtCur(parseFloat(payBill.totalAmount) - parseFloat(payBill.paidAmount))}
-                </span>
-              </p>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setPayBill(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Amount (₹)</label>
-                <input
-                  type="number" min="0" step="0.01"
-                  value={payAmount}
-                  onChange={e => setPayAmount(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                />
+                <h3 className="font-semibold text-gray-900">Record Payment</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{payBill.billNumber} · {payBill.supplier?.name}</p>
               </div>
-              <div className="flex gap-3">
+              <button onClick={() => setPayBill(null)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {/* Balance info */}
+              <div className="bg-red-50 rounded-xl px-4 py-3 flex justify-between items-center">
+                <span className="text-sm text-gray-600">Balance Due</span>
+                <span className="text-lg font-bold text-red-600">
+                  {fmtCur(parseFloat(payBill.totalAmount) - parseFloat(payBill.paidAmount ?? 0))}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Payment Amount (₹) *</label>
+                  <input type="number" min="0" step="0.01" className={inp}
+                    value={payForm.amount} onChange={e => setPayField('amount', e.target.value)} />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Payment Date *</label>
+                  <input type="date" className={inp}
+                    value={payForm.paymentDate} onChange={e => setPayField('paymentDate', e.target.value)} />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Payment Method</label>
+                  <select className={inp} value={payForm.paymentMethod} onChange={e => setPayField('paymentMethod', e.target.value)}>
+                    {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Reference / Cheque No.</label>
+                  <input className={inp} placeholder="e.g. UTR123456 or Cheque no."
+                    value={payForm.referenceNumber} onChange={e => setPayField('referenceNumber', e.target.value)} />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+                  <input className={inp} placeholder="Optional"
+                    value={payForm.notes} onChange={e => setPayField('notes', e.target.value)} />
+                </div>
+              </div>
+
+              {/* TDS Section */}
+              <div className="border-t pt-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">TDS Deduction (optional)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">TDS Section</label>
+                    <select className={inp} value={payForm.tdsSectionId} onChange={e => setPayField('tdsSectionId', e.target.value)}>
+                      <option value="">No TDS</option>
+                      {tdsSections.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.sectionCode} — {s.description} ({parseFloat(s.rate).toFixed(2)}%)</option>
+                      ))}
+                    </select>
+                  </div>
+                  {payForm.tdsSectionId && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">TDS Rate (%)</label>
+                        <input type="number" className={inp} placeholder="auto"
+                          value={payForm.tdsRate} onChange={e => setPayField('tdsRate', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">TDS Amount (₹)</label>
+                        <input type="number" className={inp} placeholder="auto"
+                          value={payForm.tdsAmount} onChange={e => setPayField('tdsAmount', e.target.value)} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-1">
                 <button onClick={() => setPayBill(null)}
-                  className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                  className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">
                   Cancel
                 </button>
-                <button onClick={handlePay} disabled={payMutation.isPending}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                <button onClick={handlePay} disabled={payMutation.isPending || !payForm.amount}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
                   {payMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
-                  Record
+                  Save Payment
                 </button>
               </div>
             </div>

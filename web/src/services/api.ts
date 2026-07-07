@@ -935,7 +935,8 @@ export const vendorPaymentApi = {
     api.get<ApiResponse<any>>('/vendor-payments', { params }),
   create: (data: {
     billId: number; amount: number; paymentMethod: string
-    referenceNumber: string; paymentDate: string; notes?: string
+    referenceNumber?: string; paymentDate: string; notes?: string
+    tdsSectionId?: number; tdsAmount?: number
   }) => api.post<ApiResponse<any>>('/vendor-payments', data),
 }
 
