@@ -5,7 +5,7 @@ import {
   ArrowLeft, FileText, Calendar, ChevronDown, Loader2,
   Building2, LayoutList, Plus, X, Trash2, CheckCircle2, Clock,
 } from 'lucide-react'
-import { reportApi, tdsApi } from '@/services/api'
+import { reportApi, tdsApi, customerApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
 const PRESETS = [
@@ -217,9 +217,10 @@ function TDSOutwardTab({ outletId, from, to }: { outletId: number; from: string;
 // ── Add receivable form ───────────────────────────────────────────────────────
 const EMPTY_FORM = { customerName: '', invoiceNumber: '', tdsSectionId: '', paymentDate: format(new Date(), 'yyyy-MM-dd'), baseAmount: '', tdsRate: '', tdsAmount: '', notes: '' }
 
-function AddReceivableForm({ outletId, sections, onSaved, onCancel }: {
+function AddReceivableForm({ outletId, sections, customers, onSaved, onCancel }: {
   outletId: number
   sections: any[]
+  customers: any[]
   onSaved: () => void
   onCancel: () => void
 }) {
@@ -277,7 +278,12 @@ function AddReceivableForm({ outletId, sections, onSaved, onCancel }: {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Customer Name *</label>
-          <input className={inp} placeholder="e.g. Tata Projects Ltd" value={form.customerName} onChange={e => setField('customerName', e.target.value)} />
+          <select className={inp} value={form.customerName} onChange={e => setField('customerName', e.target.value)}>
+            <option value="">Select customer</option>
+            {customers.map((c: any) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Invoice / Bill No.</label>
@@ -328,6 +334,7 @@ function AddReceivableForm({ outletId, sections, onSaved, onCancel }: {
 function TDSInwardTab({ outletId, from, to }: { outletId: number; from: string; to: string }) {
   const [rows, setRows] = useState<any[]>([])
   const [sections, setSections] = useState<any[]>([])
+  const [customers, setCustomers] = useState<any[]>([])
   const [reportData, setReportData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -341,10 +348,13 @@ function TDSInwardTab({ outletId, from, to }: { outletId: number; from: string; 
       tdsApi.listReceivables(outletId, from, to),
       reportApi.getTDSInwardReport(outletId, from, to),
       tdsApi.getSections(),
-    ]).then(([r, rpt, sec]) => {
+      customerApi.getAll({ size: 500, active: true }),
+    ]).then(([r, rpt, sec, cust]) => {
       setRows((r.data as any).data ?? [])
       setReportData((rpt.data as any).data ?? null)
       setSections((sec.data as any).data ?? [])
+      const custData = (cust.data as any).data
+      setCustomers(custData?.content ?? custData ?? [])
     }).catch(() => {}).finally(() => setLoading(false))
   }
 
@@ -412,6 +422,7 @@ function TDSInwardTab({ outletId, from, to }: { outletId: number; from: string; 
         <AddReceivableForm
           outletId={outletId}
           sections={sections}
+          customers={customers}
           onSaved={() => { setShowForm(false); loadData() }}
           onCancel={() => setShowForm(false)}
         />
