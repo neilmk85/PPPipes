@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nilesh/pos-backend/internal/models"
@@ -255,6 +256,9 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 
 		// 9. Auto-create material consumptions for SPINNING / WINDING / COATING
 		if models.MaterialStages[stage] && req.PipesCompleted > 0 {
+			if err := s.checkMaterialStock(tx, entry, req, order); err != nil {
+				return err
+			}
 			if err := s.createConsumptions(tx, entry, req, order); err != nil {
 				return err
 			}
@@ -369,6 +373,65 @@ func (s *ProductionEntryService) createConsumptions(
 		}
 		// Deduct from inventory
 		s.deductInventory(tx, mat.MaterialProductID, order.OutletID, consumedQty)
+	}
+	return nil
+}
+
+func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.ProductionEntry, req CreateProductionEntryRequest, order models.ProductionOrder) error {
+	// If caller provided explicit consumptions, check each one
+	if len(req.Consumptions) > 0 {
+		for _, c := range req.Consumptions {
+			var inv models.Inventory
+			if err := tx.Where("product_id = ? AND outlet_id = ?", c.MaterialProductID, order.OutletID).First(&inv).Error; err != nil {
+				continue // no record — will be caught later, allow through
+			}
+			if inv.QuantityOnHand.LessThan(c.ConsumedQty) {
+				var prod models.Product
+				name := fmt.Sprintf("product #%d", c.MaterialProductID)
+				if tx.First(&prod, c.MaterialProductID).Error == nil {
+					name = prod.Name
+				}
+				return &util.BusinessException{
+					StatusCode: 400,
+					Message: fmt.Sprintf("insufficient stock for %s: available %.2f, required %.2f",
+						name, inv.QuantityOnHand.InexactFloat64(), c.ConsumedQty.InexactFloat64()),
+				}
+			}
+		}
+		return nil
+	}
+
+	// Auto-calculated consumptions from pipe config formula
+	var materials []models.PipeConfigMaterial
+	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).Find(&materials)
+
+	qty := decimal.NewFromInt(int64(entry.PipesCompleted))
+	var shortfalls []string
+	for _, mat := range materials {
+		consumedQty := mat.QuantityPerPipe.Mul(qty)
+		if mat.ScrapPercent.GreaterThan(decimal.Zero) {
+			factor := decimal.NewFromInt(1).Add(mat.ScrapPercent.Div(decimal.NewFromInt(100)))
+			consumedQty = consumedQty.Mul(factor)
+		}
+		var inv models.Inventory
+		if err := tx.Where("product_id = ? AND outlet_id = ?", mat.MaterialProductID, order.OutletID).First(&inv).Error; err != nil {
+			continue // no inventory record — allow through (deductInventory handles this)
+		}
+		if inv.QuantityOnHand.LessThan(consumedQty) {
+			var prod models.Product
+			name := fmt.Sprintf("product #%d", mat.MaterialProductID)
+			if tx.First(&prod, mat.MaterialProductID).Error == nil {
+				name = prod.Name
+			}
+			shortfalls = append(shortfalls, fmt.Sprintf("%s (available: %.2f %s, required: %.2f %s)",
+				name, inv.QuantityOnHand.InexactFloat64(), mat.UOM, consumedQty.InexactFloat64(), mat.UOM))
+		}
+	}
+	if len(shortfalls) > 0 {
+		return &util.BusinessException{
+			StatusCode: 400,
+			Message:    "insufficient raw material stock:\n" + strings.Join(shortfalls, "\n"),
+		}
 	}
 	return nil
 }

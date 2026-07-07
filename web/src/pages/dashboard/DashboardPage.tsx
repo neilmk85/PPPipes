@@ -548,11 +548,12 @@ export default function DashboardPage() {
                   ))
                 ) : reorderItems !== null ? (
                   reorderItems.map((inv: any) => {
-                    const qty       = parseFloat(inv.quantityOnHand ?? 0)
+                    const rawQty    = parseFloat(inv.quantityOnHand ?? 0)
+                    const qty       = Math.max(0, rawQty)
                     const threshold = inv.reorderLevel ?? 10
                     const shortfall = Math.max(0, threshold - qty)
                     const pct       = Math.min(100, Math.round((qty / threshold) * 100))
-                    const isOut     = qty <= 0
+                    const isOut     = rawQty <= 0
                     const uom       = inv.product?.unitOfMeasure || ''
                     return (
                       <tr key={inv.id} className="hover:bg-red-50/30 transition-colors">
@@ -561,8 +562,8 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-6 py-3.5 text-right">
                           <div className="inline-flex flex-col items-end gap-1">
-                            <span className="text-sm font-bold tabular-nums text-gray-900">
-                              {fmt(qty)} <span className="text-xs font-normal text-gray-400">{uom}</span>
+                            <span className={`text-sm font-bold tabular-nums ${isOut ? 'text-red-500' : 'text-gray-900'}`}>
+                              {isOut ? <span className="text-xs font-semibold text-red-500">Out of stock</span> : <>{fmt(qty)} <span className="text-xs font-normal text-gray-400">{uom}</span></>}
                             </span>
                             <div className="w-20 h-1 rounded-full bg-gray-100 overflow-hidden">
                               <div className={`h-full rounded-full ${pct < 30 ? 'bg-red-400' : pct < 70 ? 'bg-orange-400' : 'bg-green-400'}`}
