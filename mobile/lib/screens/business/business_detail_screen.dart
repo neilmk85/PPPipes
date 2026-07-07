@@ -15343,6 +15343,8 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   String _sandType = 'plaster'; // 'plaster' | 'crushed'
   // Demoulding-only: bed type selection
   String _bedType = 'SMALL_BED'; // 'SMALL_BED' | 'LARGE_BED' | 'EXTRA_LARGE_BED'
+  // True when all selected orders are 6.5m pipes — forces LARGE_BED
+  bool _bedTypeLocked = false;
   // Cache of pipeConfigId → COATING materials (fetched lazily for COATING stage)
   final Map<int, List<dynamic>> _coatingMaterials = {};
   // Cache of pipeConfigId → FABRICATION materials
@@ -15534,7 +15536,24 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           }
         });
       }
+      _recalcBedLock();
     });
+  }
+
+  // Recalculate whether bed type should be locked to LARGE_BED because a 6.5m
+  // pipe order is selected. Called whenever _selected changes.
+  void _recalcBedLock() {
+    if (widget.stageType != 'DEMOULDING' || _selected.isEmpty) {
+      _bedTypeLocked = false;
+      return;
+    }
+    final has65m = _selected.keys.any((id) {
+      final order = _orders.firstWhere((o) => o['id'] == id, orElse: () => {});
+      final length = (order['pipeConfig']?['lengthM'] ?? order['lengthM'] ?? 5.25) as num;
+      return length >= 6.5;
+    });
+    _bedTypeLocked = has65m;
+    if (has65m) _bedType = 'LARGE_BED';
   }
 
   Widget _sandToggleBtn(String type, String label) {
@@ -15971,25 +15990,49 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
         if (widget.stageType == 'DEMOULDING') ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(children: [
-              Text('Bed Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A2E))),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Text('Bed Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A2E))),
+                if (_bedTypeLocked) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange[50],
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(color: Colors.orange[300]!),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.lock_outline, size: 10, color: Colors.orange[700]),
+                      const SizedBox(width: 3),
+                      Text('6.5m pipe — Large Bed required', style: TextStyle(fontSize: 10, color: Colors.orange[700], fontWeight: FontWeight.w600)),
+                    ]),
                   ),
-                  child: Row(children: [
-                    _bedTypeBtn('SMALL_BED', 'Small Bed'),
-                    const SizedBox(width: 3),
-                    _bedTypeBtn('LARGE_BED', 'Large Bed'),
-                    const SizedBox(width: 3),
-                    _bedTypeBtn('EXTRA_LARGE_BED', 'Extra Large'),
-                  ]),
+                ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: IgnorePointer(
+                    ignoring: _bedTypeLocked,
+                    child: Opacity(
+                      opacity: _bedTypeLocked ? 0.5 : 1.0,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(children: [
+                          _bedTypeBtn('SMALL_BED', 'Small Bed'),
+                          const SizedBox(width: 3),
+                          _bedTypeBtn('LARGE_BED', 'Large Bed'),
+                          const SizedBox(width: 3),
+                          _bedTypeBtn('EXTRA_LARGE_BED', 'Extra Large'),
+                        ]),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ]),
             ]),
           ),
           const SizedBox(height: 10),
@@ -16019,6 +16062,7 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                         final pipeName = (order['pipeConfig']?['name'] ?? order['pipeName'] ?? 'Unknown').toString();
                         final poNum = (order['poNumber'] ?? '#$id').toString();
                         final planned = order['plannedQty'] ?? 0;
+                        final pipeLength = (order['pipeConfig']?['lengthM'] ?? order['lengthM'] ?? 5.25) as num;
                         final entry = _selected[id];
                         return GestureDetector(
                           onTap: () => _toggleOrder(order),
@@ -16056,7 +16100,22 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                   Expanded(child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(pipeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+                                      Row(children: [
+                                        Flexible(child: Text(pipeName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E)))),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: pipeLength >= 6.5 ? const Color(0xFFF5F3FF) : Colors.blue[50]!,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: pipeLength >= 6.5 ? const Color(0xFF8B5CF6) : Colors.blue[300]!),
+                                          ),
+                                          child: Text(
+                                            '${pipeLength % 1 == 0 ? pipeLength.toInt() : pipeLength}m',
+                                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: pipeLength >= 6.5 ? const Color(0xFF7C3AED) : Colors.blue[700]),
+                                          ),
+                                        ),
+                                      ]),
                                       const SizedBox(height: 2),
                                       Builder(builder: (_) {
                                         final prior = _priorCompleted[id];
