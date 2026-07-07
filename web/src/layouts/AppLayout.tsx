@@ -7,7 +7,7 @@ import {
   Building2, PackageCheck, Receipt, CreditCard, FileX,
   Wallet, RotateCcw, Truck, Trophy, UserCog, LineChart, ArrowRight, Activity,
   Factory, ClipboardList, PenLine, Settings2, Layers, Cpu, DollarSign, BarChart2,
-  LayoutDashboard, Briefcase, FileBarChart2, ClipboardCheck, BookOpen, PackageSearch, Hash, Wrench, HardHat, ShieldCheck,
+  LayoutDashboard, Briefcase, FileBarChart2, ClipboardCheck, BookOpen, PackageSearch, Hash, Wrench, HardHat, ShieldCheck, Trash2,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useQuery } from '@tanstack/react-query'
@@ -134,6 +134,7 @@ const navEntries: NavEntry[] = [
       { path: '/reports/maintenance', icon: <Wrench size={14} />,      label: 'Maintenance Report' },
       { path: '/reports/labour',      icon: <HardHat size={14} />,     label: 'Labour Report' },
       { path: '/reports/vehicles',    icon: <Truck size={14} />,       label: 'Vehicles Report' },
+      { path: '/reports/scrap',       icon: <Trash2 size={14} />,      label: 'Scrap Report' },
       { path: '/reports/payments',  icon: <CreditCard size={14} />,  label: 'Payments' },
       { path: '/reports/debtors',   icon: <Users size={14} />,       label: 'Debtors' },
       { path: '/reports/creditors', icon: <Building2 size={14} />,   label: 'Creditors' },

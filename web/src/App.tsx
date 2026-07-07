@@ -20,6 +20,7 @@ import HSNReportPage from '@/pages/reports/HSNReportPage'
 import MaintenanceReportPage from '@/pages/reports/MaintenanceReportPage'
 import LabourReportPage from '@/pages/reports/LabourReportPage'
 import VehiclesReportPage from '@/pages/reports/VehiclesReportPage'
+import ScrapReportPage from '@/pages/reports/ScrapReportPage'
 import ProductsPage from '@/pages/products/ProductsPage'
 import ProductForm from '@/pages/products/ProductForm'
 import ProductViewPage from '@/pages/products/ProductViewPage'
@@ -190,6 +191,7 @@ export default function App() {
           <Route path="/reports/maintenance" element={<ProtectedRoute><MaintenanceReportPage /></ProtectedRoute>} />
           <Route path="/reports/labour" element={<ProtectedRoute><LabourReportPage /></ProtectedRoute>} />
           <Route path="/reports/vehicles" element={<ProtectedRoute><VehiclesReportPage /></ProtectedRoute>} />
+          <Route path="/reports/scrap" element={<ProtectedRoute><ScrapReportPage /></ProtectedRoute>} />
           <Route path="/reports/transport" element={<ProtectedRoute><TransportReportPage /></ProtectedRoute>} />
           <Route path="/settings/*" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           <Route path="/purchases/direct" element={<ProtectedRoute><DirectPurchasePage /></ProtectedRoute>} />
