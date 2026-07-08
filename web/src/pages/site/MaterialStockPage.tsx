@@ -363,8 +363,8 @@ function IssuePanel({ siteProjectId, stockEntries, onClose }: {
 
 // ─── Receive Incoming Transfer Modal ─────────────────────────────────────────
 
-function ReceiveTransferModal({ transfer, onClose, onDone }: {
-  transfer: any; onClose: () => void; onDone: () => void
+function ReceiveTransferModal({ transfer, projectId, onClose, onDone }: {
+  transfer: any; projectId: number; onClose: () => void; onDone: () => void
 }) {
   const [qtys, setQtys] = useState<Record<string, string>>(() =>
     Object.fromEntries((transfer.items ?? []).map((it: any) => [it.id, String(it.requestedQuantity ?? it.shippedQuantity ?? '')]))
@@ -372,17 +372,45 @@ function ReceiveTransferModal({ transfer, onClose, onDone }: {
   const [visible, setVisible] = useState(false)
   useEffect(() => { const id = requestAnimationFrame(() => setVisible(true)); return () => cancelAnimationFrame(id) }, [])
 
+  const today = new Date().toISOString().slice(0, 10)
   const qc = useQueryClient()
+
   const mutation = useMutation({
-    mutationFn: () => inventoryApi.receiveTransfer(transfer.id, {
-      receivedItems: (transfer.items ?? []).map((it: any) => ({
-        itemId: it.id,
-        receivedQuantity: parseFloat(qtys[it.id] ?? '0') || 0,
-      })),
-    }),
+    mutationFn: async () => {
+      // 1. Mark transfer received in the outlet inventory system
+      await inventoryApi.receiveTransfer(transfer.id, {
+        receivedItems: (transfer.items ?? []).map((it: any) => ({
+          itemId: it.id,
+          receivedQuantity: parseFloat(qtys[it.id] ?? '0') || 0,
+        })),
+      })
+
+      // 2. Create material receipt entries for the site project so stock
+      //    appears in the Stock Register on this page
+      const itemsToRecord = (transfer.items ?? []).filter(
+        (it: any) => parseFloat(qtys[it.id] ?? '0') > 0
+      )
+      await Promise.all(itemsToRecord.map((it: any) =>
+        materialReceiptApi.create({
+          siteProjectId: projectId,
+          materialName: it.product?.name ?? `Product #${it.productId}`,
+          specification: it.product?.description ?? '',
+          unit: it.product?.unitOfMeasure ?? 'Nos',
+          qty: parseFloat(qtys[it.id]),
+          sourceType: 'TRANSFER',
+          sourceRef: transfer.transferNumber,
+          receivedDate: today,
+          receivedBy: '',
+          vehicleNo: '',
+          notes: `Stock transfer from ${transfer.fromOutlet?.name ?? 'outlet #' + transfer.fromOutletId}`,
+        })
+      ))
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['incoming-transfers'] })
-      toast.success(`Transfer ${transfer.transferNumber} received`)
+      qc.invalidateQueries({ queryKey: ['site-material-receipts', projectId] })
+      qc.invalidateQueries({ queryKey: ['site-stock-register', projectId] })
+      toast.success(`Transfer ${transfer.transferNumber} received — stock updated`)
       onDone()
     },
     onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to receive transfer'),
@@ -630,10 +658,16 @@ export default function MaterialStockPage() {
             <div className="mb-4 flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
               <TruckIcon size={15} className="text-teal-600 shrink-0 mt-0.5" />
               <p className="text-xs text-teal-800 leading-relaxed">
-                These are stock transfers dispatched from the factory/warehouse that are <strong>in transit</strong> to your outlet.
-                Verify the quantities received for each item and click <strong>Confirm Receipt</strong> to record the delivery.
+                These are stock transfers dispatched from the factory that are <strong>in transit</strong> to your outlet.
+                Select a project above, verify quantities, and click <strong>Receive</strong> — the stock will appear in that project's Stock Register.
               </p>
             </div>
+            {!projectId && (
+              <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                <AlertTriangle size={13} className="text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-800">Select a project from the dropdown above before receiving a transfer.</p>
+              </div>
+            )}
 
             {transfersLoading ? (
               <div className="flex items-center justify-center py-20 text-gray-400">
@@ -667,7 +701,10 @@ export default function MaterialStockPage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => setReceivingTransfer(t)}
+                        onClick={() => {
+                          if (!projectId) { toast.error('Select a project first to receive stock'); return }
+                          setReceivingTransfer(t)
+                        }}
                         className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0">
                         <CheckCircle2 size={13} /> Receive
                       </button>
@@ -893,6 +930,7 @@ export default function MaterialStockPage() {
       {receivingTransfer && (
         <ReceiveTransferModal
           transfer={receivingTransfer}
+          projectId={projectId}
           onClose={() => setReceivingTransfer(null)}
           onDone={() => setReceivingTransfer(null)}
         />
