@@ -411,7 +411,6 @@ export default function SitesPage() {
       {/* Header */}
       <div
         className="animate-gradient border-b border-gray-200 px-6 py-5 flex items-center gap-4"
-        style={{ background: 'linear-gradient(135deg, #c2d8f0 0%, #a8c4e8 30%, #eaedf5 60%, #b8d4f0 100%)' }}
       >
         <div className="flex items-center gap-3 shrink-0">
           <button onClick={() => navigate('/site')} className="text-blue-700 hover:text-blue-900 transition-colors">
