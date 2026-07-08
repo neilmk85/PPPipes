@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search, RotateCcw, X, Loader2, Plus, Trash2 } from 'lucide-react'
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, startOfQuarter, endOfQuarter, subQuarters } from 'date-fns'
 import toast from 'react-hot-toast'
-import { saleReturnApi, customerApi } from '@/services/api'
+import { saleReturnApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import CustomerSearchInput from '@/components/CustomerSearchInput'
 
 const REFUND_METHODS = ['CASH', 'CARD', 'UPI', 'CREDIT_NOTE']
 
@@ -14,10 +15,7 @@ interface ReturnItem { productName: string; quantity: string; unitPrice: string 
 
 function ProcessReturnModal({ onClose, outletId }: { onClose: () => void; outletId: number }) {
   const qc = useQueryClient()
-  const [customerId, setCustomerId] = useState<number | null>(null)
-  const [customerName, setCustomerName] = useState('')
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
+  const [customer, setCustomer] = useState<{ id: number; name: string; phone?: string } | null>(null)
   const [refNo, setRefNo] = useState('')
   const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0])
   const [reason, setReason] = useState('')
@@ -25,32 +23,12 @@ function ProcessReturnModal({ onClose, outletId }: { onClose: () => void; outlet
   const [items, setItems] = useState<ReturnItem[]>([{ productName: '', quantity: '', unitPrice: '' }])
   const [submitting, setSubmitting] = useState(false)
 
-  const { data: customerSearchData } = useQuery({
-    queryKey: ['customers-search', customerSearch],
-    queryFn: () => customerApi.search(customerSearch),
-    enabled: customerSearch.length >= 2,
-  })
-  const customerResults: any[] = (customerSearchData as any)?.data ?? []
-
   const total = items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.unitPrice) || 0), 0)
 
   function addItem() { setItems(p => [...p, { productName: '', quantity: '', unitPrice: '' }]) }
   function removeItem(i: number) { setItems(p => p.filter((_, idx) => idx !== i)) }
   function updateItem(i: number, f: keyof ReturnItem, v: string) {
     setItems(p => p.map((item, idx) => idx === i ? { ...item, [f]: v } : item))
-  }
-
-  function selectCustomer(c: any) {
-    setCustomerId(c.id)
-    setCustomerName(c.name)
-    setCustomerSearch(c.name)
-    setShowCustomerDropdown(false)
-  }
-
-  function clearCustomer() {
-    setCustomerId(null)
-    setCustomerName('')
-    setCustomerSearch('')
   }
 
   async function handleSubmit() {
