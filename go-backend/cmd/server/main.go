@@ -58,6 +58,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Ensure every site project has a corresponding outlet
+	siteProjectSvc := service.NewSiteProjectService(db)
+	if err := siteProjectSvc.EnsureOutlets(); err != nil {
+		slog.Warn("failed to ensure site project outlets", "error", err)
+	}
+
 	// Create WebSocket hub
 	wsHub := websocket.NewHub()
 	go wsHub.Run()

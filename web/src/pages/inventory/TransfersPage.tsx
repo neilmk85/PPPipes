@@ -7,7 +7,7 @@ import {
   ArrowRight, Eye, ChevronRight, ChevronUp,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { inventoryApi, outletApi, productApi } from '@/services/api'
+import { inventoryApi, outletApi, productApi, siteProjectApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -116,8 +116,8 @@ interface LineItem { _id: number; product: any; qty: string }
 let _lid = 1
 function newLine(): LineItem { return { _id: _lid++, product: null, qty: '' } }
 
-function CreateModal({ outlets, outletId, onClose, onCreated }: {
-  outlets: any[]; outletId: number; onClose: () => void; onCreated: () => void
+function CreateModal({ outlets, siteProjects, outletId, onClose, onCreated }: {
+  outlets: any[]; siteProjects: any[]; outletId: number; onClose: () => void; onCreated: () => void
 }) {
   const [fromId, setFromId] = useState(outletId)
   const [toId, setToId]     = useState<number | ''>('')
@@ -190,11 +190,26 @@ function CreateModal({ outlets, outletId, onClose, onCreated }: {
               <ArrowRight size={18} className="text-violet-400" />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">To Outlet</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">To Site / Outlet</label>
               <select value={toId} onChange={e => setToId(Number(e.target.value))}
                 className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white">
                 <option value="">Select destination…</option>
-                {outlets.filter(o => o.id !== fromId).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                {siteProjects.filter(s => s.outletId && s.outletId !== fromId).length > 0 && (
+                  <optgroup label="── Project Sites ──">
+                    {siteProjects
+                      .filter(s => s.outletId && s.outletId !== fromId)
+                      .map(s => <option key={`site-${s.id}`} value={s.outletId}>{s.name}</option>)
+                    }
+                  </optgroup>
+                )}
+                {outlets.filter(o => o.id !== fromId && !siteProjects.some(s => s.outletId === o.id)).length > 0 && (
+                  <optgroup label="── Other Outlets ──">
+                    {outlets
+                      .filter(o => o.id !== fromId && !siteProjects.some(s => s.outletId === o.id))
+                      .map(o => <option key={o.id} value={o.id}>{o.name}</option>)
+                    }
+                  </optgroup>
+                )}
               </select>
             </div>
           </div>
@@ -466,9 +481,19 @@ export default function TransfersPage() {
     queryFn: () => outletApi.getAll().then(r => r.data.data ?? []),
   })
 
-  const outletMap = useMemo(() =>
-    Object.fromEntries((outlets as any[]).map((o: any) => [o.id, o.name])),
-  [outlets])
+  const { data: siteProjects = [] } = useQuery({
+    queryKey: ['site-projects-for-transfer'],
+    queryFn: () => siteProjectApi.getAll({ status: 'ACTIVE' }).then(r => r.data.data ?? []),
+  })
+
+  // Build outlet name map — prefer site project name over raw outlet name
+  const outletMap = useMemo(() => {
+    const map: Record<number, string> = {}
+    ;(outlets as any[]).forEach((o: any) => { map[o.id] = o.name })
+    // Override with human-friendly site project names
+    ;(siteProjects as any[]).forEach((s: any) => { if (s.outletId) map[s.outletId] = s.name })
+    return map
+  }, [outlets, siteProjects])
 
   const { data: transfersData, isLoading } = useQuery({
     queryKey: ['transfers', outletId, statusFilter],
@@ -601,7 +626,8 @@ export default function TransfersPage() {
       {/* Modals */}
       {showCreate && outlets.length > 0 && (
         <CreateModal
-          outlets={outlets}
+          outlets={outlets as any[]}
+          siteProjects={siteProjects as any[]}
           outletId={outletId!}
           onClose={() => setShowCreate(false)}
           onCreated={() => setShowCreate(false)}

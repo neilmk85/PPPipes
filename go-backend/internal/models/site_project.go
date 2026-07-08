@@ -15,6 +15,8 @@ type SiteProject struct {
 	Status        string    `gorm:"column:status;default:ACTIVE" json:"status"`
 	Notes         *string   `gorm:"column:notes;type:text" json:"notes"`
 	Active        bool      `gorm:"column:is_active;default:true" json:"active"`
+	OutletID      *int      `gorm:"column:outlet_id" json:"outletId"`
+	Outlet        *Outlet   `gorm:"foreignKey:OutletID" json:"outlet,omitempty"`
 	CreatedAt     time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt     time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	CreatedBy     *string   `gorm:"column:created_by" json:"createdBy"`
