@@ -41,6 +41,7 @@ const CARDS: SiteCard[] = [
     description: 'Monitor site inventory levels, material receipts and consumption at each project location.',
     icon: <Archive size={20} />, buttonLabel: 'View Stock',
     accentColor: '#14b8a6', lightBg: '#f0fdfa', lightBorder: '#99f6e4', lightText: '#0f766e',
+    disabled: true,
   },
   {
     key: 'work-bills', tag: 'BILLING', label: 'Work Bills',
@@ -53,6 +54,7 @@ const CARDS: SiteCard[] = [
     description: 'Record materials issued to contractors on-site with quantity, date and approval tracking.',
     icon: <Truck size={20} />, buttonLabel: 'View Issues',
     accentColor: '#22c55e', lightBg: '#f0fdf4', lightBorder: '#bbf7d0', lightText: '#15803d',
+    disabled: true,
   },
   {
     key: 'progress-claims', tag: 'CLAIMS', label: 'Progress Claims',
@@ -73,6 +75,7 @@ const CARDS: SiteCard[] = [
     description: 'Get a full picture of billing, contractor payments, outstanding balances and cost summary.',
     icon: <IndianRupee size={20} />, buttonLabel: 'View Report',
     accentColor: '#10b981', lightBg: '#ecfdf5', lightBorder: '#a7f3d0', lightText: '#065f46',
+    disabled: true,
   },
   {
     key: 'reports/progress-report', tag: 'ANALYTICS', label: 'Progress Report',
