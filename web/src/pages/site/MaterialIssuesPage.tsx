@@ -137,12 +137,12 @@ function IssuePanel({
   })
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-50 w-full max-w-md bg-white shadow-xl flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-[201] w-full max-w-3xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-7 py-5 border-b">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-gray-900">
               {editing ? 'Edit Material Issue' : 'Record Material Issue'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">Track material dispatched to contractors or inhouse teams</p>
@@ -154,51 +154,52 @@ function IssuePanel({
 
         <form
           onSubmit={handleSubmit((d) => saveMutation.mutate(d))}
-          className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
+          className="flex-1 overflow-y-auto px-7 py-5 space-y-5"
         >
-          {/* Project */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Project *</label>
-            <div className="relative">
-              <select
-                {...register('siteProjectId')}
-                className="w-full appearance-none border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Select project…</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          {/* Row 1: Project + Issued To */}
+          <div className="grid grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Project *</label>
+              <div className="relative">
+                <select
+                  {...register('siteProjectId')}
+                  className="w-full appearance-none border border-gray-300 rounded-lg px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select project…</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+              {errors.siteProjectId && <p className="text-xs text-red-500 mt-1">{errors.siteProjectId.message}</p>}
             </div>
-            {errors.siteProjectId && <p className="text-xs text-red-500 mt-1">{errors.siteProjectId.message}</p>}
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Issued To *</label>
+              <div className="flex gap-2">
+                {(['SUBCONTRACTOR', 'INHOUSE'] as const).map((t) => {
+                  const active = watch('issuedTo') === t
+                  return (
+                    <label
+                      key={t}
+                      className={`flex-1 flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer transition-colors ${
+                        active ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input type="radio" value={t} {...register('issuedTo')} className="sr-only" />
+                      {t === 'SUBCONTRACTOR' ? <Building2 size={14} className={active ? 'text-green-600' : 'text-gray-400'} /> : <Hammer size={14} className={active ? 'text-green-600' : 'text-gray-400'} />}
+                      <span className={`text-sm font-medium ${active ? 'text-green-700' : 'text-gray-600'}`}>
+                        {t === 'SUBCONTRACTOR' ? 'Subcontractor' : 'Inhouse'}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Issued To */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">Issued To *</label>
-            <div className="flex gap-3">
-              {(['SUBCONTRACTOR', 'INHOUSE'] as const).map((t) => {
-                const active = watch('issuedTo') === t
-                return (
-                  <label
-                    key={t}
-                    className={`flex-1 flex items-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer transition-colors ${
-                      active ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input type="radio" value={t} {...register('issuedTo')} className="sr-only" />
-                    {t === 'SUBCONTRACTOR' ? <Building2 size={14} className={active ? 'text-green-600' : 'text-gray-400'} /> : <Hammer size={14} className={active ? 'text-green-600' : 'text-gray-400'} />}
-                    <span className={`text-sm font-medium ${active ? 'text-green-700' : 'text-gray-600'}`}>
-                      {t === 'SUBCONTRACTOR' ? 'Subcontractor' : 'Inhouse'}
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Contractor (only if SUBCONTRACTOR) */}
+          {/* Row 2: Contractor (full width, only if SUBCONTRACTOR) */}
           {issuedTo === 'SUBCONTRACTOR' && (
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Contractor</label>
@@ -206,7 +207,7 @@ function IssuePanel({
                 <select
                   value={selectedContractorId ?? ''}
                   onChange={handleContractorChange}
-                  className="w-full appearance-none border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full appearance-none border border-gray-300 rounded-lg px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Select contractor…</option>
                   {contractors.map((c) => (
@@ -218,29 +219,29 @@ function IssuePanel({
             </div>
           )}
 
-          {/* Material Name */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Material Name *</label>
-            <input
-              {...register('materialName')}
-              placeholder="e.g. PSC Pipe 600mm dia"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            {errors.materialName && <p className="text-xs text-red-500 mt-1">{errors.materialName.message}</p>}
+          {/* Row 3: Material Name + Specification */}
+          <div className="grid grid-cols-2 gap-5">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Material Name *</label>
+              <input
+                {...register('materialName')}
+                placeholder="e.g. PSC Pipe 600mm dia"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              {errors.materialName && <p className="text-xs text-red-500 mt-1">{errors.materialName.message}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Specification</label>
+              <input
+                {...register('specification')}
+                placeholder="e.g. IS 784, Class NP3"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
           </div>
 
-          {/* Specification */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Specification</label>
-            <input
-              {...register('specification')}
-              placeholder="e.g. IS 784, Class NP3"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          {/* Qty + Unit */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Row 4: Qty + Unit + Issue Date */}
+          <div className="grid grid-cols-3 gap-5">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Qty *</label>
               <input
@@ -248,7 +249,7 @@ function IssuePanel({
                 type="number"
                 step="0.001"
                 min="0"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
               {errors.qty && <p className="text-xs text-red-500 mt-1">{errors.qty.message}</p>}
             </div>
@@ -257,7 +258,7 @@ function IssuePanel({
               <div className="relative">
                 <select
                   {...register('unit')}
-                  className="w-full appearance-none border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full appearance-none border border-gray-300 rounded-lg px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   {UNITS.map((u) => (
                     <option key={u} value={u}>{u}</option>
@@ -266,27 +267,25 @@ function IssuePanel({
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Issue Date *</label>
+              <input
+                {...register('issueDate')}
+                type="date"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              {errors.issueDate && <p className="text-xs text-red-500 mt-1">{errors.issueDate.message}</p>}
+            </div>
           </div>
 
-          {/* Issue Date */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Issue Date *</label>
-            <input
-              {...register('issueDate')}
-              type="date"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-            {errors.issueDate && <p className="text-xs text-red-500 mt-1">{errors.issueDate.message}</p>}
-          </div>
-
-          {/* Issued By + Vehicle No */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Row 5: Issued By + Vehicle No */}
+          <div className="grid grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Issued By</label>
               <input
                 {...register('issuedBy')}
                 placeholder="Engineer name"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
             <div>
@@ -294,7 +293,7 @@ function IssuePanel({
               <input
                 {...register('vehicleNo')}
                 placeholder="e.g. GJ 01 AB 1234"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
           </div>
@@ -306,12 +305,12 @@ function IssuePanel({
               {...register('notes')}
               rows={2}
               placeholder="Optional remarks"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
             />
           </div>
         </form>
 
-        <div className="px-5 py-4 border-t flex justify-end gap-3 bg-gray-50">
+        <div className="px-7 py-4 border-t flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
           <button
             type="button"
             onClick={onClose}
