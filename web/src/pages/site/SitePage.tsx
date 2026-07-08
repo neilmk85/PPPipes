@@ -53,7 +53,6 @@ const CARDS: SiteCard[] = [
     description: 'Record materials issued to contractors on-site with quantity, date and approval tracking.',
     icon: <Truck size={20} />, buttonLabel: 'View Issues',
     accentColor: '#22c55e', lightBg: '#f0fdf4', lightBorder: '#bbf7d0', lightText: '#15803d',
-    disabled: true,
   },
   {
     key: 'progress-claims', tag: 'CLAIMS', label: 'Progress Claims',
