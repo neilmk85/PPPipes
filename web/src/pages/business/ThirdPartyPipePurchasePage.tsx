@@ -734,7 +734,7 @@ export default function ThirdPartyPipePurchasePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Qty by Vendor */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Qty by Vendor</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Qty by Vendor</h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={byVendor.map(v => ({ name: v.vendor, qty: Object.values(v.pipes).reduce((s, p) => s + p.qty, 0) }))}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -747,7 +747,7 @@ export default function ThirdPartyPipePurchasePage() {
               </div>
               {/* Right: Qty by Pipe Type */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Qty by Pipe Type</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Qty by Pipe Type</h3>
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie
@@ -795,7 +795,7 @@ export default function ThirdPartyPipePurchasePage() {
             {/* Main purchase table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-5 py-3 border-b border-blue-100 flex items-center justify-between" style={{ background: 'linear-gradient(to right, #e5f0ff, #e7ecff)' }}>
-                <h2 className="font-semibold text-gray-800 text-sm">Purchase Log</h2>
+                <h2 className="font-semibold text-gray-900 text-sm">Purchase Log</h2>
                 <span className="text-xs text-gray-400">{purchases.length} entries</span>
               </div>
               <div className="overflow-x-auto">
@@ -803,7 +803,7 @@ export default function ThirdPartyPipePurchasePage() {
                   <thead>
                     <tr style={{ background: 'linear-gradient(to right, #eff6ff 0%, #eef2ff 100%)', borderBottom: '1px solid #dbeafe' }}>
                       {['Date', 'Vendor', 'Invoice No.', 'Pipe Type', 'Qty (pcs)', 'Unit Rate', 'Total Amount', 'Notes', ''].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-gray-700 whitespace-nowrap">{h}</th>
+                        <th key={h} className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-gray-900 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -857,7 +857,7 @@ export default function ThirdPartyPipePurchasePage() {
             {/* By Vendor breakdown */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-5 py-3 border-b border-blue-100" style={{ background: 'linear-gradient(to right, #e5f0ff, #e7ecff)' }}>
-                <h2 className="font-semibold text-gray-800 text-sm">Purchases by Vendor</h2>
+                <h2 className="font-semibold text-gray-900 text-sm">Purchases by Vendor</h2>
                 <p className="text-xs text-gray-500 mt-0.5">Which pipes were bought from which vendor and how many</p>
               </div>
               <div className="divide-y divide-gray-50">
