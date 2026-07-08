@@ -113,7 +113,6 @@ const navEntries: NavEntry[] = [
     roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'],
     children: [
       { path: '/staff',      icon: <Users size={14} />,  label: 'Staff',      roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
-      { path: '/incentives', icon: <Trophy size={14} />, label: 'Incentives', roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
     ],
   },
   {
