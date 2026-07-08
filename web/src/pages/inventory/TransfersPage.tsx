@@ -120,7 +120,8 @@ function CreateModal({ outlets, siteProjects, outletId, onClose, onCreated }: {
   outlets: any[]; siteProjects: any[]; outletId: number; onClose: () => void; onCreated: () => void
 }) {
   const [fromId, setFromId] = useState(outletId)
-  const [toId, setToId]     = useState<number | ''>('')
+  // value is "site:<id>" or "outlet:<id>" to distinguish type
+  const [toValue, setToValue] = useState('')
   const [notes, setNotes]   = useState('')
   const [lines, setLines]   = useState<LineItem[]>([newLine()])
   const [visible, setVisible] = useState(false)
@@ -140,14 +141,29 @@ function CreateModal({ outlets, siteProjects, outletId, onClose, onCreated }: {
     setLines(ls => ls.map(l => l._id === id ? { ...l, ...patch } : l))
   }
 
+  function resolveToOutletId(): number | null {
+    if (!toValue) return null
+    const [type, idStr] = toValue.split(':')
+    const id = Number(idStr)
+    if (type === 'outlet') return id
+    // site — look up outletId from the selected project
+    const project = siteProjects.find(s => s.id === id)
+    return project?.outletId ?? null
+  }
+
   function submit() {
-    if (!toId) { toast.error('Select destination outlet'); return }
-    if (fromId === toId) { toast.error('From and To outlets must be different'); return }
+    if (!toValue) { toast.error('Select a destination site or outlet'); return }
+    const toOutletId = resolveToOutletId()
+    if (!toOutletId) {
+      toast.error('This site does not have a warehouse outlet yet. Please deploy the backend update first.')
+      return
+    }
+    if (fromId === toOutletId) { toast.error('Source and destination must be different'); return }
     const validLines = lines.filter(l => l.product && parseFloat(l.qty) > 0)
     if (!validLines.length) { toast.error('Add at least one item with quantity'); return }
     mutation.mutate({
       fromOutletId: fromId,
-      toOutletId: toId,
+      toOutletId,
       notes: notes.trim() || null,
       items: validLines.map(l => ({ productId: l.product.id, quantity: parseFloat(l.qty) })),
     })
@@ -191,22 +207,21 @@ function CreateModal({ outlets, siteProjects, outletId, onClose, onCreated }: {
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">To Site / Outlet</label>
-              <select value={toId} onChange={e => setToId(Number(e.target.value))}
+              <select value={toValue} onChange={e => setToValue(e.target.value)}
                 className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white">
                 <option value="">Select destination…</option>
-                {siteProjects.filter(s => s.outletId && s.outletId !== fromId).length > 0 && (
-                  <optgroup label="── Project Sites ──">
-                    {siteProjects
-                      .filter(s => s.outletId && s.outletId !== fromId)
-                      .map(s => <option key={`site-${s.id}`} value={s.outletId}>{s.name}</option>)
-                    }
+                {siteProjects.length > 0 && (
+                  <optgroup label="Project Sites">
+                    {siteProjects.map(s => (
+                      <option key={`site-${s.id}`} value={`site:${s.id}`}>{s.name}</option>
+                    ))}
                   </optgroup>
                 )}
-                {outlets.filter(o => o.id !== fromId && !siteProjects.some(s => s.outletId === o.id)).length > 0 && (
-                  <optgroup label="── Other Outlets ──">
+                {outlets.filter(o => o.id !== fromId && !siteProjects.some((s: any) => s.outletId === o.id)).length > 0 && (
+                  <optgroup label="Other Outlets">
                     {outlets
-                      .filter(o => o.id !== fromId && !siteProjects.some(s => s.outletId === o.id))
-                      .map(o => <option key={o.id} value={o.id}>{o.name}</option>)
+                      .filter(o => o.id !== fromId && !siteProjects.some((s: any) => s.outletId === o.id))
+                      .map(o => <option key={`outlet-${o.id}`} value={`outlet:${o.id}`}>{o.name}</option>)
                     }
                   </optgroup>
                 )}
