@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,7 +7,7 @@ import { z } from 'zod'
 import toast from 'react-hot-toast'
 import {
   Plus, Pencil, Trash2, Truck, ChevronDown, Building2, Hammer,
-  Package, CalendarDays, ClipboardList, Search, X,
+  Package, CalendarDays, ClipboardList, Search, X, ArrowLeft,
 } from 'lucide-react'
 import { materialIssueApi, siteProjectApi, contractorApi } from '@/services/api'
 
@@ -334,6 +335,7 @@ function IssuePanel({
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function MaterialIssuesPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [panelOpen, setPanelOpen] = useState(false)
   const [editing, setEditing] = useState<MaterialIssue | null>(null)
@@ -437,6 +439,13 @@ export default function MaterialIssuesPage() {
         <div className="relative px-8 py-8">
           <div className="flex items-start justify-between">
             <div>
+              <button
+                onClick={() => navigate('/site')}
+                className="flex items-center gap-1.5 text-green-200 hover:text-white text-sm mb-3 transition-colors"
+              >
+                <ArrowLeft size={15} />
+                Site Management
+              </button>
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
                   <Truck size={18} className="text-white" />
