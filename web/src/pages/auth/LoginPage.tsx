@@ -26,7 +26,7 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: 'admin@pppipeproducts.com',
-      password: 'admin@123',
+      password: 'admin',
     },
   })
 
@@ -321,7 +321,7 @@ export default function LoginPage() {
 
         {/* Hint */}
         <p className="text-center text-[11px] text-white/40 mt-6">
-          Default: admin@pppipeproducts.com / admin@123
+          Default: admin@pppipeproducts.com / admin
         </p>
       </div>
     </div>
