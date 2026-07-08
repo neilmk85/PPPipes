@@ -39,8 +39,8 @@ function ProcessReturnModal({ onClose, outletId }: { onClose: () => void; outlet
     try {
       await saleReturnApi.create({
         outletId,
-        customerId: customerId ?? undefined,
-        customerName: customerName || undefined,
+        customerId: customer?.id ?? undefined,
+        customerName: customer?.name || undefined,
         refNo: refNo || undefined,
         returnDate,
         reason,
@@ -72,36 +72,14 @@ function ProcessReturnModal({ onClose, outletId }: { onClose: () => void; outlet
         <div className="overflow-y-auto p-6 space-y-4">
           {/* Row 1: Customer + Ref No */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="relative">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Customer</label>
-              {customerId ? (
-                <div className="flex items-center gap-2 border border-violet-300 bg-violet-50 rounded-lg px-3 py-2 text-sm">
-                  <span className="flex-1 font-medium text-violet-800">{customerName}</span>
-                  <button type="button" onClick={clearCustomer}><X size={14} className="text-violet-400 hover:text-violet-700" /></button>
-                </div>
-              ) : (
-                <>
-                  <input
-                    value={customerSearch}
-                    onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
-                    onFocus={() => setShowCustomerDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
-                    placeholder="Search customer (optional)"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none"
-                  />
-                  {showCustomerDropdown && customerResults.length > 0 && (
-                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                      {customerResults.map((c: any) => (
-                        <button key={c.id} type="button" onMouseDown={() => selectCustomer(c)}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 hover:text-violet-700">
-                          <span className="font-medium">{c.name}</span>
-                          {c.phone && <span className="text-gray-400 ml-2 text-xs">{c.phone}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
+            <div>
+              <CustomerSearchInput
+                label="Customer"
+                value={customer}
+                onSelect={c => setCustomer(c)}
+                onClear={() => setCustomer(null)}
+                placeholder="Search customer (optional)"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Original Bill / Invoice No.</label>
