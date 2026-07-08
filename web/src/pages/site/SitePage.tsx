@@ -45,7 +45,7 @@ const CARDS: SiteCard[] = [
   },
   {
     key: 'work-bills', tag: 'BILLING', label: 'Work Bills',
-    description: 'Raise and manage sub-contractor bills with GST, TDS deductions and payment tracking.',
+    description: 'Record and manage contractor invoices received, with GST, TDS deductions and payment tracking.',
     icon: <FileText size={20} />, buttonLabel: 'View Bills',
     accentColor: '#a855f7', lightBg: '#faf5ff', lightBorder: '#e9d5ff', lightText: '#7e22ce',
   },
@@ -72,7 +72,7 @@ const CARDS: SiteCard[] = [
   },
   {
     key: 'reports/financial-summary', tag: 'REPORTS', label: 'Financial Report',
-    description: 'Get a full picture of billing, contractor payments, outstanding balances and cost summary.',
+    description: 'Get a full picture of contractor invoices received, payments made, outstanding balances and cost summary.',
     icon: <IndianRupee size={20} />, buttonLabel: 'View Report',
     accentColor: '#10b981', lightBg: '#ecfdf5', lightBorder: '#a7f3d0', lightText: '#065f46',
     disabled: true,
@@ -86,7 +86,7 @@ const CARDS: SiteCard[] = [
   },
   {
     key: 'reports/work-bills-by-contractor', tag: 'BILLING', label: 'Bills by Contractor',
-    description: 'Contractor-wise work bill summary with subtotal, GST, TDS, net payable, paid and outstanding.',
+    description: 'Contractor-wise summary of invoices received — subtotal, GST, TDS, net payable, paid and outstanding.',
     icon: <FileText size={20} />, buttonLabel: 'View Report',
     accentColor: '#7c3aed', lightBg: '#f5f3ff', lightBorder: '#ddd6fe', lightText: '#5b21b6',
   },

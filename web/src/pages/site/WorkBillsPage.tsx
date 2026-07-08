@@ -959,7 +959,7 @@ export default function WorkBillsPage() {
           <div className="px-6 pt-6 pb-5 flex items-center justify-between">
             <div className="shrink-0">
               <h1 className="text-lg font-bold text-gray-900 leading-tight">Work Bills</h1>
-              <p className="text-xs text-gray-500">GST billing for sub-contractor work</p>
+              <p className="text-xs text-gray-500">Contractor invoices received, with GST, TDS and payments</p>
             </div>
             <button
               onClick={() => navigate(`/site/work-bills/new${initialWoId ? `?woId=${initialWoId}` : ''}`)}

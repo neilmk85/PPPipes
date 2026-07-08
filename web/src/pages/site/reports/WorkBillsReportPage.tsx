@@ -277,7 +277,7 @@ export default function WorkBillsReportPage() {
         <div className="px-6 pt-6 pb-5 flex items-center justify-between">
           <div className="shrink-0">
             <h1 className="text-lg font-bold text-gray-900 leading-tight">Bills by Contractor</h1>
-            <p className="text-xs text-gray-500">Contractor-wise work bill summary with full financial detail</p>
+            <p className="text-xs text-gray-500">Contractor-wise summary of invoices received, payments made and outstanding dues</p>
           </div>
           <div className="relative shrink-0">
             <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}
