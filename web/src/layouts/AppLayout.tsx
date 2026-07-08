@@ -79,7 +79,6 @@ const navEntries: NavEntry[] = [
     label: 'Sales',
     children: [
       { path: '/sales-orders',              icon: <ShoppingBag size={14} />, label: 'Sales Orders' },
-      { path: '/orders',                    icon: <FileText size={14} />,   label: 'Orders' },
       { path: '/customers',                 icon: <Users size={14} />,      label: 'Customers' },
       { path: '/sales/invoices',             icon: <Receipt size={14} />,    label: 'Invoices' },
       { path: '/sales/quotations',           icon: <FileText size={14} />,   label: 'Quotations' },
