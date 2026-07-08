@@ -32,9 +32,6 @@ export default function PurchasesPage() {
   const outletId = user?.outletId ?? 1
   const segment = pathname.split('/purchases/')[1]?.split('/')[0] ?? 'vendors'
 
-  // Purchase Returns is a full standalone page (no card wrapper)
-  if (segment === 'returns') return <PurchaseReturnsPage />
-
   const { data: billSummary } = useQuery({
     queryKey: ['purchase-bills-summary', outletId],
     queryFn: async () => {
@@ -43,6 +40,9 @@ export default function PurchasesPage() {
     },
     enabled: segment === 'bills',
   })
+
+  // Purchase Returns is a full standalone page (no card wrapper)
+  if (segment === 'returns') return <PurchaseReturnsPage />
 
   const renderContent = () => {
     switch (segment) {
