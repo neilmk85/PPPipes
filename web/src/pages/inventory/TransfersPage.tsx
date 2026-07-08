@@ -372,10 +372,10 @@ function ReceiveModal({ transfer, onClose, onDone }: { transfer: any; onClose: (
 }
 
 // ── Transfer Row ──────────────────────────────────────────────────────────────
-function TransferRow({ transfer, outletMap, onApprove, onShip, onReceive, approvePending, shipPending }: {
+function TransferRow({ transfer, outletMap, onShip, onReceive, shipPending }: {
   transfer: any; outletMap: Record<number, string>
-  onApprove: () => void; onShip: () => void; onReceive: () => void
-  approvePending: boolean; shipPending: boolean
+  onShip: () => void; onReceive: () => void
+  shipPending: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const { status } = transfer
@@ -407,22 +407,10 @@ function TransferRow({ transfer, outletMap, onApprove, onShip, onReceive, approv
         </td>
         <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-end gap-2">
-            {status === 'REQUESTED' && (
-              <button onClick={onApprove} disabled={approvePending}
-                className="text-xs font-semibold px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors flex items-center gap-1">
-                {approvePending ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Approve
-              </button>
-            )}
             {status === 'APPROVED' && (
               <button onClick={onShip} disabled={shipPending}
                 className="text-xs font-semibold px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg disabled:opacity-50 transition-colors flex items-center gap-1">
                 {shipPending ? <Loader2 size={11} className="animate-spin" /> : <Truck size={11} />} Mark Shipped
-              </button>
-            )}
-            {status === 'IN_TRANSIT' && (
-              <button onClick={onReceive}
-                className="text-xs font-semibold px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-1">
-                <Archive size={11} /> Receive
               </button>
             )}
           </div>
@@ -488,8 +476,7 @@ export default function TransfersPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [receiveTransfer, setReceiveTransfer] = useState<any>(null)
   const [statusFilter, setStatusFilter] = useState('')
-  const [approvingId, setApprovingId] = useState<number | null>(null)
-  const [shippingId, setShippingId]   = useState<number | null>(null)
+  const [shippingId, setShippingId] = useState<number | null>(null)
 
   const { data: outlets = [] } = useQuery({
     queryKey: ['outlets'],
@@ -518,12 +505,6 @@ export default function TransfersPage() {
   })
 
   const transfers: any[] = Array.isArray(transfersData) ? transfersData : (transfersData as any)?.content ?? []
-
-  const approveMutation = useMutation({
-    mutationFn: (id: number) => inventoryApi.approveTransfer(id, outletId!),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['transfers'] }); toast.success('Transfer approved'); setApprovingId(null) },
-    onError: (e: any) => { toast.error(e.response?.data?.message ?? 'Failed to approve'); setApprovingId(null) },
-  })
 
   const shipMutation = useMutation({
     mutationFn: (id: number) => inventoryApi.shipTransfer(id),
@@ -625,9 +606,7 @@ export default function TransfersPage() {
                     key={t.id}
                     transfer={t}
                     outletMap={outletMap}
-                    approvePending={approvingId === t.id && approveMutation.isPending}
                     shipPending={shippingId === t.id && shipMutation.isPending}
-                    onApprove={() => { setApprovingId(t.id); approveMutation.mutate(t.id) }}
                     onShip={() => { setShippingId(t.id); shipMutation.mutate(t.id) }}
                     onReceive={() => setReceiveTransfer(t)}
                   />

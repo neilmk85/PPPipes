@@ -516,17 +516,33 @@ export default function MaterialStockPage() {
     enabled: !!projectId,
   })
 
+  // Use the selected project's outletId to fetch its incoming transfers
+  const selectedProjectObj = projects.find(p => p.id === projectId)
+  const projectOutletId: number | null = selectedProjectObj?.outletId ?? null
+
   const { data: incomingTransfersData, isLoading: transfersLoading } = useQuery({
-    queryKey: ['incoming-transfers', outletId],
-    queryFn: () => inventoryApi.getTransfers(outletId!, { status: 'IN_TRANSIT', size: 100 })
+    queryKey: ['incoming-transfers', projectOutletId],
+    queryFn: () => inventoryApi.getTransfers(projectOutletId!, { size: 200 })
       .then(r => {
         const all: any[] = r.data?.data?.content ?? r.data?.data ?? []
-        // Only show transfers incoming to this outlet (not outgoing)
-        return all.filter((t: any) => t.toOutletId === outletId)
+        // Only show transfers coming TO this project's outlet, that still need action
+        return all.filter((t: any) =>
+          t.toOutletId === projectOutletId &&
+          ['REQUESTED', 'APPROVED', 'IN_TRANSIT'].includes(t.status)
+        )
       }),
-    enabled: !!outletId,
+    enabled: !!projectOutletId,
   })
   const incomingTransfers: any[] = incomingTransfersData ?? []
+
+  const approveMutation = useMutation({
+    mutationFn: (id: number) => inventoryApi.approveTransfer(id, outletId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['incoming-transfers', projectOutletId] })
+      toast.success('Transfer approved')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to approve'),
+  })
 
   const stockEntries: any[] = stockData?.data?.data ?? []
   const receipts: any[] = receiptsData?.data?.data ?? []
@@ -658,39 +674,41 @@ export default function MaterialStockPage() {
             <div className="mb-4 flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
               <TruckIcon size={15} className="text-teal-600 shrink-0 mt-0.5" />
               <p className="text-xs text-teal-800 leading-relaxed">
-                These are stock transfers dispatched from the factory that are <strong>in transit</strong> to your outlet.
-                Select a project above, verify quantities, and click <strong>Receive</strong> — the stock will appear in that project's Stock Register.
+                Stock transfers addressed to this project's site. <strong>Approve</strong> a request to confirm it, then the factory dispatches. Once dispatched, <strong>Receive</strong> it — stock is added to the register.
               </p>
             </div>
-            {!projectId && (
-              <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
-                <AlertTriangle size={13} className="text-amber-500 shrink-0" />
-                <p className="text-xs text-amber-800">Select a project from the dropdown above before receiving a transfer.</p>
-              </div>
-            )}
 
-            {transfersLoading ? (
+            {!projectId ? (
+              <div className="text-center py-20">
+                <InboxIcon size={38} className="mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500 text-sm font-medium">Select a project to view transfers</p>
+              </div>
+            ) : transfersLoading ? (
               <div className="flex items-center justify-center py-20 text-gray-400">
-                <Loader2 size={22} className="animate-spin mr-2" /> Loading incoming transfers…
+                <Loader2 size={22} className="animate-spin mr-2" /> Loading transfers…
               </div>
             ) : incomingTransfers.length === 0 ? (
               <div className="text-center py-20">
                 <InboxIcon size={38} className="mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-500 text-sm font-medium">No pending incoming transfers</p>
-                <p className="text-gray-400 text-xs mt-1">When stock is dispatched to your outlet it will appear here</p>
+                <p className="text-gray-500 text-sm font-medium">No pending transfers for this project</p>
+                <p className="text-gray-400 text-xs mt-1">When a transfer is created for this site it will appear here</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {incomingTransfers.map(t => (
+                {incomingTransfers.map(t => {
+                  const statusBadge = {
+                    REQUESTED: <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"><CheckCircle2 size={9} /> Pending Approval</span>,
+                    APPROVED:  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200"><CheckCircle2 size={9} /> Approved — awaiting dispatch</span>,
+                    IN_TRANSIT:<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200"><TruckIcon size={9} /> In Transit</span>,
+                  }[t.status as string]
+
+                  return (
                   <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                    {/* Transfer header */}
                     <div className="flex items-center gap-4 px-5 py-3 bg-gradient-to-r from-violet-50 to-blue-50 border-b border-violet-100">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold text-gray-900">{t.transferNumber}</span>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-700 border border-violet-200">
-                            <TruckIcon size={9} /> In Transit
-                          </span>
+                          {statusBadge}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500">
                           <span className="font-medium text-gray-700">{t.fromOutlet?.name ?? `Outlet #${t.fromOutletId}`}</span>
@@ -700,14 +718,24 @@ export default function MaterialStockPage() {
                           <span>{new Date(t.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (!projectId) { toast.error('Select a project first to receive stock'); return }
-                          setReceivingTransfer(t)
-                        }}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0">
-                        <CheckCircle2 size={13} /> Receive
-                      </button>
+                      {t.status === 'REQUESTED' && (
+                        <button
+                          onClick={() => approveMutation.mutate(t.id)}
+                          disabled={approveMutation.isPending}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0 disabled:opacity-50">
+                          {approveMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={13} />} Approve
+                        </button>
+                      )}
+                      {t.status === 'IN_TRANSIT' && (
+                        <button
+                          onClick={() => setReceivingTransfer(t)}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0">
+                          <CheckCircle2 size={13} /> Receive
+                        </button>
+                      )}
+                      {t.status === 'APPROVED' && (
+                        <span className="text-xs text-blue-500 italic shrink-0">Waiting for dispatch</span>
+                      )}
                     </div>
 
                     {/* Items list */}
@@ -733,7 +761,8 @@ export default function MaterialStockPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
