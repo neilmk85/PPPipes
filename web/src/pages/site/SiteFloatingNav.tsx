@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { key: 'daily-progress',            label: 'Daily Progress',   disabled: true  },
   { key: 'reports/financial-summary',         label: 'Financial Report',      disabled: true  },
   { key: 'reports/progress-report',           label: 'Progress Report',       disabled: true  },
-  { key: 'reports/work-bills-by-contractor',  label: 'Bills by Contractor',   disabled: false },
+  { key: 'reports/work-bills-by-contractor',  label: 'Contractor Ledger',     disabled: false },
 ]
 
 type NavTheme = 'dark' | 'light'

@@ -85,9 +85,9 @@ const CARDS: SiteCard[] = [
     disabled: true,
   },
   {
-    key: 'reports/work-bills-by-contractor', tag: 'BILLING', label: 'Bills by Contractor',
+    key: 'reports/work-bills-by-contractor', tag: 'BILLING', label: 'Contractor Ledger',
     description: 'Contractor-wise summary of invoices received — subtotal, GST, TDS, net payable, paid and outstanding.',
-    icon: <FileText size={20} />, buttonLabel: 'View Report',
+    icon: <FileText size={20} />, buttonLabel: 'View Ledger',
     accentColor: '#7c3aed', lightBg: '#f5f3ff', lightBorder: '#ddd6fe', lightText: '#5b21b6',
   },
 ]
