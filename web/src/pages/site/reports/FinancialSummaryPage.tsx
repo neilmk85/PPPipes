@@ -54,7 +54,7 @@ export default function FinancialSummaryPage() {
 
   const d = summaryData?.data?.data
   const contractors: any[] = d?.byContractor ?? []
-  const bills: any[] = billsData?.data?.data ?? billsData?.data ?? []
+  const bills: any[] = (billsData?.data as any)?.data ?? billsData?.data ?? []
 
   const billedPct = pct(d?.totalBilled, d?.contractValue)
   const paidPct   = pct(d?.totalPaid,   d?.contractValue)
