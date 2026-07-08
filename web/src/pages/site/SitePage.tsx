@@ -41,7 +41,6 @@ const CARDS: SiteCard[] = [
     description: 'Monitor site inventory levels, material receipts and consumption at each project location.',
     icon: <Archive size={20} />, buttonLabel: 'View Stock',
     accentColor: '#14b8a6', lightBg: '#f0fdfa', lightBorder: '#99f6e4', lightText: '#0f766e',
-    disabled: true,
   },
   {
     key: 'work-bills', tag: 'BILLING', label: 'Work Bills',

@@ -18,6 +18,8 @@ type MaterialReceipt struct {
 	ReceivedDate  string          `gorm:"column:received_date;type:date;not null" json:"receivedDate"`
 	ReceivedBy    *string         `gorm:"column:received_by" json:"receivedBy"`
 	VehicleNo     *string         `gorm:"column:vehicle_no" json:"vehicleNo"`
+	SourceType    *string         `gorm:"column:source_type" json:"sourceType"` // PURCHASE | TRANSFER
+	SourceRef     *string         `gorm:"column:source_ref" json:"sourceRef"`   // transfer number
 	Notes         *string         `gorm:"column:notes;type:text" json:"notes"`
 	CreatedAt     time.Time       `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt     time.Time       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`

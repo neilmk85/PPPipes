@@ -1,199 +1,374 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
-  Archive,
-  Plus,
-  Pencil,
-  Trash2,
-  ChevronDown,
-  TrendingDown,
-  TrendingUp,
-  AlertTriangle,
-  PackageCheck,
+  Archive, Plus, Pencil, Trash2, ChevronDown, AlertTriangle,
+  ArrowLeft, X, PackagePlus, PackageMinus, TruckIcon,
 } from 'lucide-react'
-import { materialReceiptApi, siteProjectApi } from '@/services/api'
+import { materialReceiptApi, materialIssueApi, siteProjectApi } from '@/services/api'
+import SiteFloatingNav from './SiteFloatingNav'
 
 const UNITS = ['Nos', 'm', 'm²', 'm³', 'RMT', 'MT', 'KG', 'Bags', 'Litres', 'LS']
 
-interface StockEntry {
-  materialName: string
-  specification: string
-  unit: string
-  totalReceived: string
-  issuedContractor: string
-  issuedInhouse: string
-  balance: string
+function fmtDate(d: string) {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-')
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${parseInt(day)} ${months[parseInt(m)-1]} ${y}`
 }
 
-interface Receipt {
-  id: number
-  siteProjectId: number
-  materialName: string
-  specification?: string
-  unit: string
-  qty: string
-  supplierName?: string
-  invoiceNo?: string
-  receivedDate: string
-  receivedBy?: string
-  vehicleNo?: string
-  notes?: string
+function fmt(n: any) {
+  const v = Number(n)
+  return isNaN(v) ? '0' : v % 1 === 0 ? v.toLocaleString('en-IN') : v.toLocaleString('en-IN', { maximumFractionDigits: 3 })
 }
 
-function ReceivePanel({
-  siteProjectId,
-  editing,
-  onClose,
-}: {
-  siteProjectId: number
-  editing: Receipt | null
-  onClose: () => void
+// ─── Receive Panel ───────────────────────────────────────────────────────────
+
+function ReceivePanel({ siteProjectId, editing, onClose }: {
+  siteProjectId: number; editing: any | null; onClose: () => void
 }) {
   const queryClient = useQueryClient()
   const today = new Date().toISOString().slice(0, 10)
-
+  const [sourceType, setSourceType] = useState<'PURCHASE' | 'TRANSFER'>(
+    (editing?.sourceType as any) ?? 'PURCHASE'
+  )
   const [form, setForm] = useState({
     materialName: editing?.materialName ?? '',
     specification: editing?.specification ?? '',
     unit: editing?.unit ?? 'Nos',
-    qty: editing ? String(editing.qty) : '1',
+    qty: editing ? String(editing.qty) : '',
     supplierName: editing?.supplierName ?? '',
     invoiceNo: editing?.invoiceNo ?? '',
     receivedDate: editing?.receivedDate ?? today,
     receivedBy: editing?.receivedBy ?? '',
     vehicleNo: editing?.vehicleNo ?? '',
+    sourceRef: editing?.sourceRef ?? '',
     notes: editing?.notes ?? '',
   })
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { const id = requestAnimationFrame(() => setVisible(true)); return () => cancelAnimationFrame(id) }, [])
+  function handleClose() { setVisible(false); setTimeout(onClose, 280) }
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const saveMutation = useMutation({
-    mutationFn: (d: typeof form) =>
-      editing
-        ? materialReceiptApi.update(editing.id, { ...d, siteProjectId })
-        : materialReceiptApi.create({ ...d, siteProjectId }),
+    mutationFn: (d: typeof form) => {
+      const payload = { ...d, siteProjectId, sourceType, sourceRef: sourceType === 'TRANSFER' ? form.sourceRef : null }
+      return editing
+        ? materialReceiptApi.update(editing.id, payload)
+        : materialReceiptApi.create(payload)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site-material-receipts', siteProjectId] })
       queryClient.invalidateQueries({ queryKey: ['site-stock-register', siteProjectId] })
-      toast.success(editing ? 'Receipt updated' : 'Material receipt recorded')
-      onClose()
+      toast.success(editing ? 'Receipt updated' : 'Receipt recorded')
+      handleClose()
     },
     onError: () => toast.error('Failed to save'),
   })
 
+  const fieldCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500'
+
   return (
-    <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-50 w-full max-w-md bg-white shadow-xl flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="text-base font-semibold text-gray-900">
-            {editing ? 'Edit Receipt' : 'Receive Material'}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Material Name</label>
-            <input value={form.materialName} onChange={(e) => set('materialName', e.target.value)}
-              placeholder="e.g. PSC Pipe 600mm dia"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <>
+      <div className={`fixed inset-0 bg-black/30 z-40 transition-opacity duration-280 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
+      <div className={`fixed inset-y-0 right-0 w-full max-w-md z-50 transition-transform duration-280 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'} shadow-2xl`}>
+        <div className="w-full h-full bg-white flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b">
+            <h2 className="text-base font-semibold text-gray-900">
+              {editing ? 'Edit Receipt' : 'Receive Material'}
+            </h2>
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Specification</label>
-            <input value={form.specification} onChange={(e) => set('specification', e.target.value)}
-              placeholder="e.g. IS 784, NP3"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Source toggle */}
+            {!editing && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Source</label>
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                  {(['PURCHASE', 'TRANSFER'] as const).map(s => (
+                    <button key={s} onClick={() => setSourceType(s)}
+                      className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                        sourceType === s ? 'bg-teal-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}>
+                      {s === 'PURCHASE' ? 'Purchase / Delivery' : 'Stock Transfer'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div className="grid grid-cols-2 gap-3">
+            {sourceType === 'TRANSFER' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Transfer Reference No.</label>
+                <input value={form.sourceRef} onChange={e => set('sourceRef', e.target.value)}
+                  placeholder="e.g. TR-001"
+                  className={fieldCls} />
+                <p className="text-[11px] text-gray-400 mt-1">Enter the transfer number from the Stock Transfers page</p>
+              </div>
+            )}
+
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Qty Received</label>
-              <input type="number" step="0.001" min="0" value={form.qty}
-                onChange={(e) => set('qty', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Material Name</label>
+              <input value={form.materialName} onChange={e => set('materialName', e.target.value)}
+                placeholder="e.g. PSC Pipe 600mm dia"
+                className={fieldCls} />
             </div>
+
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
-              <div className="relative">
-                <select value={form.unit} onChange={(e) => set('unit', e.target.value)}
-                  className="w-full appearance-none border border-gray-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  {UNITS.map((u) => <option key={u}>{u}</option>)}
-                </select>
-                <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Specification</label>
+              <input value={form.specification} onChange={e => set('specification', e.target.value)}
+                placeholder="e.g. IS 784, NP3"
+                className={fieldCls} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Qty Received</label>
+                <input type="number" step="0.001" min="0" value={form.qty}
+                  onChange={e => set('qty', e.target.value)}
+                  className={fieldCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                <div className="relative">
+                  <select value={form.unit} onChange={e => set('unit', e.target.value)}
+                    className={`${fieldCls} appearance-none pr-8`}>
+                    {UNITS.map(u => <option key={u}>{u}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Supplier</label>
-              <input value={form.supplierName} onChange={(e) => set('supplierName', e.target.value)}
-                placeholder="Supplier name"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            {sourceType === 'PURCHASE' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Supplier</label>
+                  <input value={form.supplierName} onChange={e => set('supplierName', e.target.value)}
+                    placeholder="Supplier name"
+                    className={fieldCls} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Invoice No.</label>
+                  <input value={form.invoiceNo} onChange={e => set('invoiceNo', e.target.value)}
+                    placeholder="INV/2025/001"
+                    className={fieldCls} />
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Received Date</label>
+                <input type="date" value={form.receivedDate} onChange={e => set('receivedDate', e.target.value)}
+                  className={fieldCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle No.</label>
+                <input value={form.vehicleNo} onChange={e => set('vehicleNo', e.target.value)}
+                  placeholder="GJ 01 AB 1234"
+                  className={fieldCls} />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Invoice No.</label>
-              <input value={form.invoiceNo} onChange={(e) => set('invoiceNo', e.target.value)}
-                placeholder="INV/2025/001"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Received Date</label>
-            <input type="date" value={form.receivedDate} onChange={(e) => set('receivedDate', e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Received By</label>
-              <input value={form.receivedBy} onChange={(e) => set('receivedBy', e.target.value)}
+              <input value={form.receivedBy} onChange={e => set('receivedBy', e.target.value)}
                 placeholder="Store keeper / Engineer"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                className={fieldCls} />
             </div>
+
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle No.</label>
-              <input value={form.vehicleNo} onChange={(e) => set('vehicleNo', e.target.value)}
-                placeholder="GJ 01 AB 1234"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+              <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+                rows={2} placeholder="Optional remarks"
+                className={`${fieldCls} resize-none`} />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
-            <textarea value={form.notes} onChange={(e) => set('notes', e.target.value)}
-              rows={2} placeholder="Optional remarks"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+          <div className="px-5 py-4 border-t flex gap-3">
+            <button onClick={handleClose}
+              className="flex-1 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button onClick={() => saveMutation.mutate(form)}
+              disabled={saveMutation.isPending || !form.materialName || !form.receivedDate || !form.qty}
+              className="flex-1 py-2 text-sm bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50">
+              {saveMutation.isPending ? 'Saving…' : editing ? 'Update' : 'Record Receipt'}
+            </button>
           </div>
-        </div>
-
-        <div className="px-5 py-4 border-t flex justify-end gap-3">
-          <button onClick={onClose}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-            Cancel
-          </button>
-          <button
-            onClick={() => saveMutation.mutate(form)}
-            disabled={saveMutation.isPending || !form.materialName || !form.receivedDate}
-            className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60">
-            {saveMutation.isPending ? 'Saving…' : editing ? 'Update' : 'Record Receipt'}
-          </button>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
+// ─── Issue Panel ─────────────────────────────────────────────────────────────
+
+function IssuePanel({ siteProjectId, stockEntries, onClose }: {
+  siteProjectId: number; stockEntries: any[]; onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const today = new Date().toISOString().slice(0, 10)
+  const [issuedTo, setIssuedTo] = useState<'SUBCONTRACTOR' | 'INHOUSE'>('SUBCONTRACTOR')
+  const [form, setForm] = useState({
+    materialName: '',
+    unit: 'Nos',
+    qty: '',
+    contractorName: '',
+    workOrderRef: '',
+    issueDate: today,
+    vehicleNo: '',
+    notes: '',
+  })
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { const id = requestAnimationFrame(() => setVisible(true)); return () => cancelAnimationFrame(id) }, [])
+  function handleClose() { setVisible(false); setTimeout(onClose, 280) }
+
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const materialNames = stockEntries.map(e => e.materialName)
+
+  const saveMutation = useMutation({
+    mutationFn: () => materialIssueApi.create({
+      siteProjectId,
+      issuedTo,
+      materialName: form.materialName,
+      unit: form.unit,
+      qty: form.qty,
+      contractorName: issuedTo === 'SUBCONTRACTOR' ? form.contractorName || null : null,
+      issueDate: form.issueDate,
+      vehicleNo: form.vehicleNo || null,
+      notes: form.notes || null,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-material-issues', siteProjectId] })
+      queryClient.invalidateQueries({ queryKey: ['site-stock-register', siteProjectId] })
+      toast.success('Material issued')
+      handleClose()
+    },
+    onError: () => toast.error('Failed to record issue'),
+  })
+
+  const fieldCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400'
+
+  return (
+    <>
+      <div className={`fixed inset-0 bg-black/30 z-40 transition-opacity duration-280 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
+      <div className={`fixed inset-y-0 right-0 w-full max-w-md z-50 transition-transform duration-280 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'} shadow-2xl`}>
+        <div className="w-full h-full bg-white flex flex-col">
+          <div className="flex items-center justify-between px-5 py-4 border-b">
+            <h2 className="text-base font-semibold text-gray-900">Issue Material</h2>
+            <button onClick={handleClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Issued To toggle */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Issued To</label>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                {(['SUBCONTRACTOR', 'INHOUSE'] as const).map(t => (
+                  <button key={t} onClick={() => setIssuedTo(t)}
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      issuedTo === t ? 'bg-orange-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}>
+                    {t === 'SUBCONTRACTOR' ? 'Contractor' : 'Inhouse (PP Pipes)'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Material Name</label>
+              <input value={form.materialName} onChange={e => set('materialName', e.target.value)}
+                list="material-names-list"
+                placeholder="e.g. PSC Pipe 600mm dia"
+                className={fieldCls} />
+              <datalist id="material-names-list">
+                {materialNames.map(n => <option key={n} value={n} />)}
+              </datalist>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Qty</label>
+                <input type="number" step="0.001" min="0" value={form.qty}
+                  onChange={e => set('qty', e.target.value)}
+                  className={fieldCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                <div className="relative">
+                  <select value={form.unit} onChange={e => set('unit', e.target.value)}
+                    className={`${fieldCls} appearance-none pr-8`}>
+                    {UNITS.map(u => <option key={u}>{u}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {issuedTo === 'SUBCONTRACTOR' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Contractor Name</label>
+                <input value={form.contractorName} onChange={e => set('contractorName', e.target.value)}
+                  placeholder="Sub-contractor name"
+                  className={fieldCls} />
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Issue Date</label>
+                <input type="date" value={form.issueDate} onChange={e => set('issueDate', e.target.value)}
+                  className={fieldCls} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle No.</label>
+                <input value={form.vehicleNo} onChange={e => set('vehicleNo', e.target.value)}
+                  placeholder="GJ 01 AB 1234"
+                  className={fieldCls} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+              <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+                rows={2} placeholder="Optional remarks"
+                className={`${fieldCls} resize-none`} />
+            </div>
+          </div>
+
+          <div className="px-5 py-4 border-t flex gap-3">
+            <button onClick={handleClose}
+              className="flex-1 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending || !form.materialName || !form.qty || !form.issueDate}
+              className="flex-1 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">
+              {saveMutation.isPending ? 'Saving…' : 'Record Issue'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function MaterialStockPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedProject, setSelectedProject] = useState('')
-  const [activeTab, setActiveTab] = useState<'register' | 'receipts'>('register')
-  const [panelOpen, setPanelOpen] = useState(false)
-  const [editing, setEditing] = useState<Receipt | null>(null)
+  const [activeTab, setActiveTab] = useState<'register' | 'receipts' | 'issues'>('register')
+  const [receiveOpen, setReceiveOpen] = useState(false)
+  const [issueOpen, setIssueOpen] = useState(false)
+  const [editingReceipt, setEditingReceipt] = useState<any | null>(null)
 
   const { data: projectsData } = useQuery({
     queryKey: ['site-projects'],
@@ -207,14 +382,22 @@ export default function MaterialStockPage() {
     queryFn: () => materialReceiptApi.getStockRegister(projectId),
     enabled: !!projectId,
   })
-
   const { data: receiptsData, isLoading: receiptsLoading } = useQuery({
     queryKey: ['site-material-receipts', projectId],
     queryFn: () => materialReceiptApi.getByProject(projectId),
     enabled: !!projectId,
   })
+  const { data: issuesData, isLoading: issuesLoading } = useQuery({
+    queryKey: ['site-material-issues', projectId],
+    queryFn: () => materialIssueApi.getAll({ siteProjectId: projectId }),
+    enabled: !!projectId,
+  })
 
-  const deleteMutation = useMutation({
+  const stockEntries: any[] = stockData?.data?.data ?? []
+  const receipts: any[] = receiptsData?.data?.data ?? []
+  const issues: any[] = issuesData?.data?.data ?? []
+
+  const deleteReceiptMutation = useMutation({
     mutationFn: materialReceiptApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site-material-receipts', projectId] })
@@ -224,225 +407,297 @@ export default function MaterialStockPage() {
     onError: () => toast.error('Failed to delete'),
   })
 
-  const stockEntries: StockEntry[] = stockData?.data?.data ?? []
-  const receipts: Receipt[] = receiptsData?.data?.data ?? []
+  const deleteIssueMutation = useMutation({
+    mutationFn: materialIssueApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-material-issues', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['site-stock-register', projectId] })
+      toast.success('Deleted')
+    },
+    onError: () => toast.error('Failed to delete'),
+  })
 
-  const lowStock = stockEntries.filter((e) => Number(e.balance) <= 0)
-  const totalItems = stockEntries.length
+  // Stat strip totals
+  const totalReceived = stockEntries.reduce((s, e) => s + Number(e.totalReceived), 0)
+  const totalIssued = stockEntries.reduce((s, e) => s + Number(e.issuedContractor) + Number(e.issuedInhouse), 0)
+  const lowStockCount = stockEntries.filter(e => Number(e.balance) <= 0).length
 
-  const openNew = () => { setEditing(null); setPanelOpen(true) }
+  const TABS = [
+    { key: 'register', label: 'Stock Register' },
+    { key: 'receipts', label: `Receipts (${receipts.length})` },
+    { key: 'issues', label: `Issues (${issues.length})` },
+  ] as const
 
   return (
-    <div className="p-6">
+    <>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-700 flex items-center justify-center">
-            <Archive size={20} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Material Stock</h1>
-            <p className="text-sm text-gray-500">Receipts, issues & running balance per project</p>
+      <div style={{ background: 'linear-gradient(180deg, #99f6e4 0%, #ccfbf1 35%, #f0fdfa 65%, #f8fffe 85%, #ffffff 100%)' }}>
+        <div className="px-6 pt-4 pb-2 flex items-center gap-4">
+          <button onClick={() => navigate('/site')} className="text-teal-600 hover:text-teal-900 transition-colors shrink-0">
+            <ArrowLeft size={18} />
+          </button>
+          <div className="flex-1 flex justify-center">
+            <SiteFloatingNav theme="light" inline />
           </div>
         </div>
-        <button onClick={openNew}
-          disabled={!selectedProject}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-40 transition-colors">
-          <Plus size={16} />
-          Receive Material
-        </button>
-      </div>
 
-      {/* Project selector */}
-      <div className="flex gap-4 mb-6">
-        <div className="relative">
-          <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}
-            className="appearance-none border border-gray-300 rounded-lg px-4 py-2.5 pr-10 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[240px]">
-            <option value="">Select project…</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <div className="px-6 pt-6 pb-5 flex items-center justify-between">
+          <div className="shrink-0">
+            <h1 className="text-lg font-bold text-gray-900 leading-tight">Material Stock</h1>
+            <p className="text-xs text-gray-500">Receipts, issues and running balance per project</p>
+          </div>
+          <div className="relative shrink-0">
+            <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}
+              className="appearance-none border border-teal-200 bg-white rounded-lg px-4 py-2 pr-8 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400 min-w-[220px] shadow-sm">
+              <option value="">Select project…</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
         </div>
       </div>
 
-      {!selectedProject ? (
-        <div className="text-center py-20 text-gray-400">
-          <Archive size={36} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Select a project to view stock</p>
+      {/* Stat strip + action buttons */}
+      {selectedProject && (
+        <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-3">
+          <div className="flex items-center divide-x divide-gray-200 mr-auto">
+            <div className="pr-6" style={{ filter: 'drop-shadow(0 2px 6px rgba(20,184,166,0.10))' }}>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Materials</p>
+              <p className="text-sm font-bold text-gray-900">{stockEntries.length}</p>
+            </div>
+            <div className="px-6" style={{ filter: 'drop-shadow(0 2px 6px rgba(20,184,166,0.10))' }}>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Receipts</p>
+              <p className="text-sm font-bold text-gray-900">{receipts.length}</p>
+            </div>
+            <div className="px-6" style={{ filter: 'drop-shadow(0 2px 6px rgba(20,184,166,0.10))' }}>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Issues</p>
+              <p className="text-sm font-bold text-gray-900">{issues.length}</p>
+            </div>
+            {lowStockCount > 0 && (
+              <div className="pl-6">
+                <p className="text-[10px] font-semibold text-red-400 uppercase tracking-widest leading-none mb-0.5">Low / Negative</p>
+                <p className="text-sm font-bold text-red-600 flex items-center gap-1">
+                  <AlertTriangle size={12} /> {lowStockCount}
+                </p>
+              </div>
+            )}
+          </div>
+          <button onClick={() => { setEditingReceipt(null); setReceiveOpen(true) }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 text-white text-xs font-semibold rounded-xl hover:bg-teal-700 transition-colors">
+            <PackagePlus size={14} /> Receive
+          </button>
+          <button onClick={() => setIssueOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-orange-500 text-white text-xs font-semibold rounded-xl hover:bg-orange-600 transition-colors">
+            <PackageMinus size={14} /> Issue
+          </button>
         </div>
-      ) : (
-        <>
-          {/* KPI strip */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
-              <div className="flex items-center gap-2 mb-1">
-                <PackageCheck size={16} className="text-blue-600" />
-                <span className="text-xs text-blue-600 font-medium">Materials Tracked</span>
-              </div>
-              <p className="text-2xl font-bold text-blue-800">{totalItems}</p>
-            </div>
-            <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4">
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp size={16} className="text-green-600" />
-                <span className="text-xs text-green-600 font-medium">Total Receipts</span>
-              </div>
-              <p className="text-2xl font-bold text-green-800">{receipts.length}</p>
-            </div>
-            <div className={`border rounded-xl px-5 py-4 ${lowStock.length > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center gap-2 mb-1">
-                {lowStock.length > 0
-                  ? <AlertTriangle size={16} className="text-red-600" />
-                  : <TrendingDown size={16} className="text-gray-400" />}
-                <span className={`text-xs font-medium ${lowStock.length > 0 ? 'text-red-600' : 'text-gray-500'}`}>
-                  Zero / Negative Balance
-                </span>
-              </div>
-              <p className={`text-2xl font-bold ${lowStock.length > 0 ? 'text-red-700' : 'text-gray-600'}`}>
-                {lowStock.length}
-              </p>
-            </div>
+      )}
+
+      {/* Tabs */}
+      {selectedProject && (
+        <div className="bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-1">
+          {TABS.map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                activeTab === tab.key ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="p-6">
+        {!selectedProject ? (
+          <div className="text-center py-24 text-gray-400">
+            <Archive size={36} className="mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Select a project to view material stock</p>
           </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-lg w-fit">
-            {(['register', 'receipts'] as const).map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                }`}>
-                {tab === 'register' ? 'Stock Register' : `Receipts (${receipts.length})`}
-              </button>
-            ))}
-          </div>
-
-          {/* Stock Register tab */}
-          {activeTab === 'register' && (
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              {stockLoading ? (
-                <div className="text-center py-16 text-gray-400 text-sm">Loading…</div>
-              ) : stockEntries.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
-                  <Archive size={32} className="mx-auto mb-3 opacity-30" />
-                  <p className="text-sm">No materials received yet.</p>
-                  <button onClick={openNew} className="mt-2 text-sm text-indigo-600 hover:underline">
-                    + Record first receipt
-                  </button>
-                </div>
-              ) : (
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Material</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide text-right">Received</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide text-right">→ Contractor</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide text-right">→ Inhouse</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide text-right">Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {stockEntries.map((entry, i) => {
-                      const balance = Number(entry.balance)
-                      const balanceColor = balance < 0
-                        ? 'text-red-700 font-bold'
-                        : balance === 0
-                        ? 'text-gray-400'
-                        : 'text-green-700 font-semibold'
-                      return (
-                        <tr key={i} className={`hover:bg-gray-50 ${balance < 0 ? 'bg-red-50' : ''}`}>
-                          <td className="px-4 py-3">
-                            <div className="text-sm font-medium text-gray-900">{entry.materialName}</div>
-                            {entry.specification && (
-                              <div className="text-xs text-gray-400">{entry.specification}</div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-700">
-                            {entry.totalReceived} <span className="text-gray-400 text-xs">{entry.unit}</span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right text-orange-600">
-                            {Number(entry.issuedContractor) > 0
-                              ? <>{entry.issuedContractor} <span className="text-gray-400 text-xs">{entry.unit}</span></>
-                              : <span className="text-gray-300">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right text-indigo-600">
-                            {Number(entry.issuedInhouse) > 0
-                              ? <>{entry.issuedInhouse} <span className="text-gray-400 text-xs">{entry.unit}</span></>
-                              : <span className="text-gray-300">—</span>}
-                          </td>
-                          <td className={`px-4 py-3 text-sm text-right ${balanceColor}`}>
-                            {balance < 0 && <AlertTriangle size={12} className="inline mr-1" />}
-                            {entry.balance} <span className="text-gray-400 text-xs font-normal">{entry.unit}</span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-
-          {/* Receipts tab */}
-          {activeTab === 'receipts' && (
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              {receiptsLoading ? (
-                <div className="text-center py-16 text-gray-400 text-sm">Loading…</div>
-              ) : receipts.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
-                  <p className="text-sm">No receipts yet.</p>
-                  <button onClick={openNew} className="mt-2 text-sm text-indigo-600 hover:underline">+ Record first receipt</button>
-                </div>
-              ) : (
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Date</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Material</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide text-right">Qty</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Supplier</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Invoice</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Vehicle</th>
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {receipts.map((rec) => (
-                      <tr key={rec.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{rec.receivedDate}</td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm font-medium text-gray-900">{rec.materialName}</div>
-                          {rec.specification && <div className="text-xs text-gray-400">{rec.specification}</div>}
+        ) : activeTab === 'register' ? (
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            {stockLoading ? (
+              <div className="text-center py-16 text-gray-400 text-sm">Loading…</div>
+            ) : stockEntries.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <Archive size={32} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No materials received yet</p>
+                <button onClick={() => setReceiveOpen(true)} className="mt-2 text-sm text-teal-600 hover:underline">
+                  + Record first receipt
+                </button>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left px-5 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Material</th>
+                    <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Received</th>
+                    <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">→ Contractor</th>
+                    <th className="text-right px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">→ Inhouse</th>
+                    <th className="text-right px-5 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {stockEntries.map((entry, i) => {
+                    const bal = Number(entry.balance)
+                    return (
+                      <tr key={i} className={`hover:bg-gray-50/50 ${bal < 0 ? 'bg-red-50/40' : ''}`}>
+                        <td className="px-5 py-3">
+                          <p className="text-sm font-medium text-gray-900">{entry.materialName}</p>
+                          {entry.specification && <p className="text-xs text-gray-400">{entry.specification}</p>}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-800">
-                          {rec.qty} <span className="text-gray-400 font-normal">{rec.unit}</span>
+                        <td className="px-4 py-3 text-sm text-right text-gray-900 tabular-nums">
+                          {fmt(entry.totalReceived)} <span className="text-xs text-gray-400">{entry.unit}</span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{rec.supplierName ?? '—'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{rec.invoiceNo ?? '—'}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{rec.vehicleNo ?? '—'}</td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => { setEditing(rec); setPanelOpen(true) }}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 rounded"><Pencil size={14} /></button>
-                            <button onClick={() => window.confirm('Delete this receipt?') && deleteMutation.mutate(rec.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 rounded"><Trash2 size={14} /></button>
-                          </div>
+                        <td className="px-4 py-3 text-sm text-right tabular-nums">
+                          {Number(entry.issuedContractor) > 0
+                            ? <span className="text-gray-900">{fmt(entry.issuedContractor)} <span className="text-xs text-gray-400">{entry.unit}</span></span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right tabular-nums">
+                          {Number(entry.issuedInhouse) > 0
+                            ? <span className="text-gray-900">{fmt(entry.issuedInhouse)} <span className="text-xs text-gray-400">{entry.unit}</span></span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-right tabular-nums font-semibold">
+                          {bal < 0
+                            ? <span className="text-red-600 flex items-center justify-end gap-1"><AlertTriangle size={12} />{fmt(bal)}</span>
+                            : <span className="text-green-700">{fmt(bal)} <span className="text-xs font-normal text-gray-400">{entry.unit}</span></span>}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-        </>
-      )}
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : activeTab === 'receipts' ? (
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            {receiptsLoading ? (
+              <div className="text-center py-16 text-gray-400 text-sm">Loading…</div>
+            ) : receipts.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <p className="text-sm">No receipts yet</p>
+                <button onClick={() => setReceiveOpen(true)} className="mt-2 text-sm text-teal-600 hover:underline">+ Record first receipt</button>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left px-5 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Material</th>
+                    <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Qty</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Source</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Vehicle</th>
+                    <th className="px-3 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {receipts.map(rec => (
+                    <tr key={rec.id} className="hover:bg-gray-50/50">
+                      <td className="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtDate(rec.receivedDate)}</td>
+                      <td className="px-3 py-3">
+                        <p className="text-sm font-medium text-gray-900">{rec.materialName}</p>
+                        {rec.specification && <p className="text-xs text-gray-400">{rec.specification}</p>}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-right text-gray-900 tabular-nums font-medium">
+                        {fmt(rec.qty)} <span className="text-xs text-gray-400 font-normal">{rec.unit}</span>
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-500">
+                        {rec.sourceType === 'TRANSFER'
+                          ? <span className="inline-flex items-center gap-1 text-blue-600 font-medium">
+                              <TruckIcon size={11} /> {rec.sourceRef ?? 'Transfer'}
+                            </span>
+                          : rec.supplierName
+                            ? <span>{rec.supplierName}{rec.invoiceNo ? ` · ${rec.invoiceNo}` : ''}</span>
+                            : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-500">{rec.vehicleNo ?? '—'}</td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => { setEditingReceipt(rec); setReceiveOpen(true) }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => window.confirm('Delete this receipt?') && deleteReceiptMutation.mutate(rec.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
+          /* Issues tab */
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+            {issuesLoading ? (
+              <div className="text-center py-16 text-gray-400 text-sm">Loading…</div>
+            ) : issues.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <p className="text-sm">No issues recorded yet</p>
+                <button onClick={() => setIssueOpen(true)} className="mt-2 text-sm text-orange-500 hover:underline">+ Record first issue</button>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left px-5 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Material</th>
+                    <th className="text-right px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Qty</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Issued To</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Vehicle</th>
+                    <th className="px-3 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {issues.map(issue => (
+                    <tr key={issue.id} className="hover:bg-gray-50/50">
+                      <td className="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtDate(issue.issueDate)}</td>
+                      <td className="px-3 py-3">
+                        <p className="text-sm font-medium text-gray-900">{issue.materialName}</p>
+                        {issue.specification && <p className="text-xs text-gray-400">{issue.specification}</p>}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-right text-gray-900 tabular-nums font-medium">
+                        {fmt(issue.qty)} <span className="text-xs text-gray-400 font-normal">{issue.unit}</span>
+                      </td>
+                      <td className="px-3 py-3 text-xs">
+                        {issue.issuedTo === 'SUBCONTRACTOR'
+                          ? <span className="text-orange-600 font-medium">{issue.contractorName || 'Contractor'}</span>
+                          : <span className="text-indigo-600 font-medium">Inhouse</span>}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-500">{issue.vehicleNo ?? '—'}</td>
+                      <td className="px-3 py-3 text-right">
+                        <button onClick={() => window.confirm('Delete this issue?') && deleteIssueMutation.mutate(issue.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors">
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
 
-      {panelOpen && (
+      {receiveOpen && (
         <ReceivePanel
           siteProjectId={projectId}
-          editing={editing}
-          onClose={() => { setPanelOpen(false); setEditing(null) }}
+          editing={editingReceipt}
+          onClose={() => { setReceiveOpen(false); setEditingReceipt(null) }}
         />
       )}
-    </div>
+      {issueOpen && (
+        <IssuePanel
+          siteProjectId={projectId}
+          stockEntries={stockEntries}
+          onClose={() => setIssueOpen(false)}
+        />
+      )}
+    </>
   )
 }
