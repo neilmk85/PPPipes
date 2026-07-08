@@ -256,6 +256,10 @@ func Migrate(db *gorm.DB) error {
 		slog.Error("[Database] Failed to migrate SalesOrderItem", "error", err)
 		return err
 	}
+	if err := db.AutoMigrate(&models.SalesOrderPayment{}); err != nil {
+		slog.Error("[Database] Failed to migrate SalesOrderPayment", "error", err)
+		return err
+	}
 
 	// Phase 16: PCCP Production Line
 	// Order respects FK dependencies:

@@ -771,6 +771,17 @@ export const salesOrderApi = {
     api.post<ApiResponse<any>>(`/sales-orders/${soId}/convert-all`, {}, { params: outletId ? { outletId } : {} }),
 }
 
+export const salesOrderPaymentApi = {
+  record: (salesOrderId: number, data: {
+    amount: number; paymentMethod: string; referenceNumber?: string
+    paymentDate: string; notes?: string
+  }) => api.post<ApiResponse<any>>(`/sales-orders/${salesOrderId}/payments`, data),
+  getForOrder: (salesOrderId: number) =>
+    api.get<ApiResponse<any>>(`/sales-orders/${salesOrderId}/payments`),
+  getAll: (params?: { outletId?: number; from?: string; to?: string; page?: number; size?: number }) =>
+    api.get<ApiResponse<any>>('/sales-order-payments', { params }),
+}
+
 // ── PCCP Production APIs ────────────────────────────────────────────────────
 
 export const pipeConfigApi = {

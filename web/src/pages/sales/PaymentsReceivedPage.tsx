@@ -1,56 +1,38 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, CreditCard, DollarSign, Smartphone, Wallet, IndianRupee, Banknote, TrendingUp, Landmark } from 'lucide-react'
-import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, startOfQuarter, endOfQuarter, subQuarters } from 'date-fns'
+import { Search, Landmark, TrendingUp, IndianRupee } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { orderApi } from '@/services/api'
+import { salesOrderPaymentApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
-
-const METHOD_ICONS: Record<string, React.ReactNode> = {
-  CASH:        <DollarSign  size={18} />,
-  CARD:        <CreditCard  size={18} />,
-  UPI:         <Smartphone  size={18} />,
-  WALLET:      <Wallet      size={18} />,
-  NET_BANKING: <Banknote    size={18} />,
-  CREDIT_NOTE: <IndianRupee size={18} />,
-}
+import { DateRangePicker } from '@/components/DateRangePicker'
 
 const METHOD_COLORS: Record<string, string> = {
-  CASH:        'bg-green-100  text-green-700',
-  CARD:        'bg-blue-100   text-blue-700',
-  UPI:         'bg-purple-100 text-purple-700',
-  WALLET:      'bg-orange-100 text-orange-700',
-  NET_BANKING: 'bg-indigo-100 text-indigo-700',
-  CREDIT_NOTE: 'bg-yellow-100 text-yellow-700',
+  NEFT:          'bg-blue-50 text-blue-700',
+  RTGS:          'bg-indigo-50 text-indigo-700',
+  CHEQUE:        'bg-amber-50 text-amber-700',
+  CASH:          'bg-green-50 text-green-700',
+  UPI:           'bg-purple-50 text-purple-700',
+  IMPS:          'bg-cyan-50 text-cyan-700',
+  BANK_TRANSFER: 'bg-gray-100 text-gray-700',
 }
 
 const METHOD_GRADIENTS: Record<string, string> = {
-  CASH:        'from-green-500 to-emerald-600',
-  CARD:        'from-blue-500 to-indigo-600',
-  UPI:         'from-purple-500 to-violet-600',
-  WALLET:      'from-orange-400 to-amber-500',
-  NET_BANKING: 'from-indigo-500 to-blue-600',
-  CREDIT_NOTE: 'from-yellow-400 to-orange-500',
+  NEFT:          'from-blue-500 to-blue-600',
+  RTGS:          'from-indigo-500 to-indigo-600',
+  CHEQUE:        'from-amber-400 to-amber-500',
+  CASH:          'from-green-500 to-emerald-600',
+  UPI:           'from-purple-500 to-violet-600',
+  IMPS:          'from-cyan-500 to-cyan-600',
+  BANK_TRANSFER: 'from-gray-400 to-gray-500',
 }
 
-const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#3b82f6', '#8b5cf6', '#06b6d4']
+const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#3b82f6', '#8b5cf6', '#06b6d4', '#64748b']
 const RADIAN = Math.PI / 180
 
-const today = new Date()
-const fmt = (d: Date) => format(d, 'yyyy-MM-dd')
-
-const DATE_PRESETS = [
-  { label: 'Today',        from: fmt(today),                                                        to: fmt(today) },
-  { label: 'Yesterday',    from: fmt(subDays(today, 1)),                                            to: fmt(subDays(today, 1)) },
-  { label: 'This Week',    from: fmt(startOfWeek(today, { weekStartsOn: 1 })),                     to: fmt(endOfWeek(today, { weekStartsOn: 1 })) },
-  { label: 'Last Week',    from: fmt(startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 })),        to: fmt(endOfWeek(subWeeks(today, 1), { weekStartsOn: 1 })) },
-  { label: 'This Month',   from: fmt(startOfMonth(today)),                                          to: fmt(endOfMonth(today)) },
-  { label: 'Last Month',   from: fmt(startOfMonth(subMonths(today, 1))),                           to: fmt(endOfMonth(subMonths(today, 1))) },
-  { label: 'Last 30 Days', from: fmt(subDays(today, 29)),                                          to: fmt(today) },
-  { label: 'Last 90 Days', from: fmt(subDays(today, 89)),                                          to: fmt(today) },
-  { label: 'This Quarter', from: fmt(startOfQuarter(today)),                                        to: fmt(endOfQuarter(today)) },
-  { label: 'Last Quarter', from: fmt(startOfQuarter(subQuarters(today, 1))),                       to: fmt(endOfQuarter(subQuarters(today, 1))) },
-]
+function isoStartOfMonth() {
+  const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+function isoToday() { return new Date().toISOString().slice(0, 10) }
 
 function renderPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) {
   if (percent < 0.05) return null
@@ -62,85 +44,58 @@ function renderPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }:
 
 export default function PaymentsReceivedPage() {
   const { outletId } = useAuthStore()
-  const [tab, setTab]                   = useState<'summary' | 'transactions'>('summary')
-  const [search, setSearch]             = useState('')
-  const [from, setFrom]                 = useState(fmt(subDays(today, 29)))
-  const [to,   setTo]                   = useState(fmt(today))
-  const [activePreset, setActivePreset] = useState('Last 30 Days')
-
-  function applyPreset(preset: typeof DATE_PRESETS[0]) {
-    setFrom(preset.from)
-    setTo(preset.to)
-    setActivePreset(preset.label)
-  }
+  const [tab, setTab]     = useState<'summary' | 'transactions'>('summary')
+  const [search, setSearch] = useState('')
+  const [from, setFrom]   = useState(isoStartOfMonth())
+  const [to,   setTo]     = useState(isoToday())
 
   const { data, isLoading } = useQuery({
-    queryKey: ['orders-payments', outletId, from, to],
-    queryFn: () => orderApi.getByOutlet(outletId!, { page: 0, size: 500, from, to }).then(r => r.data.data),
+    queryKey: ['so-payments-all', outletId, from, to],
+    queryFn: () => salesOrderPaymentApi.getAll({ outletId: outletId ?? undefined, from, to, size: 500 })
+      .then(r => r.data.data?.content ?? r.data.data ?? []),
     enabled: !!outletId,
   })
 
-  const orders = data?.content ?? []
+  const payments: any[] = data ?? []
 
-  const rows = orders.flatMap((o: any) =>
-    (o.payments ?? []).map((p: any) => ({
-      ...p,
-      amount:      parseFloat(String(p.amount ?? 0)),
-      orderNumber: o.orderNumber,
-      orderId:     o.id,
-      customer:    o.customer,
-      orderDate:   o.createdAt,
-    }))
-  )
-
-  const filtered = rows.filter((r: any) =>
+  const filtered = payments.filter((p: any) =>
     !search ||
-    r.orderNumber?.toLowerCase().includes(search.toLowerCase()) ||
-    r.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    r.paymentMethod?.toLowerCase().includes(search.toLowerCase())
+    p.salesOrder?.soNumber?.toLowerCase().includes(search.toLowerCase()) ||
+    p.salesOrder?.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    p.paymentMethod?.toLowerCase().includes(search.toLowerCase()) ||
+    (p.referenceNumber ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const total = filtered.reduce((s: number, r: any) => s + r.amount, 0)
+  const total = filtered.reduce((s: number, p: any) => s + parseFloat(p.amount ?? 0), 0)
 
   const byMethod: Record<string, number> = {}
-  filtered.forEach((r: any) => {
-    byMethod[r.paymentMethod] = (byMethod[r.paymentMethod] ?? 0) + r.amount
+  filtered.forEach((p: any) => {
+    byMethod[p.paymentMethod] = (byMethod[p.paymentMethod] ?? 0) + parseFloat(p.amount ?? 0)
   })
 
   const pieData   = Object.entries(byMethod).map(([name, value]) => ({ name, value }))
-  const chartData = Object.entries(byMethod).map(([method, amount]) => ({ method: method.replace('_', ' '), amount }))
+  const chartData = Object.entries(byMethod).map(([method, amount]) => ({ method, amount }))
 
   return (
     <div className="min-h-full bg-gray-50">
 
-      {/* ── Hero Header ── */}
-      <div className="relative rounded-none shadow-[0_8px_40px_rgba(109,40,217,0.30)] mx-0">
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-700 via-violet-600 to-blue-600" />
-          <div className="absolute inset-0 opacity-[0.15]"
-            style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-          <div className="absolute -top-10 -right-10 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl" />
-          <div className="absolute -bottom-8 -left-8 w-56 h-56 rounded-full bg-violet-300/20 blur-2xl" />
-        </div>
+      {/* Hero */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-700 via-violet-600 to-blue-600" />
+        <div className="absolute inset-0 opacity-[0.15]"
+          style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+        <div className="absolute -top-10 -right-10 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl" />
 
-        {/* Top row */}
         <div className="relative flex items-center justify-between px-8 py-6">
           <div className="flex items-center gap-4">
             <Landmark size={26} className="text-amber-300" />
             <div>
               <p className="text-violet-200 text-xs font-semibold tracking-widest uppercase">Sales</p>
               <h1 className="text-white text-2xl font-bold tracking-tight">Payments Received</h1>
+              <p className="text-violet-200/70 text-xs mt-0.5">Customer receipts against sales orders</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <input type="date" value={from}
-              onChange={e => { setFrom(e.target.value); setActivePreset('') }}
-              className="bg-white/10 border border-white/20 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/30" />
-            <span className="text-white/50 text-sm">to</span>
-            <input type="date" value={to}
-              onChange={e => { setTo(e.target.value); setActivePreset('') }}
-              className="bg-white/10 border border-white/20 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/30" />
-          </div>
+          <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
         </div>
 
         {/* Stat strip */}
@@ -159,132 +114,118 @@ export default function PaymentsReceivedPage() {
           </div>
           <div className="px-6 py-3 text-center">
             <p className="text-white text-xl font-bold">
-              ₹{filtered.length > 0 ? (total / filtered.length).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+              ₹{filtered.length > 0 ? (total / filtered.length).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : '0'}
             </p>
-            <p className="text-violet-200 text-xs mt-0.5">Avg. Transaction</p>
+            <p className="text-violet-200 text-xs mt-0.5">Avg. Receipt</p>
           </div>
-        </div>
-
-        {/* Date preset strip */}
-        <div className="relative border-t border-white/10 px-8 py-3 flex flex-wrap gap-1.5">
-          {DATE_PRESETS.map(p => (
-            <button key={p.label} onClick={() => applyPreset(p)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                activePreset === p.label
-                  ? 'bg-white/20 text-white border border-white/30'
-                  : 'border border-white/20 text-white/60 hover:bg-white/10 hover:text-white/90'
-              }`}>
-              {p.label}
-            </button>
-          ))}
         </div>
       </div>
 
       <div className="p-6">
-
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5 w-fit">
           {(['summary', 'transactions'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
-                tab === t
-                  ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                tab === t ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}>
               {t}
             </button>
           ))}
         </div>
 
-        {/* ── Summary Tab ── */}
+        {/* Summary Tab */}
         {tab === 'summary' && (
           <>
-            {/* KPI cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-5">
-              <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shrink-0">
                   <IndianRupee size={18} />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium">Total Received</p>
-                  <p className="text-xl font-bold text-gray-900">₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xl font-bold text-gray-900">₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
                   <p className="text-[11px] text-gray-400">{filtered.length} transactions</p>
                 </div>
               </div>
               {Object.entries(byMethod).map(([method, amt]) => (
-                <div key={method} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm hover:shadow-md transition-shadow">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${METHOD_GRADIENTS[method] ?? 'from-gray-400 to-gray-500'} flex items-center justify-center text-white shrink-0 shadow-sm`}>
-                    {METHOD_ICONS[method] ?? <CreditCard size={18} />}
+                <div key={method} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3 shadow-sm">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${METHOD_GRADIENTS[method] ?? 'from-gray-400 to-gray-500'} flex items-center justify-center text-white shrink-0`}>
+                    <IndianRupee size={18} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">{method.replace('_', ' ')}</p>
-                    <p className="text-xl font-bold text-gray-900">₹{(amt as number).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-xs text-gray-500 font-medium">{method}</p>
+                    <p className="text-xl font-bold text-gray-900">₹{(amt as number).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {/* Pie chart */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                <h3 className="text-sm font-semibold text-gray-800 mb-1">Payment Mix</h3>
-                <p className="text-xs text-gray-400 mb-3">Share by method</p>
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                      outerRadius={90} labelLine={false} label={renderPieLabel}>
-                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`} />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 12 }} className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-                  {pieData.map((entry, i) => (
-                    <div key={entry.name} className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                      <span className="text-xs text-gray-600">{entry.name.replace('_', ' ')}</span>
-                      <span className="text-xs font-semibold text-gray-800">
-                        {total > 0 ? `${((entry.value / total) * 100).toFixed(0)}%` : '0%'}
-                      </span>
-                    </div>
-                  ))}
+            {pieData.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-1">Payment Mix</h3>
+                  <p className="text-xs text-gray-400 mb-3">Share by method</p>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%"
+                        outerRadius={90} labelLine={false} label={renderPieLabel}>
+                        {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 pt-3 border-t border-gray-100">
+                    {pieData.map((entry, i) => (
+                      <div key={entry.name} className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                        <span className="text-xs text-gray-600">{entry.name}</span>
+                        <span className="text-xs font-semibold text-gray-800">
+                          {total > 0 ? `${((entry.value / total) * 100).toFixed(0)}%` : '0%'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-1">Amount by Method</h3>
+                  <p className="text-xs text-gray-400 mb-3">Receipt breakdown</p>
+                  <ResponsiveContainer width="100%" height={290}>
+                    <BarChart data={chartData}>
+                      <defs>
+                        <linearGradient id="payBarGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8b5cf6" /><stop offset="100%" stopColor="#6366f1" />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                      <XAxis dataKey="method" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `₹${(v/100000).toFixed(1)}L`} />
+                      <Tooltip contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
+                        formatter={(v: any) => [`₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 'Amount']} />
+                      <Bar dataKey="amount" fill="url(#payBarGrad)" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
+            )}
 
-              {/* Bar chart */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                <h3 className="text-sm font-semibold text-gray-800 mb-1">Amount by Method</h3>
-                <p className="text-xs text-gray-400 mb-3">Revenue breakdown</p>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={chartData}>
-                    <defs>
-                      <linearGradient id="payBarGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#6366f1" />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                    <XAxis dataKey="method" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-                    <Tooltip
-                      contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
-                      formatter={(v: any) => [`₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 'Amount']} />
-                    <Bar dataKey="amount" fill="url(#payBarGrad)" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+            {filtered.length === 0 && !isLoading && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+                <TrendingUp size={40} className="mx-auto text-gray-200 mb-3" />
+                <p className="text-sm text-gray-400">No payments received in this period</p>
+                <p className="text-xs text-gray-300 mt-1">Record payments from the Sales Order detail page</p>
               </div>
-            </div>
+            )}
           </>
         )}
 
-        {/* ── Transactions Tab ── */}
+        {/* Transactions Tab */}
         {tab === 'transactions' && (
           <>
             <div className="relative mb-4 max-w-sm">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search order, customer, method…"
+                placeholder="Search SO#, customer, method, UTR…"
                 className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg w-full text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none bg-white" />
             </div>
 
@@ -292,12 +233,12 @@ export default function PaymentsReceivedPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gradient-to-r from-violet-50 to-blue-50 border-y border-violet-100">
-                    <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Order #</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Date</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">SO Number</th>
                     <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Customer</th>
                     <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Method</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Reference / UTR</th>
                     <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Amount</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Reference</th>
-                    <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -307,28 +248,42 @@ export default function PaymentsReceivedPage() {
                     <tr>
                       <td colSpan={6} className="text-center py-16">
                         <TrendingUp size={36} className="mx-auto text-gray-200 mb-3" />
-                        <p className="text-sm text-gray-400">No payments found</p>
+                        <p className="text-sm text-gray-400">No payments in this period</p>
                       </td>
                     </tr>
-                  ) : filtered.map((r: any, i: number) => (
-                    <tr key={i} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-mono text-sm text-violet-600">{r.orderNumber}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{r.customer?.name ?? 'Walk-in'}</td>
+                  ) : filtered.map((p: any) => (
+                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {p.paymentDate?.slice(0, 10)}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-sm text-violet-600">
+                        {p.salesOrder?.soNumber ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {p.salesOrder?.customer?.name ?? '—'}
+                      </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${METHOD_COLORS[r.paymentMethod] ?? 'bg-gray-100 text-gray-700'}`}>
-                          {r.paymentMethod?.replace('_', ' ')}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${METHOD_COLORS[p.paymentMethod] ?? 'bg-gray-100 text-gray-700'}`}>
+                          {p.paymentMethod}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900">
-                        ₹{r.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500 font-mono">{r.referenceNumber ?? '—'}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
-                        {new Date(r.orderDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      <td className="px-4 py-3 text-xs text-gray-500 font-mono">{p.referenceNumber ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900 tabular-nums">
+                        ₹{parseFloat(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
                     </tr>
                   ))}
                 </tbody>
+                {filtered.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-violet-50 border-t-2 border-violet-100">
+                      <td colSpan={5} className="px-4 py-3 text-xs font-bold text-violet-700 uppercase tracking-wide">Total</td>
+                      <td className="px-4 py-3 text-sm font-bold text-right text-gray-900 tabular-nums">
+                        ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </>

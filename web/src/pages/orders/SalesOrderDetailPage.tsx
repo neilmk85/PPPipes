@@ -5,11 +5,109 @@ import {
   ArrowLeft, FileText, CheckCircle2, Truck, XCircle,
   Factory, User, Calendar, MapPin, Edit2, Loader2,
   ChevronRight, Package, Zap, AlertCircle, Clock, X,
+  IndianRupee, Plus,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
-import { salesOrderApi } from '@/services/api'
+import { salesOrderApi, salesOrderPaymentApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+
+const PAYMENT_METHODS = ['NEFT', 'RTGS', 'CHEQUE', 'CASH', 'UPI', 'IMPS', 'BANK_TRANSFER']
+const PM_COLOR: Record<string, string> = {
+  NEFT: 'bg-blue-50 text-blue-700', RTGS: 'bg-indigo-50 text-indigo-700',
+  CHEQUE: 'bg-amber-50 text-amber-700', CASH: 'bg-green-50 text-green-700',
+  UPI: 'bg-purple-50 text-purple-700', IMPS: 'bg-cyan-50 text-cyan-700',
+  BANK_TRANSFER: 'bg-gray-100 text-gray-700',
+}
+
+function RecordPaymentModal({ salesOrderId, soNumber, balance, onClose }: {
+  salesOrderId: number; soNumber: string; balance: number; onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const { user } = useAuthStore()
+  const [amount, setAmount]       = useState(balance > 0 ? balance.toFixed(2) : '')
+  const [method, setMethod]       = useState('NEFT')
+  const [refNo, setRefNo]         = useState('')
+  const [date, setDate]           = useState(new Date().toISOString().split('T')[0])
+  const [notes, setNotes]         = useState('')
+  const [saving, setSaving]       = useState(false)
+
+  async function handleSave() {
+    const amt = parseFloat(amount)
+    if (!amt || amt <= 0) { toast.error('Enter a valid amount'); return }
+    setSaving(true)
+    try {
+      await salesOrderPaymentApi.record(salesOrderId, {
+        amount: amt, paymentMethod: method,
+        referenceNumber: refNo || undefined,
+        paymentDate: date,
+        notes: notes || undefined,
+      })
+      toast.success('Payment recorded')
+      qc.invalidateQueries({ queryKey: ['so-payments', salesOrderId] })
+      onClose()
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? 'Failed to record payment')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Record Payment</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{soNumber}</p>
+          </div>
+          <button onClick={onClose}><X size={18} className="text-gray-400 hover:text-gray-600" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Amount (₹) *</label>
+              <input type="number" min={0} step={0.01} value={amount} onChange={e => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Payment Date *</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Payment Method *</label>
+              <select value={method} onChange={e => setMethod(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none">
+                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1">Reference / UTR No.</label>
+              <input value={refNo} onChange={e => setRefNo(e.target.value)}
+                placeholder="e.g. UTR123456"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 mb-1">Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Optional notes…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none resize-none" />
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2">
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            Save Payment
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
   DRAFT:               { label: 'Draft',             color: 'text-gray-600',   bg: 'bg-gray-100',    border: 'border-gray-200'   },
@@ -86,7 +184,7 @@ export default function SalesOrderDetailPage() {
   const { outletId } = useAuthStore()
   const [convertingItem, setConvertingItem] = useState<number | null>(null)
   const [convertingAll, setConvertingAll]   = useState(false)
-  // confirmation dialog state
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [confirm, setConfirm] = useState<{ type: 'item'; itemId: number; name: string } | { type: 'all' } | null>(null)
 
   const { data: so, isLoading } = useQuery({
@@ -94,6 +192,15 @@ export default function SalesOrderDetailPage() {
     queryFn: () => salesOrderApi.getById(Number(id)).then(r => r.data.data),
     enabled: !!id,
   })
+
+  const { data: paymentsData } = useQuery({
+    queryKey: ['so-payments', Number(id)],
+    queryFn: () => salesOrderPaymentApi.getForOrder(Number(id)).then(r => r.data.data ?? []),
+    enabled: !!id,
+  })
+  const payments: any[] = paymentsData ?? []
+  const totalPaid = payments.reduce((s, p) => s + parseFloat(p.amount ?? 0), 0)
+  const balance = Math.max(0, parseFloat(so?.totalAmount ?? 0) - totalPaid)
 
   const pipeItems    = (so?.items ?? []).filter((i: any) => i.pipeConfigId)
   const convertedCnt = pipeItems.filter((i: any) => i.productionOrderId).length
@@ -167,7 +274,10 @@ export default function SalesOrderDetailPage() {
             </p>
           </div>
         </div>
-        <div />
+        <button onClick={() => setShowPaymentModal(true)}
+          className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm shadow-sm transition-all">
+          <Plus size={15} /> Record Payment
+        </button>
       </div>
 
       <div className="grid grid-cols-3 gap-5">
@@ -432,6 +542,47 @@ export default function SalesOrderDetailPage() {
             </div>
           </div>
 
+          {/* Payments */}
+          <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.07)] ring-1 ring-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Payments</p>
+              <button onClick={() => setShowPaymentModal(true)}
+                className="flex items-center gap-1 text-xs font-medium text-violet-600 hover:text-violet-800">
+                <Plus size={12} /> Add
+              </button>
+            </div>
+            {payments.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-3">No payments recorded yet</p>
+            ) : (
+              <div className="space-y-2">
+                {payments.map((p: any) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded font-medium ${PM_COLOR[p.paymentMethod] ?? 'bg-gray-100 text-gray-700'}`}>
+                        {p.paymentMethod}
+                      </span>
+                      <span className="text-gray-400">{p.paymentDate?.slice(0, 10)}</span>
+                      {p.referenceNumber && <span className="text-gray-400 font-mono">{p.referenceNumber}</span>}
+                    </div>
+                    <span className="font-semibold text-green-700 tabular-nums">₹{parseFloat(p.amount).toLocaleString('en-IN')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">Total Paid</span>
+                <span className="font-semibold text-green-700 tabular-nums">₹{totalPaid.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 font-semibold">Balance Due</span>
+                <span className={`font-bold tabular-nums ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  ₹{balance.toLocaleString('en-IN')}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Notes */}
           {so.notes && (
             <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.07)] ring-1 ring-gray-100 p-5">
@@ -441,6 +592,16 @@ export default function SalesOrderDetailPage() {
           )}
         </div>
       </div>
+
+      {/* ── Record Payment Modal ── */}
+      {showPaymentModal && so && (
+        <RecordPaymentModal
+          salesOrderId={so.id}
+          soNumber={so.soNumber}
+          balance={balance}
+          onClose={() => setShowPaymentModal(false)}
+        />
+      )}
 
       {/* ── Confirmation dialog ── */}
       {confirm && (

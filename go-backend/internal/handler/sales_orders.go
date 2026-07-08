@@ -210,3 +210,96 @@ func (soh *SalesOrderHandler) Confirm(w http.ResponseWriter, r *http.Request) {
 
 	util.SendSuccess(w, "Sales Order confirmed", so)
 }
+
+// RecordPayment records a customer payment against a sales order
+func (soh *SalesOrderHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	var req service.RecordPaymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.Amount <= 0 {
+		util.SendError(w, http.StatusBadRequest, "Amount must be positive")
+		return
+	}
+	if req.PaymentMethod == "" {
+		util.SendError(w, http.StatusBadRequest, "Payment method is required")
+		return
+	}
+	if req.PaymentDate == "" {
+		util.SendError(w, http.StatusBadRequest, "Payment date is required")
+		return
+	}
+
+	p, err := soh.service.RecordPayment(id, req)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Payment recorded", p)
+}
+
+// GetPaymentsForOrder returns all payments for a specific sales order
+func (soh *SalesOrderHandler) GetPaymentsForOrder(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+
+	payments, err := soh.service.GetPaymentsForOrder(id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Payments retrieved", payments)
+}
+
+// GetAllPayments returns paginated payments across all sales orders for an outlet
+func (soh *SalesOrderHandler) GetAllPayments(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	dto := service.GetAllPaymentsDTO{Page: 0, Size: 200}
+
+	if v := q.Get("outletId"); v != "" {
+		if id, err := strconv.Atoi(v); err == nil {
+			dto.OutletID = &id
+		}
+	}
+	if v := q.Get("from"); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			dto.From = &t
+		}
+	}
+	if v := q.Get("to"); v != "" {
+		if t, err := time.Parse("2006-01-02", v); err == nil {
+			dto.To = &t
+		}
+	}
+	if v := q.Get("page"); v != "" {
+		if p, err := strconv.Atoi(v); err == nil {
+			dto.Page = p
+		}
+	}
+	if v := q.Get("size"); v != "" {
+		if s, err := strconv.Atoi(v); err == nil {
+			dto.Size = s
+		}
+	}
+
+	payments, total, err := soh.service.GetAllPayments(dto)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	totalPages := int((total + int64(dto.Size) - 1) / int64(dto.Size))
+	util.SendPaginated(w, payments, total, totalPages, dto.Size, dto.Page)
+}

@@ -1402,6 +1402,19 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		middleware.Authenticate(db),
 		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
+	mux.HandleFunc("POST /api/sales-orders/{id}/payments", middleware.Chain(
+		salesOrderHandler.RecordPayment,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER"),
+	))
+	mux.HandleFunc("GET /api/sales-orders/{id}/payments", middleware.Chain(
+		salesOrderHandler.GetPaymentsForOrder,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("GET /api/sales-order-payments", middleware.Chain(
+		salesOrderHandler.GetAllPayments,
+		middleware.Authenticate(db),
+	))
 
 	// ==================== ACTIVITY LOGS ====================
 	mux.HandleFunc("GET /api/activity-logs", middleware.Chain(

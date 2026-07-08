@@ -539,3 +539,84 @@ func calculateSOTotals(items []SalesOrderItemRequest) soCalculation {
 		TaxAmount:      taxAmount,
 	}
 }
+
+// ── Sales Order Payments ─────────────────────────────────────────────────────
+
+type RecordPaymentRequest struct {
+	Amount          float64  `json:"amount"`
+	PaymentMethod   string   `json:"paymentMethod"`
+	ReferenceNumber *string  `json:"referenceNumber"`
+	PaymentDate     string   `json:"paymentDate"` // YYYY-MM-DD
+	Notes           *string  `json:"notes"`
+	CreatedBy       *string  `json:"createdBy"`
+}
+
+func (sos *SalesOrderService) RecordPayment(salesOrderID int, req RecordPaymentRequest) (*models.SalesOrderPayment, error) {
+	so := &models.SalesOrder{}
+	if err := sos.db.First(so, salesOrderID).Error; err != nil {
+		return nil, &util.ResourceNotFoundException{Message: fmt.Sprintf("Sales order %d not found", salesOrderID)}
+	}
+
+	payDate, err := time.Parse("2006-01-02", req.PaymentDate)
+	if err != nil {
+		payDate = time.Now()
+	}
+
+	p := &models.SalesOrderPayment{
+		SalesOrderID:    salesOrderID,
+		OutletID:        so.OutletID,
+		Amount:          decimal.NewFromFloat(req.Amount),
+		PaymentMethod:   req.PaymentMethod,
+		ReferenceNumber: req.ReferenceNumber,
+		PaymentDate:     payDate,
+		Notes:           req.Notes,
+		CreatedBy:       req.CreatedBy,
+	}
+	if err := sos.db.Create(p).Error; err != nil {
+		return nil, err
+	}
+	sos.db.Preload("SalesOrder").Preload("SalesOrder.Customer").First(p, p.ID)
+	return p, nil
+}
+
+func (sos *SalesOrderService) GetPaymentsForOrder(salesOrderID int) ([]models.SalesOrderPayment, error) {
+	var payments []models.SalesOrderPayment
+	err := sos.db.Where("sales_order_id = ?", salesOrderID).Order("payment_date DESC").Find(&payments).Error
+	return payments, err
+}
+
+type GetAllPaymentsDTO struct {
+	OutletID *int
+	From     *time.Time
+	To       *time.Time
+	Page     int
+	Size     int
+}
+
+func (sos *SalesOrderService) GetAllPayments(dto GetAllPaymentsDTO) ([]models.SalesOrderPayment, int64, error) {
+	query := sos.db.Model(&models.SalesOrderPayment{})
+	if dto.OutletID != nil {
+		query = query.Where("outlet_id = ?", *dto.OutletID)
+	}
+	if dto.From != nil {
+		query = query.Where("payment_date >= ?", dto.From.Format("2006-01-02"))
+	}
+	if dto.To != nil {
+		query = query.Where("payment_date <= ?", dto.To.Format("2006-01-02"))
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var payments []models.SalesOrderPayment
+	err := query.
+		Preload("SalesOrder").
+		Preload("SalesOrder.Customer").
+		Order("payment_date DESC, id DESC").
+		Offset(dto.Page * dto.Size).
+		Limit(dto.Size).
+		Find(&payments).Error
+	return payments, total, err
+}
