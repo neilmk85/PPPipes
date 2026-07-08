@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
-  Archive, Plus, Pencil, Trash2, ChevronDown, AlertTriangle,
+  Archive, Pencil, Trash2, ChevronDown, AlertTriangle,
   ArrowLeft, X, PackagePlus, PackageMinus, TruckIcon,
+  ArrowRight, Package, Loader2, CheckCircle2, InboxIcon,
 } from 'lucide-react'
-import { materialReceiptApi, materialIssueApi, siteProjectApi } from '@/services/api'
+import { materialReceiptApi, materialIssueApi, siteProjectApi, inventoryApi } from '@/services/api'
+import { useAuthStore } from '@/store/authStore'
 import SiteFloatingNav from './SiteFloatingNav'
 
 const UNITS = ['Nos', 'm', 'm²', 'm³', 'RMT', 'MT', 'KG', 'Bags', 'Litres', 'LS']
@@ -359,16 +361,109 @@ function IssuePanel({ siteProjectId, stockEntries, onClose }: {
   )
 }
 
+// ─── Receive Incoming Transfer Modal ─────────────────────────────────────────
+
+function ReceiveTransferModal({ transfer, onClose, onDone }: {
+  transfer: any; onClose: () => void; onDone: () => void
+}) {
+  const [qtys, setQtys] = useState<Record<string, string>>(() =>
+    Object.fromEntries((transfer.items ?? []).map((it: any) => [it.id, String(it.requestedQuantity ?? it.shippedQuantity ?? '')]))
+  )
+  const [visible, setVisible] = useState(false)
+  useEffect(() => { const id = requestAnimationFrame(() => setVisible(true)); return () => cancelAnimationFrame(id) }, [])
+
+  const qc = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: () => inventoryApi.receiveTransfer(transfer.id, {
+      receivedItems: (transfer.items ?? []).map((it: any) => ({
+        itemId: it.id,
+        receivedQuantity: parseFloat(qtys[it.id] ?? '0') || 0,
+      })),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['incoming-transfers'] })
+      toast.success(`Transfer ${transfer.transferNumber} received`)
+      onDone()
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to receive transfer'),
+  })
+
+  function handleClose() { setVisible(false); setTimeout(onClose, 250) }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? 'scale(1)' : 'scale(0.96)', transition: 'all 250ms cubic-bezier(0.22,1,0.36,1)' }}>
+
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-teal-600 to-emerald-600">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
+              <CheckCircle2 size={17} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Confirm Receipt</h2>
+              <p className="text-xs text-teal-100 mt-0.5">{transfer.transferNumber} · {transfer.fromOutlet?.name ?? `Outlet #${transfer.fromOutletId}`}</p>
+            </div>
+          </div>
+          <button onClick={handleClose} className="w-8 h-8 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center">
+            <X size={15} className="text-white" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-3">
+          <p className="text-xs text-gray-500">Enter the actual quantity received for each item. Leave at 0 if an item was not received.</p>
+          {(transfer.items ?? []).map((it: any) => (
+            <div key={it.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
+                <Package size={13} className="text-teal-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-800 truncate">{it.product?.name ?? `Product #${it.productId}`}</p>
+                <p className="text-xs text-gray-400">
+                  Requested: <span className="font-medium text-gray-600">{it.requestedQuantity}</span>
+                  {Number(it.shippedQuantity) > 0 && <> · Dispatched: <span className="font-medium text-violet-600">{it.shippedQuantity}</span></>}
+                </p>
+              </div>
+              <div className="w-24 shrink-0">
+                <input
+                  type="number" min="0" step="1"
+                  value={qtys[it.id] ?? ''}
+                  onChange={e => setQtys(q => ({ ...q, [it.id]: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm text-right border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white font-semibold"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+          <button onClick={handleClose} className="flex-1 py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={() => mutation.mutate()} disabled={mutation.isPending}
+            className="flex-1 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+            {mutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+            {mutation.isPending ? 'Saving…' : 'Confirm Receipt'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MaterialStockPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { outletId } = useAuthStore()
   const [selectedProject, setSelectedProject] = useState('')
-  const [activeTab, setActiveTab] = useState<'register' | 'receipts' | 'issues'>('register')
+  const [activeTab, setActiveTab] = useState<'register' | 'receipts' | 'issues' | 'transfers'>('register')
   const [receiveOpen, setReceiveOpen] = useState(false)
   const [issueOpen, setIssueOpen] = useState(false)
   const [editingReceipt, setEditingReceipt] = useState<any | null>(null)
+  const [receivingTransfer, setReceivingTransfer] = useState<any | null>(null)
 
   const { data: projectsData } = useQuery({
     queryKey: ['site-projects'],
@@ -392,6 +487,18 @@ export default function MaterialStockPage() {
     queryFn: () => materialIssueApi.getAll({ siteProjectId: projectId }),
     enabled: !!projectId,
   })
+
+  const { data: incomingTransfersData, isLoading: transfersLoading } = useQuery({
+    queryKey: ['incoming-transfers', outletId],
+    queryFn: () => inventoryApi.getTransfers(outletId!, { status: 'IN_TRANSIT', size: 100 })
+      .then(r => {
+        const all: any[] = r.data?.data?.content ?? r.data?.data ?? []
+        // Only show transfers incoming to this outlet (not outgoing)
+        return all.filter((t: any) => t.toOutletId === outletId)
+      }),
+    enabled: !!outletId,
+  })
+  const incomingTransfers: any[] = incomingTransfersData ?? []
 
   const stockEntries: any[] = stockData?.data?.data ?? []
   const receipts: any[] = receiptsData?.data?.data ?? []
@@ -426,6 +533,7 @@ export default function MaterialStockPage() {
     { key: 'register', label: 'Stock Register' },
     { key: 'receipts', label: `Receipts (${receipts.length})` },
     { key: 'issues', label: `Issues (${issues.length})` },
+    { key: 'transfers', label: incomingTransfers.length > 0 ? `Receive Material (${incomingTransfers.length})` : 'Receive Material', highlight: incomingTransfers.length > 0 },
   ] as const
 
   return (
@@ -494,21 +602,105 @@ export default function MaterialStockPage() {
       )}
 
       {/* Tabs */}
-      {selectedProject && (
-        <div className="bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-1">
-          {TABS.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                activeTab === tab.key ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="bg-white border-b border-gray-100 px-6 py-2 flex items-center gap-1">
+        {TABS.map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
+            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              activeTab === tab.key
+                ? tab.key === 'transfers'
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-gray-800 text-white'
+                : tab.key === 'transfers' && (tab as any).highlight
+                  ? 'text-teal-700 bg-teal-50 border border-teal-200 animate-pulse'
+                  : 'text-gray-500 hover:bg-gray-100'
+            }`}>
+            {tab.key === 'transfers' && (tab as any).highlight && activeTab !== 'transfers' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+            )}
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="p-6">
-        {!selectedProject ? (
+        {activeTab === 'transfers' ? (
+          /* ── Receive Material tab ── */
+          <div>
+            {/* Info banner */}
+            <div className="mb-4 flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
+              <TruckIcon size={15} className="text-teal-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-teal-800 leading-relaxed">
+                These are stock transfers dispatched from the factory/warehouse that are <strong>in transit</strong> to your outlet.
+                Verify the quantities received for each item and click <strong>Confirm Receipt</strong> to record the delivery.
+              </p>
+            </div>
+
+            {transfersLoading ? (
+              <div className="flex items-center justify-center py-20 text-gray-400">
+                <Loader2 size={22} className="animate-spin mr-2" /> Loading incoming transfers…
+              </div>
+            ) : incomingTransfers.length === 0 ? (
+              <div className="text-center py-20">
+                <InboxIcon size={38} className="mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500 text-sm font-medium">No pending incoming transfers</p>
+                <p className="text-gray-400 text-xs mt-1">When stock is dispatched to your outlet it will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {incomingTransfers.map(t => (
+                  <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                    {/* Transfer header */}
+                    <div className="flex items-center gap-4 px-5 py-3 bg-gradient-to-r from-violet-50 to-blue-50 border-b border-violet-100">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-gray-900">{t.transferNumber}</span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-100 text-violet-700 border border-violet-200">
+                            <TruckIcon size={9} /> In Transit
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-gray-500">
+                          <span className="font-medium text-gray-700">{t.fromOutlet?.name ?? `Outlet #${t.fromOutletId}`}</span>
+                          <ArrowRight size={11} className="text-gray-400" />
+                          <span className="font-medium text-gray-700">{t.toOutlet?.name ?? `Outlet #${t.toOutletId}`}</span>
+                          <span className="text-gray-300 mx-1">·</span>
+                          <span>{new Date(t.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setReceivingTransfer(t)}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0">
+                        <CheckCircle2 size={13} /> Receive
+                      </button>
+                    </div>
+
+                    {/* Items list */}
+                    <div className="divide-y divide-gray-50">
+                      {(t.items ?? []).map((it: any) => (
+                        <div key={it.id} className="flex items-center gap-3 px-5 py-2.5">
+                          <Package size={13} className="text-gray-400 shrink-0" />
+                          <span className="flex-1 text-sm text-gray-700 min-w-0 truncate">{it.product?.name ?? `Product #${it.productId}`}</span>
+                          <div className="text-xs text-right shrink-0">
+                            <span className="font-semibold text-gray-900">{it.requestedQuantity}</span>
+                            <span className="text-gray-400"> requested</span>
+                            {Number(it.shippedQuantity) > 0 && (
+                              <span className="ml-2 text-violet-600 font-semibold">{it.shippedQuantity} dispatched</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {t.notes && (
+                      <div className="px-5 py-2 bg-gray-50 border-t border-gray-100">
+                        <p className="text-xs text-gray-500 italic">{t.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : !selectedProject ? (
           <div className="text-center py-24 text-gray-400">
             <Archive size={36} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">Select a project to view material stock</p>
@@ -696,6 +888,13 @@ export default function MaterialStockPage() {
           siteProjectId={projectId}
           stockEntries={stockEntries}
           onClose={() => setIssueOpen(false)}
+        />
+      )}
+      {receivingTransfer && (
+        <ReceiveTransferModal
+          transfer={receivingTransfer}
+          onClose={() => setReceivingTransfer(null)}
+          onDone={() => setReceivingTransfer(null)}
         />
       )}
     </>
