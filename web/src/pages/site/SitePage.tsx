@@ -107,12 +107,12 @@ function SiteCard({ card }: { card: SiteCard }) {
         borderRadius: 16,
         padding: '28px 28px 24px',
         cursor: card.disabled ? 'default' : 'pointer',
-        border: `1px solid ${active ? card.lightBorder : '#e2e8f0'}`,
+        border: 'none',
         boxShadow: active
-          ? '0 16px 40px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.06)'
-          : '0 1px 4px rgba(0,0,0,0.05)',
-        transform: active ? 'translateY(-4px)' : 'translateY(0)',
-        transition: 'transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease',
+          ? '0 20px 50px rgba(0,0,0,0.13), 0 6px 16px rgba(0,0,0,0.07)'
+          : '0 4px 20px rgba(0,0,0,0.07), 0 1px 6px rgba(0,0,0,0.04)',
+        transform: active ? 'translateY(-5px)' : 'translateY(0)',
+        transition: 'transform 0.22s ease, box-shadow 0.22s ease',
         opacity: card.disabled ? 0.55 : 1,
       }}
     >
