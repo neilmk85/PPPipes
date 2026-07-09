@@ -105,7 +105,7 @@ const navEntries: NavEntry[] = [
   },
   { path: '/business/loading', icon: <Truck size={18} />, label: 'Loading' },
   { path: '/business/pipe-purchases', icon: <Package size={18} />, label: 'Pipe Purchases', highlight: true },
-  { path: '/transfers',   icon: <ArrowLeftRight size={18} />, label: 'Site Stock Transfers' },
+  { path: '/transfers',   icon: <ArrowLeftRight size={18} />, label: 'Site Stock Transfers', disabled: true },
   {
     key: 'hr',
     icon: <UserCog size={18} />,
