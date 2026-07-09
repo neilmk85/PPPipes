@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -28,6 +29,7 @@ type AuthResponse struct {
 	OutletID        *int             `json:"outletId"`
 	OutletName      *string          `json:"outletName"`
 	CardPermissions *CardPermissions `json:"cardPermissions"`
+	Permissions     []string         `json:"permissions"`
 }
 
 // LoginRequest represents the login request body
@@ -130,6 +132,45 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 		cardPerms = &CardPermissions{Business: business, Pccp: pccp}
 	}
 
+	// Build named permissions list.
+	// Custom-role users receive their role's explicit permission keys.
+	// Built-in role users receive a curated default set so the frontend can gate UI accordingly.
+	permissions := make([]string, 0)
+	if !isSuperAdmin {
+		hasCustomRole := false
+		for _, ur := range user.UserRoles {
+			if ur.Role == nil {
+				continue
+			}
+			var customRole models.CustomRole
+			if err := s.db.Where("name = ? AND is_active = true", string(ur.Role.Name)).First(&customRole).Error; err == nil {
+				hasCustomRole = true
+				if customRole.Permissions != nil && *customRole.Permissions != "" {
+					var perms []string
+					if jsonErr := json.Unmarshal([]byte(*customRole.Permissions), &perms); jsonErr == nil {
+						permissions = perms
+					}
+				}
+				break
+			}
+		}
+		if !hasCustomRole {
+			seen := make(map[string]bool)
+			for _, ur := range user.UserRoles {
+				if ur.Role == nil {
+					continue
+				}
+				switch ur.Role.Name {
+				case models.RoleAdmin, models.RoleManager:
+					if !seen["CONVERT_SO_TO_PO"] {
+						permissions = append(permissions, "CONVERT_SO_TO_PO")
+						seen["CONVERT_SO_TO_PO"] = true
+					}
+				}
+			}
+		}
+	}
+
 	return &AuthResponse{
 		AccessToken:     accessToken,
 		RefreshToken:    refreshToken,
@@ -140,6 +181,7 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 		OutletID:        user.OutletID,
 		OutletName:      &outletName,
 		CardPermissions: cardPerms,
+		Permissions:     permissions,
 	}
 }
 

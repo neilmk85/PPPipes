@@ -181,7 +181,8 @@ export default function SalesOrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const { outletId } = useAuthStore()
+  const { outletId, hasPermission } = useAuthStore()
+  const canConvertSO = hasPermission('CONVERT_SO_TO_PO')
   const [convertingItem, setConvertingItem] = useState<number | null>(null)
   const [convertingAll, setConvertingAll]   = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -364,7 +365,7 @@ export default function SalesOrderDetailPage() {
                     ₹{parseFloat(so.totalAmount ?? 0).toLocaleString('en-IN')}
                   </p>
                 </div>
-                {pendingCnt > 0 && (
+                {pendingCnt > 0 && canConvertSO && (
                   <button onClick={() => setConfirm({ type: 'all' })} disabled={convertingAll}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white text-xs font-bold rounded-lg disabled:opacity-60 transition-all">
                     {convertingAll ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
@@ -427,7 +428,7 @@ export default function SalesOrderDetailPage() {
                             <CheckCircle2 size={12} />
                             {item.productionOrder?.poNumber ?? 'PO Created'}
                           </Link>
-                        ) : (
+                        ) : canConvertSO ? (
                           <button
                             onClick={() => setConfirm({ type: 'item', itemId: item.id, name: item.productName })}
                             disabled={isConverting}
@@ -437,6 +438,8 @@ export default function SalesOrderDetailPage() {
                               : <Factory size={12} />}
                             {isConverting ? 'Creating…' : 'Convert to PO'}
                           </button>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">No permission</span>
                         )}
                       </td>
                     </tr>

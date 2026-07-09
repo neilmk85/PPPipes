@@ -14,11 +14,12 @@ import (
 
 // AuthUser represents the authenticated user stored in context
 type AuthUser struct {
-	ID       int      `json:"id"`
-	Email    string   `json:"email"`
-	Name     string   `json:"name"`
-	Roles    []string `json:"roles"`
-	OutletID *int     `json:"outletId"`
+	ID          int      `json:"id"`
+	Email       string   `json:"email"`
+	Name        string   `json:"name"`
+	Roles       []string `json:"roles"`
+	OutletID    *int     `json:"outletId"`
+	Permissions []string `json:"permissions"`
 }
 
 // contextKey type for storing values in context
@@ -97,13 +98,29 @@ func Authenticate(db *gorm.DB) func(http.Handler) http.Handler {
 				}
 			}
 
+			// Load permissions from custom role (if any role name matches a custom_role record)
+			var permissions []string
+			for _, roleName := range roleNames {
+				var customRolePerms *string
+				if err := db.Table("custom_roles").
+					Where("name = ? AND is_active = true", roleName).
+					Pluck("permissions", &customRolePerms).Error; err == nil && customRolePerms != nil && *customRolePerms != "" {
+					var perms []string
+					if jsonErr := json.Unmarshal([]byte(*customRolePerms), &perms); jsonErr == nil {
+						permissions = perms
+					}
+					break
+				}
+			}
+
 			// Create AuthUser
 			authUser := &AuthUser{
-				ID:       user.ID,
-				Email:    user.Email,
-				Name:     user.Name,
-				Roles:    roleNames,
-				OutletID: user.OutletID,
+				ID:          user.ID,
+				Email:       user.Email,
+				Name:        user.Name,
+				Roles:       roleNames,
+				OutletID:    user.OutletID,
+				Permissions: permissions,
 			}
 
 			// Store user in context
@@ -154,6 +171,40 @@ func RequireRole(requiredRoles ...string) func(http.Handler) http.Handler {
 			}
 
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// RequireRoleOrPermission passes if the user has one of the required roles OR holds the given permission key
+// (loaded from their custom role). Use this for actions that built-in roles own by default but can also
+// be explicitly delegated to a custom role via a named permission key.
+func RequireRoleOrPermission(permKey string, requiredRoles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user := GetUser(r)
+			if user == nil {
+				sendAuthError(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			for _, requiredRole := range requiredRoles {
+				for _, userRole := range user.Roles {
+					if userRole == requiredRole {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+			}
+
+			for _, perm := range user.Permissions {
+				if perm == permKey {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			slog.Warn("[Auth] User lacks required role or permission", "user_id", user.ID, "required_roles", requiredRoles, "permission", permKey)
+			sendAuthError(w, "Insufficient permissions", http.StatusForbidden)
 		})
 	}
 }

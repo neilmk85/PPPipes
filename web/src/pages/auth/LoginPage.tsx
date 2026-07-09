@@ -51,6 +51,7 @@ export default function LoginPage() {
           name: auth.name,
           email: auth.email,
           roles: Array.from(auth.roles),
+          permissions: Array.from(auth.permissions ?? []),
           active: true,
           outletId: auth.outletId,
           outletName: auth.outletName,

@@ -4,6 +4,7 @@ export interface User {
   email: string
   phone?: string
   roles: string[]
+  permissions?: string[]
   outletId?: number
   outletName?: string
   active: boolean

@@ -11,6 +11,7 @@ interface AuthState {
   setAuth: (user: User, accessToken: string, refreshToken: string) => void
   logout: () => void
   hasRole: (role: string) => boolean
+  hasPermission: (key: string) => boolean
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -35,6 +36,13 @@ export const useAuthStore = create<AuthState>()(
       hasRole: (role: string) => {
         const { user } = get()
         return user?.roles?.includes(role) ?? false
+      },
+
+      hasPermission: (key: string) => {
+        const { user } = get()
+        if (!user) return false
+        if (user.roles.includes('SUPER_ADMIN')) return true
+        return user.permissions?.includes(key) ?? false
       },
     }),
     { name: 'pos-auth' }

@@ -65,6 +65,7 @@ export const PERMISSION_GROUPS = [
       { key: 'MANAGE_ORDERS',              label: 'Manage Orders',             desc: 'Create and modify retail orders' },
       { key: 'VIEW_SALES_ORDERS',          label: 'View Sales Orders',         desc: 'View B2B sales orders' },
       { key: 'MANAGE_SALES_ORDERS',        label: 'Manage Sales Orders',       desc: 'Create and manage B2B sales orders' },
+      { key: 'CONVERT_SO_TO_PO',           label: 'Convert SO to Production Order', desc: 'Convert a Sales Order item to a Production Order' },
       { key: 'VIEW_INVOICES',              label: 'View Invoices',             desc: 'View sales invoices' },
       { key: 'MANAGE_INVOICES',            label: 'Manage Invoices',           desc: 'Create and manage invoices' },
       { key: 'VIEW_QUOTATIONS',            label: 'View Quotations',           desc: 'View sales quotations' },
