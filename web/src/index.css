@@ -16,6 +16,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   animation: gradientShift 8s ease infinite;
 }
 
+.site-animated-bg {
+  background: linear-gradient(135deg, #eff6ff, #f0fdf4, #faf5ff, #fff7ed, #ecfdf5, #eff6ff);
+  background-size: 400% 400%;
+  animation: gradientShift 10s ease infinite;
+}
+
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; }
