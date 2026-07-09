@@ -523,7 +523,9 @@ export default function TransfersPage() {
   }, [transfersData])
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ position: 'relative' }}>
+      {/* Disabled overlay — blocks all interaction */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, cursor: 'not-allowed' }} />
 
       {/* Hero */}
       <div className="bg-gradient-to-r from-violet-700 via-violet-600 to-blue-600 text-white overflow-hidden">
