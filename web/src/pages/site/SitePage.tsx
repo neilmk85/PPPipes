@@ -141,7 +141,7 @@ function SiteCard({ card }: { card: SiteCard }) {
 
 export default function SitePage() {
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '48px 48px 64px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 40%, #faf5ff 80%, #fff7ed 100%)', padding: '48px 48px 64px' }}>
       <SiteFloatingNav theme="light" />
 
       {/* Header */}
