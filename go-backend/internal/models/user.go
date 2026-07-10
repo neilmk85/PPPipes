@@ -12,6 +12,7 @@ type User struct {
 	PinCode            *string    `gorm:"column:pin_code" json:"pinCode"`
 	OutletID           *int       `gorm:"column:outlet_id" json:"outletId"`
 	Active             bool       `gorm:"column:is_active;default:true" json:"active"`
+	OutOfOffice        bool       `gorm:"column:out_of_office;default:false" json:"outOfOffice"`
 	LastLogin          *time.Time `gorm:"column:last_login" json:"lastLogin"`
 	ProfileImage       *string    `gorm:"column:profile_image" json:"profileImage"`
 	MaxDiscountPercent float64    `gorm:"column:max_discount_percent;default:10.0" json:"maxDiscountPercent"`

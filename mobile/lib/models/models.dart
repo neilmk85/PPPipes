@@ -28,6 +28,7 @@ class AuthResponse {
   final int? outletId;
   final String? outletName;
   final CardPermissions? cardPermissions; // null = SUPER_ADMIN, show all
+  final bool outOfOffice;
 
   const AuthResponse({
     required this.accessToken,
@@ -40,6 +41,7 @@ class AuthResponse {
     this.outletId,
     this.outletName,
     this.cardPermissions,
+    this.outOfOffice = false,
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) => AuthResponse(
@@ -55,6 +57,21 @@ class AuthResponse {
         cardPermissions: json['cardPermissions'] != null
             ? CardPermissions.fromJson(json['cardPermissions'])
             : null,
+        outOfOffice: json['outOfOffice'] as bool? ?? false,
+      );
+
+  AuthResponse copyWith({bool? outOfOffice}) => AuthResponse(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        userId: userId,
+        name: name,
+        email: email,
+        roles: roles,
+        permissions: permissions,
+        outletId: outletId,
+        outletName: outletName,
+        cardPermissions: cardPermissions,
+        outOfOffice: outOfOffice ?? this.outOfOffice,
       );
 }
 

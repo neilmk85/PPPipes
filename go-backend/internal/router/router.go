@@ -237,6 +237,11 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
 	))
 
+	mux.HandleFunc("PATCH /api/users/me/out-of-office", middleware.Chain(
+		usersHandler.ToggleOutOfOffice,
+		middleware.Authenticate(db),
+	))
+
 	mux.HandleFunc("GET /api/card-permissions/{id}", middleware.Chain(
 		usersHandler.GetCardPermissions,
 		middleware.Authenticate(db),
@@ -658,6 +663,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		invoiceHandler.Delete,
 		middleware.Authenticate(db),
 		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+	))
+
+	mux.HandleFunc("GET /api/invoices/print-queue", middleware.Chain(
+		invoiceHandler.GetPrintQueue,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
+	))
+	mux.HandleFunc("PATCH /api/invoices/{id}/mark-printed", middleware.Chain(
+		invoiceHandler.MarkPrinted,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
 	))
 
 	// ==================== QUOTATIONS ====================

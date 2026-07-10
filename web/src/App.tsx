@@ -91,6 +91,7 @@ import ThirdPartyPipePurchasePage from '@/pages/business/ThirdPartyPipePurchaseP
 import ExtraFabPage from '@/pages/business/ExtraFabPage'
 import BusinessSettingsPage from '@/pages/business/BusinessSettingsPage'
 import LoadingInvoicePage from '@/pages/business/LoadingInvoicePage'
+import PrintInvoicesPage from '@/pages/business/PrintInvoicesPage'
 import SitePage from '@/pages/site/SitePage'
 import SitesPage from '@/pages/site/SitesPage'
 import ProjectDetailPage from '@/pages/site/ProjectDetailPage'
@@ -150,6 +151,7 @@ export default function App() {
           <Route path="/business/pipe-purchases" element={<ProtectedRoute><ThirdPartyPipePurchasePage /></ProtectedRoute>} />
           <Route path="/business/settings" element={<ProtectedRoute><BusinessSettingsPage /></ProtectedRoute>} />
           <Route path="/business/loading-invoice" element={<ProtectedRoute><LoadingInvoicePage /></ProtectedRoute>} />
+          <Route path="/business/print-invoices" element={<ProtectedRoute><PrintInvoicesPage /></ProtectedRoute>} />
           <Route path="/business/pccp" element={<Navigate to="/production/entry" replace />} />
           <Route path="/business/:section" element={<ProtectedRoute><BusinessPage /></ProtectedRoute>} />
           <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />

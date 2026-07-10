@@ -30,6 +30,8 @@ type Invoice struct {
 	EWayBillNo       *string        `gorm:"column:e_way_bill_no" json:"eWayBillNo"`
 	EInvoiceNo       *string        `gorm:"column:e_invoice_no" json:"eInvoiceNo"`
 	ShippingAmount   decimal.Decimal `gorm:"column:shipping_amount;type:decimal(10,2);default:0" json:"shippingAmount"`
+	PrintNeeded      bool           `gorm:"column:print_needed;default:false" json:"printNeeded"`
+	PrintedAt        *time.Time     `gorm:"column:printed_at" json:"printedAt"`
 	CreatedAt        time.Time      `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt        time.Time      `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	CreatedBy        *string        `gorm:"column:created_by" json:"createdBy"`

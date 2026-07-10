@@ -576,6 +576,8 @@ export const invoiceApi = {
   update: (id: number, data: any) => api.put<ApiResponse<any>>(`/invoices/${id}`, data),
   delete: (id: number) => api.delete<ApiResponse<any>>(`/invoices/${id}`),
   nextNumber: () => api.get<ApiResponse<any>>('/invoices/next-number'),
+  getPrintQueue: () => api.get<ApiResponse<any>>('/invoices/print-queue'),
+  markPrinted: (id: number) => api.patch<ApiResponse<any>>(`/invoices/${id}/mark-printed`),
 }
 
 // Quotations

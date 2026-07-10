@@ -696,3 +696,12 @@ func (s *UserService) UpdateRoleCardPermissions(roleName string, req *UpdateCard
 		return nil
 	})
 }
+
+
+func (s *UserService) SetOutOfOffice(userID int, value bool) error {
+	if err := s.db.Model(&models.User{}).Where("id = ?", userID).
+		Update("out_of_office", value).Error; err != nil {
+		return &util.BusinessException{StatusCode: 500, Message: "Failed to update out-of-office status"}
+	}
+	return nil
+}

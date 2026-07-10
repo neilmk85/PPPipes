@@ -348,6 +348,7 @@ class _AppDrawer extends StatelessWidget {
                   ],
                 ),
               ),
+              _buildOutOfOfficeToggle(context),
               _buildLogout(context),
             ],
           ),
@@ -516,6 +517,61 @@ class _AppDrawer extends StatelessWidget {
           Navigator.pop(context);
           context.go(path);
         },
+      ),
+    );
+  }
+
+  // ── Out-of-Office toggle ──────────────────────────────────────────────────
+  Widget _buildOutOfOfficeToggle(BuildContext context) {
+    final isOutOfOffice = auth?.user?.outOfOffice as bool? ?? false;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+      decoration: BoxDecoration(
+        color: isOutOfOffice
+            ? const Color(0xFFF97316).withOpacity(0.12)
+            : Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isOutOfOffice
+              ? const Color(0xFFF97316).withOpacity(0.4)
+              : Colors.transparent,
+          width: 1,
+        ),
+      ),
+      child: ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+        leading: Icon(
+          isOutOfOffice ? Icons.location_off_outlined : Icons.location_on_outlined,
+          color: isOutOfOffice ? const Color(0xFFF97316) : const Color(0xFF94A3B8),
+          size: 18,
+        ),
+        title: Text(
+          isOutOfOffice ? 'Out of Office' : 'In Office',
+          style: TextStyle(
+            color: isOutOfOffice ? const Color(0xFFF97316) : const Color(0xFF94A3B8),
+            fontWeight: FontWeight.w600,
+            fontSize: 13.5,
+          ),
+        ),
+        subtitle: Text(
+          isOutOfOffice ? 'Invoices will be queued for printing' : 'Tap to mark as out of office',
+          style: TextStyle(
+            color: isOutOfOffice
+                ? const Color(0xFFF97316).withOpacity(0.7)
+                : const Color(0xFF64748B),
+            fontSize: 11,
+          ),
+        ),
+        trailing: Switch(
+          value: isOutOfOffice,
+          onChanged: (val) {
+            ref.read(authProvider.notifier).toggleOutOfOffice(val);
+          },
+          activeColor: const Color(0xFFF97316),
+          inactiveThumbColor: const Color(0xFF64748B),
+          inactiveTrackColor: const Color(0xFF334155),
+        ),
       ),
     );
   }

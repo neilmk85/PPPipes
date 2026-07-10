@@ -30,6 +30,7 @@ type AuthResponse struct {
 	OutletName      *string          `json:"outletName"`
 	CardPermissions *CardPermissions `json:"cardPermissions"`
 	Permissions     []string         `json:"permissions"`
+	OutOfOffice     bool             `json:"outOfOffice"`
 }
 
 // LoginRequest represents the login request body
@@ -186,6 +187,7 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 		OutletName:      &outletName,
 		CardPermissions: cardPerms,
 		Permissions:     permissions,
+		OutOfOffice:     user.OutOfOffice,
 	}
 }
 

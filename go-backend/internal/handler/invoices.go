@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nilesh/pos-backend/internal/middleware"
 	"github.com/nilesh/pos-backend/internal/service"
 	"github.com/nilesh/pos-backend/internal/util"
 	"github.com/shopspring/decimal"
@@ -42,6 +43,11 @@ func (ih *InvoiceHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-flag for printing if the creating user is currently out of office
+	if authUser := middleware.GetUser(r); authUser != nil {
+		req.PrintNeeded = ih.service.IsUserOutOfOffice(authUser.ID)
+	}
+
 	invoice, err := ih.service.Create(req)
 	if err != nil {
 		handleError(w, err)
@@ -49,6 +55,34 @@ func (ih *InvoiceHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	util.SendSuccess(w, "Invoice created", invoice)
+}
+
+func (ih *InvoiceHandler) GetPrintQueue(w http.ResponseWriter, r *http.Request) {
+	authUser := middleware.GetUser(r)
+	var outletID *int
+	if authUser != nil {
+		outletID = authUser.OutletID
+	}
+	invoices, err := ih.service.GetPrintQueue(outletID)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Print queue retrieved", invoices)
+}
+
+func (ih *InvoiceHandler) MarkPrinted(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid invoice ID")
+		return
+	}
+	invoice, err := ih.service.MarkPrinted(id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Invoice marked as printed", invoice)
 }
 
 func (ih *InvoiceHandler) GetAll(w http.ResponseWriter, r *http.Request) {

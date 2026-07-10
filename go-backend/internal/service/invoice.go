@@ -34,6 +34,7 @@ type InvoiceCreateRequest struct {
 	TermsConditions  *string               `json:"termsConditions,omitempty"`
 	BillDiscountPct  *decimal.Decimal      `json:"billDiscountPct,omitempty"`
 	Items            []InvoiceItemRequest  `json:"items"`
+	PrintNeeded      bool                  `json:"-"` // set by handler, not from client
 }
 
 type InvoiceItemRequest struct {
@@ -196,6 +197,7 @@ func (is *InvoiceService) Create(req InvoiceCreateRequest) (*models.Invoice, err
 		TaxAmount:         taxAmount,
 		TotalAmount:       totalAmount,
 		Status:            models.InvoiceStatusDraft,
+		PrintNeeded:       req.PrintNeeded,
 		Items:             invoiceItems,
 	}
 
@@ -449,4 +451,33 @@ func (is *InvoiceService) SendEmail(id int, email string) error {
 
 	// TODO: Integrate with email service
 	return nil
+}
+
+func (is *InvoiceService) GetPrintQueue(outletID *int) ([]models.Invoice, error) {
+	var invoices []models.Invoice
+	q := is.db.Preload("Customer").Preload("Items").Where("print_needed = true AND printed_at IS NULL")
+	if outletID != nil {
+		q = q.Where("outlet_id = ?", *outletID)
+	}
+	if err := q.Order("created_at DESC").Find(&invoices).Error; err != nil {
+		return nil, err
+	}
+	return invoices, nil
+}
+
+func (is *InvoiceService) MarkPrinted(id int) (*models.Invoice, error) {
+	now := time.Now()
+	if err := is.db.Model(&models.Invoice{}).Where("id = ?", id).
+		Updates(map[string]interface{}{"printed_at": now}).Error; err != nil {
+		return nil, err
+	}
+	return is.GetByID(id)
+}
+
+func (is *InvoiceService) IsUserOutOfOffice(userID int) bool {
+	var user models.User
+	if err := is.db.Select("out_of_office").First(&user, userID).Error; err != nil {
+		return false
+	}
+	return user.OutOfOffice
 }

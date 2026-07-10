@@ -83,6 +83,11 @@ class ApiService {
 
   Future<void> logout() async => await _storage.deleteAll();
 
+  Future<bool> toggleOutOfOffice(bool value) async {
+    final res = await _dio.patch('/users/me/out-of-office', data: {'outOfOffice': value});
+    return res.data['data']?['outOfOffice'] as bool? ?? value;
+  }
+
   // ---- Products ----
   Future<List<Product>> searchProducts(String query) async {
     final res = await _dio.get('/products/search', queryParameters: {'q': query});

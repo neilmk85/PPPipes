@@ -576,6 +576,16 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Phase 24: Out-of-office flag on users; print_needed + printed_at on invoices
+	if err := db.AutoMigrate(&models.User{}); err != nil {
+		slog.Error("[Database] Failed to migrate User (phase 24)", "error", err)
+		return err
+	}
+	if err := db.AutoMigrate(&models.Invoice{}); err != nil {
+		slog.Error("[Database] Failed to migrate Invoice (phase 24)", "error", err)
+		return err
+	}
+
 	slog.Info("[Database] Migrations completed successfully")
 	return nil
 }

@@ -150,6 +150,26 @@ func (h *UsersHandler) ToggleActive(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, "User status updated", user)
 }
 
+func (h *UsersHandler) ToggleOutOfOffice(w http.ResponseWriter, r *http.Request) {
+	authUser := middleware.GetUser(r)
+	if authUser == nil {
+		util.SendError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+	var req struct {
+		OutOfOffice bool `json:"outOfOffice"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if err := h.userService.SetOutOfOffice(authUser.ID, req.OutOfOffice); err != nil {
+		handleUserError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Status updated", map[string]bool{"outOfOffice": req.OutOfOffice})
+}
+
 // ResetPassword resets a user's password
 func (h *UsersHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")

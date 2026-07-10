@@ -114,6 +114,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _api.logout();
     state = const AuthState(isRestoring: false);
   }
+
+  Future<void> toggleOutOfOffice(bool value) async {
+    final actual = await _api.toggleOutOfOffice(value);
+    final updated = state.user?.copyWith(outOfOffice: actual);
+    if (updated != null) state = state.copyWith(user: updated);
+  }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
