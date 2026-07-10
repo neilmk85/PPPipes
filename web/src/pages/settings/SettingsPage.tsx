@@ -1266,7 +1266,8 @@ const CARD_PERMISSION_BUSINESS = [
   { key: 'loaded-pipes',       label: 'Loaded Pipes',       category: 'Logistics' },
   { key: 'transport-report',   label: 'Transport Report',   category: 'Logistics' },
   { key: 'labour',             label: 'Labour',             category: 'HR' },
-  { key: 'CONVERT_SO_TO_PO',  label: 'Convert SO to PO',  category: 'Sales' },
+  { key: 'CONVERT_SO_TO_PO',  label: 'Convert SO to PO',    category: 'Sales' },
+  { key: 'loading-invoice',   label: 'Loading + Invoice',   category: 'Logistics' },
 ]
 
 const CARD_PERMISSION_PCCP = [

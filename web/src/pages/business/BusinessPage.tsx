@@ -5,7 +5,7 @@ import {
   Wrench, Truck, Database, ArrowDownToLine,
   Trash2, Hammer, Users, PackageOpen,
   Archive, Fuel, Car, Scissors, RefreshCw, Container,
-  FileBarChart2, Settings, Building2,
+  FileBarChart2, Settings, Building2, ReceiptText,
 } from 'lucide-react'
 
 interface BusinessCard {
@@ -37,6 +37,7 @@ const CARDS: BusinessCard[] = [
   { key: 'conversion',         label: 'Conversion',         icon: <RefreshCw size={26} />,      color: 'bg-purple-50',  iconColor: 'text-purple-600',  glow: 'rgba(168,85,247,0.35)'  },
   { key: 'loading',            label: 'Loading',            icon: <Container size={26} />,      color: 'bg-teal-50',    iconColor: 'text-teal-600',    glow: 'rgba(20,184,166,0.35)'  },
   { key: 'transport-report',   label: 'Transport Report',   icon: <FileBarChart2 size={26} />,  color: 'bg-orange-50',  iconColor: 'text-orange-600',  glow: 'rgba(234,88,12,0.30)'   },
+  { key: 'loading-invoice',    label: 'Loading + Invoice',  icon: <ReceiptText size={26} />,    color: 'bg-green-50',   iconColor: 'text-green-600',   glow: 'rgba(22,163,74,0.30)'   },
 ]
 
 // ─── Business Card ────────────────────────────────────────────────────────────
