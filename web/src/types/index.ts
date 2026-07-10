@@ -8,6 +8,7 @@ export interface User {
   outletId?: number
   outletName?: string
   active: boolean
+  outOfOffice?: boolean
 }
 
 export interface Outlet {

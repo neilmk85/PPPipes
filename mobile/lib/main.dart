@@ -348,7 +348,6 @@ class _AppDrawer extends StatelessWidget {
                   ],
                 ),
               ),
-              _buildOutOfOfficeToggle(context),
               _buildLogout(context),
             ],
           ),

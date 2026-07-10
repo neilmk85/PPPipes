@@ -8,10 +8,11 @@ import {
   Wallet, RotateCcw, Truck, Trophy, UserCog, LineChart, ArrowRight, Activity,
   Factory, ClipboardList, PenLine, Settings2, Layers, Cpu, DollarSign, BarChart2,
   LayoutDashboard, Briefcase, FileBarChart2, ClipboardCheck, BookOpen, PackageSearch, Hash, Wrench, HardHat, ShieldCheck, Trash2,
+  MapPinOff, MapPin,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { useQuery } from '@tanstack/react-query'
-import { outletApi } from '@/services/api'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { outletApi, profileApi } from '@/services/api'
 import toast from 'react-hot-toast'
 
 interface NavItem {
@@ -164,7 +165,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   })
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, hasRole, outletId } = useAuthStore()
+  const { user, logout, hasRole, outletId, setOutOfOffice } = useAuthStore()
 
   const { data: outletData } = useQuery({
     queryKey: ['outlet-name', outletId],
@@ -198,6 +199,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     navigate('/login')
     toast.success('Logged out')
   }
+
+  const outOfOfficeMutation = useMutation({
+    mutationFn: (value: boolean) => profileApi.toggleOutOfOffice(value),
+    onSuccess: (_, value) => {
+      setOutOfOffice(value)
+      toast.success(value ? 'Marked as out of office' : 'Marked as in office')
+    },
+    onError: () => toast.error('Failed to update status'),
+  })
 
   const toggleGroup = (key: string) => setOpenGroups(g => ({ ...g, [key]: !g[key] }))
   const isVisible = (roles?: string[]) => !roles || roles.some(r => hasRole(r))
@@ -379,6 +389,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           )}
+          {/* Out-of-office toggle */}
+          {(() => {
+            const isOut = user?.outOfOffice ?? false
+            return (
+              <button
+                onClick={() => !outOfOfficeMutation.isPending && outOfOfficeMutation.mutate(!isOut)}
+                title={isExpanded ? undefined : isOut ? 'Out of Office — click to toggle' : 'In Office — click to toggle'}
+                className={`flex items-center gap-2.5 transition-colors rounded-lg px-2 py-1.5 w-full mb-0.5 ${
+                  isOut
+                    ? 'text-orange-500 bg-orange-50 hover:bg-orange-100'
+                    : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'
+                } ${!isExpanded ? 'justify-center' : ''} ${outOfOfficeMutation.isPending ? 'opacity-50 cursor-wait' : ''}`}
+              >
+                {isOut ? <MapPinOff size={14} className="shrink-0" /> : <MapPin size={14} className="shrink-0" />}
+                {isExpanded && (
+                  <span className="text-xs font-medium flex-1 text-left">
+                    {isOut ? 'Out of Office' : 'In Office'}
+                  </span>
+                )}
+                {isExpanded && (
+                  <span className={`w-7 h-4 rounded-full transition-colors flex items-center px-0.5 shrink-0 ${isOut ? 'bg-orange-400' : 'bg-gray-200'}`}>
+                    <span className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${isOut ? 'translate-x-3' : 'translate-x-0'}`} />
+                  </span>
+                )}
+              </button>
+            )
+          })()}
+
           <button
             onClick={handleLogout}
             className={`flex items-center gap-2.5 text-gray-400 hover:text-red-500 transition-colors rounded-lg px-2 py-1.5 w-full hover:bg-red-50 ${

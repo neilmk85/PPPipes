@@ -12,6 +12,7 @@ interface AuthState {
   logout: () => void
   hasRole: (role: string) => boolean
   hasPermission: (key: string) => boolean
+  setOutOfOffice: (value: boolean) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -43,6 +44,11 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false
         if (user.roles.includes('SUPER_ADMIN')) return true
         return user.permissions?.includes(key) ?? false
+      },
+
+      setOutOfOffice: (value: boolean) => {
+        const { user } = get()
+        if (user) set({ user: { ...user, outOfOffice: value } })
       },
     }),
     { name: 'pos-auth' }

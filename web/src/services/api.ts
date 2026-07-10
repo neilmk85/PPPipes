@@ -110,6 +110,7 @@ export const authApi = {
 export const profileApi = {
   get:    ()           => api.get<ApiResponse<any>>('/users/me'),
   update: (data: any)  => api.put<ApiResponse<any>>('/users/me', data),
+  toggleOutOfOffice: (value: boolean) => api.patch<ApiResponse<any>>('/users/me/out-of-office', { outOfOffice: value }),
 }
 
 // Categories
