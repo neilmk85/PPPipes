@@ -1383,12 +1383,7 @@ function CardPermissionsSettings() {
 
         {/* Permissions */}
         <div className="flex-1 min-w-0">
-          {!selectedRole ? (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-300 bg-white rounded-xl border border-gray-200">
-              <ShieldCheck size={32} className="mb-2" />
-              <p className="text-sm text-gray-400">Select a role to configure process access</p>
-            </div>
-          ) : loadingPerms ? (
+          {loadingPerms ? (
             <div className="flex items-center justify-center h-48 bg-white rounded-xl border border-gray-200">
               <Loader2 size={20} className="animate-spin text-gray-400" />
             </div>
@@ -1397,31 +1392,41 @@ function CardPermissionsSettings() {
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">{selectedRoleObj?.displayName || selectedRole}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{business.length} business · {pccp.length} PCCP</p>
+                  {selectedRole ? (
+                    <>
+                      <p className="text-sm font-bold text-gray-900">{selectedRoleObj?.displayName || selectedRole}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{business.length} business · {pccp.length} PCCP enabled</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500">Select a role on the left to configure its access</p>
+                  )}
                 </div>
-                <button
-                  onClick={() => saveMutation.mutate()}
-                  disabled={!dirty || saveMutation.isPending}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dirty ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                >
-                  <Save size={14} />
-                  {saveMutation.isPending ? 'Saving…' : 'Save'}
-                </button>
+                {selectedRole && (
+                  <button
+                    onClick={() => saveMutation.mutate()}
+                    disabled={!dirty || saveMutation.isPending}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dirty ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                  >
+                    <Save size={14} />
+                    {saveMutation.isPending ? 'Saving…' : 'Save'}
+                  </button>
+                )}
               </div>
 
               {/* Business Cards */}
-              <div className="bg-white rounded-xl border border-gray-200">
+              <div className={`bg-white rounded-xl border border-gray-200 ${!selectedRole ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                   <div>
                     <span className="text-sm font-bold text-gray-800">Business Cards</span>
-                    <span className="ml-2 text-xs text-gray-400">{business.length}/{CARD_PERMISSION_BUSINESS.length}</span>
+                    <span className="ml-2 text-xs text-gray-400">{selectedRole ? `${business.length}/` : ''}{CARD_PERMISSION_BUSINESS.length}</span>
                   </div>
-                  <div className="flex gap-2 text-xs">
-                    <button onClick={() => { setBusiness(CARD_PERMISSION_BUSINESS.map(c => c.key)); setDirty(true) }} className="text-blue-600 hover:underline font-medium">Select All</button>
-                    <span className="text-gray-300">·</span>
-                    <button onClick={() => { setBusiness([]); setDirty(true) }} className="text-gray-400 hover:underline">Clear</button>
-                  </div>
+                  {selectedRole && (
+                    <div className="flex gap-2 text-xs">
+                      <button onClick={() => { setBusiness(CARD_PERMISSION_BUSINESS.map(c => c.key)); setDirty(true) }} className="text-blue-600 hover:underline font-medium">Select All</button>
+                      <span className="text-gray-300">·</span>
+                      <button onClick={() => { setBusiness([]); setDirty(true) }} className="text-gray-400 hover:underline">Clear</button>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4 space-y-4">
                   {CARD_CATEGORIES.map(cat => {
@@ -1432,12 +1437,16 @@ function CardPermissionsSettings() {
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{cat}</p>
                         <div className="grid grid-cols-3 gap-1.5">
                           {cards.map(card => {
-                            const checked = business.includes(card.key)
+                            const checked = selectedRole ? business.includes(card.key) : false
                             return (
                               <button
                                 key={card.key}
-                                onClick={() => toggle(business, setBusiness, card.key)}
-                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs ${checked ? 'border-blue-400 bg-blue-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
+                                disabled={!selectedRole}
+                                onClick={() => selectedRole && toggle(business, setBusiness, card.key)}
+                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs ${
+                                  !selectedRole ? 'border-gray-200 text-gray-400 cursor-default' :
+                                  checked ? 'border-blue-400 bg-blue-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                                }`}
                               >
                                 {checked
                                   ? <CheckSquare size={13} className="shrink-0 text-blue-500" />
@@ -1454,27 +1463,33 @@ function CardPermissionsSettings() {
               </div>
 
               {/* PCCP Stages */}
-              <div className="bg-white rounded-xl border border-gray-200">
+              <div className={`bg-white rounded-xl border border-gray-200 ${!selectedRole ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                   <div>
                     <span className="text-sm font-bold text-gray-800">PCCP Stages</span>
-                    <span className="ml-2 text-xs text-gray-400">{pccp.length}/{CARD_PERMISSION_PCCP.length}</span>
+                    <span className="ml-2 text-xs text-gray-400">{selectedRole ? `${pccp.length}/` : ''}{CARD_PERMISSION_PCCP.length}</span>
                   </div>
-                  <div className="flex gap-2 text-xs">
-                    <button onClick={() => { setPccp(CARD_PERMISSION_PCCP.map(s => s.key)); setDirty(true) }} className="text-blue-600 hover:underline font-medium">Select All</button>
-                    <span className="text-gray-300">·</span>
-                    <button onClick={() => { setPccp([]); setDirty(true) }} className="text-gray-400 hover:underline">Clear</button>
-                  </div>
+                  {selectedRole && (
+                    <div className="flex gap-2 text-xs">
+                      <button onClick={() => { setPccp(CARD_PERMISSION_PCCP.map(s => s.key)); setDirty(true) }} className="text-blue-600 hover:underline font-medium">Select All</button>
+                      <span className="text-gray-300">·</span>
+                      <button onClick={() => { setPccp([]); setDirty(true) }} className="text-gray-400 hover:underline">Clear</button>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <div className="grid grid-cols-4 gap-1.5">
                     {CARD_PERMISSION_PCCP.map(stage => {
-                      const checked = pccp.includes(stage.key)
+                      const checked = selectedRole ? pccp.includes(stage.key) : false
                       return (
                         <button
                           key={stage.key}
-                          onClick={() => toggle(pccp, setPccp, stage.key)}
-                          className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs ${checked ? 'border-violet-400 bg-violet-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'}`}
+                          disabled={!selectedRole}
+                          onClick={() => selectedRole && toggle(pccp, setPccp, stage.key)}
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs ${
+                            !selectedRole ? 'border-gray-200 text-gray-400 cursor-default' :
+                            checked ? 'border-violet-400 bg-violet-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                          }`}
                         >
                           {checked
                             ? <CheckSquare size={13} className="shrink-0 text-violet-500" />
