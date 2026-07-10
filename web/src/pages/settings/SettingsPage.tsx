@@ -1444,7 +1444,7 @@ function CardPermissionsSettings() {
                                 disabled={!selectedRole}
                                 onClick={() => selectedRole && toggle(business, setBusiness, card.key)}
                                 className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs ${
-                                  !selectedRole ? 'border-gray-200 text-gray-400 cursor-default' :
+                                  !selectedRole ? 'border-gray-200 text-gray-700 cursor-default' :
                                   checked ? 'border-blue-400 bg-blue-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'
                                 }`}
                               >
