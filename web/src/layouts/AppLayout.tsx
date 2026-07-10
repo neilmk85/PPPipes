@@ -165,7 +165,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   })
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, hasRole, outletId, setOutOfOffice } = useAuthStore()
+  const { user, logout, hasRole, hasPermission, outletId, setOutOfOffice } = useAuthStore()
 
   const { data: outletData } = useQuery({
     queryKey: ['outlet-name', outletId],
@@ -389,8 +389,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           )}
-          {/* Out-of-office toggle */}
-          {(() => {
+          {/* Out-of-office toggle — only for users with SET_OUT_OF_OFFICE permission */}
+          {hasPermission('SET_OUT_OF_OFFICE') && (() => {
             const isOut = user?.outOfOffice ?? false
             return (
               <button

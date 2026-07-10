@@ -139,6 +139,7 @@ export const PERMISSION_GROUPS = [
       { key: 'MANAGE_LABOUR',              label: 'Labour',                    desc: 'Record contractor and labour entries' },
       { key: 'VIEW_TRANSPORT_REPORT',      label: 'Transport Report',          desc: 'View transport payment reports' },
       { key: 'CONVERT_LOADING_TO_INVOICE', label: 'Convert Loading to Invoice', desc: 'View loaded pipe entries and convert them to invoices' },
+      { key: 'SET_OUT_OF_OFFICE',          label: 'Set Out of Office',          desc: 'Mark self as out of office so invoices created are queued for printing' },
     ],
   },
   {

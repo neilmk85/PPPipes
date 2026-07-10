@@ -239,6 +239,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 
 	mux.HandleFunc("PATCH /api/users/me/out-of-office", middleware.Chain(
 		usersHandler.ToggleOutOfOffice,
+		middleware.RequireRoleOrPermission("SET_OUT_OF_OFFICE", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 		middleware.Authenticate(db),
 	))
 

@@ -171,6 +171,10 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 						permissions = append(permissions, "CONVERT_LOADING_TO_INVOICE")
 						seen["CONVERT_LOADING_TO_INVOICE"] = true
 					}
+					if !seen["SET_OUT_OF_OFFICE"] {
+						permissions = append(permissions, "SET_OUT_OF_OFFICE")
+						seen["SET_OUT_OF_OFFICE"] = true
+					}
 				}
 			}
 		}
