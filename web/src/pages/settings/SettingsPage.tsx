@@ -1266,6 +1266,7 @@ const CARD_PERMISSION_BUSINESS = [
   { key: 'loaded-pipes',       label: 'Loaded Pipes',       category: 'Logistics' },
   { key: 'transport-report',   label: 'Transport Report',   category: 'Logistics' },
   { key: 'labour',             label: 'Labour',             category: 'HR' },
+  { key: 'CONVERT_SO_TO_PO',  label: 'Convert SO to PO',  category: 'Sales' },
 ]
 
 const CARD_PERMISSION_PCCP = [
@@ -1282,7 +1283,7 @@ const CARD_PERMISSION_PCCP = [
   { key: 'PDI',                 label: 'PDI' },
 ]
 
-const CARD_CATEGORIES = ['Production', 'Quality', 'Operations', 'Materials', 'Logistics', 'HR']
+const CARD_CATEGORIES = ['Production', 'Quality', 'Operations', 'Materials', 'Logistics', 'HR', 'Sales']
 
 function CardPermissionsSettings() {
   const qc = useQueryClient()
