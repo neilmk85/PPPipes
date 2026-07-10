@@ -2,6 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
 
+class LoginException implements Exception {
+  final String message;
+  const LoginException(this.message);
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   static const String baseUrl = 'https://system.pppipeproducts.com/api';
   static final ApiService _instance = ApiService._internal();
@@ -36,11 +43,22 @@ class ApiService {
 
   // ---- Auth ----
   Future<AuthResponse> login(String email, String password) async {
-    final res = await _dio.post('/auth/login', data: {'email': email, 'password': password});
-    final auth = AuthResponse.fromJson(res.data['data']);
-    await _storage.write(key: 'accessToken', value: auth.accessToken);
-    await _storage.write(key: 'refreshToken', value: auth.refreshToken);
-    return auth;
+    try {
+      final res = await _dio.post('/auth/login', data: {'email': email, 'password': password});
+      final auth = AuthResponse.fromJson(res.data['data']);
+      await _storage.write(key: 'accessToken', value: auth.accessToken);
+      await _storage.write(key: 'refreshToken', value: auth.refreshToken);
+      return auth;
+    } on DioException catch (e) {
+      final serverMsg = e.response?.data?['message'] as String?;
+      if (serverMsg != null) throw LoginException(serverMsg);
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        throw const LoginException('Unable to reach server. Check your connection.');
+      }
+      throw const LoginException('Login failed. Please try again.');
+    }
   }
 
   Future<AuthResponse> getMe() async {

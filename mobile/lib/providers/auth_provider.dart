@@ -4,17 +4,21 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/widget_service.dart';
 
+enum LoginErrorField { email, password, general }
+
 class AuthState {
   final AuthResponse? user;
   final bool isLoading;
   final bool isRestoring;
   final String? error;
+  final LoginErrorField errorField;
 
   const AuthState({
     this.user,
     this.isLoading = false,
     this.isRestoring = true,
     this.error,
+    this.errorField = LoginErrorField.general,
   });
 
   bool get isAuthenticated => user != null;
@@ -24,6 +28,7 @@ class AuthState {
     bool? isLoading,
     bool? isRestoring,
     String? error,
+    LoginErrorField? errorField,
     bool clearUser = false,
   }) =>
       AuthState(
@@ -31,6 +36,7 @@ class AuthState {
         isLoading: isLoading ?? this.isLoading,
         isRestoring: isRestoring ?? this.isRestoring,
         error: error,
+        errorField: errorField ?? this.errorField,
       );
 }
 
@@ -66,8 +72,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(user: auth, isRestoring: false);
       _refreshWidget(auth.outletId);
       return true;
+    } on LoginException catch (e) {
+      final msg = e.message;
+      LoginErrorField field = LoginErrorField.general;
+      String displayMsg = msg;
+
+      if (msg.toLowerCase().contains('user not found')) {
+        field = LoginErrorField.email;
+        displayMsg = 'No account found with this email address.';
+      } else if (msg.toLowerCase().contains('invalid credentials')) {
+        field = LoginErrorField.password;
+        displayMsg = 'Incorrect password. Please try again.';
+      } else if (msg.toLowerCase().contains('inactive') ||
+                 msg.toLowerCase().contains('not active')) {
+        field = LoginErrorField.email;
+        displayMsg = 'This account has been deactivated. Contact your admin.';
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        error: displayMsg,
+        errorField: field,
+      );
+      return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Something went wrong. Please try again.',
+        errorField: LoginErrorField.general,
+      );
       return false;
     }
   }

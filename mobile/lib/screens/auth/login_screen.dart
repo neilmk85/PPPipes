@@ -30,8 +30,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _emailCtrl.text    = 'admin@pppipeproducts.com';
-    _passwordCtrl.text = 'Admin@123';
     _fadeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 900));
     _fadeAnim =
@@ -49,26 +47,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final ok = await ref
+    await ref
         .read(authProvider.notifier)
         .login(_emailCtrl.text.trim(), _passwordCtrl.text);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              ref.read(authProvider).error ?? 'Login failed'),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(authProvider).isLoading;
+    final authState = ref.watch(authProvider);
+    final isLoading = authState.isLoading;
+    final errorMsg   = authState.error;
+    final errorField = authState.errorField;
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
@@ -218,24 +207,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           const SizedBox(height: 36),
 
                           // ── Email ──
-                          _GlassLabel('Email'),
+                          const _GlassLabel('Email'),
                           const SizedBox(height: 8),
                           _GlassField(
                             controller: _emailCtrl,
-                            hint: 'admin@pppipeproducts.com',
+                            hint: 'your@email.com',
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             icon: Icons.email_outlined,
+                            hasError: errorMsg != null && errorField == LoginErrorField.email,
                             validator: (v) =>
                                 v == null || !v.contains('@')
                                     ? 'Enter a valid email'
                                     : null,
                           ),
+                          if (errorMsg != null && errorField == LoginErrorField.email)
+                            _InlineError(errorMsg),
 
                           const SizedBox(height: 20),
 
                           // ── Password ──
-                          _GlassLabel('Password'),
+                          const _GlassLabel('Password'),
                           const SizedBox(height: 8),
                           _GlassField(
                             controller: _passwordCtrl,
@@ -243,6 +235,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             obscureText: _obscure,
                             textInputAction: TextInputAction.done,
                             icon: Icons.lock_outline_rounded,
+                            hasError: errorMsg != null && errorField == LoginErrorField.password,
                             onFieldSubmitted: (_) =>
                                 isLoading ? null : _submit(),
                             validator: (v) => v == null || v.isEmpty
@@ -261,8 +254,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               ),
                             ),
                           ),
+                          if (errorMsg != null && errorField == LoginErrorField.password)
+                            _InlineError(errorMsg),
 
-                          const SizedBox(height: 32),
+                          // ── General error banner ──
+                          if (errorMsg != null && errorField == LoginErrorField.general) ...[
+                            const SizedBox(height: 12),
+                            _ErrorBanner(errorMsg),
+                          ],
+
+                          const SizedBox(height: 28),
 
                           // ── Sign In button ──
                           SizedBox(
@@ -336,19 +337,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ),
                           ),
 
-                          const SizedBox(height: 24),
-
-                          // ── Hint ──
-                          Center(
-                            child: Text(
-                              'Default: admin@pppipeproducts.com / Admin@123',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color:
-                                    Colors.white.withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
+                          const SizedBox(height: 20),
 
                           const Spacer(flex: 3),
                         ],
@@ -382,11 +371,73 @@ class _GlassLabel extends StatelessWidget {
       );
 }
 
+// ── Inline error message ──────────────────────────────────
+class _InlineError extends StatelessWidget {
+  final String message;
+  const _InlineError(this.message);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Row(
+      children: [
+        const Icon(Icons.error_outline_rounded,
+            size: 14, color: Color(0xFFFCA5A5)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFFFCA5A5),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+// ── General error banner ──────────────────────────────────
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+  const _ErrorBanner(this.message);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFCA5A5).withValues(alpha: 0.15),
+      border: Border.all(color: const Color(0xFFFCA5A5).withValues(alpha: 0.5)),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.error_outline_rounded,
+            size: 16, color: Color(0xFFFCA5A5)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            message,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFFFCA5A5),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 // ── Reusable glass input field ────────────────────────────
 class _GlassField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final bool obscureText;
+  final bool hasError;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final IconData icon;
@@ -399,6 +450,7 @@ class _GlassField extends StatelessWidget {
     required this.hint,
     required this.icon,
     this.obscureText = false,
+    this.hasError = false,
     this.keyboardType,
     this.textInputAction,
     this.suffixIcon,
@@ -438,11 +490,15 @@ class _GlassField extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(
             horizontal: 16, vertical: 16),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.10),
+        fillColor: hasError
+            ? const Color(0xFFFCA5A5).withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.10),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.20),
+            color: hasError
+                ? const Color(0xFFFCA5A5).withValues(alpha: 0.7)
+                : Colors.white.withValues(alpha: 0.20),
             width: 1.2,
           ),
         ),
