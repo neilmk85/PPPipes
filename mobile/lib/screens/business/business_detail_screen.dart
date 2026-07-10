@@ -17226,7 +17226,7 @@ class _ConvertToInvoiceSheetState extends State<_ConvertToInvoiceSheet> {
       final invoiceId = invoice['id'] as int;
       final invoiceNo = invoice['invoiceNumber']?.toString() ?? '';
       await api.updateInvoiceStatus(invoiceId, 'SENT');
-      await api.linkInvoiceToLoadingRecord(widget.recordId, invoiceId);
+      await api.linkInvoiceToLoadingRecord(widget.recordId, invoiceId, invoiceNo);
 
       if (mounted) {
         Navigator.of(context).pop();

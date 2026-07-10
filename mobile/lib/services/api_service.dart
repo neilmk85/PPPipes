@@ -345,11 +345,12 @@ class ApiService {
   }
 
   Future<void> updateInvoiceStatus(int id, String status) async {
-    await _dio.patch('/invoices/$id/status', data: {'status': status});
+    await _dio.patch('/invoices/$id/status', queryParameters: {'status': status});
   }
 
-  Future<void> linkInvoiceToLoadingRecord(int recordId, int invoiceId) async {
-    await _dio.patch('/business/loading-records/$recordId/link-invoice', data: {'invoiceId': invoiceId});
+  Future<void> linkInvoiceToLoadingRecord(int recordId, int invoiceId, String invoiceNumber) async {
+    await _dio.post('/business/loading-records/$recordId/link-invoice',
+        data: {'invoiceId': invoiceId, 'invoiceNumber': invoiceNumber});
   }
 
   // ---- Shifts ----
