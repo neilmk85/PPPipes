@@ -632,7 +632,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/invoices", middleware.Chain(
 		invoiceHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "MANAGER"),
+		middleware.RequireRoleOrPermission("CONVERT_LOADING_TO_INVOICE", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/invoices/{id}", middleware.Chain(
 		invoiceHandler.Update,
@@ -642,7 +642,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PATCH /api/invoices/{id}/status", middleware.Chain(
 		invoiceHandler.UpdateStatus,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("CONVERT_LOADING_TO_INVOICE", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("POST /api/invoices/{id}/payment", middleware.Chain(
 		invoiceHandler.RecordPayment,

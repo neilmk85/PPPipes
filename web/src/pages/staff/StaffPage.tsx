@@ -138,6 +138,7 @@ export const PERMISSION_GROUPS = [
       { key: 'MANAGE_LOADING',             label: 'Loading Records',           desc: 'Record pipe loading and dispatch' },
       { key: 'MANAGE_LABOUR',              label: 'Labour',                    desc: 'Record contractor and labour entries' },
       { key: 'VIEW_TRANSPORT_REPORT',      label: 'Transport Report',          desc: 'View transport payment reports' },
+      { key: 'CONVERT_LOADING_TO_INVOICE', label: 'Convert Loading to Invoice', desc: 'View loaded pipe entries and convert them to invoices' },
     ],
   },
   {

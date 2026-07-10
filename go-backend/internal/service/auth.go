@@ -166,6 +166,10 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 						permissions = append(permissions, "CONVERT_SO_TO_PO")
 						seen["CONVERT_SO_TO_PO"] = true
 					}
+					if !seen["CONVERT_LOADING_TO_INVOICE"] {
+						permissions = append(permissions, "CONVERT_LOADING_TO_INVOICE")
+						seen["CONVERT_LOADING_TO_INVOICE"] = true
+					}
 				}
 			}
 		}
