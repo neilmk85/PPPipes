@@ -30,6 +30,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   void initState() {
     super.initState();
+    _emailCtrl.text    = 'admin@pppipeproducts.com';
+    _passwordCtrl.text = 'Admin@123';
     _fadeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 900));
     _fadeAnim =
