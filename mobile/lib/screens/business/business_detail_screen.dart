@@ -16776,27 +16776,46 @@ class _ConvertToInvoiceSheetState extends State<_ConvertToInvoiceSheet> {
     super.dispose();
   }
 
+  double _taxRateFor(String gstType) {
+    switch (gstType) {
+      case 'gst5':  return 5;
+      case 'gst12': return 12;
+      case 'gst18': return 18;
+      default:      return 0;
+    }
+  }
+
   Future<void> _submit() async {
     setState(() { _submitting = true; _error = null; });
     try {
       final api = ApiService();
-      final invoiceNo = await api.getInvoiceNextNumber();
-      final outletId  = (widget.record['outletId'] ?? 1) as int;
+      final outletId   = (widget.record['outletId'] ?? 1) as int;
       final customerId = widget.record['customerId'];
+      final pipeName   = widget.record['pipeName']?.toString() ?? 'Pipe';
+      final qty        = double.tryParse(widget.record['quantity']?.toString() ?? '1') ?? 1;
+      final unitPrice  = double.tryParse(widget.record['transportRate']?.toString() ?? '0') ?? 0;
+      final taxRate    = _taxRateFor(_gstType);
+      final terms      = _paymentTerms;
+      final notes      = _notesCtrl.text.trim();
 
       final invoice = await api.createInvoice({
-        'invoiceNumber': invoiceNo,
         'outletId': outletId,
         if (customerId != null) 'customerId': customerId,
-        'gstType': _gstType,
-        'paymentTerms': _paymentTerms,
-        'notes': _notesCtrl.text.trim(),
-        'status': 'DRAFT',
-        'lineItems': [],
+        if (terms.isNotEmpty) 'paymentTerms': terms,
+        if (notes.isNotEmpty) 'notes': notes,
+        'items': [
+          {
+            'productName': pipeName,
+            'quantity': qty,
+            'unitPrice': unitPrice,
+            if (taxRate > 0) 'taxRate': taxRate,
+          }
+        ],
       });
 
       final invoiceId = invoice['id'] as int;
-      await api.updateInvoiceStatus(invoiceId, 'CONFIRMED');
+      final invoiceNo = invoice['invoiceNumber']?.toString() ?? '';
+      await api.updateInvoiceStatus(invoiceId, 'SENT');
       await api.linkInvoiceToLoadingRecord(widget.recordId, invoiceId);
 
       if (mounted) {
