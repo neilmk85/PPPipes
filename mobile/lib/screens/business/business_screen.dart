@@ -60,10 +60,11 @@ const _cards = [
   _BizCard('conversion',         'Conversion',         'Unit or spec conversions',      'Production', Icons.sync_outlined,                 Color(0xFF9333EA)),
   _BizCard('loading',            'Loading',            'Pipe loading & dispatch',       'Logistics',  Icons.move_to_inbox_outlined,        Color(0xFF1E40AF)),
   _BizCard('loaded-pipes',       'Loaded Pipes',       'Dispatched pipe records',       'Logistics',  Icons.assignment_outlined,           Color(0xFF4338CA)),
+  _BizCard('loading-invoice',    'Loading + Invoice',  'Convert loaded pipes to invoices', 'Logistics', Icons.receipt_outlined,              Color(0xFF059669)),
   _BizCard('transport-report',   'Transport Report',   'Vehicle trip summary',          'Logistics',  Icons.bar_chart_outlined,            Color(0xFF2563EB)),
 ];
 
-const _routed = {'pccp', 'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'pdi', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes', 'labour', 'store-material', 'maintenance', 'cutting', 'diesel-maintenance', 'transport-report', 'discard', 'extra-fab', 'testing-lab'};
+const _routed = {'pccp', 'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'pdi', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes', 'loading-invoice', 'labour', 'store-material', 'maintenance', 'cutting', 'diesel-maintenance', 'transport-report', 'discard', 'extra-fab', 'testing-lab'};
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -232,6 +233,8 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
       context.push('/business/labour');
     } else if (key == 'loaded-pipes') {
       context.push('/business/loaded-pipes');
+    } else if (key == 'loading-invoice') {
+      context.push('/business/loading-invoice');
     } else if (key == 'store-material') {
       context.push('/business/store-material');
     } else if (key == 'maintenance') {

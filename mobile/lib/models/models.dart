@@ -24,6 +24,7 @@ class AuthResponse {
   final String name;
   final String email;
   final List<String> roles;
+  final List<String> permissions;
   final int? outletId;
   final String? outletName;
   final CardPermissions? cardPermissions; // null = SUPER_ADMIN, show all
@@ -35,6 +36,7 @@ class AuthResponse {
     required this.name,
     required this.email,
     required this.roles,
+    this.permissions = const [],
     this.outletId,
     this.outletName,
     this.cardPermissions,
@@ -47,6 +49,7 @@ class AuthResponse {
         name: json['name'] ?? '',
         email: json['email'] ?? '',
         roles: List<String>.from(json['roles'] ?? []),
+        permissions: List<String>.from(json['permissions'] ?? []),
         outletId: p.iOrNull(json['outletId']),
         outletName: json['outletName'],
         cardPermissions: json['cardPermissions'] != null

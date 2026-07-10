@@ -16342,3 +16342,631 @@ class _QtyField extends StatelessWidget {
     );
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Loading + Invoice Screen
+// ══════════════════════════════════════════════════════════════════════════════
+
+class LoadingInvoiceScreen extends ConsumerStatefulWidget {
+  const LoadingInvoiceScreen({super.key});
+  @override
+  ConsumerState<LoadingInvoiceScreen> createState() => _LoadingInvoiceScreenState();
+}
+
+class _LoadingInvoiceScreenState extends ConsumerState<LoadingInvoiceScreen> {
+  static const _color     = Color(0xFF059669);
+  static const _colorDark = Color(0xFF065F46);
+
+  List<dynamic> _records = [];
+  bool _loading = true;
+  String _search = '';
+
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
+
+  bool _searchExpanded = false;
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _to   = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void _closeDateOverlay() {
+    _dateOverlay?.remove();
+    _dateOverlay = null;
+  }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _loadData();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
+  }
+
+  String get _fromStr => DateFormat('yyyy-MM-dd').format(_from);
+  String get _toStr   => DateFormat('yyyy-MM-dd').format(_to);
+
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    try {
+      final raw = await ApiService().getLoadingRecords(from: _fromStr, to: _toStr, size: 500);
+      if (mounted) setState(() { _records = raw; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<dynamic> get _filtered {
+    if (_search.isEmpty) return _records;
+    final q = _search.toLowerCase();
+    return _records.where((r) {
+      final pipe    = (r['pipeName']     ?? '').toString().toLowerCase();
+      final vehicle = (r['vehicleNo']    ?? '').toString().toLowerCase();
+      final driver  = (r['driverName']   ?? '').toString().toLowerCase();
+      final vendor  = (r['vendorName']   ?? '').toString().toLowerCase();
+      return pipe.contains(q) || vehicle.contains(q) ||
+             driver.contains(q) || vendor.contains(q);
+    }).toList();
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final user        = ref.watch(authProvider).user;
+    final permissions = user?.permissions ?? [];
+    final roles       = user?.roles ?? [];
+    final canConvert  = roles.contains('SUPER_ADMIN') || roles.contains('ADMIN') ||
+                        roles.contains('MANAGER') || roles.contains('ACCOUNTANT') ||
+                        permissions.contains('CONVERT_LOADING_TO_INVOICE');
+
+    final items       = _filtered;
+    final totalPipes  = items.fold(0, (s, r) => s + (int.tryParse(r['quantity']?.toString() ?? '0') ?? 0));
+    final invoiced    = items.where((r) => r['invoiceId'] != null).length;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      bottomNavigationBar: _buildFloatingNav(),
+      body: CustomScrollView(slivers: [
+        SliverAppBar(
+          pinned: true,
+          expandedHeight: 120,
+          backgroundColor: _color,
+          foregroundColor: Colors.white,
+          leading: context.canPop()
+              ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+              : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
+          title: const Text('Loading + Invoice'),
+          actions: [
+            CompositedTransformTarget(
+              link: _layerLink,
+              child: GestureDetector(
+                onTap: _toggleDateOverlay,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                    const SizedBox(width: 5),
+                    Text(_dateFilter.isActive ? _dateFilter.label : 'Date',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 3),
+                    const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                  ]),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_color, _colorDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 64, 6, 4),
+                  child: Row(children: [
+                    _hStat('${items.length}', 'Dispatches'),
+                    _hStat('$totalPipes', 'Pipes Loaded'),
+                    _hStat('$invoiced', 'Invoiced'),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SliverFillRemaining(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _loadData,
+                  child: items.isEmpty
+                      ? Center(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.receipt_outlined, size: 48, color: Colors.grey.shade300),
+                            const SizedBox(height: 12),
+                            Text('No records found',
+                                style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                          ]),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                          itemCount: items.length,
+                          itemBuilder: (ctx, i) => _InvoiceRecordCard(
+                            record: items[i],
+                            canConvert: canConvert,
+                            onUpdated: _loadData,
+                          ),
+                        ),
+                ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildFloatingNav() => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+      child: Container(
+        height: 64,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 20, offset: const Offset(0, 4))],
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          child: _searchExpanded ? _buildSearchExpanded() : _buildNavItems(),
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildSearchExpanded() => Row(
+    key: const ValueKey('search'),
+    children: [
+      Container(
+        margin: const EdgeInsets.all(8),
+        width: 46, height: 46,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(colors: [_color, _colorDark]),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.search, color: Colors.white, size: 20),
+      ),
+      Expanded(
+        child: TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Search pipe, vehicle, driver…',
+            hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+            border: InputBorder.none,
+          ),
+          style: const TextStyle(fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      ),
+      GestureDetector(
+        onTap: () {
+          _searchCtrl.clear();
+          setState(() { _search = ''; _searchExpanded = false; });
+        },
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          width: 46, height: 46,
+          decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+          child: const Icon(Icons.close, size: 20, color: Colors.grey),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildNavItems() => Row(
+    key: const ValueKey('nav'),
+    children: [
+      _navItem(Icons.search, 'Search', active: false, onTap: () => setState(() => _searchExpanded = true)),
+      _navItem(Icons.list_outlined, 'All', active: true),
+    ],
+  );
+
+  Widget _navItem(IconData icon, String label, {required bool active, VoidCallback? onTap}) => Expanded(
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.all(6),
+        decoration: active
+            ? BoxDecoration(
+                gradient: const LinearGradient(colors: [_color, _colorDark]),
+                borderRadius: BorderRadius.circular(26),
+              )
+            : null,
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 20, color: active ? Colors.white : Colors.grey.shade500),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+              color: active ? Colors.white : Colors.grey.shade500)),
+        ]),
+      ),
+    ),
+  );
+}
+
+// ── Invoice Record Card ───────────────────────────────────────────────────────
+
+class _InvoiceRecordCard extends StatelessWidget {
+  final Map<String, dynamic> record;
+  final bool canConvert;
+  final VoidCallback onUpdated;
+  const _InvoiceRecordCard({required this.record, required this.canConvert, required this.onUpdated});
+
+  @override
+  Widget build(BuildContext context) {
+    final date      = _fmtDate(record['date']?.toString() ?? record['createdAt']?.toString() ?? '');
+    final pipeName  = record['pipeName']?.toString() ?? '—';
+    final qty       = record['quantity']?.toString() ?? '0';
+    final vehicleNo = record['vehicleNo']?.toString() ?? '—';
+    final driver    = record['driverName']?.toString() ?? '—';
+    final vendor    = record['vendorName']?.toString() ?? record['vendor']?.toString() ?? '—';
+    final invoiceId = record['invoiceId'];
+    final invoiceNo = record['invoiceNo']?.toString();
+    final isInvoiced = invoiceId != null;
+    final id        = record['id'] is int ? record['id'] as int : int.tryParse(record['id']?.toString() ?? '') ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 12, offset: const Offset(0, 3)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4,  offset: const Offset(0, 1)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF059669).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(date, style: const TextStyle(fontSize: 11, color: Color(0xFF059669), fontWeight: FontWeight.w600)),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isInvoiced
+                        ? const Color(0xFF059669).withOpacity(0.1)
+                        : Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    isInvoiced ? (invoiceNo != null ? 'INV #$invoiceNo' : 'Invoiced') : 'Pending',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isInvoiced ? const Color(0xFF059669) : Colors.orange.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(pipeName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            _InfoRow(Icons.numbers, 'Qty: $qty pipes'),
+            _InfoRow(Icons.local_shipping_outlined, '$vehicleNo · $driver'),
+            if (vendor != '—') _InfoRow(Icons.business_outlined, vendor),
+            if (!isInvoiced && canConvert) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: _ActionBtn(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Convert to Invoice',
+                  color: const Color(0xFF059669),
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => _ConvertToInvoiceSheet(
+                      recordId: id,
+                      record: record,
+                      onDone: onUpdated,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Convert to Invoice Bottom Sheet ──────────────────────────────────────────
+
+class _ConvertToInvoiceSheet extends StatefulWidget {
+  final int recordId;
+  final Map<String, dynamic> record;
+  final VoidCallback onDone;
+  const _ConvertToInvoiceSheet({required this.recordId, required this.record, required this.onDone});
+
+  @override
+  State<_ConvertToInvoiceSheet> createState() => _ConvertToInvoiceSheetState();
+}
+
+class _ConvertToInvoiceSheetState extends State<_ConvertToInvoiceSheet> {
+  static const _color = Color(0xFF059669);
+
+  String _gstType      = 'none';
+  String _paymentTerms = 'immediate';
+  final _notesCtrl = TextEditingController();
+  bool _submitting = false;
+  String? _error;
+
+  static const _gstOptions = [
+    ('none', 'No GST'),
+    ('gst5', '5% GST'),
+    ('gst12', '12% GST'),
+    ('gst18', '18% GST'),
+  ];
+  static const _termOptions = [
+    ('immediate', 'Immediate'),
+    ('net7', 'Net 7 Days'),
+    ('net15', 'Net 15 Days'),
+    ('net30', 'Net 30 Days'),
+    ('net45', 'Net 45 Days'),
+    ('net60', 'Net 60 Days'),
+  ];
+
+  @override
+  void dispose() {
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() { _submitting = true; _error = null; });
+    try {
+      final api = ApiService();
+      final invoiceNo = await api.getInvoiceNextNumber();
+      final outletId  = (widget.record['outletId'] ?? 1) as int;
+      final customerId = widget.record['customerId'];
+
+      final invoice = await api.createInvoice({
+        'invoiceNumber': invoiceNo,
+        'outletId': outletId,
+        if (customerId != null) 'customerId': customerId,
+        'gstType': _gstType,
+        'paymentTerms': _paymentTerms,
+        'notes': _notesCtrl.text.trim(),
+        'status': 'DRAFT',
+        'lineItems': [],
+      });
+
+      final invoiceId = invoice['id'] as int;
+      await api.updateInvoiceStatus(invoiceId, 'CONFIRMED');
+      await api.linkInvoiceToLoadingRecord(widget.recordId, invoiceId);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onDone();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invoice $invoiceNo created successfully'),
+            backgroundColor: _color,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() { _submitting = false; _error = e.toString(); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pipeName = widget.record['pipeName']?.toString() ?? 'Record';
+    final qty      = widget.record['quantity']?.toString() ?? '0';
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      maxChildSize: 0.9,
+      minChildSize: 0.4,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.receipt_long_outlined, color: _color, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Convert to Invoice', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    Text('$pipeName · $qty pipes', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ]),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ]),
+            ),
+            const Divider(height: 24),
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                children: [
+                  const Text('GST Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: _gstOptions.map((opt) {
+                      final selected = _gstType == opt.$1;
+                      return GestureDetector(
+                        onTap: () => setState(() => _gstType = opt.$1),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: selected ? _color : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(opt.$2,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: selected ? Colors.white : Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Payment Terms', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _paymentTerms,
+                        isExpanded: true,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        borderRadius: BorderRadius.circular(10),
+                        items: _termOptions.map((opt) =>
+                          DropdownMenuItem(value: opt.$1, child: Text(opt.$2))).toList(),
+                        onChanged: (v) { if (v != null) setState(() => _paymentTerms = v); },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('Notes (optional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _notesCtrl,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      hintText: 'Any additional notes…',
+                      hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Text(_error!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _submitting ? null : _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _color,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        disabledBackgroundColor: _color.withOpacity(0.5),
+                      ),
+                      child: _submitting
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Create Invoice', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

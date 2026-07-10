@@ -334,6 +334,24 @@ class ApiService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
+  Future<String> getInvoiceNextNumber() async {
+    final res = await _dio.get('/invoices/next-number');
+    return res.data['data']?.toString() ?? '';
+  }
+
+  Future<Map<String, dynamic>> createInvoice(Map<String, dynamic> data) async {
+    final res = await _dio.post('/invoices', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
+  Future<void> updateInvoiceStatus(int id, String status) async {
+    await _dio.patch('/invoices/$id/status', data: {'status': status});
+  }
+
+  Future<void> linkInvoiceToLoadingRecord(int recordId, int invoiceId) async {
+    await _dio.patch('/business/loading-records/$recordId/link-invoice', data: {'invoiceId': invoiceId});
+  }
+
   // ---- Shifts ----
   Future<Map<String, dynamic>> openShift(Map<String, dynamic> data) async {
     final res = await _dio.post('/shifts/open', data: data);
