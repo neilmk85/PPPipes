@@ -1291,16 +1291,32 @@ function CardPermissionsSettings() {
   const [pccp, setPccp]         = useState<string[]>([])
   const [dirty, setDirty]       = useState(false)
 
-  const { data: rolesData } = useQuery({
+  const { data: customRolesData } = useQuery({
     queryKey: ['custom-roles'],
     queryFn: () => rolesApi.getAll().then(r => r.data.data as any[]),
   })
+
+  // Combined list: built-in roles (except SUPER_ADMIN) + custom roles
+  const allRoles = [
+    ...BUILT_IN_ROLES.filter(r => r.value !== 'SUPER_ADMIN').map(r => ({
+      id: r.value, displayName: r.label, description: 'Built-in role', isBuiltIn: true, color: r.color,
+    })),
+    ...(customRolesData ?? []).map((r: any) => ({
+      id: r.name, displayName: r.displayName || r.name, description: r.description, isBuiltIn: false, color: null,
+    })),
+  ]
 
   const { isLoading: loadingPerms, data: permsData } = useQuery({
     queryKey: ['role-card-permissions', selectedRole],
     queryFn: () => roleCardPermissionsApi.get(selectedRole!).then(r => r.data.data),
     enabled: selectedRole !== null,
   })
+
+  useEffect(() => {
+    setBusiness([])
+    setPccp([])
+    setDirty(false)
+  }, [selectedRole])
 
   useEffect(() => {
     if (permsData) {
@@ -1325,8 +1341,7 @@ function CardPermissionsSettings() {
     setDirty(true)
   }
 
-  const roles           = rolesData ?? []
-  const selectedRoleObj = roles.find((r: any) => r.name === selectedRole)
+  const selectedRoleObj = allRoles.find(r => r.id === selectedRole)
 
   return (
     <div>
@@ -1342,17 +1357,26 @@ function CardPermissionsSettings() {
         <div className="w-56 shrink-0">
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
-              {roles.map((r: any) => (
+              {allRoles.map(r => (
                 <button
-                  key={r.name}
-                  onClick={() => setSelectedRole(r.name)}
-                  className={`w-full text-left px-4 py-3 transition-colors ${selectedRole === r.name ? 'bg-slate-900 text-white' : 'hover:bg-gray-50 text-gray-700'}`}
+                  key={r.id}
+                  onClick={() => setSelectedRole(r.id)}
+                  className={`w-full text-left px-4 py-3 transition-colors ${selectedRole === r.id ? 'bg-slate-900 text-white' : 'hover:bg-gray-50 text-gray-700'}`}
                 >
-                  <div className="text-sm font-medium truncate">{r.displayName || r.name}</div>
-                  {r.description && <div className={`text-xs mt-0.5 truncate ${selectedRole === r.name ? 'text-white/50' : 'text-gray-400'}`}>{r.description}</div>}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium truncate">{r.displayName}</span>
+                    {r.isBuiltIn && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${selectedRole === r.id ? 'bg-white/20 text-white/80' : (r.color ?? 'bg-gray-100 text-gray-500')}`}>
+                        Built-in
+                      </span>
+                    )}
+                  </div>
+                  {r.description && !r.isBuiltIn && (
+                    <div className={`text-xs mt-0.5 truncate ${selectedRole === r.id ? 'text-white/50' : 'text-gray-400'}`}>{r.description}</div>
+                  )}
                 </button>
               ))}
-              {roles.length === 0 && <div className="px-4 py-6 text-center text-xs text-gray-400">No roles found</div>}
+              {allRoles.length === 0 && <div className="px-4 py-6 text-center text-xs text-gray-400">No roles found</div>}
             </div>
           </div>
         </div>
