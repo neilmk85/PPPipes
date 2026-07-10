@@ -1435,7 +1435,7 @@ function CardPermissionsSettings() {
                     if (!cards.length) return null
                     return (
                       <div key={cat}>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{cat}</p>
+                        <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2">{cat}</p>
                         <div className="grid grid-cols-3 gap-1.5">
                           {cards.map(card => {
                             const checked = selectedRole ? business.includes(card.key) : false
