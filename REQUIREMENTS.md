@@ -275,3 +275,37 @@ The backend `GetPriorStageCompleted` endpoint returned the order's `PlannedQty` 
 | `go-backend/internal/service/production_entry.go` | `GetPriorStageCompleted`: when `idx == 0` (Fabrication is the first stage), now returns `nil, nil` instead of a self-referencing entry. The frontend already conditionally renders `{priorStageData && ...}` so the banner is suppressed automatically. |
 
 ---
+
+## REQ-010 · Convert SO to Production Order — Role Permission Gate
+**Page:** `/sales-orders/:id`
+**Status:** Implemented
+
+The "Convert to PO" buttons on the Sales Order detail page were previously visible to all authenticated users (relying on backend 403 as the only enforcement). A named permission `CONVERT_SO_TO_PO` has been introduced so admins can control exactly who can trigger SO-to-Production-Order conversion, including the ability to grant this to custom roles.
+
+### Permission Behaviour
+- **SUPER_ADMIN:** always has the permission (bypasses all checks)
+- **ADMIN / MANAGER (built-in roles):** receive `CONVERT_SO_TO_PO` automatically on login — no config required
+- **Custom roles:** admin must explicitly enable `CONVERT_SO_TO_PO` in the role's permission list (Staff → Roles → edit role)
+- **CASHIER / INVENTORY_MANAGER / ACCOUNTANT:** do not receive the permission; Convert buttons are hidden
+
+### Files Changed
+
+**Backend**
+
+| File | Change |
+|---|---|
+| `go-backend/internal/middleware/auth.go` | `AuthUser` struct gets `Permissions []string`. `Authenticate` middleware queries `custom_roles` by role name and loads the JSON permissions array into context. New `RequireRoleOrPermission(permKey, roles...)` middleware passes if user has one of the listed roles **or** holds the named permission key. |
+| `go-backend/internal/service/auth.go` | `AuthResponse` gets `Permissions []string`. `buildAuthResponse` populates it: custom-role users receive their role's explicit permission keys; built-in ADMIN/MANAGER receive `["CONVERT_SO_TO_PO"]`; SUPER_ADMIN receives empty (bypassed client-side). |
+| `go-backend/internal/router/router.go` | Both convert routes (`POST /api/sales-orders/{id}/convert-all` and `POST /api/sales-orders/items/{itemId}/convert`) switched from `RequireRole` to `RequireRoleOrPermission("CONVERT_SO_TO_PO", "SUPER_ADMIN", "ADMIN", "MANAGER")`. |
+
+**Frontend**
+
+| File | Change |
+|---|---|
+| `web/src/types/index.ts` | `User` interface: added `permissions?: string[]` |
+| `web/src/store/authStore.ts` | Added `hasPermission(key: string): boolean` — SUPER_ADMIN always returns true; everyone else checks `user.permissions.includes(key)` |
+| `web/src/pages/auth/LoginPage.tsx` | Maps `auth.permissions` from login response into the stored `User` object |
+| `web/src/pages/staff/StaffPage.tsx` | `CONVERT_SO_TO_PO` added to `PERMISSION_GROUPS` under "Sales & Orders" — visible and toggleable in the custom role editor |
+| `web/src/pages/orders/SalesOrderDetailPage.tsx` | `canConvertSO = hasPermission('CONVERT_SO_TO_PO')` gates the "Convert All" header button and each row's "Convert to PO" button. Users without the permission see a "No permission" placeholder instead of the button. |
+
+---
