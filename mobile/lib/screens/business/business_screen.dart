@@ -60,7 +60,7 @@ const _cards = [
   _BizCard('conversion',         'Conversion',         'Unit or spec conversions',      'Production', Icons.sync_outlined,                 Color(0xFF9333EA)),
   _BizCard('loading',            'Loading',            'Pipe loading & dispatch',       'Logistics',  Icons.move_to_inbox_outlined,        Color(0xFF1E40AF)),
   _BizCard('loaded-pipes',       'Loaded Pipes',       'Dispatched pipe records',       'Logistics',  Icons.assignment_outlined,           Color(0xFF4338CA)),
-  _BizCard('loading-invoice',    'Loading + Invoice',  'Convert loaded pipes to invoices', 'Logistics', Icons.receipt_outlined,              Color(0xFF059669)),
+  _BizCard('loading-invoice',    'Loading + Invoice',  'Convert loaded pipes to invoices', 'Logistics', Icons.receipt_outlined,              Color(0xFF2563EB)),
   _BizCard('transport-report',   'Transport Report',   'Vehicle trip summary',          'Logistics',  Icons.bar_chart_outlined,            Color(0xFF2563EB)),
 ];
 

@@ -16354,8 +16354,8 @@ class LoadingInvoiceScreen extends ConsumerStatefulWidget {
 }
 
 class _LoadingInvoiceScreenState extends ConsumerState<LoadingInvoiceScreen> {
-  static const _color     = Color(0xFF059669);
-  static const _colorDark = Color(0xFF065F46);
+  static const _color     = Color(0xFF2563EB);
+  static const _colorDark = Color(0xFF1E40AF);
 
   List<dynamic> _records = [];
   bool _loading = true;
@@ -16766,8 +16766,8 @@ class _LoadingRecordEditSheet extends StatefulWidget {
 }
 
 class _LoadingRecordEditSheetState extends State<_LoadingRecordEditSheet> {
-  static const _color     = Color(0xFF059669);
-  static const _colorDark = Color(0xFF065F46);
+  static const _color     = Color(0xFF2563EB);
+  static const _colorDark = Color(0xFF1E40AF);
 
   late DateTime _date;
   late TextEditingController _pipeCtrl;
@@ -17157,7 +17157,7 @@ class _ConvertToInvoiceSheet extends StatefulWidget {
 }
 
 class _ConvertToInvoiceSheetState extends State<_ConvertToInvoiceSheet> {
-  static const _color = Color(0xFF059669);
+  static const _color = Color(0xFF2563EB);
 
   String _gstType      = 'none';
   String _paymentTerms = 'immediate';
