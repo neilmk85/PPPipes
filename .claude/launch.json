@@ -12,7 +12,7 @@
     {
       "name": "website",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "/Users/nilesh/development/Website", "-p", "4200", "-s"],
+      "runtimeArgs": ["serve", "/Users/nilesh/development/Website", "-p", "4200"],
       "port": 4200
     }
   ]
