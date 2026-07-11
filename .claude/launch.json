@@ -8,6 +8,12 @@
       "cwd": "/Users/nilesh/development/PPPipesProducts/web",
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "website",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "/Users/nilesh/development/Website", "-p", "4200", "-s"],
+      "port": 4200
     }
   ]
 }
