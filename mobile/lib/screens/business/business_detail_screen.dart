@@ -5009,11 +5009,18 @@ class _SiloCard extends StatelessWidget {
               children: [
                 Text('Total', style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 2),
-                Text(
-                  total > 0 ? total.toStringAsFixed(2) : '—',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+                RichText(
+                  text: TextSpan(children: [
+                    TextSpan(
+                      text: total > 0 ? _fmtQty(total) : '—',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+                    ),
+                    if (total > 0) TextSpan(
+                      text: ' MT',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color.withOpacity(0.7)),
+                    ),
+                  ]),
                 ),
-                Text('MT', style: TextStyle(fontSize: 10, color: color.withOpacity(0.7), fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(_fmtDate(item.date),
                     style: const TextStyle(fontSize: 11, color: Colors.grey)),
@@ -5039,7 +5046,7 @@ class _SiloCard extends StatelessWidget {
                     runSpacing: 4,
                     children: silos.map((s) => _SiloChip(
                       label: s['label'] as String,
-                      value: (s['value'] as double).toStringAsFixed(2),
+                      value: s['value'] as double,
                       unit: s['unit'] as String,
                       color: color,
                     )).toList(),
@@ -5065,7 +5072,7 @@ class _SiloCard extends StatelessWidget {
 
 class _SiloChip extends StatelessWidget {
   final String label;
-  final String value;
+  final double value;
   final String unit;
   final Color color;
   const _SiloChip({required this.label, required this.value, required this.unit, required this.color});
@@ -5083,7 +5090,7 @@ class _SiloChip extends StatelessWidget {
         children: [
           Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
           const SizedBox(height: 1),
-          Text('$value $unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87)),
+          Text('${_fmtQty(value)} $unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87)),
         ],
       ),
     );
@@ -5146,6 +5153,11 @@ String _fmtDate(String dateStr) {
   } catch (_) {
     return dateStr;
   }
+}
+
+String _fmtQty(double v) {
+  if (v == v.truncateToDouble()) return v.toInt().toString();
+  return v.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '');
 }
 
 class _FieldDef {
