@@ -15341,10 +15341,6 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   bool _submitting = false;
   // Coating-only: sand mix selection
   String _sandType = 'plaster'; // 'plaster' | 'crushed'
-  // Demoulding-only: bed type selection
-  String _bedType = 'SMALL_BED'; // 'SMALL_BED' | 'LARGE_BED' | 'EXTRA_LARGE_BED'
-  // True when all selected orders are 6.5m pipes — forces LARGE_BED
-  bool _bedTypeLocked = false;
   // Cache of pipeConfigId → COATING materials (fetched lazily for COATING stage)
   final Map<int, List<dynamic>> _coatingMaterials = {};
   // Cache of pipeConfigId → FABRICATION materials
@@ -15537,24 +15533,7 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           }
         });
       }
-      _recalcBedLock();
     });
-  }
-
-  // Recalculate whether bed type should be locked to LARGE_BED because a 6.5m
-  // pipe order is selected. Called whenever _selected changes.
-  void _recalcBedLock() {
-    if (widget.stageType != 'DEMOULDING' || _selected.isEmpty) {
-      _bedTypeLocked = false;
-      return;
-    }
-    final has65m = _selected.keys.any((id) {
-      final order = _orders.firstWhere((o) => o['id'] == id, orElse: () => {});
-      final length = (order['pipeConfig']?['lengthM'] ?? order['lengthM'] ?? 5.25) as num;
-      return length >= 6.5;
-    });
-    _bedTypeLocked = has65m;
-    if (has65m) _bedType = 'LARGE_BED';
   }
 
   Widget _sandToggleBtn(String type, String label) {
@@ -15575,38 +15554,6 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: active ? Colors.white : Colors.grey[600],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _bedTypeBtn(String value, String label) {
-    final active = _bedType == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _bedType = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 7),
-          decoration: BoxDecoration(
-            gradient: active
-                ? const LinearGradient(
-                    colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: active ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12, fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              color: active ? Colors.white : Colors.grey[600],
-            ),
           ),
         ),
       ),
@@ -15786,7 +15733,6 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           'pipesCompleted': completed,
           'pipesRejected': processed - completed,
           'entryDate': dateStr,
-          if (widget.stageType == 'DEMOULDING') 'bedType': _bedType,
           if (entry.notesCtrl.text.trim().isNotEmpty)
             'notes': entry.notesCtrl.text.trim(),
         };
@@ -15983,57 +15929,6 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                   ]),
                 ),
               ),
-            ]),
-          ),
-          const SizedBox(height: 10),
-        ],
-        // Bed type selector (DEMOULDING only)
-        if (widget.stageType == 'DEMOULDING') ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Text('Bed Type', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A2E))),
-                if (_bedTypeLocked) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orange[50],
-                      borderRadius: BorderRadius.circular(5),
-                      border: Border.all(color: Colors.orange[300]!),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.lock_outline, size: 10, color: Colors.orange[700]),
-                      const SizedBox(width: 3),
-                      Text('6.5m pipe — Large Bed required', style: TextStyle(fontSize: 10, color: Colors.orange[700], fontWeight: FontWeight.w600)),
-                    ]),
-                  ),
-                ],
-                const SizedBox(width: 12),
-                Expanded(
-                  child: IgnorePointer(
-                    ignoring: _bedTypeLocked,
-                    child: Opacity(
-                      opacity: _bedTypeLocked ? 0.5 : 1.0,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(children: [
-                          _bedTypeBtn('SMALL_BED', 'Small Bed'),
-                          const SizedBox(width: 3),
-                          _bedTypeBtn('LARGE_BED', 'Large Bed'),
-                          const SizedBox(width: 3),
-                          _bedTypeBtn('EXTRA_LARGE_BED', 'Extra Large'),
-                        ]),
-                      ),
-                    ),
-                  ),
-                ),
-              ]),
             ]),
           ),
           const SizedBox(height: 10),
