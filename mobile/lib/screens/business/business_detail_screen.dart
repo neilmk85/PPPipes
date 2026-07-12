@@ -7059,10 +7059,31 @@ class _LabourScreenState extends State<LabourScreen> {
             ),
       bottomNavigationBar: _buildFloatingNav(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEdit(),
-        backgroundColor: _color,
+        onPressed: _showOT ? () => _showStandaloneOTSheet() : () => _showAddEdit(),
+        backgroundColor: _showOT ? const Color(0xFF7C3AED) : _color,
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _showStandaloneOTSheet() {
+    final contractors = _items
+        .map((e) => e['contractorName']?.toString() ?? '')
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _StandaloneOTSheet(
+        contractorSuggestions: contractors,
+        onSubmit: (data) async {
+          await ApiService().createLabourEntry(data);
+          _load();
+        },
       ),
     );
   }
@@ -8039,6 +8060,329 @@ class _LabourOTSheetState extends State<_LabourOTSheet> {
         borderSide: BorderSide(color: Colors.grey.shade200)),
     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: _amber)),
+    errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.red)),
+    focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.red)),
+  );
+}
+
+// ─── Standalone OT Sheet ─────────────────────────────────────────────────────
+
+class _StandaloneOTSheet extends StatefulWidget {
+  final List<String> contractorSuggestions;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+  const _StandaloneOTSheet({required this.contractorSuggestions, required this.onSubmit});
+  @override
+  State<_StandaloneOTSheet> createState() => _StandaloneOTSheetState();
+}
+
+class _StandaloneOTSheetState extends State<_StandaloneOTSheet> {
+  static const _purple = Color(0xFF7C3AED);
+
+  late DateTime _date;
+  final _contractorCtrl = TextEditingController();
+  final _hoursCtrl      = TextEditingController();
+  final _countCtrl      = TextEditingController();
+  final _rateCtrl       = TextEditingController();
+  bool _submitting      = false;
+  bool _showSuggestions = false;
+  String? _errContractor, _errHours, _errCount;
+
+  List<String> get _filtered {
+    final q = _contractorCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return widget.contractorSuggestions.take(6).toList();
+    return widget.contractorSuggestions
+        .where((n) => n.toLowerCase().contains(q))
+        .take(6)
+        .toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _date = DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    _contractorCtrl.dispose();
+    _hoursCtrl.dispose();
+    _countCtrl.dispose();
+    _rateCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: _purple)),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _submit() async {
+    final contractor = _contractorCtrl.text.trim();
+    final hours = double.tryParse(_hoursCtrl.text.trim()) ?? 0;
+    final count = int.tryParse(_countCtrl.text.trim()) ?? 0;
+    bool hasErr = false;
+    setState(() {
+      _errContractor = contractor.isEmpty ? 'Required' : null;
+      _errHours = hours <= 0 ? 'Required' : null;
+      _errCount = count <= 0 ? 'Required' : null;
+      hasErr = contractor.isEmpty || hours <= 0 || count <= 0;
+    });
+    if (hasErr) return;
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit({
+        'date': DateFormat('yyyy-MM-dd').format(_date),
+        'contractorName': contractor,
+        'labourCount': count,
+        'ratePerDay': '',
+        'overtimeHours': _hoursCtrl.text.trim(),
+        'overtimeLabourCount': count,
+        'overtimeRatePerHour': _rateCtrl.text.trim(),
+        'notes': '',
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (err) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $err')));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = double.tryParse(_hoursCtrl.text) ?? 0;
+    final c = int.tryParse(_countCtrl.text) ?? 0;
+    final r = double.tryParse(_rateCtrl.text) ?? 0;
+    final totalHrs  = h > 0 && c > 0 ? h * c : 0.0;
+    final totalCost = totalHrs > 0 && r > 0 ? totalHrs * r : 0.0;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        top: false,
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF7C3AED), Color(0xFF4338CA)]),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: Row(children: [
+              const Icon(Icons.access_time, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Add OT Entry',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                  Text('Record contractor overtime',
+                      style: TextStyle(fontSize: 11, color: Colors.white70)),
+                ]),
+              ),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Icon(Icons.close, color: Colors.white70, size: 20),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+
+                _lbl('DATE'),
+                GestureDetector(
+                  onTap: _pickDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade200),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.shade50,
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.calendar_today_outlined, size: 15, color: Colors.grey.shade500),
+                      const SizedBox(width: 10),
+                      Text(DateFormat('dd MMM yyyy').format(_date),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                _lbl('CONTRACTOR NAME *'),
+                TextField(
+                  controller: _contractorCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  autofocus: true,
+                  onChanged: (_) => setState(() {
+                    _errContractor = null;
+                    _showSuggestions = true;
+                  }),
+                  onTap: () => setState(() => _showSuggestions = true),
+                  decoration: _iDeco(hint: 'Enter contractor / agency name', err: _errContractor),
+                ),
+                if (_showSuggestions && _filtered.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))],
+                    ),
+                    child: Column(
+                      children: _filtered.map((name) => InkWell(
+                        onTap: () => setState(() {
+                          _contractorCtrl.text = name;
+                          _showSuggestions = false;
+                          _errContractor = null;
+                        }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          child: Row(children: [
+                            const Icon(Icons.people_outline, size: 14, color: Color(0xFF94A3B8)),
+                            const SizedBox(width: 8),
+                            Text(name, style: const TextStyle(fontSize: 13)),
+                          ]),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('OT HOURS *'),
+                    TextField(
+                      controller: _hoursCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() => _errHours = null),
+                      decoration: _iDeco(hint: 'e.g. 2.5', err: _errHours),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('0.5 = 30 mins', style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+                  ])),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    _lbl('NO. OF LABOURS *'),
+                    TextField(
+                      controller: _countCtrl,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => setState(() => _errCount = null),
+                      decoration: _iDeco(hint: '0', err: _errCount),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Who worked OT', style: TextStyle(fontSize: 9, color: Colors.grey.shade400)),
+                  ])),
+                ]),
+                const SizedBox(height: 14),
+
+                _lbl('RATE / HOUR / LABOUR (OPTIONAL)'),
+                TextField(
+                  controller: _rateCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  decoration: _iDeco(hint: '₹ 0.00'),
+                ),
+
+                if (totalHrs > 0) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Column(children: [
+                      Row(children: [
+                        const Icon(Icons.access_time, size: 13, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 6),
+                        const Text('OT Summary',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF5B21B6), fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Text('${totalHrs.toStringAsFixed(1)} labour-hrs',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B21B6))),
+                        Text(' ($c × ${h}h)',
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF8B5CF6))),
+                      ]),
+                      if (totalCost > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(children: [
+                          const Text('OT Cost',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF5B21B6), fontWeight: FontWeight.w600)),
+                          const Spacer(),
+                          Text('₹${totalCost.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF5B21B6))),
+                        ]),
+                      ],
+                    ]),
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _submitting ? null : _submit,
+                    icon: _submitting
+                        ? const SizedBox(width: 14, height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.access_time, size: 16),
+                    label: const Text('Add OT Entry',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _purple,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _lbl(String t) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(t,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+            color: Colors.grey.shade400, letterSpacing: 1.2)),
+  );
+
+  InputDecoration _iDeco({required String hint, String? err}) => InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+    errorText: err,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    filled: true,
+    fillColor: Colors.grey.shade50,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade200)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade200)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: _purple)),
     errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Colors.red)),
     focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
