@@ -49,23 +49,34 @@ function SiloCard({ stat, accent, stageLabel, StageIcon }: SiloCardProps) {
       <div className={`relative overflow-hidden px-5 py-4 bg-gradient-to-br ${accent.from} ${accent.to}`}>
         <div className="pointer-events-none absolute inset-0 opacity-[0.07]"
           style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '18px 18px' }} />
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
-              <Cylinder size={18} className="text-white" />
+        <div className="relative flex items-center justify-between gap-2">
+          {/* Left: icon + stage */}
+          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
+              <Cylinder size={16} className="text-white" />
             </div>
-            <div>
-              <p className="text-base font-extrabold text-white leading-tight">{stat.label}</p>
-              <div className={`mt-0.5 inline-flex items-center gap-1 text-[10px] font-semibold ${accent.badge} px-2 py-0.5 rounded-full`}>
-                <StageIcon size={9} />
-                {stageLabel}
-              </div>
+            <div className={`inline-flex items-center gap-1 text-[9px] font-semibold ${accent.badge} px-1.5 py-0.5 rounded-full whitespace-nowrap`}>
+              <StageIcon size={8} />
+              {stageLabel.replace(/ \(Silo \d\)/, '')}
             </div>
           </div>
-          {isShort
-            ? <AlertTriangle size={18} className="text-white/80 animate-pulse" />
-            : <CheckCircle2 size={18} className="text-white/60" />
-          }
+          {/* Centre: S1 / S2 / S3 */}
+          <div className="flex-1 flex justify-center">
+            <p className="text-4xl font-black text-white/90 tracking-tight leading-none">
+              S{stat.siloNumber}
+            </p>
+          </div>
+          {/* Right: total filled + alert */}
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <div className="text-right">
+              <p className="text-[9px] font-semibold text-white/60 uppercase tracking-widest leading-none mb-0.5">Total</p>
+              <p className="text-sm font-extrabold text-white tabular-nums leading-tight">{fmtMT(filled, 1)}</p>
+            </div>
+            {isShort
+              ? <AlertTriangle size={14} className="text-white/80 animate-pulse" />
+              : <CheckCircle2 size={14} className="text-white/60" />
+            }
+          </div>
         </div>
       </div>
 

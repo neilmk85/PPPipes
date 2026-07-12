@@ -3652,16 +3652,18 @@ class _VehicleItem {
   String rateType; // 'per_day' | 'per_hour'
   double quantity;
   double rate;
-  _VehicleItem({this.enabled = false, this.rateType = 'per_day', this.quantity = 0, this.rate = 0});
+  String vendor;
+  _VehicleItem({this.enabled = false, this.rateType = 'per_day', this.quantity = 0, this.rate = 0, this.vendor = ''});
 
   factory _VehicleItem.fromJson(Map<String, dynamic> j) => _VehicleItem(
         enabled: j['enabled'] == true,
         rateType: j['rateType'] ?? 'per_day',
         quantity: (j['quantity'] as num?)?.toDouble() ?? 0,
         rate: (j['rate'] as num?)?.toDouble() ?? 0,
+        vendor: j['vendor']?.toString() ?? '',
       );
 
-  Map<String, dynamic> toJson() => {'enabled': enabled, 'rateType': rateType, 'quantity': quantity, 'rate': rate};
+  Map<String, dynamic> toJson() => {'enabled': enabled, 'rateType': rateType, 'quantity': quantity, 'rate': rate, 'vendor': vendor};
   double get amount => enabled ? quantity * rate : 0;
 }
 
@@ -4132,37 +4134,45 @@ class _ExtraVehicleSheet extends StatefulWidget {
 
 class _ExtraVehicleSheetState extends State<_ExtraVehicleSheet> {
   late DateTime _date;
-  late TextEditingController _vendorCtrl;
   late TextEditingController _notesCtrl;
   late Map<String, _VehicleItem> _vehicles;
   bool _saving = false;
-  bool _showSuggestions = false;
 
   final Map<String, TextEditingController> _qtyCtrl = {};
   final Map<String, TextEditingController> _rateCtrl = {};
+  final Map<String, TextEditingController> _vendorCtrls = {};
+  final Map<String, bool> _showVendorSuggestions = {};
 
   @override
   void initState() {
     super.initState();
     final init = widget.initial;
     _date = init != null ? DateTime.tryParse(init.date) ?? DateTime.now() : DateTime.now();
-    _vendorCtrl = TextEditingController(text: init?.vendor ?? '');
     _notesCtrl = TextEditingController(text: init?.notes ?? '');
     _vehicles = init != null
-        ? {for (final k in _vehicleKeys) k: _VehicleItem(enabled: init.vehicles[k]?.enabled ?? false, rateType: init.vehicles[k]?.rateType ?? 'per_day', quantity: init.vehicles[k]?.quantity ?? 0, rate: init.vehicles[k]?.rate ?? 0)}
+        ? {for (final k in _vehicleKeys) k: _VehicleItem(
+            enabled: init.vehicles[k]?.enabled ?? false,
+            rateType: init.vehicles[k]?.rateType ?? 'per_day',
+            quantity: init.vehicles[k]?.quantity ?? 0,
+            rate: init.vehicles[k]?.rate ?? 0,
+            vendor: init.vehicles[k]?.vendor ?? '',
+          )}
         : _emptyVehicleMap();
     for (final k in _vehicleKeys) {
       final v = _vehicles[k]!;
       _qtyCtrl[k] = TextEditingController(text: v.quantity > 0 ? (v.quantity % 1 == 0 ? v.quantity.toInt().toString() : v.quantity.toString()) : '');
       _rateCtrl[k] = TextEditingController(text: v.rate > 0 ? v.rate.toStringAsFixed(2) : '');
+      _vendorCtrls[k] = TextEditingController(text: v.vendor);
+      _showVendorSuggestions[k] = false;
     }
   }
 
   @override
   void dispose() {
-    _vendorCtrl.dispose(); _notesCtrl.dispose();
+    _notesCtrl.dispose();
     for (final c in _qtyCtrl.values) c.dispose();
     for (final c in _rateCtrl.values) c.dispose();
+    for (final c in _vendorCtrls.values) c.dispose();
     super.dispose();
   }
 
@@ -4172,26 +4182,35 @@ class _ExtraVehicleSheetState extends State<_ExtraVehicleSheet> {
   }
 
   Future<void> _submit() async {
-    if (_vendorCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a vendor name')));
-      return;
-    }
     final anyEnabled = _vehicleKeys.any((k) => _vehicles[k]!.enabled);
     if (!anyEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enable at least one vehicle')));
       return;
     }
+    // Validate vendor per enabled vehicle
+    for (final k in _vehicleKeys) {
+      if (_vehicles[k]!.enabled && _vendorCtrls[k]!.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please enter a vendor for ${_vehicleLabels[k] ?? k}')));
+        return;
+      }
+    }
     // sync text controllers to model
     for (final k in _vehicleKeys) {
       _vehicles[k]!.quantity = double.tryParse(_qtyCtrl[k]!.text.trim()) ?? 0;
       _vehicles[k]!.rate = double.tryParse(_rateCtrl[k]!.text.trim()) ?? 0;
+      _vehicles[k]!.vendor = _vendorCtrls[k]!.text.trim();
     }
     setState(() => _saving = true);
     try {
       final vehicleJson = {for (final k in _vehicleKeys) k: _vehicles[k]!.toJson()};
+      // Use first active vehicle's vendor for the top-level field (backward compat)
+      final firstVendor = _vehicleKeys
+          .where((k) => _vehicles[k]!.enabled)
+          .map((k) => _vehicles[k]!.vendor)
+          .firstWhere((v) => v.isNotEmpty, orElse: () => '');
       await widget.onSubmit({
         'date': DateFormat('yyyy-MM-dd').format(_date),
-        'vendor': _vendorCtrl.text.trim(),
+        'vendor': firstVendor,
         'vehicles': jsonEncode(vehicleJson),
         'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       });
@@ -4202,8 +4221,8 @@ class _ExtraVehicleSheetState extends State<_ExtraVehicleSheet> {
     }
   }
 
-  List<String> get _filteredSuggestions {
-    final q = _vendorCtrl.text.trim().toLowerCase();
+  List<String> _filteredSugsForKey(String k) {
+    final q = _vendorCtrls[k]!.text.trim().toLowerCase();
     final all = widget.vendorSuggestions;
     return q.isEmpty ? all : all.where((s) => s.toLowerCase().contains(q)).toList();
   }
@@ -4239,27 +4258,6 @@ class _ExtraVehicleSheetState extends State<_ExtraVehicleSheet> {
                         child: Text(DateFormat('dd MMM yyyy').format(_date)),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    // Vendor with autocomplete
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      TextField(
-                        controller: _vendorCtrl,
-                        decoration: const InputDecoration(labelText: 'Vendor *', border: OutlineInputBorder()),
-                        onChanged: (_) => setState(() => _showSuggestions = true),
-                        onTap: () => setState(() => _showSuggestions = true),
-                      ),
-                      if (_showSuggestions && _filteredSuggestions.isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.only(top: 2),
-                          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(8), color: Colors.white,
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8)]),
-                          constraints: const BoxConstraints(maxHeight: 150),
-                          child: ListView(shrinkWrap: true, children: _filteredSuggestions.map((s) => ListTile(
-                            dense: true, title: Text(s, style: const TextStyle(fontSize: 13)),
-                            onTap: () { _vendorCtrl.text = s; setState(() => _showSuggestions = false); },
-                          )).toList()),
-                        ),
-                    ]),
                     const SizedBox(height: 16),
                     const Text('Vehicles', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.grey)),
                     const SizedBox(height: 8),
@@ -4302,33 +4300,69 @@ class _ExtraVehicleSheetState extends State<_ExtraVehicleSheet> {
                           // Fields (when enabled)
                           if (v.enabled) Padding(
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                            child: Row(children: [
-                              // Rate type
-                              Expanded(flex: 2, child: DropdownButtonFormField<String>(
-                                value: v.rateType,
-                                decoration: const InputDecoration(labelText: 'Rate Type', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                                items: const [
-                                  DropdownMenuItem(value: 'per_day', child: Text('Per Day', style: TextStyle(fontSize: 13))),
-                                  DropdownMenuItem(value: 'per_hour', child: Text('Per Hour', style: TextStyle(fontSize: 13))),
-                                ],
-                                onChanged: (val) => setState(() => v.rateType = val ?? 'per_day'),
-                              )),
-                              const SizedBox(width: 8),
-                              // Quantity
-                              Expanded(child: TextField(
-                                controller: _qtyCtrl[k],
-                                decoration: const InputDecoration(labelText: 'Qty', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                onChanged: (_) => setState(() {}),
-                              )),
-                              const SizedBox(width: 8),
-                              // Rate
-                              Expanded(child: TextField(
-                                controller: _rateCtrl[k],
-                                decoration: const InputDecoration(labelText: 'Rate ₹', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                onChanged: (_) => setState(() {}),
-                              )),
+                            child: Column(children: [
+                              // Vendor field with autocomplete
+                              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                TextField(
+                                  controller: _vendorCtrls[k],
+                                  decoration: const InputDecoration(
+                                    labelText: 'Vendor *',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                    isDense: true,
+                                  ),
+                                  onChanged: (_) => setState(() => _showVendorSuggestions[k] = true),
+                                  onTap: () => setState(() => _showVendorSuggestions[k] = true),
+                                ),
+                                if ((_showVendorSuggestions[k] ?? false) && _filteredSugsForKey(k).isNotEmpty)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 2),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade200),
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: Colors.white,
+                                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8)],
+                                    ),
+                                    constraints: const BoxConstraints(maxHeight: 130),
+                                    child: ListView(shrinkWrap: true, children: _filteredSugsForKey(k).map((s) => ListTile(
+                                      dense: true,
+                                      title: Text(s, style: const TextStyle(fontSize: 13)),
+                                      onTap: () {
+                                        _vendorCtrls[k]!.text = s;
+                                        setState(() => _showVendorSuggestions[k] = false);
+                                      },
+                                    )).toList()),
+                                  ),
+                              ]),
+                              const SizedBox(height: 8),
+                              Row(children: [
+                                // Rate type
+                                Expanded(flex: 2, child: DropdownButtonFormField<String>(
+                                  value: v.rateType,
+                                  decoration: const InputDecoration(labelText: 'Rate Type', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                                  items: const [
+                                    DropdownMenuItem(value: 'per_day', child: Text('Per Day', style: TextStyle(fontSize: 13))),
+                                    DropdownMenuItem(value: 'per_hour', child: Text('Per Hour', style: TextStyle(fontSize: 13))),
+                                  ],
+                                  onChanged: (val) => setState(() => v.rateType = val ?? 'per_day'),
+                                )),
+                                const SizedBox(width: 8),
+                                // Quantity
+                                Expanded(child: TextField(
+                                  controller: _qtyCtrl[k],
+                                  decoration: const InputDecoration(labelText: 'Qty', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  onChanged: (_) => setState(() {}),
+                                )),
+                                const SizedBox(width: 8),
+                                // Rate
+                                Expanded(child: TextField(
+                                  controller: _rateCtrl[k],
+                                  decoration: const InputDecoration(labelText: 'Rate ₹', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  onChanged: (_) => setState(() {}),
+                                )),
+                              ]),
                             ]),
                           ),
                         ]),
@@ -8404,7 +8438,7 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
 
   bool _loadingData = true;
   List<Map<String, dynamic>> _items = [];
-  List<Map<String, dynamic>> _products = [];
+  List<String> _allItemNames = [];
   bool _showSearch = false;
   String _search = '';
   final _searchCtrl = TextEditingController();
@@ -8421,7 +8455,7 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
     _to = DateTime.now();
     _from = _to.subtract(const Duration(days: 29));
     _load();
-    _loadProducts();
+    _loadAllItemNames();
   }
 
   @override
@@ -8444,10 +8478,18 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
     if (mounted) setState(() => _loadingData = false);
   }
 
-  Future<void> _loadProducts() async {
+  Future<void> _loadAllItemNames() async {
     try {
-      final data = await ApiService().getProductsRaw(size: 1000);
-      if (mounted) setState(() => _products = data);
+      final data = await ApiService().getStoreRoomMaterials();
+      if (!mounted) return;
+      final seen = <String>{};
+      final names = data
+          .cast<Map<String, dynamic>>()
+          .map((e) => e['itemName']?.toString() ?? '')
+          .where((n) => n.isNotEmpty && seen.add(n.toLowerCase()))
+          .toList()
+        ..sort();
+      setState(() => _allItemNames = names);
     } catch (_) {}
   }
 
@@ -8518,7 +8560,7 @@ class _StoreMaterialScreenState extends State<StoreMaterialScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _StoreMaterialSheet(
         initial: editing,
-        products: _products,
+        itemSuggestions: _allItemNames,
         onSubmit: (data) async {
           if (editing != null) {
             await ApiService().updateStoreRoomMaterial(_toI(editing['id']), data);
@@ -8967,10 +9009,10 @@ class _StoreMaterialCard extends StatelessWidget {
 
 class _StoreMaterialSheet extends StatefulWidget {
   final Map<String, dynamic>? initial;
-  final List<Map<String, dynamic>> products;
+  final List<String> itemSuggestions;
   final Future<void> Function(Map<String, dynamic>) onSubmit;
 
-  const _StoreMaterialSheet({this.initial, required this.products, required this.onSubmit});
+  const _StoreMaterialSheet({this.initial, required this.itemSuggestions, required this.onSubmit});
 
   @override
   State<_StoreMaterialSheet> createState() => _StoreMaterialSheetState();
@@ -8990,7 +9032,7 @@ class _StoreMaterialSheetState extends State<_StoreMaterialSheet> {
   String? _errItem;
   String? _errQty;
   bool _showProductList = false;
-  List<Map<String, dynamic>> _filteredProducts = [];
+  List<String> _filteredSuggestions = [];
 
   bool get _isEdit => widget.initial != null;
 
@@ -9015,7 +9057,7 @@ class _StoreMaterialSheetState extends State<_StoreMaterialSheet> {
       _qtyCtrl.text = qty == qty.truncateToDouble() ? qty.toStringAsFixed(0) : qty.toStringAsFixed(2);
       _notesCtrl.text = e['notes']?.toString() ?? '';
     }
-    _filteredProducts = widget.products;
+    _filteredSuggestions = widget.itemSuggestions;
   }
 
   @override
@@ -9028,18 +9070,16 @@ class _StoreMaterialSheetState extends State<_StoreMaterialSheet> {
 
   void _filterProducts(String q) {
     setState(() {
-      _showProductList = q.trim().isNotEmpty;
-      _filteredProducts = q.trim().isEmpty
-          ? widget.products
-          : widget.products.where((p) => (p['name'] ?? '').toString().toLowerCase().contains(q.toLowerCase())).toList();
+      _showProductList = true;
+      _filteredSuggestions = q.trim().isEmpty
+          ? widget.itemSuggestions
+          : widget.itemSuggestions.where((n) => n.toLowerCase().contains(q.toLowerCase())).toList();
     });
   }
 
-  void _selectProduct(Map<String, dynamic> p) {
+  void _selectItem(String name) {
     setState(() {
-      _itemCtrl.text = p['name']?.toString() ?? '';
-      _uom = p['unitOfMeasure']?.toString() ?? '';
-      _itemType = p['itemType']?.toString() ?? 'GENERAL';
+      _itemCtrl.text = name;
       _showProductList = false;
       _errItem = null;
     });
@@ -9132,6 +9172,7 @@ class _StoreMaterialSheetState extends State<_StoreMaterialSheet> {
                 TextField(
                   controller: _itemCtrl,
                   style: const TextStyle(fontSize: 14),
+                  onTap: () => _filterProducts(_itemCtrl.text),
                   onChanged: (v) {
                     _filterProducts(v);
                     if (_errItem != null) setState(() => _errItem = null);
@@ -9154,7 +9195,7 @@ class _StoreMaterialSheetState extends State<_StoreMaterialSheet> {
                         : null,
                   ),
                 ),
-                if (_showProductList && _filteredProducts.isNotEmpty) ...[
+                if (_showProductList && _filteredSuggestions.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Container(
                     constraints: const BoxConstraints(maxHeight: 200),
@@ -9168,19 +9209,17 @@ class _StoreMaterialSheetState extends State<_StoreMaterialSheet> {
                       borderRadius: BorderRadius.circular(10),
                       child: ListView.builder(
                         shrinkWrap: true,
-                        itemCount: _filteredProducts.length > 8 ? 8 : _filteredProducts.length,
+                        itemCount: _filteredSuggestions.length > 8 ? 8 : _filteredSuggestions.length,
                         itemBuilder: (_, i) {
-                          final p = _filteredProducts[i];
-                          final name = p['name']?.toString() ?? '';
-                          final uom = p['unitOfMeasure']?.toString() ?? '';
+                          final name = _filteredSuggestions[i];
                           return InkWell(
-                            onTap: () => _selectProduct(p),
+                            onTap: () => _selectItem(name),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               child: Row(children: [
+                                const Icon(Icons.inventory_2_outlined, size: 14, color: Color(0xFF7C3AED)),
+                                const SizedBox(width: 8),
                                 Expanded(child: Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
-                                if (uom.isNotEmpty)
-                                  Text(uom, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                               ]),
                             ),
                           );
