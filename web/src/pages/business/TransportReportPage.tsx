@@ -222,11 +222,31 @@ interface CustomerSummary {
 // ── Vendor breakdown card ─────────────────────────────────────────────────────
 
 function VendorCard({ vs, expanded, onToggle }: { vs: VendorSummary; expanded: boolean; onToggle: () => void }) {
+  const [selectedTruck, setSelectedTruck] = useState<string | null>(null)
 
-  // Group trips by site
+  // Group trips by truck (always from full list, for the chip strip)
+  const byTruck = useMemo(() => {
+    const map = new Map<string, { truck: string; trips: number; pipes: number; amount: number }>()
+    vs.trips_list.forEach(t => {
+      const key = t.vehicleNo || '—'
+      if (!map.has(key)) map.set(key, { truck: key, trips: 0, pipes: 0, amount: 0 })
+      const tk = map.get(key)!
+      tk.trips++
+      tk.pipes += t.quantity
+      tk.amount += t.totalAmount
+    })
+    return Array.from(map.values()).sort((a, b) => b.trips - a.trips)
+  }, [vs.trips_list])
+
+  // Active trips — filtered by selected truck
+  const activeTrips = useMemo(() =>
+    selectedTruck ? vs.trips_list.filter(t => t.vehicleNo === selectedTruck) : vs.trips_list,
+  [vs.trips_list, selectedTruck])
+
+  // Group active trips by site
   const bySite = useMemo(() => {
     const map = new Map<string, { site: string; trips: Trip[]; totalPipes: number }>()
-    vs.trips_list.forEach(t => {
+    activeTrips.forEach(t => {
       const key = t.siteAddress || 'Unknown Site'
       if (!map.has(key)) map.set(key, { site: key, trips: [], totalPipes: 0 })
       const s = map.get(key)!
@@ -234,20 +254,11 @@ function VendorCard({ vs, expanded, onToggle }: { vs: VendorSummary; expanded: b
       s.totalPipes += t.quantity
     })
     return Array.from(map.values()).sort((a, b) => b.trips.length - a.trips.length)
-  }, [vs.trips_list])
+  }, [activeTrips])
 
-  // Group trips by truck
-  const byTruck = useMemo(() => {
-    const map = new Map<string, { truck: string; trips: number; pipes: number }>()
-    vs.trips_list.forEach(t => {
-      const key = t.vehicleNo || '—'
-      if (!map.has(key)) map.set(key, { truck: key, trips: 0, pipes: 0 })
-      const tk = map.get(key)!
-      tk.trips++
-      tk.pipes += t.quantity
-    })
-    return Array.from(map.values()).sort((a, b) => b.trips - a.trips)
-  }, [vs.trips_list])
+  const selectedTruckData = selectedTruck ? byTruck.find(tk => tk.truck === selectedTruck) : null
+  const activePipes  = activeTrips.reduce((s, t) => s + t.quantity, 0)
+  const activeAmount = activeTrips.reduce((s, t) => s + t.totalAmount, 0)
 
   return (
     <div className="bg-white rounded-2xl ring-1 ring-gray-100 shadow-[0_4px_20px_rgba(0,0,0,0.06)] overflow-hidden">
@@ -299,19 +310,75 @@ function VendorCard({ vs, expanded, onToggle }: { vs: VendorSummary; expanded: b
         <>
           {/* ── Truck-wise summary strip ── */}
           <div className="px-5 py-3 bg-violet-50/80 border-b border-violet-100">
-            <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest mb-2">Truck-wise Summary</p>
-            <div className="flex flex-wrap gap-2">
-              {byTruck.map(tk => (
-                <div key={tk.truck} className="flex items-center gap-2 bg-white rounded-lg px-3 py-1.5 border border-violet-100 shadow-sm">
-                  <Truck size={12} className="text-violet-400 flex-shrink-0" />
-                  <span className="text-xs font-bold text-gray-800">{tk.truck}</span>
-                  <span className="text-[10px] text-gray-400">·</span>
-                  <span className="text-[10px] text-gray-500">{tk.trips} trip{tk.trips !== 1 ? 's' : ''}</span>
-                  <span className="text-[10px] text-gray-400">·</span>
-                  <span className="text-[10px] text-gray-500">{tk.pipes} pipes</span>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest">Truck-wise Summary</p>
+              {selectedTruck && (
+                <button
+                  onClick={() => setSelectedTruck(null)}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-violet-500 hover:text-violet-700 bg-white border border-violet-200 px-2 py-0.5 rounded-full transition-colors"
+                >
+                  <X size={10} /> Clear filter
+                </button>
+              )}
             </div>
+            <div className="flex flex-wrap gap-2">
+              {byTruck.map(tk => {
+                const isActive = selectedTruck === tk.truck
+                return (
+                  <button
+                    key={tk.truck}
+                    onClick={() => setSelectedTruck(isActive ? null : tk.truck)}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 border shadow-sm transition-all text-left ${
+                      isActive
+                        ? 'bg-violet-600 border-violet-600 text-white shadow-violet-200'
+                        : 'bg-white border-violet-100 hover:border-violet-300 hover:bg-violet-50'
+                    }`}
+                  >
+                    <Truck size={12} className={isActive ? 'text-white/80' : 'text-violet-400'} />
+                    <span className={`text-xs font-bold ${isActive ? 'text-white' : 'text-gray-800'}`}>{tk.truck}</span>
+                    <span className={`text-[10px] ${isActive ? 'text-white/60' : 'text-gray-400'}`}>·</span>
+                    <span className={`text-[10px] ${isActive ? 'text-white/80' : 'text-gray-500'}`}>{tk.trips} trip{tk.trips !== 1 ? 's' : ''}</span>
+                    <span className={`text-[10px] ${isActive ? 'text-white/60' : 'text-gray-400'}`}>·</span>
+                    <span className={`text-[10px] ${isActive ? 'text-white/80' : 'text-gray-500'}`}>{tk.pipes} pipes</span>
+                    {tk.amount > 0 && (
+                      <>
+                        <span className={`text-[10px] ${isActive ? 'text-white/60' : 'text-gray-400'}`}>·</span>
+                        <span className={`text-[10px] font-semibold tabular-nums ${isActive ? 'text-white' : 'text-violet-600'}`}>{fmt(tk.amount)}</span>
+                      </>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Selected truck summary banner */}
+            {selectedTruckData && (
+              <div className="mt-3 bg-violet-600 rounded-xl px-4 py-3 flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
+                  <Truck size={16} className="text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-white">{selectedTruckData.truck}</p>
+                  <p className="text-[10px] text-violet-200 mt-0.5">Showing trips for this truck only</p>
+                </div>
+                <div className="flex gap-5 text-right">
+                  <div>
+                    <p className="text-sm font-extrabold text-white tabular-nums">{selectedTruckData.trips}</p>
+                    <p className="text-[10px] text-violet-200">trips</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-extrabold text-white tabular-nums">{selectedTruckData.pipes}</p>
+                    <p className="text-[10px] text-violet-200">pipes</p>
+                  </div>
+                  {selectedTruckData.amount > 0 && (
+                    <div>
+                      <p className="text-sm font-extrabold text-amber-300 tabular-nums">{fmt(selectedTruckData.amount)}</p>
+                      <p className="text-[10px] text-violet-200">payable</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Site-by-site breakdown ── */}
@@ -337,6 +404,7 @@ function VendorCard({ vs, expanded, onToggle }: { vs: VendorSummary; expanded: b
                       <th className="text-left px-5 py-2.5 font-semibold text-gray-900 uppercase tracking-wider text-xs w-36">Truck No</th>
                       <th className="text-left px-5 py-2.5 font-semibold text-gray-900 uppercase tracking-wider text-xs">Pipe Name</th>
                       <th className="text-center px-5 py-2.5 font-semibold text-gray-900 uppercase tracking-wider text-xs w-16">Qty</th>
+                      <th className="text-right px-5 py-2.5 font-semibold text-gray-900 uppercase tracking-wider text-xs w-28">Rate</th>
                       <th className="text-left px-5 py-2.5 font-semibold text-gray-900 uppercase tracking-wider text-xs">Destination</th>
                       <th className="text-right px-5 py-2.5 font-semibold text-gray-900 uppercase tracking-wider text-xs w-28">Date</th>
                     </tr>
@@ -354,6 +422,11 @@ function VendorCard({ vs, expanded, onToggle }: { vs: VendorSummary; expanded: b
                         <td className="px-5 py-3 text-center">
                           <span className="inline-block bg-gray-100 text-gray-800 font-bold text-[11px] px-2 py-0.5 rounded-md min-w-[28px] text-center">{t.quantity}</span>
                         </td>
+                        <td className="px-5 py-3 text-right whitespace-nowrap tabular-nums">
+                          {t.transportRate
+                            ? <span className="text-violet-700 font-semibold">₹{t.transportRate}<span className="text-gray-400 font-normal text-[10px]">/{t.rateType === 'per_trip' ? 'trip' : 'pipe'}</span></span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
                         <td className="px-5 py-3 text-gray-500 max-w-[200px]">
                           <span className="truncate block" title={t.siteAddress}>{t.siteAddress || '—'}</span>
                         </td>
@@ -370,10 +443,14 @@ function VendorCard({ vs, expanded, onToggle }: { vs: VendorSummary; expanded: b
 
           {/* Sub-total footer */}
           <div className="flex items-center justify-between px-5 py-2.5 border-t-2 border-violet-200 bg-violet-50">
-            <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">Sub-total</span>
+            <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">
+              {selectedTruck ? `${selectedTruck} — Subtotal` : 'Sub-total'}
+            </span>
             <div className="flex items-center gap-6">
-              <span className="text-xs text-gray-600">{vs.trips} trips · <strong>{vs.totalPipes}</strong> pipes</span>
-              <span className="text-sm font-extrabold text-gray-900 tabular-nums">{fmt(vs.totalAmount)}</span>
+              <span className="text-xs text-gray-600">
+                {activeTrips.length} trips · <strong>{activePipes}</strong> pipes
+              </span>
+              <span className="text-sm font-extrabold text-gray-900 tabular-nums">{fmt(activeAmount)}</span>
             </div>
           </div>
         </>
