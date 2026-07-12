@@ -5003,18 +5003,17 @@ class _SiloCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            // Left: icon + date
+            // Left: total MT
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Icon(Icons.storage_outlined, color: color, size: 18),
+                Text('Total', style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(
+                  total > 0 ? total.toStringAsFixed(2) : '—',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
                 ),
+                Text('MT', style: TextStyle(fontSize: 10, color: color.withOpacity(0.7), fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(_fmtDate(item.date),
                     style: const TextStyle(fontSize: 11, color: Colors.grey)),
@@ -5048,34 +5047,15 @@ class _SiloCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Right: total + optional edit button
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (onEdit != null)
-                  GestureDetector(
-                    onTap: onEdit,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Icon(Icons.edit_outlined, size: 14, color: color),
-                    ),
-                  ),
-                if (onEdit != null && total > 0) const SizedBox(height: 6),
-                if (total > 0) ...[
-                  Text('Total', style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text(
-                    total.toStringAsFixed(2),
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
-                  ),
-                  Text('MT', style: TextStyle(fontSize: 10, color: color.withOpacity(0.7), fontWeight: FontWeight.w600)),
-                ],
-              ],
-            ),
+            // Right: pencil (same-day only)
+            if (onEdit != null)
+              IconButton(
+                onPressed: onEdit,
+                icon: Icon(Icons.edit_outlined, size: 18, color: color.withOpacity(0.6)),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                splashRadius: 18,
+              ),
           ],
         ),
       ),
