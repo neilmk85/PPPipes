@@ -1609,7 +1609,7 @@ export default function LoadingPage() {
   const emptyForm = {
     vehicleNo: '', date: fmtDate(today), notes: '',
     driverName: '', driverContact: '', vendor: '', siteAddress: '', customerName: '',
-    transportRate: '', rateType: 'per_pipe',  // per_pipe | per_trip
+    transportRate: '', rateType: 'per_trip',  // per_pipe | per_trip
   }
   const [form, setForm] = useState(emptyForm)
 
