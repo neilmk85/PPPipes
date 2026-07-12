@@ -148,7 +148,8 @@ function PipeConfigPicker({ onAdd }: { onAdd: (pc: any) => void }) {
     return (
       String(c.diameterMm).includes(q) ||
       (c.pressureClass ?? '').toLowerCase().includes(q) ||
-      (c.name ?? '').toLowerCase().includes(q)
+      (c.name ?? '').toLowerCase().includes(q) ||
+      String(c.lengthM ?? '').includes(q)
     )
   })
 
@@ -174,7 +175,7 @@ function PipeConfigPicker({ onAdd }: { onAdd: (pc: any) => void }) {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">
-                      {pc.diameterMm}mm · {pc.pressureClass}
+                      {pc.diameterMm}mm · {pc.pressureClass} · {pc.lengthM ?? 5.25}m
                     </p>
                     <p className="text-xs text-gray-400">{pc.name ?? `${pc.diameterMm}mm ${pc.pressureClass}`}</p>
                   </div>
@@ -525,7 +526,7 @@ export default function CreateSalesOrderPage() {
                     <div>
                       <p className="text-sm font-semibold text-gray-900">{item.productName}</p>
                       {item.type === 'pipe'
-                        ? <p className="text-[11px] text-amber-600 font-medium mt-0.5">{item.diameterMm}mm · {item.pressureClass}</p>
+                        ? <p className="text-[11px] text-amber-600 font-medium mt-0.5">{item.diameterMm}mm · {item.pressureClass} · {item.lengthM ?? 5.25}m</p>
                         : <p className="text-[11px] text-gray-400 mt-0.5">{item.sku}</p>
                       }
                       {item.type === 'pipe' && (item.meters ?? 0) > 0 && item.unitPrice > 0 && (
