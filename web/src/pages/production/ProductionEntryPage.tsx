@@ -649,7 +649,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
               <span className="opacity-50">·</span>
               <span className="font-mono">{order.poNumber}</span>
               <span className="ml-1 bg-amber-400/20 border border-amber-300/30 text-amber-200 font-semibold px-1.5 py-0.5 rounded-full text-[10px]">
-                {Math.max(0, order.plannedQty - order.finishedPipes)} due
+                {(() => { const dueQ = Math.max(0, order.plannedQty - order.finishedPipes); const dueM = dueQ * (order.lengthM ?? 5.25); return `${dueM}m / ${dueQ} qty due`; })()}
               </span>
             </p>
           </div>

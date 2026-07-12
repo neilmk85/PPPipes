@@ -171,7 +171,7 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 	if err != nil {
 		return nil, err
 	}
-	if req.PipesProcessed > priorInfo.PipesCompleted {
+	if priorInfo != nil && req.PipesProcessed > priorInfo.PipesCompleted {
 		return nil, &util.BusinessException{
 			StatusCode: 400,
 			Message: fmt.Sprintf("pipesProcessed (%d) exceeds prior stage (%s) completed (%d)",
