@@ -4958,79 +4958,96 @@ class _SiloCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(Icons.storage_outlined, color: color, size: 20),
+            // Left: icon + date
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(Icons.storage_outlined, color: color, size: 18),
+                ),
+                const SizedBox(height: 4),
+                Text(_fmtDate(item.date),
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+              ],
             ),
             const SizedBox(width: 12),
+            // Centre: S1 / S2 / S3 labels with values
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(item.siloName ?? 'Silo Entry',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(_fmtDate(item.date),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   if (item.notes != null && item.notes!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
                     Text(item.notes!,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 6),
                   ],
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: silos.map((s) => _SiloChip(
+                      label: s['label'] as String,
+                      value: (s['value'] as double).toStringAsFixed(2),
+                      unit: s['unit'] as String,
+                      color: color,
+                    )).toList(),
+                  ),
                 ],
               ),
             ),
-            if (silos.isNotEmpty || total > 0)
+            // Right: total
+            if (total > 0) ...[
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  ...silos.map((s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.10),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(s['label'] as String,
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${(s['value'] as double).toStringAsFixed(2)} ${s['unit']}',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  )),
-                  if (silos.length > 1) ...[
-                    const SizedBox(height: 2),
-                    Container(
-                      height: 1,
-                      width: 90,
-                      color: Colors.grey.withOpacity(0.25),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${total.toStringAsFixed(2)} MT',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
-                    ),
-                  ] else if (silos.isEmpty && total > 0)
-                    Text(
-                      '${total.toStringAsFixed(2)} MT',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
-                    ),
+                  Text('Total', style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(
+                    total.toStringAsFixed(2),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+                  ),
+                  Text('MT', style: TextStyle(fontSize: 10, color: color.withOpacity(0.7), fontWeight: FontWeight.w600)),
                 ],
               ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SiloChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final String unit;
+  final Color color;
+  const _SiloChip({required this.label, required this.value, required this.unit, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: color)),
+          const SizedBox(height: 1),
+          Text('$value $unit', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87)),
+        ],
       ),
     );
   }
