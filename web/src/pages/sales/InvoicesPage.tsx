@@ -521,8 +521,8 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
       const payload = {
         outletId,
         customerId: selectedCustomer?.id ?? undefined,
-        issueDate,
-        dueDate: paymentTerms !== 'DUE_ON_RECEIPT' ? dueDate : undefined,
+        issueDate: issueDate ? `${issueDate}T00:00:00Z` : undefined,
+        dueDate: paymentTerms !== 'DUE_ON_RECEIPT' && dueDate ? `${dueDate}T00:00:00Z` : undefined,
         paymentTerms,
         billDiscountPct: billDiscPct > 0 ? billDiscPct : undefined,
         poNumber: poNumber || undefined,
