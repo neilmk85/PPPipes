@@ -34,53 +34,38 @@ type SalesSummaryResponse struct {
 func (rs *ReportService) SalesSummary(outletId int, from, to time.Time) (SalesSummaryResponse, error) {
 	var res SalesSummaryResponse
 
-	// Get all orders in period
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND created_at >= ? AND created_at <= ?", outletId, from, to).
-		Preload("Items").Find(&orders).Error; err != nil {
+	activeStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE", "PAID"}
+	var invoices []models.Invoice
+	if err := rs.db.Where("outlet_id = ? AND status IN ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, activeStatuses, from.Format("2006-01-02"), to.Format("2006-01-02")).
+		Find(&invoices).Error; err != nil {
 		return res, err
 	}
 
-	// Separate by status
-	var completed, cancelled, refunded []models.Order
-	for _, o := range orders {
-		switch o.Status {
-		case "COMPLETED":
-			completed = append(completed, o)
-		case "CANCELLED":
-			cancelled = append(cancelled, o)
-		case "REFUNDED":
-			refunded = append(refunded, o)
-		}
-	}
-
-	// Calculate totals from completed orders
 	totalRevenue := decimal.Zero
 	totalDiscount := decimal.Zero
 	totalTax := decimal.Zero
-	totalCost := decimal.Zero
+	cancelledCount := 0
 
-	for _, order := range completed {
-		totalRevenue = totalRevenue.Add(order.TotalAmount)
-		totalDiscount = totalDiscount.Add(order.DiscountAmount)
-		totalTax = totalTax.Add(order.TaxAmount)
-
-		// Calculate cost from items
-		for _, item := range order.Items {
-			if item.CostPrice != nil {
-				cost := item.CostPrice.Mul(item.Quantity)
-				totalCost = totalCost.Add(cost)
-			}
-		}
+	for _, inv := range invoices {
+		totalRevenue = totalRevenue.Add(inv.TotalAmount)
+		totalDiscount = totalDiscount.Add(inv.DiscountAmount).Add(inv.BillDiscountAmt)
+		totalTax = totalTax.Add(inv.TaxAmount)
 	}
+
+	var cancelledInvoices []models.Invoice
+	rs.db.Where("outlet_id = ? AND status = ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, "CANCELLED", from.Format("2006-01-02"), to.Format("2006-01-02")).
+		Find(&cancelledInvoices)
+	cancelledCount = len(cancelledInvoices)
 
 	res.TotalRevenue = totalRevenue
 	res.TotalDiscount = totalDiscount
 	res.TotalTax = totalTax
-	res.GrossProfit = totalRevenue.Sub(totalCost)
-	res.TotalOrders = len(completed)
-	res.CancelledOrders = len(cancelled)
-	res.ReturnedOrders = len(refunded)
+	res.GrossProfit = totalRevenue.Sub(totalDiscount)
+	res.TotalOrders = len(invoices)
+	res.CancelledOrders = cancelledCount
+	res.ReturnedOrders = 0
 
 	if res.TotalOrders > 0 {
 		res.AvgOrderValue = totalRevenue.Div(decimal.NewFromInt(int64(res.TotalOrders))).Round(2)
@@ -97,21 +82,29 @@ type TopProduct struct {
 }
 
 func (rs *ReportService) TopProducts(outletId int, from, to time.Time, limit int) ([]TopProduct, error) {
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
-		Preload("Items").Find(&orders).Error; err != nil {
+	activeStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE", "PAID"}
+	var invoices []models.Invoice
+	if err := rs.db.Where("outlet_id = ? AND status IN ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, activeStatuses, from.Format("2006-01-02"), to.Format("2006-01-02")).
+		Preload("Items").Find(&invoices).Error; err != nil {
 		return nil, err
 	}
 
-	productMap := make(map[int]*TopProduct)
-	for _, order := range orders {
-		for _, item := range order.Items {
-			key := item.ProductID
+	productMap := make(map[string]*TopProduct)
+	for _, inv := range invoices {
+		for _, item := range inv.Items {
+			key := item.ProductName
+			if key == "" {
+				key = "Unknown"
+			}
 			if _, exists := productMap[key]; !exists {
+				pid := 0
+				if item.ProductID != nil {
+					pid = *item.ProductID
+				}
 				productMap[key] = &TopProduct{
-					ProductID:     item.ProductID,
-					ProductName:   item.ProductName,
+					ProductID:     pid,
+					ProductName:   key,
 					TotalQuantity: decimal.Zero,
 					TotalRevenue:  decimal.Zero,
 				}
@@ -126,7 +119,6 @@ func (rs *ReportService) TopProducts(outletId int, from, to time.Time, limit int
 		result = append(result, *p)
 	}
 
-	// Sort by revenue descending
 	for i := 0; i < len(result)-1; i++ {
 		for j := i + 1; j < len(result); j++ {
 			if result[j].TotalRevenue.GreaterThan(result[i].TotalRevenue) {
@@ -148,26 +140,8 @@ type PaymentMethodBreakdown struct {
 }
 
 func (rs *ReportService) PaymentMethods(outletId int, from, to time.Time) ([]PaymentMethodBreakdown, error) {
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
-		Preload("Payments").Find(&orders).Error; err != nil {
-		return nil, err
-	}
-
-	breakdown := make(map[string]decimal.Decimal)
-	for _, order := range orders {
-		for _, payment := range order.Payments {
-			breakdown[string(payment.PaymentMethod)] = breakdown[string(payment.PaymentMethod)].Add(payment.Amount)
-		}
-	}
-
-	result := make([]PaymentMethodBreakdown, 0, len(breakdown))
-	for method, amount := range breakdown {
-		result = append(result, PaymentMethodBreakdown{method, amount})
-	}
-
-	return result, nil
+	// B2B invoices use credit terms; no per-invoice payment method tracking.
+	return []PaymentMethodBreakdown{}, nil
 }
 
 type DailySalesTrend struct {
@@ -176,16 +150,18 @@ type DailySalesTrend struct {
 }
 
 func (rs *ReportService) DailyTrend(outletId int, from, to time.Time) ([]DailySalesTrend, error) {
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).Find(&orders).Error; err != nil {
+	activeStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE", "PAID"}
+	var invoices []models.Invoice
+	if err := rs.db.Where("outlet_id = ? AND status IN ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, activeStatuses, from.Format("2006-01-02"), to.Format("2006-01-02")).
+		Find(&invoices).Error; err != nil {
 		return nil, err
 	}
 
 	dailySales := make(map[string]decimal.Decimal)
-	for _, order := range orders {
-		date := order.CreatedAt.Format("2006-01-02")
-		dailySales[date] = dailySales[date].Add(order.TotalAmount)
+	for _, inv := range invoices {
+		date := inv.IssueDate.Format("2006-01-02")
+		dailySales[date] = dailySales[date].Add(inv.TotalAmount)
 	}
 
 	result := make([]DailySalesTrend, 0, len(dailySales))
@@ -193,7 +169,6 @@ func (rs *ReportService) DailyTrend(outletId int, from, to time.Time) ([]DailySa
 		result = append(result, DailySalesTrend{date, revenue})
 	}
 
-	// Sort by date
 	for i := 0; i < len(result)-1; i++ {
 		for j := i + 1; j < len(result); j++ {
 			if result[j].Date < result[i].Date {
@@ -213,16 +188,17 @@ type CategorySalesReport struct {
 }
 
 func (rs *ReportService) SalesByCategory(outletId int, from, to time.Time) ([]CategorySalesReport, error) {
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
-		Preload("Items.Product.Category").Find(&orders).Error; err != nil {
+	activeStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE", "PAID"}
+	var invoices []models.Invoice
+	if err := rs.db.Where("outlet_id = ? AND status IN ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, activeStatuses, from.Format("2006-01-02"), to.Format("2006-01-02")).
+		Preload("Items.Product.Category").Find(&invoices).Error; err != nil {
 		return nil, err
 	}
 
 	catMap := make(map[string]*CategorySalesReport)
-	for _, order := range orders {
-		for _, item := range order.Items {
+	for _, inv := range invoices {
+		for _, item := range inv.Items {
 			catName := "Uncategorised"
 			if item.Product != nil && item.Product.Category != nil {
 				catName = item.Product.Category.Name
@@ -236,9 +212,11 @@ func (rs *ReportService) SalesByCategory(outletId int, from, to time.Time) ([]Ca
 					TotalDiscount: decimal.Zero,
 				}
 			}
+			gross := item.UnitPrice.Mul(item.Quantity)
+			discount := gross.Mul(item.DiscountPercent).Div(decimal.NewFromInt(100))
 			catMap[catName].TotalQuantity = catMap[catName].TotalQuantity.Add(item.Quantity)
 			catMap[catName].TotalRevenue = catMap[catName].TotalRevenue.Add(item.LineTotal)
-			catMap[catName].TotalDiscount = catMap[catName].TotalDiscount.Add(item.DiscountAmount)
+			catMap[catName].TotalDiscount = catMap[catName].TotalDiscount.Add(discount)
 		}
 	}
 
@@ -247,7 +225,6 @@ func (rs *ReportService) SalesByCategory(outletId int, from, to time.Time) ([]Ca
 		result = append(result, *cat)
 	}
 
-	// Sort by revenue descending
 	for i := 0; i < len(result)-1; i++ {
 		for j := i + 1; j < len(result); j++ {
 			if result[j].TotalRevenue.GreaterThan(result[i].TotalRevenue) {
@@ -272,26 +249,34 @@ type ProductSalesReport struct {
 }
 
 func (rs *ReportService) SalesByProduct(outletId int, from, to time.Time, page, size int) ([]ProductSalesReport, error) {
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
-		Preload("Items.Product.Category").Find(&orders).Error; err != nil {
+	activeStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE", "PAID"}
+	var invoices []models.Invoice
+	if err := rs.db.Where("outlet_id = ? AND status IN ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, activeStatuses, from.Format("2006-01-02"), to.Format("2006-01-02")).
+		Preload("Items.Product.Category").Find(&invoices).Error; err != nil {
 		return nil, err
 	}
 
-	prodMap := make(map[int]*ProductSalesReport)
-	for _, order := range orders {
-		for _, item := range order.Items {
-			key := item.ProductID
+	prodMap := make(map[string]*ProductSalesReport)
+	for _, inv := range invoices {
+		for _, item := range inv.Items {
+			key := item.ProductName
+			if key == "" {
+				key = "Unknown"
+			}
 			if _, exists := prodMap[key]; !exists {
 				catName := "Uncategorised"
 				if item.Product != nil && item.Product.Category != nil {
 					catName = item.Product.Category.Name
 				}
+				pid := 0
+				if item.ProductID != nil {
+					pid = *item.ProductID
+				}
 				prodMap[key] = &ProductSalesReport{
-					ProductID:     item.ProductID,
-					ProductName:   item.ProductName,
-					SKU:           derefStr(item.SKU),
+					ProductID:     pid,
+					ProductName:   key,
+					SKU:           derefStr(item.ProductSKU),
 					Category:      catName,
 					TotalQuantity: decimal.Zero,
 					TotalRevenue:  decimal.Zero,
@@ -300,14 +285,13 @@ func (rs *ReportService) SalesByProduct(outletId int, from, to time.Time, page, 
 					TotalTax:      decimal.Zero,
 				}
 			}
+			gross := item.UnitPrice.Mul(item.Quantity)
+			discount := gross.Mul(item.DiscountPercent).Div(decimal.NewFromInt(100))
+			tax := item.LineTotal.Mul(item.TaxRate).Div(decimal.NewFromInt(100))
 			prodMap[key].TotalQuantity = prodMap[key].TotalQuantity.Add(item.Quantity)
 			prodMap[key].TotalRevenue = prodMap[key].TotalRevenue.Add(item.LineTotal)
-			prodMap[key].TotalDiscount = prodMap[key].TotalDiscount.Add(item.DiscountAmount)
-			prodMap[key].TotalTax = prodMap[key].TotalTax.Add(item.TaxAmount)
-			if item.CostPrice != nil {
-				cost := item.CostPrice.Mul(item.Quantity)
-				prodMap[key].TotalCost = prodMap[key].TotalCost.Add(cost)
-			}
+			prodMap[key].TotalDiscount = prodMap[key].TotalDiscount.Add(discount)
+			prodMap[key].TotalTax = prodMap[key].TotalTax.Add(tax)
 		}
 	}
 
@@ -316,7 +300,6 @@ func (rs *ReportService) SalesByProduct(outletId int, from, to time.Time, page, 
 		result = append(result, *prod)
 	}
 
-	// Sort by revenue descending
 	for i := 0; i < len(result)-1; i++ {
 		for j := i + 1; j < len(result); j++ {
 			if result[j].TotalRevenue.GreaterThan(result[i].TotalRevenue) {
@@ -339,28 +322,29 @@ type CustomerSalesReport struct {
 }
 
 func (rs *ReportService) SalesByCustomer(outletId int, from, to time.Time, page, size int) ([]CustomerSalesReport, error) {
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
-		Preload("Customer").Find(&orders).Error; err != nil {
+	activeStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE", "PAID"}
+	var invoices []models.Invoice
+	if err := rs.db.Where("outlet_id = ? AND status IN ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, activeStatuses, from.Format("2006-01-02"), to.Format("2006-01-02")).
+		Preload("Customer").Find(&invoices).Error; err != nil {
 		return nil, err
 	}
 
 	custMap := make(map[int]*CustomerSalesReport)
-	for _, order := range orders {
-		if order.CustomerID == nil || order.Customer == nil {
+	for _, inv := range invoices {
+		if inv.CustomerID == nil || inv.Customer == nil {
 			continue
 		}
 
-		key := *order.CustomerID
+		key := *inv.CustomerID
 		if _, exists := custMap[key]; !exists {
 			phone := ""
-			if order.Customer.Phone != nil {
-				phone = *order.Customer.Phone
+			if inv.Customer.Phone != nil {
+				phone = *inv.Customer.Phone
 			}
 			custMap[key] = &CustomerSalesReport{
 				CustomerID:    key,
-				CustomerName:  order.Customer.Name,
+				CustomerName:  inv.Customer.Name,
 				Phone:         phone,
 				OrderCount:    0,
 				TotalSpend:    0,
@@ -369,8 +353,8 @@ func (rs *ReportService) SalesByCustomer(outletId int, from, to time.Time, page,
 			}
 		}
 		custMap[key].OrderCount++
-		custMap[key].TotalSpend += order.TotalAmount.InexactFloat64()
-		custMap[key].TotalDiscount += order.DiscountAmount.InexactFloat64()
+		custMap[key].TotalSpend += inv.TotalAmount.InexactFloat64()
+		custMap[key].TotalDiscount += inv.DiscountAmount.Add(inv.BillDiscountAmt).InexactFloat64()
 	}
 
 	result := make([]CustomerSalesReport, 0, len(custMap))
@@ -381,7 +365,6 @@ func (rs *ReportService) SalesByCustomer(outletId int, from, to time.Time, page,
 		result = append(result, *cust)
 	}
 
-	// Sort by spend descending
 	for i := 0; i < len(result)-1; i++ {
 		for j := i + 1; j < len(result); j++ {
 			if result[j].TotalSpend > result[i].TotalSpend {
@@ -394,39 +377,35 @@ func (rs *ReportService) SalesByCustomer(outletId int, from, to time.Time, page,
 }
 
 func (rs *ReportService) ExportSalesCSV(outletId int, from, to time.Time) (string, error) {
-	var orders []models.Order
-	if err := rs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
+	activeStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE", "PAID"}
+	var invoices []models.Invoice
+	if err := rs.db.Where("outlet_id = ? AND status IN ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, activeStatuses, from.Format("2006-01-02"), to.Format("2006-01-02")).
 		Preload("Items").
-		Preload("Payments").
-		Preload("Customer").Find(&orders).Error; err != nil {
+		Preload("Customer").Find(&invoices).Error; err != nil {
 		return "", err
 	}
 
 	var sb strings.Builder
-	sb.WriteString("Date,Order Number,Customer,Items,Subtotal,Discount,Tax,Total,Payment Method\n")
+	sb.WriteString("Date,Invoice Number,Customer,Status,Items,Subtotal,Discount,Tax,Total,Paid\n")
 
-	for _, order := range orders {
+	for _, inv := range invoices {
 		customer := ""
-		if order.Customer != nil {
-			customer = order.Customer.Name
-		}
-		itemCount := len(order.Items)
-		methods := make([]string, 0)
-		for _, p := range order.Payments {
-			methods = append(methods, string(p.PaymentMethod))
+		if inv.Customer != nil {
+			customer = inv.Customer.Name
 		}
 
-		sb.WriteString(fmt.Sprintf("%s,%s,\"%s\",%d,%s,%s,%s,%s,\"%s\"\n",
-			order.CreatedAt.Format("2006-01-02"),
-			order.OrderNumber,
+		sb.WriteString(fmt.Sprintf("%s,%s,\"%s\",%s,%d,%s,%s,%s,%s,%s\n",
+			inv.IssueDate.Format("2006-01-02"),
+			inv.InvoiceNumber,
 			customer,
-			itemCount,
-			order.Subtotal.String(),
-			order.DiscountAmount.String(),
-			order.TaxAmount.String(),
-			order.TotalAmount.String(),
-			strings.Join(methods, "+"),
+			string(inv.Status),
+			len(inv.Items),
+			inv.Subtotal.String(),
+			inv.DiscountAmount.Add(inv.BillDiscountAmt).String(),
+			inv.TaxAmount.String(),
+			inv.TotalAmount.String(),
+			inv.PaidAmount.String(),
 		))
 	}
 
@@ -982,7 +961,7 @@ type DebtorLedgerRow struct {
 
 func (rs *ReportService) DebtorsLedger(outletId int) ([]DebtorLedgerRow, error) {
 	var invoices []models.Invoice
-	statuses := []string{"SENT", "PARTIAL", "OVERDUE"}
+	statuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE"}
 	if err := rs.db.Where("outlet_id = ? AND status IN ? AND customer_id IS NOT NULL", outletId, statuses).
 		Preload("Customer").
 		Order("issue_date ASC").Find(&invoices).Error; err != nil {
