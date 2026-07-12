@@ -1659,7 +1659,7 @@ class _SiloScreenState extends State<SiloScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
-    final totalExtracted = filtered.fold<double>(0, (s, e) => s + (e.extracted ?? 0));
+    final totalExtracted = filtered.fold<double>(0, (s, e) => s + (e.totalMt > 0 ? e.totalMt : (e.extracted ?? 0)));
 
     return Scaffold(
       body: CustomScrollView(
@@ -1743,14 +1743,13 @@ class _SiloScreenState extends State<SiloScreen> {
                             itemCount: filtered.length,
                             itemBuilder: (_, i) {
                               final item = filtered[i];
+                              final qty = item.displayQty;
                               return _BizCard(
                                 icon: Icons.storage_outlined,
                                 color: _color,
                                 title: item.siloName ?? 'Silo Entry',
-                                subtitle: item.extracted != null
-                                    ? '${item.extracted!.toStringAsFixed(1)} MT'
-                                    : _fmtDate(item.date),
-                                notes: item.notes,
+                                subtitle: _fmtDate(item.date),
+                                notes: qty.isNotEmpty ? qty : item.notes,
                               );
                             },
                           ),
@@ -1822,9 +1821,13 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
 
   Future<void> _save() async {
     const names = ['Silo 1', 'Silo 2', 'Silo 3'];
-    final entries = <Map<String, dynamic>>[];
+    const keys  = ['silo1Value', 'silo2Value', 'silo3Value'];
+    const unitKeys = ['silo1Unit', 'silo2Unit', 'silo3Unit'];
+
+    bool anySelected = false;
     for (var i = 0; i < 3; i++) {
       if (!_checked[i]) continue;
+      anySelected = true;
       final amt = double.tryParse(_amountCtrls[i].text.trim()) ?? 0;
       if (amt <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1832,23 +1835,29 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
         );
         return;
       }
-      entries.add({
-        'siloName': names[i],
-        'extractedAmount': amt,
-        'unit': widget.isExtraction ? _uoms[i] : 'MT',
-        'notes': _notesCtrl.text.trim(),
-        'date': DateFormat('yyyy-MM-dd').format(_date),
-      });
     }
-    if (entries.isEmpty) {
+    if (!anySelected) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select at least one silo')),
       );
       return;
     }
+
+    final payload = <String, dynamic>{
+      'date': DateFormat('yyyy-MM-dd').format(_date),
+      'notes': _notesCtrl.text.trim(),
+    };
+    for (var i = 0; i < 3; i++) {
+      if (!_checked[i]) continue;
+      final amt = double.tryParse(_amountCtrls[i].text.trim()) ?? 0;
+      final unit = widget.isExtraction ? _uoms[i] : 'MT';
+      payload[keys[i]] = amt.toString();
+      payload[unitKeys[i]] = unit;
+    }
+
     setState(() => _saving = true);
     try {
-      for (final e in entries) await ApiService().createSiloEntry(e);
+      await ApiService().createSiloEntry(payload);
       if (mounted) { Navigator.pop(context); widget.onSaved(); }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));

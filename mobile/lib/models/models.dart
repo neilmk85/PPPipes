@@ -813,6 +813,12 @@ class SiloEntry {
   final double? currentLevel;
   final double? extracted;
   final String? notes;
+  final double silo1Value;
+  final String silo1Unit;
+  final double silo2Value;
+  final String silo2Unit;
+  final double silo3Value;
+  final String silo3Unit;
 
   const SiloEntry({
     required this.id,
@@ -821,7 +827,25 @@ class SiloEntry {
     this.currentLevel,
     this.extracted,
     this.notes,
+    this.silo1Value = 0,
+    this.silo1Unit = 'MT',
+    this.silo2Value = 0,
+    this.silo2Unit = 'MT',
+    this.silo3Value = 0,
+    this.silo3Unit = 'MT',
   });
+
+  double get totalMt => silo1Value + silo2Value + silo3Value;
+
+  String get displayQty {
+    final parts = <String>[];
+    if (silo1Value > 0) parts.add('S1: ${silo1Value.toStringAsFixed(2)} $silo1Unit');
+    if (silo2Value > 0) parts.add('S2: ${silo2Value.toStringAsFixed(2)} $silo2Unit');
+    if (silo3Value > 0) parts.add('S3: ${silo3Value.toStringAsFixed(2)} $silo3Unit');
+    if (parts.isNotEmpty) return parts.join('  ');
+    if (extracted != null && extracted! > 0) return '${extracted!.toStringAsFixed(2)} MT';
+    return '';
+  }
 
   factory SiloEntry.fromJson(Map<String, dynamic> json) => SiloEntry(
         id: p.i(json['id']),
@@ -830,5 +854,11 @@ class SiloEntry {
         currentLevel: p.dOrNull(json['currentLevel']),
         extracted: p.dOrNull(json['extractedAmount'] ?? json['extracted']),
         notes: json['notes'],
+        silo1Value: p.d(json['silo1Value']),
+        silo1Unit: json['silo1Unit'] ?? 'MT',
+        silo2Value: p.d(json['silo2Value']),
+        silo2Unit: json['silo2Unit'] ?? 'MT',
+        silo3Value: p.d(json['silo3Value']),
+        silo3Unit: json['silo3Unit'] ?? 'MT',
       );
 }
