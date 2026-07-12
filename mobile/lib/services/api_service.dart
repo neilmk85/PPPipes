@@ -709,6 +709,11 @@ class ApiService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateSiloEntry(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/silo-extractions/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
   // ---- PDI ----
   Future<List<dynamic>> getPdiEntries({String? from, String? to, int size = 500}) async {
     final params = <String, dynamic>{'size': size};

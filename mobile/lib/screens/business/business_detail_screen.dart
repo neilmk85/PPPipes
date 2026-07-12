@@ -1743,7 +1743,13 @@ class _SiloScreenState extends State<SiloScreen> {
                             itemCount: filtered.length,
                             itemBuilder: (_, i) {
                               final item = filtered[i];
-                              return _SiloCard(item: item, color: _color);
+                              final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                              final isToday = item.date.startsWith(today);
+                              return _SiloCard(
+                                item: item,
+                                color: _color,
+                                onEdit: isToday ? () => _showEdit(context, item) : null,
+                              );
                             },
                           ),
                   ),
@@ -1764,6 +1770,19 @@ class _SiloScreenState extends State<SiloScreen> {
       ),
     );
   }
+
+  void _showEdit(BuildContext context, SiloEntry entry) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SiloEntrySheet(
+        isExtraction: widget.isExtraction,
+        onSaved: _load,
+        editing: entry,
+      ),
+    );
+  }
 }
 
 // ── Silo Entry Sheet ──────────────────────────────────────────────────────────
@@ -1771,7 +1790,8 @@ class _SiloScreenState extends State<SiloScreen> {
 class _SiloEntrySheet extends StatefulWidget {
   final bool isExtraction;
   final VoidCallback onSaved;
-  const _SiloEntrySheet({required this.onSaved, this.isExtraction = false});
+  final SiloEntry? editing;
+  const _SiloEntrySheet({required this.onSaved, this.isExtraction = false, this.editing});
   @override
   State<_SiloEntrySheet> createState() => _SiloEntrySheetState();
 }
@@ -1780,12 +1800,27 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
   static const _violet     = Color(0xFF7C3AED);
   static const _violetDark = Color(0xFF4C1D95);
 
-  DateTime _date = DateTime.now();
-  final _checked     = [false, false, false];
-  final _amountCtrls = List.generate(3, (_) => TextEditingController());
-  final _uoms        = ['MT', 'MT', 'MT'];
+  late DateTime _date;
+  late final List<bool> _checked;
+  late final List<TextEditingController> _amountCtrls;
+  late final List<String> _uoms;
   final _notesCtrl   = TextEditingController();
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.editing;
+    _date = e != null ? (DateTime.tryParse(e.date.split('T').first) ?? DateTime.now()) : DateTime.now();
+    _checked = [e != null && e.silo1Value > 0, e != null && e.silo2Value > 0, e != null && e.silo3Value > 0];
+    _amountCtrls = [
+      TextEditingController(text: e != null && e.silo1Value > 0 ? e.silo1Value.toStringAsFixed(2) : ''),
+      TextEditingController(text: e != null && e.silo2Value > 0 ? e.silo2Value.toStringAsFixed(2) : ''),
+      TextEditingController(text: e != null && e.silo3Value > 0 ? e.silo3Value.toStringAsFixed(2) : ''),
+    ];
+    _uoms = [e?.silo1Unit ?? 'MT', e?.silo2Unit ?? 'MT', e?.silo3Unit ?? 'MT'];
+    if (e?.notes != null) _notesCtrl.text = e!.notes!;
+  }
 
   @override
   void dispose() {
@@ -1850,7 +1885,11 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
 
     setState(() => _saving = true);
     try {
-      await ApiService().createSiloEntry(payload);
+      if (widget.editing != null) {
+        await ApiService().updateSiloEntry(widget.editing!.id, payload);
+      } else {
+        await ApiService().createSiloEntry(payload);
+      }
       if (mounted) { Navigator.pop(context); widget.onSaved(); }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -1885,7 +1924,9 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
               child: Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(widget.isExtraction ? 'New Silo Extraction' : 'New Silo Entry',
+                    Text(widget.editing != null
+                        ? (widget.isExtraction ? 'Edit Silo Extraction' : 'Edit Silo Entry')
+                        : (widget.isExtraction ? 'New Silo Extraction' : 'New Silo Entry'),
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
                     const SizedBox(height: 4),
                     GestureDetector(
@@ -4937,7 +4978,8 @@ class _ConversionSheetState extends State<_ConversionSheet> {
 class _SiloCard extends StatelessWidget {
   final SiloEntry item;
   final Color color;
-  const _SiloCard({required this.item, required this.color});
+  final VoidCallback? onEdit;
+  const _SiloCard({required this.item, required this.color, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -4947,12 +4989,15 @@ class _SiloCard extends StatelessWidget {
     if (item.silo3Value > 0) silos.add({'label': 'S3', 'value': item.silo3Value, 'unit': item.silo3Unit});
     final total = item.totalMt > 0 ? item.totalMt : (item.extracted ?? 0);
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 3)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 1)),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -5003,12 +5048,24 @@ class _SiloCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Right: total
-            if (total > 0) ...[
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
+            // Right: total + optional edit button
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (onEdit != null)
+                  GestureDetector(
+                    onTap: onEdit,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Icon(Icons.edit_outlined, size: 14, color: color),
+                    ),
+                  ),
+                if (onEdit != null && total > 0) const SizedBox(height: 6),
+                if (total > 0) ...[
                   Text('Total', style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
                   Text(
@@ -5017,8 +5074,8 @@ class _SiloCard extends StatelessWidget {
                   ),
                   Text('MT', style: TextStyle(fontSize: 10, color: color.withOpacity(0.7), fontWeight: FontWeight.w600)),
                 ],
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),
