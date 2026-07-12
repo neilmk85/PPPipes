@@ -137,7 +137,7 @@ function PipeConfigPicker({ onAdd }: { onAdd: (pc: any) => void }) {
 
   useEffect(() => {
     setLoading(true)
-    pipeConfigApi.getAll({ active: true, size: 200 })
+    pipeConfigApi.getAll({ active: true, size: 500 })
       .then(r => setAllConfigs(r.data.data?.content ?? []))
       .finally(() => setLoading(false))
   }, [])

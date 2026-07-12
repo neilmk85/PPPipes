@@ -23,7 +23,7 @@ export default function CreateProductionOrderPage() {
 
   const { data: configsData } = useQuery({
     queryKey: ['pipe-configs-active'],
-    queryFn: () => pipeConfigApi.getAll({ active: true, size: 200 }).then(r => r.data.data?.content ?? []),
+    queryFn: () => pipeConfigApi.getAll({ active: true, size: 500 }).then(r => r.data.data?.content ?? []),
   })
 
   const createMut = useMutation({

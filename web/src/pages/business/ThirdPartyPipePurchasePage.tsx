@@ -619,7 +619,7 @@ export default function ThirdPartyPipePurchasePage() {
 
   const { data: pipeConfigs = [] } = useQuery<any[]>({
     queryKey: ['pipe-configs-active'],
-    queryFn: () => pipeConfigApi.getAll({ active: true, size: 200 }).then((r: any) => r.data.data?.content ?? []),
+    queryFn: () => pipeConfigApi.getAll({ active: true, size: 500 }).then((r: any) => r.data.data?.content ?? []),
     staleTime: 60_000,
   })
 

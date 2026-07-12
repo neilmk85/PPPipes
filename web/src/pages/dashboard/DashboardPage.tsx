@@ -270,7 +270,7 @@ export default function DashboardPage() {
   // ── Pipe configs — for name resolution in both live and dummy rows ─────────
   const { data: pipeConfigsRaw = [] } = useQuery({
     queryKey: ['pipe-configs-dashboard'],
-    queryFn: () => pipeConfigApi.getAll({ active: true, size: 100 })
+    queryFn: () => pipeConfigApi.getAll({ active: true, size: 500 })
       .then(r => r.data.data?.content ?? r.data.data ?? []),
     staleTime: 5 * 60 * 1000,
   })
