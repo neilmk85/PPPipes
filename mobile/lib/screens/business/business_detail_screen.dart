@@ -1743,14 +1743,7 @@ class _SiloScreenState extends State<SiloScreen> {
                             itemCount: filtered.length,
                             itemBuilder: (_, i) {
                               final item = filtered[i];
-                              final qty = item.displayQty;
-                              return _BizCard(
-                                icon: Icons.storage_outlined,
-                                color: _color,
-                                title: item.siloName ?? 'Silo Entry',
-                                subtitle: _fmtDate(item.date),
-                                notes: qty.isNotEmpty ? qty : item.notes,
-                              );
+                              return _SiloCard(item: item, color: _color);
                             },
                           ),
                   ),
@@ -4906,6 +4899,108 @@ class _ConversionSheetState extends State<_ConversionSheet> {
 }
 
 // ── Shared Widgets ────────────────────────────────────────────────────────────
+
+class _SiloCard extends StatelessWidget {
+  final SiloEntry item;
+  final Color color;
+  const _SiloCard({required this.item, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final silos = <Map<String, dynamic>>[];
+    if (item.silo1Value > 0) silos.add({'label': 'S1', 'value': item.silo1Value, 'unit': item.silo1Unit});
+    if (item.silo2Value > 0) silos.add({'label': 'S2', 'value': item.silo2Value, 'unit': item.silo2Unit});
+    if (item.silo3Value > 0) silos.add({'label': 'S3', 'value': item.silo3Value, 'unit': item.silo3Unit});
+    final total = item.totalMt > 0 ? item.totalMt : (item.extracted ?? 0);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.withOpacity(0.15)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.storage_outlined, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.siloName ?? 'Silo Entry',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(_fmtDate(item.date),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  if (item.notes != null && item.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(item.notes!,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ],
+              ),
+            ),
+            if (silos.isNotEmpty || total > 0)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  ...silos.map((s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(s['label'] as String,
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${(s['value'] as double).toStringAsFixed(2)} ${s['unit']}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  )),
+                  if (silos.length > 1) ...[
+                    const SizedBox(height: 2),
+                    Container(
+                      height: 1,
+                      width: 90,
+                      color: Colors.grey.withOpacity(0.25),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${total.toStringAsFixed(2)} MT',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+                    ),
+                  ] else if (silos.isEmpty && total > 0)
+                    Text(
+                      '${total.toStringAsFixed(2)} MT',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _BizCard extends StatelessWidget {
   final IconData icon;
