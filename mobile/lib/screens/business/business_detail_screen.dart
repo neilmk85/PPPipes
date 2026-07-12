@@ -15478,11 +15478,12 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   List<Map<String, dynamic>> get _filtered {
     return _orders.where((o) {
       final id = o['id'] as int;
-      // Once prior-stage data is loaded, hide orders with nothing left to process
+      // Once prior-stage data is loaded, hide orders with nothing left to process.
+      // Only apply when prior > 0 (i.e. a real prior stage exists; 0 means FABRICATION/first stage).
       if (_priorCompleted.containsKey(id)) {
         final prior = _priorCompleted[id]!;
         final done = _orderProgress[id] ?? 0;
-        if ((prior - done) <= 0) return false;
+        if (prior > 0 && (prior - done) <= 0) return false;
       }
       // Search filter
       if (_search.trim().isNotEmpty) {
