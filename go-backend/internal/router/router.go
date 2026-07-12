@@ -623,6 +623,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	))
 
 	// ==================== INVOICES ====================
+	mux.HandleFunc("GET /api/invoices/public/{invoiceNumber}", invoiceHandler.GetPublic)
 	mux.HandleFunc("GET /api/invoices", middleware.Chain(
 		invoiceHandler.GetAll,
 		middleware.Authenticate(db),
