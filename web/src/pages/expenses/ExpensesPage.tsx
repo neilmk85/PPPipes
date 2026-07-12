@@ -145,7 +145,7 @@ function ExpenseFormModal({ expense, outletId, onClose, onSaved }: {
         supplyType:         form.supplyType,
         vendorGstin:        form.vendorGstin || null,
         itcEligible:        form.itcEligible,
-        expenseDate:        form.expenseDate,
+        expenseDate:        form.expenseDate ? `${form.expenseDate}T00:00:00Z` : undefined,
         vendor:             form.vendor || null,
         paymentMode:        form.paymentMode,
         referenceNumber:    form.referenceNumber || null,
