@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, CreditCard, Plus, Loader2, X } from 'lucide-react'
-import { purchaseBillApi, vendorPaymentApi } from '@/services/api'
+import { purchaseBillApi, vendorPaymentApi, vendorApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -48,6 +48,7 @@ export default function PaymentsMadeTab() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [selectedVendorId, setSelectedVendorId] = useState('')
   const [selectedBillId, setSelectedBillId] = useState('')
   const [form, setForm] = useState({
     amount: '',
@@ -71,9 +72,20 @@ export default function PaymentsMadeTab() {
     enabled: showModal && !!outletId,
   })
 
+  const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
+    queryKey: ['vendors', outletId],
+    queryFn: () => vendorApi.getAll({ size: 500 })
+      .then(r => r.data.data?.content ?? r.data.data ?? []),
+    enabled: showModal && !!outletId,
+  })
+
   const payments: any[] = Array.isArray(data) ? data : (data as any)?.content ?? []
   const allBills: any[] = Array.isArray(billsData) ? billsData : []
-  const openBills = allBills.filter(b => b.status === 'UNPAID' || b.status === 'PARTIAL')
+  const allVendors: any[] = Array.isArray(vendorsData) ? vendorsData : []
+  const openBills = allBills.filter(b =>
+    (b.status === 'UNPAID' || b.status === 'PARTIAL') &&
+    (!selectedVendorId || String(b.supplierId ?? b.supplier?.id) === selectedVendorId)
+  )
 
   const selectedBill = openBills.find(b => String(b.id) === selectedBillId) ?? null
 
@@ -95,6 +107,7 @@ export default function PaymentsMadeTab() {
   })
 
   function resetModal() {
+    setSelectedVendorId('')
     setSelectedBillId('')
     setForm({
       amount: '',
@@ -110,6 +123,12 @@ export default function PaymentsMadeTab() {
     setShowModal(true)
   }
 
+  function handleVendorSelect(vendorId: string) {
+    setSelectedVendorId(vendorId)
+    setSelectedBillId('')
+    setForm(prev => ({ ...prev, amount: '' }))
+  }
+
   function handleBillSelect(billId: string) {
     setSelectedBillId(billId)
     const bill = openBills.find(b => String(b.id) === billId)
@@ -120,7 +139,7 @@ export default function PaymentsMadeTab() {
   }
 
   function handleSubmit() {
-    if (!selectedBillId) { toast.error('Please select a bill'); return }
+    if (!selectedVendorId) { toast.error('Please select a vendor'); return }
     const amt = parseFloat(form.amount)
     if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return }
     if (!form.paymentDate) { toast.error('Please enter payment date'); return }
@@ -131,7 +150,9 @@ export default function PaymentsMadeTab() {
     }
 
     payMutation.mutate({
-      billId: parseInt(selectedBillId),
+      supplierId: parseInt(selectedVendorId),
+      outletId: outletId!,
+      billId: selectedBillId ? parseInt(selectedBillId) : undefined,
       amount: amt,
       paymentMethod: form.paymentMethod,
       referenceNumber: form.referenceNumber || undefined,
@@ -206,97 +227,122 @@ export default function PaymentsMadeTab() {
       {/* Record Payment Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-800">Record Payment</h2>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-7 py-5 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-800">Record Payment</h2>
               <button onClick={() => { setShowModal(false); resetModal() }} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
+                <X size={22} />
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-4">
-              {/* Bill Selector */}
+            <div className="px-7 py-6 space-y-5 overflow-y-auto flex-1">
+              {/* Vendor Selector */}
               <div>
-                <label className={lbl}>Select Bill <span className="text-red-500">*</span></label>
+                <label className={lbl}>Vendor <span className="text-red-500">*</span></label>
+                {vendorsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                    <Loader2 size={14} className="animate-spin" /> Loading vendors…
+                  </div>
+                ) : (
+                  <select
+                    value={selectedVendorId}
+                    onChange={e => handleVendorSelect(e.target.value)}
+                    className={inp}
+                  >
+                    <option value="">— Select a vendor —</option>
+                    {allVendors.map((v: any) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Bill Selector (optional, filtered by vendor) */}
+              <div>
+                <label className={lbl}>
+                  Bill <span className="text-gray-400 font-normal normal-case tracking-normal">(optional)</span>
+                </label>
                 {billsLoading ? (
                   <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
                     <Loader2 size={14} className="animate-spin" /> Loading bills…
                   </div>
-                ) : openBills.length === 0 ? (
-                  <p className="text-sm text-gray-400 py-2">No unpaid bills found</p>
                 ) : (
                   <select
                     value={selectedBillId}
                     onChange={e => handleBillSelect(e.target.value)}
                     className={inp}
+                    disabled={!selectedVendorId}
                   >
-                    <option value="">— Choose a bill —</option>
+                    <option value="">— No bill (advance / on-account payment) —</option>
                     {openBills.map(b => {
                       const balance = parseFloat(b.totalAmount ?? 0) - parseFloat(b.paidAmount ?? 0)
                       return (
                         <option key={b.id} value={b.id}>
-                          {b.billNumber} · {b.supplier?.name ?? 'Unknown'} · Balance ₹{fmt(balance)}
+                          {b.billNumber} · Balance ₹{fmt(balance)}
                         </option>
                       )
                     })}
                   </select>
                 )}
                 {selectedBill && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-1.5">
                     Total: ₹{fmt(parseFloat(selectedBill.totalAmount ?? 0))} ·
                     Paid: ₹{fmt(parseFloat(selectedBill.paidAmount ?? 0))} ·
-                    Balance: ₹{fmt(parseFloat(selectedBill.totalAmount ?? 0) - parseFloat(selectedBill.paidAmount ?? 0))}
+                    <span className="font-semibold text-violet-700"> Balance: ₹{fmt(parseFloat(selectedBill.totalAmount ?? 0) - parseFloat(selectedBill.paidAmount ?? 0))}</span>
                   </p>
+                )}
+                {selectedVendorId && !selectedBillId && openBills.length === 0 && !billsLoading && (
+                  <p className="text-xs text-gray-400 mt-1">No unpaid bills for this vendor</p>
                 )}
               </div>
 
-              {/* Amount */}
-              <div>
-                <label className={lbl}>Amount (₹) <span className="text-red-500">*</span></label>
-                <input
-                  type="number" min="0" step="0.01"
-                  value={form.amount}
-                  onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
-                  className={inp}
-                  placeholder="0.00"
-                />
+              {/* Two-column row: Amount + Method */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={lbl}>Amount (₹) <span className="text-red-500">*</span></label>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={form.amount}
+                    onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+                    className={inp}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className={lbl}>Payment Method</label>
+                  <select
+                    value={form.paymentMethod}
+                    onChange={e => setForm(p => ({ ...p, paymentMethod: e.target.value }))}
+                    className={inp}
+                  >
+                    {PAYMENT_METHODS.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Payment Method */}
-              <div>
-                <label className={lbl}>Payment Method</label>
-                <select
-                  value={form.paymentMethod}
-                  onChange={e => setForm(p => ({ ...p, paymentMethod: e.target.value }))}
-                  className={inp}
-                >
-                  {PAYMENT_METHODS.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Payment Date */}
-              <div>
-                <label className={lbl}>Payment Date <span className="text-red-500">*</span></label>
-                <input
-                  type="date"
-                  value={form.paymentDate}
-                  onChange={e => setForm(p => ({ ...p, paymentDate: e.target.value }))}
-                  className={inp}
-                />
-              </div>
-
-              {/* Reference Number */}
-              <div>
-                <label className={lbl}>Reference / Cheque No.</label>
-                <input
-                  type="text"
-                  value={form.referenceNumber}
-                  onChange={e => setForm(p => ({ ...p, referenceNumber: e.target.value }))}
-                  className={inp}
-                  placeholder="UTR / Cheque number (optional)"
-                />
+              {/* Two-column row: Date + Reference */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={lbl}>Payment Date <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={form.paymentDate}
+                    onChange={e => setForm(p => ({ ...p, paymentDate: e.target.value }))}
+                    className={inp}
+                  />
+                </div>
+                <div>
+                  <label className={lbl}>Reference / Cheque No.</label>
+                  <input
+                    type="text"
+                    value={form.referenceNumber}
+                    onChange={e => setForm(p => ({ ...p, referenceNumber: e.target.value }))}
+                    className={inp}
+                    placeholder="UTR / Cheque number (optional)"
+                  />
+                </div>
               </div>
 
               {/* Notes */}
@@ -312,7 +358,7 @@ export default function PaymentsMadeTab() {
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
+            <div className="px-7 py-4 border-t border-gray-100 flex gap-3 justify-end">
               <button
                 onClick={() => { setShowModal(false); resetModal() }}
                 className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50"
@@ -321,8 +367,8 @@ export default function PaymentsMadeTab() {
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={payMutation.isPending || !selectedBillId}
-                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold"
+                disabled={payMutation.isPending || !selectedVendorId}
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold"
               >
                 {payMutation.isPending ? <><Loader2 size={14} className="animate-spin" /> Recording…</> : 'Record Payment'}
               </button>

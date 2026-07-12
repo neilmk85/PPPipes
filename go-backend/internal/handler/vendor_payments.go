@@ -51,6 +51,8 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value(middleware.UserContextKey).(*middleware.AuthUser)
 	var req struct {
 		BillID          int      `json:"billId"`
+		SupplierID      int      `json:"supplierId"`
+		OutletID        int      `json:"outletId"`
 		Amount          float64  `json:"amount"`
 		PaymentMethod   string   `json:"paymentMethod"`
 		ReferenceNumber string   `json:"referenceNumber"`
@@ -64,13 +66,25 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Record payment on the bill (gross amount before TDS)
+	if req.SupplierID == 0 {
+		util.SendError(w, http.StatusBadRequest, "Vendor is required")
+		return
+	}
+
 	method := req.PaymentMethod
 	ref := req.ReferenceNumber
-	bill, err := h.billService.RecordPayment(req.BillID, decimal.NewFromFloat(req.Amount), &method, &ref)
-	if err != nil {
-		handleError(w, err)
-		return
+	supplierID := req.SupplierID
+	outletID := req.OutletID
+
+	// If a bill is provided, record payment against it and derive supplier/outlet
+	if req.BillID > 0 {
+		bill, err := h.billService.RecordPayment(req.BillID, decimal.NewFromFloat(req.Amount), &method, &ref)
+		if err != nil {
+			handleError(w, err)
+			return
+		}
+		supplierID = bill.SupplierID
+		outletID = bill.OutletID
 	}
 
 	// Parse date
@@ -92,7 +106,7 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	vp, err := h.service.CreateWithTDS(
-		req.BillID, bill.SupplierID, bill.OutletID,
+		req.BillID, supplierID, outletID,
 		decimal.NewFromFloat(req.Amount), pm, ref, pd, req.Notes, user.Email,
 		req.TDSSectionID, tdsAmt,
 	)
@@ -103,7 +117,6 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Record TDS deduction entry if TDS was deducted
 	if req.TDSSectionID != nil && tdsAmt.GreaterThan(decimal.Zero) {
-		// Fetch section rate
 		sections, _ := h.tdsService.GetAllSections()
 		var tdsRate decimal.Decimal
 		for _, sec := range sections {
@@ -114,7 +127,7 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		baseAmt := decimal.NewFromFloat(req.Amount)
 		h.tdsService.RecordDeduction(
-			vp.ID, bill.SupplierID, bill.OutletID, req.BillID, *req.TDSSectionID,
+			vp.ID, supplierID, outletID, req.BillID, *req.TDSSectionID,
 			pd, baseAmt, tdsRate, tdsAmt, user.Email,
 		)
 	}
