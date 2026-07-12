@@ -770,7 +770,7 @@ export default function DirectPurchasePage() {
               </div>
               <DateRangePicker fromDate={from} toDate={to} onChange={handleDateChange} />
               <button
-                onClick={openPanel}
+                onClick={() => openPanel()}
                 className="flex items-center gap-2 bg-white text-violet-700 hover:bg-violet-50 transition-all px-4 py-2 rounded-xl text-sm font-bold shadow-md active:scale-95"
               >
                 <Plus size={16} /> Add Direct Purchase
