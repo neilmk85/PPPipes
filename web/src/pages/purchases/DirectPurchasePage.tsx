@@ -74,7 +74,7 @@ function lineCalc(line: LineItem, gstInclusive: boolean) {
 }
 
 // ─── Product Picker (portal dropdown) ────────────────────────────────────────
-const NON_PURCHASABLE_NAMES = ['silo cement', 'loose cement', 'extra cement']
+const NON_PURCHASABLE_NAMES = ['loose cement', 'extra cement']
 
 function ProductPicker({ onSelect }: { onSelect: (p: any) => void }) {
   const [q, setQ] = useState('')
@@ -92,11 +92,12 @@ function ProductPicker({ onSelect }: { onSelect: (p: any) => void }) {
     enabled: dq.trim().length > 0,
   })
 
-  // Only show raw materials and store items — no finished pipes
+  // Only show raw materials and store items — no finished pipes, no silo items
   const results = (rawResults as any[]).filter((p: any) =>
     p.purchasable !== false &&
     p.itemType !== 'FINISHED_PIPE' &&
-    !NON_PURCHASABLE_NAMES.includes(p.name?.toLowerCase())
+    !NON_PURCHASABLE_NAMES.includes(p.name?.toLowerCase()) &&
+    !p.name?.toLowerCase().startsWith('silo ')
   )
 
   useEffect(() => {
