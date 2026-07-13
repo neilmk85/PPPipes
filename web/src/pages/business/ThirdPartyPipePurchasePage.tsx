@@ -300,6 +300,7 @@ function AddForm({
   const [quantity, setQuantity]         = useState('')   // pieces
   const [meters, setMeters]             = useState('')   // metres (derived or entered)
   const [unitRate, setUnitRate]         = useState('')
+  const [gstPercent, setGstPercent]     = useState(18)
   const [notes, setNotes]               = useState('')
   const [errors, setErrors]             = useState<Record<string, string>>({})
 
@@ -307,6 +308,8 @@ function AddForm({
 
   const effectiveVendorName = selectedVendor?.name ?? vendorFreeText
   const totalAmount = ((Number(meters) || 0) * (Number(unitRate) || 0)).toFixed(2)
+  const gstAmount   = (Number(totalAmount) * gstPercent / 100).toFixed(2)
+  const grandTotal  = (Number(totalAmount) + Number(gstAmount)).toFixed(2)
 
   const mutation = useMutation({
     mutationFn: (data: any) => pipePurchasesApi.create(data),
@@ -338,6 +341,9 @@ function AddForm({
       quantity:      Number(quantity),
       unitRate:      unitRate || '0',
       totalAmount,
+      gstPercent,
+      gstAmount,
+      grandTotal,
       notes:         notes.trim(),
       createdBy:     '',
     })
@@ -532,6 +538,19 @@ function AddForm({
             )}
           </div>
 
+          {/* GST */}
+          <div>
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">GST</label>
+            <select value={gstPercent} onChange={e => setGstPercent(Number(e.target.value))}
+              className="w-full px-4 py-3 text-sm rounded-xl shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white appearance-none cursor-pointer">
+              <option value={0}>0% — No GST</option>
+              <option value={5}>5% GST</option>
+              <option value={12}>12% GST</option>
+              <option value={18}>18% GST</option>
+              <option value={28}>28% GST</option>
+            </select>
+          </div>
+
           {/* Notes */}
           <div>
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Notes</label>
@@ -567,9 +586,17 @@ function AddForm({
                 <span>Rate / Meter</span>
                 <span className="tabular-nums font-medium">{unitRate ? `₹${Number(unitRate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</span>
               </div>
+              <div className="flex justify-between text-gray-600 border-t border-gray-200 pt-2 mt-1">
+                <span>Subtotal</span>
+                <span className="tabular-nums font-medium">₹{Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>GST ({gstPercent}%)</span>
+                <span className="tabular-nums font-medium">₹{Number(gstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
               <div className="flex justify-between font-bold text-[15px] border-t border-gray-200 pt-3 mt-1 text-gray-900">
-                <span>Total Amount</span>
-                <span className="tabular-nums text-blue-700">₹{Number(totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span>Grand Total</span>
+                <span className="tabular-nums text-blue-700">₹{Number(grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>

@@ -340,6 +340,9 @@ type ThirdPartyPipePurchase struct {
 	Quantity      int             `gorm:"column:quantity;not null" json:"quantity"`
 	UnitRate      decimal.Decimal `gorm:"column:unit_rate;type:decimal(12,2);default:0" json:"unitRate"`
 	TotalAmount   decimal.Decimal `gorm:"column:total_amount;type:decimal(14,2);default:0" json:"totalAmount"`
+	GstPercent    float64         `gorm:"column:gst_percent;type:decimal(5,2);default:18" json:"gstPercent"`
+	GstAmount     decimal.Decimal `gorm:"column:gst_amount;type:decimal(14,2);default:0" json:"gstAmount"`
+	GrandTotal    decimal.Decimal `gorm:"column:grand_total;type:decimal(14,2);default:0" json:"grandTotal"`
 	Notes         string          `gorm:"column:notes;type:text" json:"notes"`
 	CreatedBy     string          `gorm:"column:created_by;size:255" json:"createdBy"`
 	CreatedAt     time.Time       `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
