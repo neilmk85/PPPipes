@@ -192,7 +192,7 @@ export default function CustomersPage() {
             ) : customers.length === 0 ? (
               <tr><td colSpan={5} className="text-center py-12 text-gray-400">No customers found</td></tr>
             ) : customers.map((c) => (
-              <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${!c.active ? 'opacity-50' : ''}`}>
+              <tr key={c.id} className={`hover:bg-violet-50/40 transition-colors cursor-pointer ${!c.active ? 'opacity-50' : ''}`} onClick={() => navigate(`/customers/${c.id}`)}>
                 <td className="px-6 py-3">
                   <div>
                     <div>
@@ -235,14 +235,14 @@ export default function CustomersPage() {
                   <div className="flex items-center justify-end gap-1">
                     <button
                       title="Edit customer"
-                      onClick={() => navigate(`/customers/${c.id}/edit`)}
+                      onClick={e => { e.stopPropagation(); navigate(`/customers/${c.id}/edit`) }}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
                     >
                       <Pencil size={15} />
                     </button>
                     <button
                       title={c.active ? 'Disable customer' : 'Enable customer'}
-                      onClick={() => toggleMut.mutate(c.id)}
+                      onClick={e => { e.stopPropagation(); toggleMut.mutate(c.id) }}
                       disabled={toggleMut.isPending}
                       className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 ${
                         c.active

@@ -309,6 +309,11 @@ func (soh *SalesOrderHandler) GetAllPayments(w http.ResponseWriter, r *http.Requ
 			dto.OutletID = &id
 		}
 	}
+	if v := q.Get("customerId"); v != "" {
+		if id, err := strconv.Atoi(v); err == nil {
+			dto.CustomerID = &id
+		}
+	}
 	if v := q.Get("from"); v != "" {
 		if t, err := time.Parse("2006-01-02", v); err == nil {
 			dto.From = &t

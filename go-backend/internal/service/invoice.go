@@ -234,8 +234,12 @@ func (is *InvoiceService) GetByInvoiceNumber(invoiceNumber string) (*models.Invo
 	return invoice, err
 }
 
-func (is *InvoiceService) GetAll(outletId int, status *string, fromDate, toDate *time.Time, page, size int) ([]models.Invoice, int64, error) {
+func (is *InvoiceService) GetAll(outletId int, status *string, fromDate, toDate *time.Time, page, size int, customerID *int) ([]models.Invoice, int64, error) {
 	query := is.db.Where("outlet_id = ?", outletId)
+
+	if customerID != nil {
+		query = query.Where("customer_id = ?", *customerID)
+	}
 
 	if status != nil {
 		query = query.Where("status = ?", *status)

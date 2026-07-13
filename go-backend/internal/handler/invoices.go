@@ -122,7 +122,14 @@ func (ih *InvoiceHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	invoices, total, err := ih.service.GetAll(outletId, status, from, to, page, size)
+	var customerID *int
+	if v := r.URL.Query().Get("customerId"); v != "" {
+		if id, err := strconv.Atoi(v); err == nil {
+			customerID = &id
+		}
+	}
+
+	invoices, total, err := ih.service.GetAll(outletId, status, from, to, page, size, customerID)
 	if err != nil {
 		handleError(w, err)
 		return

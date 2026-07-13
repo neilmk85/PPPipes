@@ -26,6 +26,7 @@ import ProductForm from '@/pages/products/ProductForm'
 import ProductViewPage from '@/pages/products/ProductViewPage'
 import CustomersPage from '@/pages/customers/CustomersPage'
 import CustomerFormPage from '@/pages/customers/CustomerFormPage'
+import CustomerDetailPage from '@/pages/customers/CustomerDetailPage'
 import InventoryPage from '@/pages/inventory/InventoryPage'
 import CategoriesPage from '@/pages/inventory/CategoriesPage'
 import UomConversionPage from '@/pages/inventory/UomConversionPage'
@@ -165,6 +166,7 @@ export default function App() {
           <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
           <Route path="/customers/new" element={<ProtectedRoute><CustomerFormPage /></ProtectedRoute>} />
           <Route path="/customers/:id/edit" element={<ProtectedRoute><CustomerFormPage /></ProtectedRoute>} />
+          <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetailPage /></ProtectedRoute>} />
           <Route path="/pos" element={<ProtectedRoute><CreateOrderPage /></ProtectedRoute>} />
           <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
           <Route path="/orders/new" element={<ProtectedRoute><CreateOrderPage /></ProtectedRoute>} />

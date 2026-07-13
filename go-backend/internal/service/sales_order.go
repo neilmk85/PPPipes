@@ -657,17 +657,21 @@ func (sos *SalesOrderService) GetPaymentsForOrder(salesOrderID int) ([]models.Sa
 }
 
 type GetAllPaymentsDTO struct {
-	OutletID *int
-	From     *time.Time
-	To       *time.Time
-	Page     int
-	Size     int
+	OutletID   *int
+	CustomerID *int
+	From       *time.Time
+	To         *time.Time
+	Page       int
+	Size       int
 }
 
 func (sos *SalesOrderService) GetAllPayments(dto GetAllPaymentsDTO) ([]models.SalesOrderPayment, int64, error) {
 	query := sos.db.Model(&models.SalesOrderPayment{})
 	if dto.OutletID != nil {
 		query = query.Where("outlet_id = ?", *dto.OutletID)
+	}
+	if dto.CustomerID != nil {
+		query = query.Where("customer_id = ? OR sales_order_id IN (SELECT id FROM sales_orders WHERE customer_id = ?)", *dto.CustomerID, *dto.CustomerID)
 	}
 	if dto.From != nil {
 		query = query.Where("payment_date >= ?", dto.From.Format("2006-01-02"))

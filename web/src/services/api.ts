@@ -569,6 +569,8 @@ export const invoiceApi = {
   create: (data: any) => api.post<ApiResponse<any>>('/invoices', data),
   getByOutlet: (outletId: number, params?: any) =>
     api.get<ApiResponse<any>>('/invoices', { params: { outletId, ...params } }),
+  getByCustomer: (outletId: number, customerId: number) =>
+    api.get<ApiResponse<any>>('/invoices', { params: { outletId, customerId, size: 500 } }),
   getById: (id: number) => api.get<ApiResponse<any>>(`/invoices/${id}`),
   updateStatus: (id: number, status: string) =>
     api.patch<ApiResponse<any>>(`/invoices/${id}/status`, {}, { params: { status } }),
@@ -781,7 +783,7 @@ export const salesOrderPaymentApi = {
   }) => api.post<ApiResponse<any>>(`/sales-orders/${salesOrderId}/payments`, data),
   getForOrder: (salesOrderId: number) =>
     api.get<ApiResponse<any>>(`/sales-orders/${salesOrderId}/payments`),
-  getAll: (params?: { outletId?: number; from?: string; to?: string; page?: number; size?: number }) =>
+  getAll: (params?: { outletId?: number; customerId?: number; from?: string; to?: string; page?: number; size?: number }) =>
     api.get<ApiResponse<any>>('/sales-order-payments', { params }),
   create: (data: {
     customerId: number; salesOrderId?: number; outletId: number
