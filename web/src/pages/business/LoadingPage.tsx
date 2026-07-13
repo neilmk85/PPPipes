@@ -215,6 +215,12 @@ function Autocomplete({
           value={query}
           onFocus={() => setOpen(true)}
           onChange={e => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange('') }}
+          onBlur={() => {
+            // If the typed text doesn't exactly match a committed selection, reset to the committed value
+            const committed = displayValue ? options.find(o => displayValue(o) === value || o === value) : value
+            const display = committed ? (displayValue ? displayValue(committed) : committed) : value
+            if (query !== display) setQuery(display ?? '')
+          }}
         />
         {query && (
           <button type="button" onClick={() => { setQuery(''); onChange(''); setOpen(false) }}>
