@@ -43,7 +43,12 @@ function fmt(n: number) {
 const inp = 'w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none'
 const lbl = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
-export default function PaymentsMadeTab() {
+interface PaymentsMadeTabProps {
+  dateFrom: string
+  dateTo: string
+}
+
+export default function PaymentsMadeTab({ dateFrom, dateTo }: PaymentsMadeTabProps) {
   const { outletId } = useAuthStore()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -65,7 +70,7 @@ export default function PaymentsMadeTab() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['vendor-payments', outletId],
-    queryFn: () => vendorPaymentApi.getAll({ outletId: outletId ?? undefined, size: 200 })
+    queryFn: () => vendorPaymentApi.getAll({ outletId: outletId ?? undefined, size: 500 })
       .then(r => r.data.data?.content ?? r.data.data ?? []),
     enabled: true,
   })
@@ -80,10 +85,20 @@ export default function PaymentsMadeTab() {
   const payments: any[] = Array.isArray(data) ? data : (data as any)?.content ?? []
   const allVendors: any[] = Array.isArray(vendorsData) ? vendorsData : []
 
-  const filtered = payments.filter(p =>
-    (p.supplier?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.referenceNumber ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = payments.filter(p => {
+    const matchesSearch =
+      (p.supplier?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.referenceNumber ?? '').toLowerCase().includes(search.toLowerCase())
+    const pDate = p.paymentDate ? new Date(p.paymentDate) : null
+    const matchesFrom = !dateFrom || (pDate && pDate >= new Date(dateFrom))
+    const matchesTo = !dateTo || (pDate && pDate <= new Date(dateTo + 'T23:59:59'))
+    return matchesSearch && matchesFrom && matchesTo
+  })
+
+  const totalPaid = filtered.reduce((s, p) => s + parseFloat(p.amount ?? 0), 0)
+  const totalTds = filtered.reduce((s, p) => s + parseFloat(p.tdsAmount ?? 0), 0)
+  const netOutflow = totalPaid - totalTds
+  const uniqueVendors = new Set(filtered.map((p: any) => p.supplierId)).size
 
   const payMutation = useMutation({
     mutationFn: (payload: any) => vendorPaymentApi.create(payload),
@@ -162,8 +177,12 @@ export default function PaymentsMadeTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div />
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-sm font-semibold text-gray-500">
+          {filtered.length} payment{filtered.length !== 1 ? 's' : ''}
+          {(dateFrom || dateTo) && <span className="ml-1 text-violet-400">(date filtered)</span>}
+        </h3>
         <button
           onClick={openPayModal}
           className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
@@ -172,11 +191,36 @@ export default function PaymentsMadeTab() {
         </button>
       </div>
 
-      <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search payments..."
-          className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none" />
+      {/* Summary cards */}
+      {!isLoading && payments.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <div className="bg-gradient-to-br from-violet-50 to-violet-100 rounded-xl p-4 border border-violet-200">
+            <p className="text-[11px] font-bold text-violet-500 uppercase tracking-widest mb-1">Total Paid</p>
+            <p className="text-xl font-bold text-violet-800">₹{fmt(totalPaid)}</p>
+          </div>
+          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200">
+            <p className="text-[11px] font-bold text-red-500 uppercase tracking-widest mb-1">TDS Deducted</p>
+            <p className="text-xl font-bold text-red-700">₹{fmt(totalTds)}</p>
+          </div>
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+            <p className="text-[11px] font-bold text-green-600 uppercase tracking-widest mb-1">Net Outflow</p>
+            <p className="text-xl font-bold text-green-800">₹{fmt(netOutflow)}</p>
+          </div>
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+            <p className="text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-1">Vendors</p>
+            <p className="text-xl font-bold text-blue-800">{uniqueVendors}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search vendor or reference..."
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none" />
+        </div>
       </div>
 
       {isLoading ? (
@@ -186,39 +230,57 @@ export default function PaymentsMadeTab() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <CreditCard size={40} className="mx-auto mb-3 opacity-30" />
-          <p>{search ? 'No payments match your search' : 'No payments recorded yet'}</p>
+          <p>{search || dateFrom || dateTo ? 'No payments match your search or date filter' : 'No payments recorded yet'}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-xl border border-gray-100">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gradient-to-r from-violet-50 to-blue-50 border-y border-violet-100">
+              <tr className="bg-gradient-to-r from-violet-50 to-blue-50 border-b border-violet-100">
                 <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Reference</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Vendor</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Date</th>
                 <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Method</th>
+                <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">TDS</th>
                 <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Amount</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((p: any) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono font-medium text-violet-700">
-                    {p.referenceNumber || <span className="text-gray-400 italic">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-gray-800">{p.supplier?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN') : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${METHOD_COLORS[p.paymentMethod] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {METHOD_LABELS[p.paymentMethod] ?? p.paymentMethod}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-700">₹{fmt(parseFloat(p.amount))}</td>
-                </tr>
-              ))}
+              {filtered.map((p: any) => {
+                const tds = parseFloat(p.tdsAmount ?? 0)
+                return (
+                  <tr key={p.id} className="hover:bg-violet-50/40 transition-colors">
+                    <td className="px-4 py-3 font-mono font-medium text-violet-700">
+                      {p.referenceNumber || <span className="text-gray-400 italic">—</span>}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{p.supplier?.name ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${METHOD_COLORS[p.paymentMethod] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {METHOD_LABELS[p.paymentMethod] ?? p.paymentMethod}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs text-red-600 font-medium">
+                      {tds > 0 ? `₹${fmt(tds)}` : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-800">₹{fmt(parseFloat(p.amount))}</td>
+                  </tr>
+                )
+              })}
             </tbody>
+            <tfoot>
+              <tr className="bg-gradient-to-r from-violet-50 to-blue-50 border-t-2 border-violet-200">
+                <td colSpan={4} className="px-4 py-3 text-xs font-bold text-violet-600 uppercase tracking-wide">
+                  Total ({filtered.length} payments)
+                </td>
+                <td className="px-4 py-3 text-right text-xs font-bold text-red-600">
+                  {totalTds > 0 ? `₹${fmt(totalTds)}` : '—'}
+                </td>
+                <td className="px-4 py-3 text-right font-bold text-gray-900">₹{fmt(totalPaid)}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}

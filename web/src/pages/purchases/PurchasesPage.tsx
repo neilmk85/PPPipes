@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Building2, ShoppingBag, PackageCheck, Receipt, CreditCard, FileX } from 'lucide-react'
@@ -10,6 +11,7 @@ import VendorCreditsTab from './tabs/VendorCreditsTab'
 import PurchaseReturnsPage from './PurchaseReturnsPage'
 import { purchaseBillApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
+import { DateRangePicker } from '@/components/DateRangePicker'
 
 const SEGMENT_META: Record<string, { icon: React.ElementType; title: string }> = {
   'vendors':         { icon: Building2,    title: 'Vendors' },
@@ -31,6 +33,8 @@ export default function PurchasesPage() {
   const { user } = useAuthStore()
   const outletId = user?.outletId ?? 1
   const segment = pathname.split('/purchases/')[1]?.split('/')[0] ?? 'vendors'
+  const [payDateFrom, setPayDateFrom] = useState('')
+  const [payDateTo, setPayDateTo] = useState('')
 
   const { data: billSummary } = useQuery({
     queryKey: ['purchase-bills-summary', outletId],
@@ -50,7 +54,7 @@ export default function PurchasesPage() {
       case 'purchase-orders':  return <PurchaseOrdersTab />
       case 'receive':          return <PurchaseReceivesTab />
       case 'bills':            return <BillsTab />
-      case 'payments':         return <PaymentsMadeTab />
+      case 'payments':         return <PaymentsMadeTab dateFrom={payDateFrom} dateTo={payDateTo} />
       case 'vendor-credits':   return <VendorCreditsTab />
       default:                 return <VendorsTab />
     }
@@ -78,6 +82,13 @@ export default function PurchasesPage() {
               <h1 className="text-white text-2xl font-bold tracking-tight">{meta.title}</h1>
             </div>
           </div>
+          {segment === 'payments' && (
+            <DateRangePicker
+              fromDate={payDateFrom}
+              toDate={payDateTo}
+              onChange={(f, t) => { setPayDateFrom(f); setPayDateTo(t) }}
+            />
+          )}
           {segment === 'bills' && billSummary && (
             <div className="flex items-center gap-3">
               <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
