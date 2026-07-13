@@ -16,7 +16,7 @@ const SEGMENT_META: Record<string, { icon: React.ElementType; title: string }> =
   'purchase-orders': { icon: ShoppingBag,  title: 'Purchase Orders' },
   'receive':         { icon: PackageCheck, title: 'Purchase Receives' },
   'bills':           { icon: Receipt,      title: 'Bills' },
-  'payments':        { icon: CreditCard,   title: 'Payments Made' },
+  'payments':        { icon: CreditCard,   title: 'Payments' },
   'vendor-credits':  { icon: FileX,        title: 'Vendor Credits' },
 }
 
