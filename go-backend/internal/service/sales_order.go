@@ -612,6 +612,40 @@ func (sos *SalesOrderService) RecordCustomerPayment(req RecordCustomerPaymentReq
 	if err := sos.db.Create(p).Error; err != nil {
 		return nil, err
 	}
+
+	// Apply payment FIFO against the customer's outstanding invoices so the
+	// Debtors report (which reads invoice.paid_amount) reflects the receipt.
+	var invoices []models.Invoice
+	unpaidStatuses := []string{"DRAFT", "SENT", "PARTIAL", "OVERDUE"}
+	sos.db.Where("customer_id = ? AND outlet_id = ? AND status IN ?", req.CustomerID, req.OutletID, unpaidStatuses).
+		Order("issue_date ASC").Find(&invoices)
+
+	remaining := decimal.NewFromFloat(req.Amount)
+	for i := range invoices {
+		if remaining.LessThanOrEqual(decimal.Zero) {
+			break
+		}
+		inv := &invoices[i]
+		due := inv.TotalAmount.Sub(inv.PaidAmount)
+		if due.LessThanOrEqual(decimal.Zero) {
+			continue
+		}
+		apply := remaining
+		if apply.GreaterThan(due) {
+			apply = due
+		}
+		newPaid := inv.PaidAmount.Add(apply)
+		newStatus := models.InvoiceStatusPartial
+		if newPaid.GreaterThanOrEqual(inv.TotalAmount) {
+			newStatus = models.InvoiceStatusPaid
+		}
+		sos.db.Model(inv).Updates(map[string]interface{}{
+			"paid_amount": newPaid,
+			"status":      newStatus,
+		})
+		remaining = remaining.Sub(apply)
+	}
+
 	sos.db.Preload("SalesOrder").Preload("SalesOrder.Customer").Preload("Customer").First(p, p.ID)
 	return p, nil
 }
