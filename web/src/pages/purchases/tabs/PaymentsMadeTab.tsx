@@ -95,10 +95,8 @@ export default function PaymentsMadeTab({ dateFrom, dateTo }: PaymentsMadeTabPro
     return matchesSearch && matchesFrom && matchesTo
   })
 
-  const totalPaid = filtered.reduce((s, p) => s + parseFloat(p.amount ?? 0), 0)
   const totalTds = filtered.reduce((s, p) => s + parseFloat(p.tdsAmount ?? 0), 0)
-  const netOutflow = totalPaid - totalTds
-  const uniqueVendors = new Set(filtered.map((p: any) => p.supplierId)).size
+  const totalPaid = filtered.reduce((s, p) => s + parseFloat(p.amount ?? 0), 0)
 
   const payMutation = useMutation({
     mutationFn: (payload: any) => vendorPaymentApi.create(payload),
@@ -190,28 +188,6 @@ export default function PaymentsMadeTab({ dateFrom, dateTo }: PaymentsMadeTabPro
           <Plus size={16} /> Record Payment
         </button>
       </div>
-
-      {/* Summary cards */}
-      {!isLoading && payments.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <div className="bg-gradient-to-br from-violet-50 to-violet-100 rounded-xl p-4 border border-violet-200">
-            <p className="text-[11px] font-bold text-violet-500 uppercase tracking-widest mb-1">Total Paid</p>
-            <p className="text-xl font-bold text-violet-800">₹{fmt(totalPaid)}</p>
-          </div>
-          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200">
-            <p className="text-[11px] font-bold text-red-500 uppercase tracking-widest mb-1">TDS Deducted</p>
-            <p className="text-xl font-bold text-red-700">₹{fmt(totalTds)}</p>
-          </div>
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
-            <p className="text-[11px] font-bold text-green-600 uppercase tracking-widest mb-1">Net Outflow</p>
-            <p className="text-xl font-bold text-green-800">₹{fmt(netOutflow)}</p>
-          </div>
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-            <p className="text-[11px] font-bold text-blue-500 uppercase tracking-widest mb-1">Vendors</p>
-            <p className="text-xl font-bold text-blue-800">{uniqueVendors}</p>
-          </div>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">

@@ -9,7 +9,7 @@ import BillsTab from './tabs/BillsTab'
 import PaymentsMadeTab from './tabs/PaymentsMadeTab'
 import VendorCreditsTab from './tabs/VendorCreditsTab'
 import PurchaseReturnsPage from './PurchaseReturnsPage'
-import { purchaseBillApi } from '@/services/api'
+import { purchaseBillApi, vendorPaymentApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { DateRangePicker } from '@/components/DateRangePicker'
 
@@ -44,6 +44,23 @@ export default function PurchasesPage() {
     },
     enabled: segment === 'bills',
   })
+
+  const { data: paymentsRaw } = useQuery({
+    queryKey: ['vendor-payments', outletId],
+    queryFn: () => vendorPaymentApi.getAll({ outletId: outletId ?? undefined, size: 500 })
+      .then(r => r.data.data?.content ?? r.data.data ?? []),
+    enabled: segment === 'payments',
+  })
+  const allPayments: any[] = Array.isArray(paymentsRaw) ? paymentsRaw : (paymentsRaw as any)?.content ?? []
+  const filteredPayments = allPayments.filter(p => {
+    const d = p.paymentDate ? new Date(p.paymentDate) : null
+    return (!payDateFrom || (d && d >= new Date(payDateFrom))) &&
+           (!payDateTo   || (d && d <= new Date(payDateTo + 'T23:59:59')))
+  })
+  const payTotal   = filteredPayments.reduce((s, p) => s + parseFloat(p.amount ?? 0), 0)
+  const payTds     = filteredPayments.reduce((s, p) => s + parseFloat(p.tdsAmount ?? 0), 0)
+  const payNet     = payTotal - payTds
+  const payVendors = new Set(filteredPayments.map((p: any) => p.supplierId)).size
 
   // Purchase Returns is a full standalone page (no card wrapper)
   if (segment === 'returns') return <PurchaseReturnsPage />
@@ -83,11 +100,31 @@ export default function PurchasesPage() {
             </div>
           </div>
           {segment === 'payments' && (
-            <DateRangePicker
-              fromDate={payDateFrom}
-              toDate={payDateTo}
-              onChange={(f, t) => { setPayDateFrom(f); setPayDateTo(t) }}
-            />
+            <div className="flex items-center gap-3">
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Total Paid</p>
+                <p className="text-white font-bold text-base">{fmtCur(payTotal)}</p>
+              </div>
+              {payTds > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
+                  <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">TDS</p>
+                  <p className="text-red-300 font-bold text-base">{fmtCur(payTds)}</p>
+                </div>
+              )}
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Net Outflow</p>
+                <p className="text-green-300 font-bold text-base">{fmtCur(payNet)}</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[80px]">
+                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Vendors</p>
+                <p className="text-amber-300 font-bold text-base">{payVendors}</p>
+              </div>
+              <DateRangePicker
+                fromDate={payDateFrom}
+                toDate={payDateTo}
+                onChange={(f, t) => { setPayDateFrom(f); setPayDateTo(t) }}
+              />
+            </div>
           )}
           {segment === 'bills' && billSummary && (
             <div className="flex items-center gap-3">
