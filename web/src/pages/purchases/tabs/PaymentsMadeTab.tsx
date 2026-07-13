@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, CreditCard, Plus, Loader2, X } from 'lucide-react'
+import { CreditCard, Loader2, X } from 'lucide-react'
 import { vendorPaymentApi, vendorApi, tdsApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { format } from 'date-fns'
@@ -46,13 +46,16 @@ const lbl = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide m
 interface PaymentsMadeTabProps {
   dateFrom: string
   dateTo: string
+  search: string
+  modalOpen: boolean
+  onModalClose: () => void
 }
 
-export default function PaymentsMadeTab({ dateFrom, dateTo }: PaymentsMadeTabProps) {
+export default function PaymentsMadeTab({ dateFrom, dateTo, search, modalOpen, onModalClose }: PaymentsMadeTabProps) {
   const { outletId } = useAuthStore()
   const qc = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [showModal, setShowModal] = useState(false)
+  const showModal = modalOpen
+  const setShowModal = (v: boolean) => { if (!v) onModalClose() }
   const [selectedVendorId, setSelectedVendorId] = useState('')
   const [form, setForm] = useState({
     amount: '',
@@ -67,6 +70,7 @@ export default function PaymentsMadeTab({ dateFrom, dateTo }: PaymentsMadeTabPro
   const [tdsSections, setTdsSections] = useState<any[]>([])
 
   useEffect(() => { tdsApi.getSections().then(r => setTdsSections((r.data as any).data ?? [])) }, [])
+  useEffect(() => { if (modalOpen) resetModal() }, [modalOpen])
 
   const { data, isLoading } = useQuery({
     queryKey: ['vendor-payments', outletId],
@@ -146,11 +150,6 @@ export default function PaymentsMadeTab({ dateFrom, dateTo }: PaymentsMadeTabPro
     })
   }
 
-  function openPayModal() {
-    resetModal()
-    setShowModal(true)
-  }
-
   function handleSubmit() {
     if (!selectedVendorId) { toast.error('Please select a vendor'); return }
     const amt = parseFloat(form.amount)
@@ -175,30 +174,6 @@ export default function PaymentsMadeTab({ dateFrom, dateTo }: PaymentsMadeTabPro
 
   return (
     <div>
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="text-sm font-semibold text-gray-500">
-          {filtered.length} payment{filtered.length !== 1 ? 's' : ''}
-          {(dateFrom || dateTo) && <span className="ml-1 text-violet-400">(date filtered)</span>}
-        </h3>
-        <button
-          onClick={openPayModal}
-          className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-        >
-          <Plus size={16} /> Record Payment
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search vendor or reference..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none" />
-        </div>
-      </div>
-
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 size={28} className="animate-spin text-violet-400" />

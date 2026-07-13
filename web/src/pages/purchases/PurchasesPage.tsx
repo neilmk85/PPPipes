@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Building2, ShoppingBag, PackageCheck, Receipt, CreditCard, FileX } from 'lucide-react'
+import { Building2, ShoppingBag, PackageCheck, Receipt, CreditCard, FileX, Search, Plus } from 'lucide-react'
 import VendorsTab from './tabs/VendorsTab'
 import PurchaseOrdersTab from './tabs/PurchaseOrdersTab'
 import PurchaseReceivesTab from './tabs/PurchaseReceivesTab'
@@ -35,6 +35,8 @@ export default function PurchasesPage() {
   const segment = pathname.split('/purchases/')[1]?.split('/')[0] ?? 'vendors'
   const [payDateFrom, setPayDateFrom] = useState('')
   const [payDateTo, setPayDateTo] = useState('')
+  const [paySearch, setPaySearch] = useState('')
+  const [openPayModal, setOpenPayModal] = useState(false)
 
   const { data: billSummary } = useQuery({
     queryKey: ['purchase-bills-summary', outletId],
@@ -71,7 +73,7 @@ export default function PurchasesPage() {
       case 'purchase-orders':  return <PurchaseOrdersTab />
       case 'receive':          return <PurchaseReceivesTab />
       case 'bills':            return <BillsTab />
-      case 'payments':         return <PaymentsMadeTab dateFrom={payDateFrom} dateTo={payDateTo} />
+      case 'payments':         return <PaymentsMadeTab dateFrom={payDateFrom} dateTo={payDateTo} search={paySearch} modalOpen={openPayModal} onModalClose={() => setOpenPayModal(false)} />
       case 'vendor-credits':   return <VendorCreditsTab />
       default:                 return <VendorsTab />
     }
@@ -91,39 +93,63 @@ export default function PurchasesPage() {
           <div className="absolute -top-10 -right-10 w-72 h-72 rounded-full bg-blue-400/20 blur-3xl" />
           <div className="absolute -bottom-8 -left-8 w-56 h-56 rounded-full bg-violet-300/20 blur-2xl" />
         </div>
-        <div className="relative flex items-center justify-between px-8 py-6">
-          <div className="flex items-center gap-4">
-            <Icon size={26} className="text-amber-300" />
-            <div>
-              <p className="text-violet-200 text-xs font-semibold tracking-widest uppercase">Purchases</p>
-              <h1 className="text-white text-2xl font-bold tracking-tight">{meta.title}</h1>
+        <div className="relative px-8 py-5">
+          {/* Row 1: title + chips + date filter */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <Icon size={26} className="text-amber-300" />
+              <div>
+                <p className="text-violet-200 text-xs font-semibold tracking-widest uppercase">Purchases</p>
+                <h1 className="text-white text-2xl font-bold tracking-tight">{meta.title}</h1>
+              </div>
             </div>
+            {segment === 'payments' && (
+              <div className="flex items-center gap-6">
+                <div className="text-center">
+                  <p className="text-white/50 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Total Paid</p>
+                  <p className="text-white font-bold text-base">{fmtCur(payTotal)}</p>
+                </div>
+                {payTds > 0 && (
+                  <div className="text-center">
+                    <p className="text-white/50 text-[10px] font-semibold uppercase tracking-widest mb-0.5">TDS</p>
+                    <p className="text-red-300 font-bold text-base">{fmtCur(payTds)}</p>
+                  </div>
+                )}
+                <div className="text-center">
+                  <p className="text-white/50 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Net Outflow</p>
+                  <p className="text-green-300 font-bold text-base">{fmtCur(payNet)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-white/50 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Vendors</p>
+                  <p className="text-amber-300 font-bold text-base">{payVendors}</p>
+                </div>
+                <div className="w-px h-8 bg-white/20" />
+                <DateRangePicker
+                  fromDate={payDateFrom}
+                  toDate={payDateTo}
+                  onChange={(f, t) => { setPayDateFrom(f); setPayDateTo(t) }}
+                />
+              </div>
+            )}
           </div>
+          {/* Row 2: search + button (payments only) */}
           {segment === 'payments' && (
             <div className="flex items-center gap-3">
-              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
-                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Total Paid</p>
-                <p className="text-white font-bold text-base">{fmtCur(payTotal)}</p>
+              <div className="relative flex-1 max-w-md">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                <input
+                  value={paySearch}
+                  onChange={e => setPaySearch(e.target.value)}
+                  placeholder="Search vendor or reference…"
+                  className="w-full pl-9 pr-4 py-2 bg-white/10 border border-white/20 rounded-xl text-sm text-white placeholder-white/40 focus:outline-none focus:bg-white/20 focus:border-white/40"
+                />
               </div>
-              {payTds > 0 && (
-                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
-                  <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">TDS</p>
-                  <p className="text-red-300 font-bold text-base">{fmtCur(payTds)}</p>
-                </div>
-              )}
-              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[100px]">
-                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Net Outflow</p>
-                <p className="text-green-300 font-bold text-base">{fmtCur(payNet)}</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2.5 text-center min-w-[80px]">
-                <p className="text-white/60 text-[10px] font-semibold uppercase tracking-widest mb-0.5">Vendors</p>
-                <p className="text-amber-300 font-bold text-base">{payVendors}</p>
-              </div>
-              <DateRangePicker
-                fromDate={payDateFrom}
-                toDate={payDateTo}
-                onChange={(f, t) => { setPayDateFrom(f); setPayDateTo(t) }}
-              />
+              <button
+                onClick={() => setOpenPayModal(true)}
+                className="flex items-center gap-2 bg-white/15 hover:bg-white/25 border border-white/30 text-white px-4 py-2 rounded-xl text-sm font-medium backdrop-blur-sm transition-all"
+              >
+                <Plus size={15} /> Record Payment
+              </button>
             </div>
           )}
           {segment === 'bills' && billSummary && (
