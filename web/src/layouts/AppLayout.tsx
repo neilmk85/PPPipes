@@ -74,6 +74,7 @@ const navEntries: NavEntry[] = [
       { path: '/inventory/categories', icon: <Tag size={14} />,          label: 'Categories' },
     ],
   },
+  { path: '/business/loading', icon: <Truck size={18} />, label: 'Loading' },
   {
     key: 'sales',
     icon: <Store size={18} />,
@@ -102,10 +103,18 @@ const navEntries: NavEntry[] = [
       { path: '/purchases/payments',        icon: <CreditCard size={14} />,   label: 'Payments' },
       { path: '/purchases/vendor-credits',  icon: <FileX size={14} />,        label: 'Vendor Credits' },
       { path: '/purchases/returns',         icon: <RotateCcw size={14} />,    label: 'Purchase Returns' },
+      { path: '/business/pipe-purchases',   icon: <Package size={14} />,      label: 'Pipe Purchases', highlight: true },
     ],
   },
-  { path: '/business/loading', icon: <Truck size={18} />, label: 'Loading' },
-  { path: '/business/pipe-purchases', icon: <Package size={18} />, label: 'Pipe Purchases', highlight: true },
+  {
+    key: 'expenses',
+    icon: <Receipt size={18} />,
+    label: 'Expenses',
+    children: [
+      { path: '/expenses',            icon: <Wallet size={14} />,  label: 'All Expenses' },
+      { path: '/expenses/categories', icon: <Tag size={14} />,     label: 'Categories' },
+    ],
+  },
   { path: '/transfers', icon: <ArrowLeftRight size={18} />, label: 'Site Stock Transfers' },
   {
     key: 'hr',
@@ -140,15 +149,6 @@ const navEntries: NavEntry[] = [
       { path: '/reports/transport', icon: <FileBarChart2 size={14} />, label: 'Transport' },
       { path: '/reports/ledger',    icon: <FileText size={14} />,      label: 'Ledger' },
       { path: '/reports/tds',       icon: <Receipt size={14} />,       label: 'TDS' },
-    ],
-  },
-  {
-    key: 'expenses',
-    icon: <Receipt size={18} />,
-    label: 'Expenses',
-    children: [
-      { path: '/expenses',            icon: <Wallet size={14} />,  label: 'All Expenses' },
-      { path: '/expenses/categories', icon: <Tag size={14} />,     label: 'Categories' },
     ],
   },
   { path: '/activity-logs', icon: <Activity size={18} />, label: 'Activity Logs', roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
