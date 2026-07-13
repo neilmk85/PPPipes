@@ -272,8 +272,8 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 			return err
 		}
 
-		// Create a PurchaseBill so the vendor appears in the creditors list
-		if paymentMode == "credit" || paymentMode == "partial" {
+		// Create a PurchaseBill for all payment modes so every purchase appears in the bills register
+		if paymentMode == "credit" || paymentMode == "partial" || paymentMode == "cash" {
 			billNumber, err := util.GenerateBillNumber(tx)
 			if err != nil {
 				return err
@@ -281,7 +281,10 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 
 			billStatus := models.BillStatusUnpaid
 			effectivePaid := decimal.Zero
-			if paymentMode == "partial" && paidAmount.IsPositive() {
+			if paymentMode == "cash" {
+				billStatus = models.BillStatusPaid
+				effectivePaid = totalAmount
+			} else if paymentMode == "partial" && paidAmount.IsPositive() {
 				effectivePaid = paidAmount
 				if effectivePaid.GreaterThanOrEqual(totalAmount) {
 					billStatus = models.BillStatusPaid
