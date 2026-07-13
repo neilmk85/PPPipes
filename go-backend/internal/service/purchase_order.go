@@ -19,7 +19,7 @@ func NewPurchaseOrderService(db *gorm.DB) *PurchaseOrderService {
 }
 
 // GetAll returns paginated list of purchase orders with filtering
-func (pos *PurchaseOrderService) GetAll(page, size int, outletId *int, supplierId *int, status *string, from, to *time.Time, search *string) (orders []models.PurchaseOrder, total int64, err error) {
+func (pos *PurchaseOrderService) GetAll(page, size int, outletId *int, supplierId *int, status *string, from, to *time.Time, search *string, isDirect *bool) (orders []models.PurchaseOrder, total int64, err error) {
 	query := pos.db
 
 	if outletId != nil {
@@ -43,6 +43,10 @@ func (pos *PurchaseOrderService) GetAll(page, size int, outletId *int, supplierI
 		s := "%" + *search + "%"
 		query = query.Joins("JOIN suppliers ON suppliers.id = purchase_orders.supplier_id").
 			Where("purchase_orders.po_number LIKE ? OR suppliers.name LIKE ?", s, s)
+	}
+
+	if isDirect != nil {
+		query = query.Where("purchase_orders.is_direct = ?", *isDirect)
 	}
 
 	if err := query.Model(&models.PurchaseOrder{}).Count(&total).Error; err != nil {
@@ -245,6 +249,7 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 		OutletID:     outletId,
 		Status:       models.POStatusReceived,
 		ReceivedDate: &now,
+		IsDirect:     true,
 		Subtotal:     subtotal,
 		TaxAmount:    taxAmount,
 		TotalAmount:  totalAmount,

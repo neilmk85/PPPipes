@@ -958,7 +958,7 @@ export default function PurchaseOrdersTab() {
 
   const { data: ordersData, isLoading } = useQuery({
     queryKey: ['purchase-orders', effectiveOutletId, page],
-    queryFn: () => purchaseOrderApi.getByOutlet(effectiveOutletId!, { page, size: 20 }).then(r => r.data.data),
+    queryFn: () => purchaseOrderApi.getByOutlet(effectiveOutletId!, { page, size: 20, isDirect: false }).then(r => r.data.data),
     enabled: !!effectiveOutletId,
   })
 

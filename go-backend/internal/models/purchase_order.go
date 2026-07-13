@@ -19,6 +19,7 @@ type PurchaseOrder struct {
 	TaxAmount       decimal.Decimal `gorm:"column:tax_amount;type:decimal(10,2);default:0" json:"taxAmount"`
 	TotalAmount     decimal.Decimal `gorm:"column:total_amount;type:decimal(10,2);default:0" json:"totalAmount"`
 	Notes           *string         `gorm:"column:notes" json:"notes"`
+	IsDirect        bool            `gorm:"column:is_direct;default:false" json:"isDirect"`
 	CreatedAt       time.Time       `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt       time.Time       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	CreatedBy       *string         `gorm:"column:created_by" json:"createdBy"`

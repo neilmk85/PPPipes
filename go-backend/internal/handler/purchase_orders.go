@@ -63,7 +63,13 @@ func (poh *PurchaseOrderHandler) GetAll(w http.ResponseWriter, r *http.Request) 
 		searchPtr = &q
 	}
 
-	orders, total, err := poh.service.GetAll(page, size, outletIdPtr, supplierIdPtr, statusPtr, fromPtr, toPtr, searchPtr)
+	var isDirectPtr *bool
+	if isDirectStr := r.URL.Query().Get("isDirect"); isDirectStr != "" {
+		v := isDirectStr == "true"
+		isDirectPtr = &v
+	}
+
+	orders, total, err := poh.service.GetAll(page, size, outletIdPtr, supplierIdPtr, statusPtr, fromPtr, toPtr, searchPtr, isDirectPtr)
 	if err != nil {
 		handleError(w, err)
 		return
