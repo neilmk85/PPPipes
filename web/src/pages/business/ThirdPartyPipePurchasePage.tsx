@@ -264,7 +264,6 @@ function PipePicker({ pipeConfigs, onAdd }: { pipeConfigs: any[]; onAdd: (pc: an
                   <p className="text-sm font-semibold text-gray-900">{pc.name}</p>
                   <p className="text-xs text-gray-400">{pc.diameterMm}mm · {pc.pressureClass}</p>
                 </div>
-                <span className="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5 shrink-0">{pc.lengthM}m</span>
               </button>
             ))
           }
