@@ -7,7 +7,7 @@ import { saleReturnApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import CustomerSearchInput from '@/components/CustomerSearchInput'
 
-const REFUND_METHODS = ['CASH', 'CARD', 'UPI', 'CREDIT_NOTE']
+const REFUND_METHODS = ['CASH', 'CARD', 'UPI', 'CREDIT_NOTE', 'LEDGER_ADJUSTMENT']
 
 interface ReturnItem { productName: string; quantity: string; unitPrice: string }
 
@@ -32,6 +32,7 @@ function ProcessReturnModal({ onClose, outletId }: { onClose: () => void; outlet
   }
 
   async function handleSubmit() {
+    if (!customer) { toast.error('Customer name is required'); return }
     const validItems = items.filter(i => i.productName.trim() && parseFloat(i.quantity) > 0)
     if (validItems.length === 0) { toast.error('Add at least one item with name and quantity'); return }
     if (!reason.trim()) { toast.error('Reason is required'); return }
@@ -74,11 +75,11 @@ function ProcessReturnModal({ onClose, outletId }: { onClose: () => void; outlet
           <div className="grid grid-cols-2 gap-3">
             <div>
               <CustomerSearchInput
-                label="Customer"
+                label="Customer *"
                 value={customer}
                 onSelect={c => setCustomer(c)}
                 onClear={() => setCustomer(null)}
-                placeholder="Search customer (optional)"
+                placeholder="Search customer…"
               />
             </div>
             <div>
@@ -196,6 +197,7 @@ const METHOD_LABELS: Record<string, string> = {
   CASH: 'Cash', CARD: 'Card', UPI: 'UPI',
   NET_BANKING: 'Net Banking', CREDIT_NOTE: 'Credit Note',
   LOYALTY_POINTS: 'Loyalty Points', CREDIT_SALE: 'Credit Sale',
+  LEDGER_ADJUSTMENT: 'Ledger Adjustment',
 }
 
 const METHOD_COLORS: Record<string, string> = {
@@ -206,6 +208,7 @@ const METHOD_COLORS: Record<string, string> = {
   CREDIT_NOTE: 'bg-orange-100 text-orange-700',
   LOYALTY_POINTS: 'bg-yellow-100 text-yellow-700',
   CREDIT_SALE: 'bg-red-100 text-red-700',
+  LEDGER_ADJUSTMENT: 'bg-slate-100 text-slate-700',
 }
 
 function fmtMethod(method: string | undefined) {
