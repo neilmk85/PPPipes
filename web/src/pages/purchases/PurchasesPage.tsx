@@ -83,10 +83,10 @@ export default function PurchasesPage() {
   const Icon = meta.icon
 
   return (
-    <div className="p-6">
-      {/* Hero Header */}
-      <div className="relative rounded-2xl shadow-[0_8px_40px_rgba(109,40,217,0.30)] mb-6">
-        <div className="absolute inset-0 overflow-hidden rounded-2xl">
+    <div>
+      {/* Hero Header — full width, flush to top */}
+      <div className="relative shadow-[0_4px_24px_rgba(109,40,217,0.25)] mb-6">
+        <div className="absolute inset-0 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-700 via-violet-600 to-blue-600" />
           <div className="absolute inset-0 opacity-[0.15]"
             style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
@@ -170,7 +170,9 @@ export default function PurchasesPage() {
           )}
         </div>
       </div>
-      {renderContent()}
+      <div className="px-6 pb-6">
+        {renderContent()}
+      </div>
     </div>
   )
 }
