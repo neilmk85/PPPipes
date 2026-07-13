@@ -240,6 +240,7 @@ type LoadingRecord struct {
 	ID               uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Date             DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
 	PipeName         string    `gorm:"column:pipe_name;not null" json:"pipeName"`
+	LengthM          float64   `gorm:"column:length_m;type:decimal(5,2);default:5.25" json:"lengthM"`
 	Quantity         int       `gorm:"column:quantity;not null" json:"quantity"`
 	VehicleNo        string    `gorm:"column:vehicle_no" json:"vehicleNo"`
 	DriverName       string    `gorm:"column:driver_name" json:"driverName"`

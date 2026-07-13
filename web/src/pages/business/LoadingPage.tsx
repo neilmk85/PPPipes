@@ -1527,6 +1527,10 @@ export default function LoadingPage() {
     staleTime: 5 * 60 * 1000,
   })
   const pipeConfigs: { id: number; name: string; diameterMm: number; pressureClass: string; lengthM: number }[] = pipeConfigsRaw as any[]
+  const pipeLengths: number[] = useMemo(() =>
+    [...new Set(pipeConfigs.map(pc => pc.lengthM))].sort((a, b) => a - b),
+    [pipeConfigs]
+  )
 
   const { data: vendorData } = useQuery({
     queryKey: ['vendors'],
@@ -1605,8 +1609,8 @@ export default function LoadingPage() {
   })
 
   // ── Load Pipes modal state ────────────────────────────────────────
-  interface PipeEntry { id: string; pipeName: string; qty: string; pipeNo: string }
-  const newEntry = (): PipeEntry => ({ id: Math.random().toString(36).slice(2), pipeName: '', qty: '', pipeNo: '' })
+  interface PipeEntry { id: string; pipeName: string; lengthM: number; qty: string; pipeNo: string }
+  const newEntry = (): PipeEntry => ({ id: Math.random().toString(36).slice(2), pipeName: '', lengthM: 5.25, qty: '', pipeNo: '' })
 
   const [showModal,    setShowModal]    = useState(false)
   const [pipeEntries,  setPipeEntries]  = useState<PipeEntry[]>([newEntry()])
@@ -1661,6 +1665,7 @@ export default function LoadingPage() {
       await Promise.all(valid.map(pe =>
         loadingRecordApi.create({
           pipeName:      pe.pipeName,
+          lengthM:       pe.lengthM,
           quantity:      parseInt(pe.qty),
           pipeNo:        pe.pipeNo,
           vehicleNo:     form.vehicleNo,
@@ -2191,8 +2196,9 @@ export default function LoadingPage() {
                   </div>
 
                   {/* Column headers */}
-                  <div className="grid gap-4 mb-1.5 px-0.5" style={{ gridTemplateColumns: '1.8fr 120px 1fr 32px' }}>
+                  <div className="grid gap-4 mb-1.5 px-0.5" style={{ gridTemplateColumns: '1.8fr 90px 120px 1fr 32px' }}>
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Pipe Name</span>
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Length</span>
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Quantity</span>
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Pipe No.</span>
                     <span />
@@ -2204,7 +2210,7 @@ export default function LoadingPage() {
                       const qty   = parseInt(pe.qty || '0')
                       const over  = pe.pipeName && qty > avail
                       return (
-                        <div key={pe.id} className="grid gap-3 items-start" style={{ gridTemplateColumns: '1.8fr 120px 1fr 32px' }}>
+                        <div key={pe.id} className="grid gap-3 items-start" style={{ gridTemplateColumns: '1.8fr 90px 120px 1fr 32px' }}>
 
                           {/* Pipe Name */}
                           <div>
@@ -2229,6 +2235,19 @@ export default function LoadingPage() {
                             {idx === 0 && !pe.pipeName && (
                               <input required value="" onChange={() => {}} className="sr-only" tabIndex={-1} aria-hidden />
                             )}
+                          </div>
+
+                          {/* Pipe Length */}
+                          <div>
+                            <select
+                              value={pe.lengthM}
+                              onChange={e => updatePipeEntry(pe.id, { lengthM: parseFloat(e.target.value) })}
+                              className="w-full px-2 py-2.5 text-sm border border-gray-200 rounded-xl bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-400"
+                            >
+                              {(pipeLengths.length > 0 ? pipeLengths : [5.25, 6.5]).map(l => (
+                                <option key={l} value={l}>{l}m</option>
+                              ))}
+                            </select>
                           </div>
 
                           {/* Quantity */}
