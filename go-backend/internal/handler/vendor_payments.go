@@ -50,7 +50,6 @@ func (h *VendorPaymentHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value(middleware.UserContextKey).(*middleware.AuthUser)
 	var req struct {
-		BillID          int      `json:"billId"`
 		SupplierID      int      `json:"supplierId"`
 		OutletID        int      `json:"outletId"`
 		Amount          float64  `json:"amount"`
@@ -66,23 +65,7 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	method := req.PaymentMethod
-	ref := req.ReferenceNumber
-	supplierID := req.SupplierID
-	outletID := req.OutletID
-
-	// If a bill is provided, record payment against it and derive supplier/outlet
-	if req.BillID > 0 {
-		bill, err := h.billService.RecordPayment(req.BillID, decimal.NewFromFloat(req.Amount), &method, &ref)
-		if err != nil {
-			handleError(w, err)
-			return
-		}
-		supplierID = bill.SupplierID
-		outletID = bill.OutletID
-	}
-
-	if supplierID == 0 {
+	if req.SupplierID == 0 {
 		util.SendError(w, http.StatusBadRequest, "Vendor is required")
 		return
 	}
@@ -95,6 +78,8 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	method := req.PaymentMethod
+	ref := req.ReferenceNumber
 	pm := models.VendorPaymentBankTransfer
 	if req.PaymentMethod != "" {
 		pm = models.VendorPaymentMethod(req.PaymentMethod)
@@ -105,8 +90,30 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		tdsAmt = decimal.NewFromFloat(*req.TDSAmount)
 	}
 
+	// Apply payment FIFO against vendor's outstanding bills so the
+	// Creditors report (which reads bill.paid_amount) reflects the payment.
+	remaining := decimal.NewFromFloat(req.Amount)
+	bills, _ := h.billService.GetUnpaidBySupplier(req.SupplierID, req.OutletID)
+
+	for i := range bills {
+		if remaining.LessThanOrEqual(decimal.Zero) {
+			break
+		}
+		b := &bills[i]
+		due := b.TotalAmount.Sub(b.PaidAmount)
+		if due.LessThanOrEqual(decimal.Zero) {
+			continue
+		}
+		apply := remaining
+		if apply.GreaterThan(due) {
+			apply = due
+		}
+		h.billService.RecordPayment(b.ID, apply, &method, &ref)
+		remaining = remaining.Sub(apply)
+	}
+
 	vp, err := h.service.CreateWithTDS(
-		req.BillID, supplierID, outletID,
+		nil, req.SupplierID, req.OutletID,
 		decimal.NewFromFloat(req.Amount), pm, ref, pd, req.Notes, user.Email,
 		req.TDSSectionID, tdsAmt,
 	)
@@ -127,7 +134,7 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		baseAmt := decimal.NewFromFloat(req.Amount)
 		h.tdsService.RecordDeduction(
-			vp.ID, supplierID, outletID, req.BillID, *req.TDSSectionID,
+			vp.ID, req.SupplierID, req.OutletID, 0, *req.TDSSectionID,
 			pd, baseAmt, tdsRate, tdsAmt, user.Email,
 		)
 	}

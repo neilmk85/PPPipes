@@ -273,6 +273,15 @@ func (pbs *PurchaseBillService) CreateFromPO(poId int) (*models.PurchaseBill, er
 	return pbs.GetByID(bill.ID)
 }
 
+// GetUnpaidBySupplier returns unpaid/partial bills for a supplier ordered oldest first.
+func (pbs *PurchaseBillService) GetUnpaidBySupplier(supplierID, outletID int) ([]models.PurchaseBill, error) {
+	var bills []models.PurchaseBill
+	err := pbs.db.Where("supplier_id = ? AND outlet_id = ? AND status IN ?",
+		supplierID, outletID, []string{"UNPAID", "PARTIAL"}).
+		Order("bill_date ASC").Find(&bills).Error
+	return bills, err
+}
+
 // RecordPayment records a payment against a bill
 func (pbs *PurchaseBillService) RecordPayment(id int, amount decimal.Decimal, method *string, reference *string) (*models.PurchaseBill, error) {
 	bill, err := pbs.GetByID(id)

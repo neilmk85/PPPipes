@@ -18,7 +18,7 @@ const (
 
 type VendorPayment struct {
 	ID              int                 `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	BillID          int                 `gorm:"column:bill_id;index" json:"billId"`
+	BillID          *int                `gorm:"column:bill_id;index" json:"billId"`
 	SupplierID      int                 `gorm:"column:supplier_id;index" json:"supplierId"`
 	OutletID        int                 `gorm:"column:outlet_id;index" json:"outletId"`
 	ReferenceNumber string              `gorm:"column:reference_number;size:100" json:"referenceNumber"`
@@ -31,7 +31,7 @@ type VendorPayment struct {
 	CreatedAt       time.Time           `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt       time.Time           `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	CreatedBy       *string             `gorm:"column:created_by" json:"createdBy"`
-	Bill            *PurchaseBill       `gorm:"foreignKey:BillID" json:"bill,omitempty"`
+	Bill            *PurchaseBill       `gorm:"foreignKey:BillID;references:ID" json:"bill,omitempty"`
 	Supplier        *Supplier           `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
 	TDSSection      *TDSSection         `gorm:"foreignKey:TDSSectionID" json:"tdsSection,omitempty"`
 }

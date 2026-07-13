@@ -31,12 +31,7 @@ func (s *VendorPaymentService) GetAll(outletID, supplierID *int, page, size int)
 	return rows, total, err
 }
 
-func (s *VendorPaymentService) Create(billID, supplierID, outletID int, amount decimal.Decimal,
-	method models.VendorPaymentMethod, ref string, date time.Time, notes *string, createdBy string) (*models.VendorPayment, error) {
-	return s.CreateWithTDS(billID, supplierID, outletID, amount, method, ref, date, notes, createdBy, nil, decimal.Zero)
-}
-
-func (s *VendorPaymentService) CreateWithTDS(billID, supplierID, outletID int, amount decimal.Decimal,
+func (s *VendorPaymentService) CreateWithTDS(billID *int, supplierID, outletID int, amount decimal.Decimal,
 	method models.VendorPaymentMethod, ref string, date time.Time, notes *string, createdBy string,
 	tdsSectionID *int, tdsAmount decimal.Decimal) (*models.VendorPayment, error) {
 	p := &models.VendorPayment{

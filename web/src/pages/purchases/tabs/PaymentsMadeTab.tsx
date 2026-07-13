@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, CreditCard, Plus, Loader2, X } from 'lucide-react'
-import { purchaseBillApi, vendorPaymentApi, vendorApi, tdsApi } from '@/services/api'
+import { vendorPaymentApi, vendorApi, tdsApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -49,7 +49,6 @@ export default function PaymentsMadeTab() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [selectedVendorId, setSelectedVendorId] = useState('')
-  const [selectedBillId, setSelectedBillId] = useState('')
   const [form, setForm] = useState({
     amount: '',
     paymentMethod: 'BANK_TRANSFER',
@@ -71,13 +70,6 @@ export default function PaymentsMadeTab() {
     enabled: true,
   })
 
-  const { data: billsData, isLoading: billsLoading } = useQuery({
-    queryKey: ['purchase-bills', outletId],
-    queryFn: () => purchaseBillApi.getByOutlet(outletId!, { size: 500 })
-      .then(r => r.data.data?.content ?? r.data.data ?? []),
-    enabled: showModal && !!outletId,
-  })
-
   const { data: vendorsData, isLoading: vendorsLoading } = useQuery({
     queryKey: ['vendors', outletId],
     queryFn: () => vendorApi.getAll({ size: 500 })
@@ -86,14 +78,7 @@ export default function PaymentsMadeTab() {
   })
 
   const payments: any[] = Array.isArray(data) ? data : (data as any)?.content ?? []
-  const allBills: any[] = Array.isArray(billsData) ? billsData : []
   const allVendors: any[] = Array.isArray(vendorsData) ? vendorsData : []
-  const openBills = allBills.filter(b =>
-    (b.status === 'UNPAID' || b.status === 'PARTIAL') &&
-    (!selectedVendorId || String(b.supplierId ?? b.supplier?.id) === selectedVendorId)
-  )
-
-  const selectedBill = openBills.find(b => String(b.id) === selectedBillId) ?? null
 
   const filtered = payments.filter(p =>
     (p.supplier?.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
@@ -105,7 +90,6 @@ export default function PaymentsMadeTab() {
     onSuccess: () => {
       toast.success('Payment recorded')
       qc.invalidateQueries({ queryKey: ['vendor-payments'] })
-      qc.invalidateQueries({ queryKey: ['purchase-bills', outletId] })
       setShowModal(false)
       resetModal()
     },
@@ -114,7 +98,6 @@ export default function PaymentsMadeTab() {
 
   function resetModal() {
     setSelectedVendorId('')
-    setSelectedBillId('')
     setForm({
       amount: '',
       paymentMethod: 'BANK_TRANSFER',
@@ -155,36 +138,15 @@ export default function PaymentsMadeTab() {
     setShowModal(true)
   }
 
-  function handleVendorSelect(vendorId: string) {
-    setSelectedVendorId(vendorId)
-    setSelectedBillId('')
-    setForm(prev => ({ ...prev, amount: '' }))
-  }
-
-  function handleBillSelect(billId: string) {
-    setSelectedBillId(billId)
-    const bill = openBills.find(b => String(b.id) === billId)
-    if (bill) {
-      const balance = parseFloat(bill.totalAmount ?? 0) - parseFloat(bill.paidAmount ?? 0)
-      setForm(prev => ({ ...prev, amount: balance.toFixed(2) }))
-    }
-  }
-
   function handleSubmit() {
     if (!selectedVendorId) { toast.error('Please select a vendor'); return }
     const amt = parseFloat(form.amount)
     if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return }
     if (!form.paymentDate) { toast.error('Please enter payment date'); return }
 
-    if (selectedBill) {
-      const balance = parseFloat(selectedBill.totalAmount ?? 0) - parseFloat(selectedBill.paidAmount ?? 0)
-      if (amt > balance + 0.01) { toast.error('Amount exceeds balance due'); return }
-    }
-
     const payload: any = {
       supplierId: parseInt(selectedVendorId),
       outletId: outletId!,
-      billId: selectedBillId ? parseInt(selectedBillId) : undefined,
       amount: amt,
       paymentMethod: form.paymentMethod,
       referenceNumber: form.referenceNumber || undefined,
@@ -283,7 +245,7 @@ export default function PaymentsMadeTab() {
                 ) : (
                   <select
                     value={selectedVendorId}
-                    onChange={e => handleVendorSelect(e.target.value)}
+                    onChange={e => setSelectedVendorId(e.target.value)}
                     className={inp}
                   >
                     <option value="">— Select a vendor —</option>
@@ -291,45 +253,6 @@ export default function PaymentsMadeTab() {
                       <option key={v.id} value={v.id}>{v.name}</option>
                     ))}
                   </select>
-                )}
-              </div>
-
-              {/* Bill Selector (optional, filtered by vendor) */}
-              <div>
-                <label className={lbl}>
-                  Bill <span className="text-gray-400 font-normal normal-case tracking-normal">(optional)</span>
-                </label>
-                {billsLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
-                    <Loader2 size={14} className="animate-spin" /> Loading bills…
-                  </div>
-                ) : (
-                  <select
-                    value={selectedBillId}
-                    onChange={e => handleBillSelect(e.target.value)}
-                    className={inp}
-                    disabled={!selectedVendorId}
-                  >
-                    <option value="">— No bill (advance / on-account payment) —</option>
-                    {openBills.map(b => {
-                      const balance = parseFloat(b.totalAmount ?? 0) - parseFloat(b.paidAmount ?? 0)
-                      return (
-                        <option key={b.id} value={b.id}>
-                          {b.billNumber} · Balance ₹{fmt(balance)}
-                        </option>
-                      )
-                    })}
-                  </select>
-                )}
-                {selectedBill && (
-                  <p className="text-xs text-gray-500 mt-1.5">
-                    Total: ₹{fmt(parseFloat(selectedBill.totalAmount ?? 0))} ·
-                    Paid: ₹{fmt(parseFloat(selectedBill.paidAmount ?? 0))} ·
-                    <span className="font-semibold text-violet-700"> Balance: ₹{fmt(parseFloat(selectedBill.totalAmount ?? 0) - parseFloat(selectedBill.paidAmount ?? 0))}</span>
-                  </p>
-                )}
-                {selectedVendorId && !selectedBillId && openBills.length === 0 && !billsLoading && (
-                  <p className="text-xs text-gray-400 mt-1">No unpaid bills for this vendor</p>
                 )}
               </div>
 
