@@ -48,7 +48,7 @@ func (pbs *PurchaseBillService) GetAll(page, size int, outletId *int, supplierId
 		Preload("Items", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Product")
 		}).
-		Order("bill_date DESC").
+		Order("bill_date DESC, id DESC").
 		Offset(offset).
 		Limit(size).
 		Find(&bills).Error
