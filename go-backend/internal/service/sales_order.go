@@ -563,7 +563,8 @@ func (sos *SalesOrderService) RecordPayment(salesOrderID int, req RecordPaymentR
 	}
 
 	p := &models.SalesOrderPayment{
-		SalesOrderID:    salesOrderID,
+		SalesOrderID:    &salesOrderID,
+		CustomerID:      &so.CustomerID,
 		OutletID:        so.OutletID,
 		Amount:          decimal.NewFromFloat(req.Amount),
 		PaymentMethod:   req.PaymentMethod,
@@ -575,7 +576,43 @@ func (sos *SalesOrderService) RecordPayment(salesOrderID int, req RecordPaymentR
 	if err := sos.db.Create(p).Error; err != nil {
 		return nil, err
 	}
-	sos.db.Preload("SalesOrder").Preload("SalesOrder.Customer").First(p, p.ID)
+	sos.db.Preload("SalesOrder").Preload("SalesOrder.Customer").Preload("Customer").First(p, p.ID)
+	return p, nil
+}
+
+type RecordCustomerPaymentRequest struct {
+	CustomerID      int     `json:"customerId"`
+	SalesOrderID    *int    `json:"salesOrderId"`
+	OutletID        int     `json:"outletId"`
+	Amount          float64 `json:"amount"`
+	PaymentMethod   string  `json:"paymentMethod"`
+	ReferenceNumber *string `json:"referenceNumber"`
+	PaymentDate     string  `json:"paymentDate"` // YYYY-MM-DD
+	Notes           *string `json:"notes"`
+	CreatedBy       *string `json:"createdBy"`
+}
+
+func (sos *SalesOrderService) RecordCustomerPayment(req RecordCustomerPaymentRequest) (*models.SalesOrderPayment, error) {
+	payDate, err := time.Parse("2006-01-02", req.PaymentDate)
+	if err != nil {
+		payDate = time.Now()
+	}
+
+	p := &models.SalesOrderPayment{
+		CustomerID:      &req.CustomerID,
+		SalesOrderID:    req.SalesOrderID,
+		OutletID:        req.OutletID,
+		Amount:          decimal.NewFromFloat(req.Amount),
+		PaymentMethod:   req.PaymentMethod,
+		ReferenceNumber: req.ReferenceNumber,
+		PaymentDate:     payDate,
+		Notes:           req.Notes,
+		CreatedBy:       req.CreatedBy,
+	}
+	if err := sos.db.Create(p).Error; err != nil {
+		return nil, err
+	}
+	sos.db.Preload("SalesOrder").Preload("SalesOrder.Customer").Preload("Customer").First(p, p.ID)
 	return p, nil
 }
 
@@ -614,6 +651,7 @@ func (sos *SalesOrderService) GetAllPayments(dto GetAllPaymentsDTO) ([]models.Sa
 	err := query.
 		Preload("SalesOrder").
 		Preload("SalesOrder.Customer").
+		Preload("Customer").
 		Order("payment_date DESC, id DESC").
 		Offset(dto.Page * dto.Size).
 		Limit(dto.Size).

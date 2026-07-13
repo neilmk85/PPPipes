@@ -8,7 +8,8 @@ import (
 
 type SalesOrderPayment struct {
 	ID              int             `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	SalesOrderID    int             `gorm:"column:sales_order_id;index" json:"salesOrderId"`
+	SalesOrderID    *int            `gorm:"column:sales_order_id;index" json:"salesOrderId"`
+	CustomerID      *int            `gorm:"column:customer_id;index" json:"customerId"`
 	OutletID        int             `gorm:"column:outlet_id;index" json:"outletId"`
 	Amount          decimal.Decimal `gorm:"column:amount;type:decimal(15,2)" json:"amount"`
 	PaymentMethod   string          `gorm:"column:payment_method;size:50" json:"paymentMethod"`
@@ -20,6 +21,7 @@ type SalesOrderPayment struct {
 	UpdatedAt       time.Time       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 
 	SalesOrder *SalesOrder `gorm:"foreignKey:SalesOrderID" json:"salesOrder,omitempty"`
+	Customer   *Customer   `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
 }
 
 func (SalesOrderPayment) TableName() string {

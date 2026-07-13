@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Search, Landmark, TrendingUp, IndianRupee } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Search, Landmark, TrendingUp, IndianRupee, Plus, X } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { salesOrderPaymentApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { DateRangePicker } from '@/components/DateRangePicker'
+import CustomerSearchInput from '@/components/CustomerSearchInput'
 
 const METHOD_COLORS: Record<string, string> = {
   NEFT:          'bg-blue-50 text-blue-700',
@@ -42,12 +43,133 @@ function renderPieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }:
   return <text x={x} y={y} fill="#374151" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={11}>{`${(percent * 100).toFixed(0)}%`}</text>
 }
 
+const PAYMENT_METHODS = ['NEFT', 'RTGS', 'CHEQUE', 'UPI', 'IMPS', 'BANK_TRANSFER', 'CASH']
+
+interface RecordPaymentModalProps {
+  onClose: () => void
+  onSaved: () => void
+}
+
+function RecordPaymentModal({ onClose, onSaved }: RecordPaymentModalProps) {
+  const { outletId } = useAuthStore()
+  const [customer, setCustomer]   = useState<any>(null)
+  const [amount, setAmount]       = useState('')
+  const [method, setMethod]       = useState('NEFT')
+  const [date, setDate]           = useState(isoToday())
+  const [reference, setReference] = useState('')
+  const [notes, setNotes]         = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!customer) { setError('Please select a customer'); return }
+    if (!amount || parseFloat(amount) <= 0) { setError('Enter a valid amount'); return }
+    setError('')
+    setSaving(true)
+    try {
+      await salesOrderPaymentApi.create({
+        customerId: customer.id,
+        outletId: outletId!,
+        amount: parseFloat(amount),
+        paymentMethod: method,
+        paymentDate: date,
+        referenceNumber: reference || undefined,
+        notes: notes || undefined,
+      })
+      onSaved()
+      onClose()
+    } catch {
+      setError('Failed to record payment. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h2 className="text-base font-bold text-gray-900">Record Payment</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Customer *</label>
+            <CustomerSearchInput value={customer} onSelect={setCustomer} onClear={() => setCustomer(null)} label="" placeholder="Search customer…" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Amount (₹) *</label>
+              <input
+                type="number" min="0.01" step="0.01" value={amount}
+                onChange={e => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Payment Date *</label>
+              <input
+                type="date" value={date}
+                onChange={e => setDate(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Payment Method *</label>
+            <select value={method} onChange={e => setMethod(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none bg-white">
+              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Reference / UTR No.</label>
+            <input
+              type="text" value={reference}
+              onChange={e => setReference(e.target.value)}
+              placeholder="Optional"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)}
+              rows={2} placeholder="Optional"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-500 focus:outline-none resize-none" />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-xl text-sm font-medium hover:bg-gray-50">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 bg-gradient-to-r from-violet-600 to-blue-600 text-white py-2 rounded-xl text-sm font-semibold disabled:opacity-50">
+              {saving ? 'Saving…' : 'Record Payment'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function PaymentsReceivedPage() {
   const { outletId } = useAuthStore()
+  const queryClient = useQueryClient()
   const [tab, setTab]     = useState<'summary' | 'transactions'>('summary')
   const [search, setSearch] = useState('')
   const [from, setFrom]   = useState(isoStartOfMonth())
   const [to,   setTo]     = useState(isoToday())
+  const [showModal, setShowModal] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['so-payments-all', outletId, from, to],
@@ -62,6 +184,7 @@ export default function PaymentsReceivedPage() {
     !search ||
     p.salesOrder?.soNumber?.toLowerCase().includes(search.toLowerCase()) ||
     p.salesOrder?.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+    p.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
     p.paymentMethod?.toLowerCase().includes(search.toLowerCase()) ||
     (p.referenceNumber ?? '').toLowerCase().includes(search.toLowerCase())
   )
@@ -78,6 +201,12 @@ export default function PaymentsReceivedPage() {
 
   return (
     <div className="min-h-full bg-gray-50">
+      {showModal && (
+        <RecordPaymentModal
+          onClose={() => setShowModal(false)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ['so-payments-all'] })}
+        />
+      )}
 
       {/* Hero */}
       <div className="relative overflow-hidden">
@@ -95,7 +224,14 @@ export default function PaymentsReceivedPage() {
               <p className="text-violet-200/70 text-xs mt-0.5">Customer receipts against sales orders</p>
             </div>
           </div>
-          <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
+          <div className="flex items-center gap-3">
+            <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
+            <button onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2 rounded-xl text-sm font-semibold transition-all">
+              <Plus size={15} />
+              Record Payment
+            </button>
+          </div>
         </div>
 
         {/* Stat strip */}
@@ -213,7 +349,7 @@ export default function PaymentsReceivedPage() {
               <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
                 <TrendingUp size={40} className="mx-auto text-gray-200 mb-3" />
                 <p className="text-sm text-gray-400">No payments received in this period</p>
-                <p className="text-xs text-gray-300 mt-1">Record payments from the Sales Order detail page</p>
+                <p className="text-xs text-gray-300 mt-1">Use "Record Payment" to record a customer payment</p>
               </div>
             )}
           </>
@@ -260,7 +396,7 @@ export default function PaymentsReceivedPage() {
                         {p.salesOrder?.soNumber ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
-                        {p.salesOrder?.customer?.name ?? '—'}
+                        {p.customer?.name ?? p.salesOrder?.customer?.name ?? '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${METHOD_COLORS[p.paymentMethod] ?? 'bg-gray-100 text-gray-700'}`}>

@@ -263,6 +263,42 @@ func (soh *SalesOrderHandler) GetPaymentsForOrder(w http.ResponseWriter, r *http
 	util.SendSuccess(w, "Payments retrieved", payments)
 }
 
+// RecordCustomerPayment records a payment against a customer (not tied to a specific SO)
+func (soh *SalesOrderHandler) RecordCustomerPayment(w http.ResponseWriter, r *http.Request) {
+	var req service.RecordCustomerPaymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.CustomerID == 0 {
+		util.SendError(w, http.StatusBadRequest, "Customer is required")
+		return
+	}
+	if req.OutletID == 0 {
+		util.SendError(w, http.StatusBadRequest, "Outlet is required")
+		return
+	}
+	if req.Amount <= 0 {
+		util.SendError(w, http.StatusBadRequest, "Amount must be positive")
+		return
+	}
+	if req.PaymentMethod == "" {
+		util.SendError(w, http.StatusBadRequest, "Payment method is required")
+		return
+	}
+	if req.PaymentDate == "" {
+		util.SendError(w, http.StatusBadRequest, "Payment date is required")
+		return
+	}
+
+	p, err := soh.service.RecordCustomerPayment(req)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Payment recorded", p)
+}
+
 // GetAllPayments returns paginated payments across all sales orders for an outlet
 func (soh *SalesOrderHandler) GetAllPayments(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()

@@ -1433,6 +1433,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		salesOrderHandler.GetAllPayments,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("POST /api/sales-order-payments", middleware.Chain(
+		salesOrderHandler.RecordCustomerPayment,
+		middleware.Authenticate(db),
+	))
 
 	// ==================== ACTIVITY LOGS ====================
 	mux.HandleFunc("GET /api/activity-logs", middleware.Chain(

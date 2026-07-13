@@ -783,6 +783,11 @@ export const salesOrderPaymentApi = {
     api.get<ApiResponse<any>>(`/sales-orders/${salesOrderId}/payments`),
   getAll: (params?: { outletId?: number; from?: string; to?: string; page?: number; size?: number }) =>
     api.get<ApiResponse<any>>('/sales-order-payments', { params }),
+  create: (data: {
+    customerId: number; salesOrderId?: number; outletId: number
+    amount: number; paymentMethod: string; referenceNumber?: string
+    paymentDate: string; notes?: string; createdBy?: string
+  }) => api.post<ApiResponse<any>>('/sales-order-payments', data),
 }
 
 // ── PCCP Production APIs ────────────────────────────────────────────────────
