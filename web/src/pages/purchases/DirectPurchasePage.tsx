@@ -20,8 +20,8 @@ function fmtNum(n: any, d = 2) {
 }
 function fmtCur(n: any) {
   const v = parseFloat(String(n ?? 0))
-  if (isNaN(v)) return '₹0.00'
-  return '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  if (isNaN(v)) return '₹0'
+  return '₹' + Math.round(v).toLocaleString('en-IN')
 }
 function paymentBadge(po: any) {
   const bill = po.sourceBills?.[0]
