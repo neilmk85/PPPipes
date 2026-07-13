@@ -276,6 +276,45 @@ The backend `GetPriorStageCompleted` endpoint returned the order's `PlannedQty` 
 
 ---
 
+## REQ-011 · UI Improvements — Payments Pages & Customer Ledger
+**Status:** Implemented
+
+### Shared DateRangePicker Component
+- Extracted a reusable `DateRangePicker` component at `web/src/components/DateRangePicker.tsx`.
+- Presets: Today, Yesterday, This Week, Last Week, This Month, Last Month, This Quarter, This Year. Plus custom date range with an Apply button.
+- Styled for dark hero backgrounds (glass `bg-white/10` button, white text).
+- Replaced inline duplicate implementations in `DirectPurchasePage.tsx` and `SalesOrdersPage.tsx` with the shared import.
+
+### Purchases → Payments Page (`/purchases/payments`)
+- **Full-width flush hero header** — no top margin, no rounded corners, edge-to-edge.
+- **Stat chips** in hero header (plain text, no background card): Total Paid, TDS (if any), Net Outflow, Vendors.
+- **Date range filter** in hero header via shared `DateRangePicker`; chips reflect the filtered data.
+- **Search bar** and **Record Payment** button moved into hero header (row 2 below stats).
+- Summary cards below the header removed (all stats moved into header).
+
+### Sales → Receipts Page (`/sales/payments-received`)
+- Tab order changed: **Transactions** tab is now first, **Summary** second.
+
+### Customer Detail Page (`/customers/:id`)
+- Clicking a customer row on `/customers` navigates to `/customers/:id` (detail view).
+  - Row style: `cursor-pointer hover:bg-violet-50/40`.
+  - Edit pencil and toggle buttons use `e.stopPropagation()` to avoid triggering row navigation.
+- **New page:** `web/src/pages/customers/CustomerDetailPage.tsx`.
+- **Hero header:** customer name, city, phone, GSTIN; stat chips: Total Billed, Total Paid, Outstanding (red when > 0), Credit Notes; Edit button navigates to `/customers/:id/edit`.
+- **Ledger tab** (default): chronological table merging invoices, receipts, and credit notes with Debit / Credit / Running Balance columns. Balance shown as "Dr" or "Cr".
+- **Invoices tab:** invoice number, date, due date, total, paid, status badge.
+- **Receipts tab:** date, reference, method, amount, notes; tfoot totals row.
+- **Sales Orders tab:** SO number, date, status badge, value; rows are clickable → navigates to SO detail.
+
+### Backend Changes
+- **`GET /api/invoices`** — added optional `customerId` filter; returns only that customer's invoices when provided.
+- **`GET /api/sales-order-payments`** — added optional `customerId` filter; matches payments directly on `customer_id` or via `sales_order_id IN (SELECT id FROM sales_orders WHERE customer_id = ?)`.
+
+### Route Added
+- `App.tsx`: `<Route path="/customers/:id" />` registered before `/customers/:id/edit`.
+
+---
+
 ## REQ-010 · Convert SO to Production Order — Role Permission Gate
 **Page:** `/sales-orders/:id`
 **Status:** Implemented
