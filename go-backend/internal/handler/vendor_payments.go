@@ -66,11 +66,6 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.SupplierID == 0 {
-		util.SendError(w, http.StatusBadRequest, "Vendor is required")
-		return
-	}
-
 	method := req.PaymentMethod
 	ref := req.ReferenceNumber
 	supplierID := req.SupplierID
@@ -85,6 +80,11 @@ func (h *VendorPaymentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		supplierID = bill.SupplierID
 		outletID = bill.OutletID
+	}
+
+	if supplierID == 0 {
+		util.SendError(w, http.StatusBadRequest, "Vendor is required")
+		return
 	}
 
 	// Parse date
