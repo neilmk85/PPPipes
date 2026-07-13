@@ -1,28 +1,79 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Search, RotateCcw, X, Loader2, ChevronLeft, ChevronRight, Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { purchaseReturnApi } from '@/services/api'
+import { purchaseReturnApi, vendorApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { format } from 'date-fns'
 
 const CREDIT_METHODS = [
-  { value: 'CASH',          label: 'Cash Refund' },
-  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-  { value: 'VENDOR_CREDIT', label: 'Vendor Credit' },
+  { value: 'CASH',               label: 'Cash Refund' },
+  { value: 'BANK_TRANSFER',      label: 'Bank Transfer' },
+  { value: 'VENDOR_CREDIT',      label: 'Vendor Credit' },
+  { value: 'UPI',                label: 'UPI' },
+  { value: 'LEDGER_ADJUSTMENT',  label: 'Ledger Adjustment' },
 ]
 
 const CREDIT_COLORS: Record<string, string> = {
-  CASH:          'bg-green-50 text-green-700',
-  BANK_TRANSFER: 'bg-blue-50 text-blue-700',
-  VENDOR_CREDIT: 'bg-purple-50 text-purple-700',
+  CASH:              'bg-green-50 text-green-700',
+  BANK_TRANSFER:     'bg-blue-50 text-blue-700',
+  VENDOR_CREDIT:     'bg-purple-50 text-purple-700',
+  UPI:               'bg-orange-50 text-orange-700',
+  LEDGER_ADJUSTMENT: 'bg-slate-50 text-slate-700',
 }
 
 interface PRItem { productName: string; quantity: string; unitCost: string }
 
 // ─── New Return Modal ──────────────────────────────────────────────────────────
+
+function SupplierAutocomplete({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [query, setQuery]   = useState(value)
+  const [open, setOpen]     = useState(false)
+  const ref                 = useRef<HTMLDivElement>(null)
+
+  const { data } = useQuery({
+    queryKey: ['vendors-search', query],
+    queryFn: () => vendorApi.getAll({ search: query, size: 20 }).then(r => {
+      const d = r.data.data
+      return Array.isArray(d) ? d : (d?.content ?? [])
+    }),
+    enabled: open && query.length >= 0,
+  })
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  function select(name: string) { onChange(name); setQuery(name); setOpen(false) }
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        value={query}
+        onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        placeholder="Search supplier…"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none"
+      />
+      {open && (data ?? []).length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+          {(data ?? []).map((v: any) => (
+            <li key={v.id}
+              onMouseDown={() => select(v.name)}
+              className="px-3 py-2 text-sm text-gray-800 hover:bg-violet-50 cursor-pointer">
+              {v.name}
+              {v.phone && <span className="ml-2 text-xs text-gray-400">{v.phone}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 function NewReturnModal({ outletId, onClose }: { outletId: number; onClose: () => void }) {
   const qc = useQueryClient()
@@ -43,6 +94,7 @@ function NewReturnModal({ outletId, onClose }: { outletId: number; onClose: () =
   }
 
   const handleSubmit = async () => {
+    if (!supplierName.trim()) { toast.error('Supplier name is required'); return }
     const validItems = items.filter(i => i.productName.trim() && parseFloat(i.quantity) > 0)
     if (validItems.length === 0) { toast.error('Add at least one item with name and quantity'); return }
     if (!reason.trim()) { toast.error('Reason is required'); return }
@@ -51,7 +103,7 @@ function NewReturnModal({ outletId, onClose }: { outletId: number; onClose: () =
     try {
       await purchaseReturnApi.create({
         outletId,
-        supplierName: supplierName || undefined,
+        supplierName,
         refNo: refNo || undefined,
         returnDate,
         creditMethod,
@@ -84,10 +136,10 @@ function NewReturnModal({ outletId, onClose }: { outletId: number; onClose: () =
           {/* Row 1: Supplier + Ref No */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Supplier Name</label>
-              <input value={supplierName} onChange={e => setSupplierName(e.target.value)}
-                placeholder="Supplier name (optional)"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-violet-200 focus:border-violet-400 focus:outline-none" />
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                Supplier Name <span className="text-red-400">*</span>
+              </label>
+              <SupplierAutocomplete value={supplierName} onChange={setSupplierName} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Original Bill / PO No.</label>
