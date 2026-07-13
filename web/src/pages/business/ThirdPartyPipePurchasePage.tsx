@@ -260,10 +260,11 @@ function PipePicker({ pipeConfigs, onAdd }: { pipeConfigs: any[]; onAdd: (pc: an
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                   <Package size={14} className="text-blue-500" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{pc.diameterMm}mm · {pc.pressureClass}</p>
-                  <p className="text-xs text-gray-400">{pc.name}</p>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-900">{pc.name}</p>
+                  <p className="text-xs text-gray-400">{pc.diameterMm}mm · {pc.pressureClass}</p>
                 </div>
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5 shrink-0">{pc.lengthM}m</span>
               </button>
             ))
           }
@@ -305,7 +306,7 @@ function AddForm({
   useEffect(() => { const id = requestAnimationFrame(() => setVisible(true)); return () => cancelAnimationFrame(id) }, [])
 
   const effectiveVendorName = selectedVendor?.name ?? vendorFreeText
-  const totalAmount = ((Number(quantity) || 0) * (Number(unitRate) || 0)).toFixed(2)
+  const totalAmount = ((Number(meters) || 0) * (Number(unitRate) || 0)).toFixed(2)
 
   const mutation = useMutation({
     mutationFn: (data: any) => pipePurchasesApi.create(data),
@@ -453,7 +454,7 @@ function AddForm({
               <div className="px-5 py-3">Pipe Type</div>
               <div className="px-3 py-3 text-right">Meters (m)</div>
               <div className="px-3 py-3 text-right">Qty (pcs)</div>
-              <div className="px-3 py-3 text-right">Unit Rate (₹)</div>
+              <div className="px-3 py-3 text-right">Rate / Meter (₹)</div>
               <div className="px-3 py-3 text-right">Total Amount</div>
               <div />
             </div>
@@ -563,7 +564,7 @@ function AddForm({
                 </span>
               </div>
               <div className="flex justify-between text-gray-600">
-                <span>Unit Rate</span>
+                <span>Rate / Meter</span>
                 <span className="tabular-nums font-medium">{unitRate ? `₹${Number(unitRate).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}</span>
               </div>
               <div className="flex justify-between font-bold text-[15px] border-t border-gray-200 pt-3 mt-1 text-gray-900">
@@ -802,7 +803,7 @@ export default function ThirdPartyPipePurchasePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr style={{ background: 'linear-gradient(to right, #eff6ff 0%, #eef2ff 100%)', borderBottom: '1px solid #dbeafe' }}>
-                      {['Date', 'Vendor', 'Invoice No.', 'Pipe Type', 'Qty (pcs)', 'Unit Rate', 'Total Amount', 'Notes', ''].map(h => (
+                      {['Date', 'Vendor', 'Invoice No.', 'Pipe Type', 'Qty (pcs)', 'Rate/m', 'Total Amount', 'Notes', ''].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-gray-900 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
