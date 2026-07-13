@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import toast from 'react-hot-toast'
 import { format, addDays } from 'date-fns'
-import { invoiceApi, productApi, discountApi, integrationApi, taxGroupApi } from '@/services/api'
+import { invoiceApi, productApi, variantApi, discountApi, integrationApi, taxGroupApi, pipeConfigApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import CustomerSearchInput from '@/components/CustomerSearchInput'
 import { DEFAULT_INVOICE_TEMPLATE, InvoiceTemplateConfig } from '@/pages/settings/SettingsPage'
@@ -239,20 +239,24 @@ function ProductSearch({ onSelect }: { onSelect: (p: any) => void }) {
   const [results, setResults] = useState<any[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [pickedProduct, setPickedProduct] = useState<any>(null)
+  const [variants, setVariants] = useState<any[]>([])
+  const [variantsLoading, setVariantsLoading] = useState(false)
   const [dropRect, setDropRect] = useState<{ top: number; left: number; width: number } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
+  const reset = () => { setOpen(false); setPickedProduct(null); setVariants([]); setQuery('') }
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const t = e.target as Node
-      if (!wrapRef.current?.contains(t) && !dropRef.current?.contains(t)) setOpen(false)
+      if (!wrapRef.current?.contains(t) && !dropRef.current?.contains(t)) { setOpen(false); setPickedProduct(null); setVariants([]) }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Recalculate dropdown position on open or scroll
   useEffect(() => {
     if (!open || !wrapRef.current) { if (!open) setDropRect(null); return }
     const update = () => {
@@ -297,54 +301,116 @@ function ProductSearch({ onSelect }: { onSelect: (p: any) => void }) {
     return () => clearTimeout(t)
   }, [query])
 
+  async function handleProductClick(p: any) {
+    setVariantsLoading(true)
+    try {
+      const res = await variantApi.getAll(p.id)
+      const vars = (res.data.data ?? []).filter((v: any) => v.active !== false)
+      if (vars.length > 0) {
+        setPickedProduct(p)
+        setVariants(vars)
+      } else {
+        onSelect(p)
+        reset()
+      }
+    } catch {
+      onSelect(p)
+      reset()
+    } finally {
+      setVariantsLoading(false)
+    }
+  }
+
+  function handleVariantClick(v: any) {
+    const basePrice = pickedProduct.sellingPrice ?? pickedProduct.price ?? 0
+    const variantPrice = basePrice + Number(v.priceAdjustment ?? 0)
+    onSelect({
+      ...pickedProduct,
+      name: v.name || pickedProduct.name,
+      sku: v.sku ?? pickedProduct.sku,
+      sellingPrice: variantPrice,
+      price: variantPrice,
+    })
+    reset()
+  }
+
   return (
     <div ref={wrapRef}>
       <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 bg-white shadow-[0_4px_16px_rgba(0,0,0,0.10)] hover:shadow-[0_6px_24px_rgba(0,0,0,0.14)] transition-shadow">
         <Search size={15} className="text-gray-400 shrink-0" />
         <input
           value={query}
-          onChange={e => setQuery(e.target.value)}
+          onChange={e => { setQuery(e.target.value); setPickedProduct(null); setVariants([]) }}
           placeholder="Search product to add…"
           className="flex-1 text-sm outline-none bg-transparent text-gray-800 placeholder-gray-400"
         />
-        {loading && <Loader2 size={13} className="animate-spin text-gray-400" />}
+        {(loading || variantsLoading) && <Loader2 size={13} className="animate-spin text-gray-400" />}
       </div>
-      {open && results.length > 0 && dropRect && createPortal(
+      {open && dropRect && createPortal(
         <div ref={dropRef}
-          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl max-h-52 overflow-y-auto"
+          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto"
           style={{ top: dropRect.top, left: dropRect.left, width: dropRect.width }}>
-          {results.map(p => {
-            const price = p.sellingPrice ?? p.price ?? 0
-            const hasOffer = p._offerPct > 0
-            const discounted = hasOffer ? price * (1 - p._offerPct / 100) : price
-            return (
-              <button key={p.id} type="button"
-                onMouseDown={() => { onSelect(p); setQuery(''); setOpen(false) }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 text-left border-b border-gray-50 last:border-0">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className="text-xs text-gray-400">{p.sku}</p>
-                    {hasOffer && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <Percent size={8} /> {p._offerLabel || `${p._offerPct}% off`}
-                      </span>
+          {pickedProduct ? (
+            <>
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50 rounded-t-xl">
+                <button type="button" onMouseDown={() => { setPickedProduct(null); setVariants([]) }}
+                  className="text-gray-400 hover:text-gray-600">
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="text-xs font-semibold text-gray-500 truncate">{pickedProduct.name}</span>
+                <span className="text-xs text-gray-400 ml-auto shrink-0">Select length</span>
+              </div>
+              {variants.map(v => {
+                const basePrice = pickedProduct.sellingPrice ?? pickedProduct.price ?? 0
+                const vPrice = basePrice + Number(v.priceAdjustment ?? 0)
+                const label = [v.attribute1Value, v.attribute2Value].filter(Boolean).join(' / ') || v.name
+                return (
+                  <button key={v.id} type="button"
+                    onMouseDown={() => handleVariantClick(v)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 text-left border-b border-gray-50 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{label}</p>
+                      {v.sku && <p className="text-xs text-gray-400 mt-0.5">{v.sku}</p>}
+                    </div>
+                    <span className="text-sm font-semibold text-primary-600 shrink-0">₹{vPrice.toLocaleString('en-IN')}</span>
+                  </button>
+                )
+              })}
+            </>
+          ) : results.length > 0 ? (
+            results.map(p => {
+              const price = p.sellingPrice ?? p.price ?? 0
+              const hasOffer = p._offerPct > 0
+              const discounted = hasOffer ? price * (1 - p._offerPct / 100) : price
+              return (
+                <button key={p.id} type="button"
+                  onMouseDown={() => handleProductClick(p)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 text-left border-b border-gray-50 last:border-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-xs text-gray-400">{p.sku}</p>
+                      {hasOffer && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Percent size={8} /> {p._offerLabel || `${p._offerPct}% off`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {hasOffer ? (
+                      <>
+                        <p className="text-xs text-gray-400 line-through">₹{price.toLocaleString('en-IN')}</p>
+                        <p className="text-sm font-semibold text-emerald-600">₹{discounted.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                      </>
+                    ) : (
+                      <span className="text-sm font-semibold text-primary-600">₹{price.toLocaleString('en-IN')}</span>
                     )}
                   </div>
-                </div>
-                <div className="text-right shrink-0">
-                  {hasOffer ? (
-                    <>
-                      <p className="text-xs text-gray-400 line-through">₹{price.toLocaleString('en-IN')}</p>
-                      <p className="text-sm font-semibold text-emerald-600">₹{discounted.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                    </>
-                  ) : (
-                    <span className="text-sm font-semibold text-primary-600">₹{price.toLocaleString('en-IN')}</span>
-                  )}
-                </div>
-              </button>
-            )
-          })}
+                </button>
+              )
+            })
+          ) : null}
         </div>,
         document.body
       )}
@@ -417,6 +483,18 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
     staleTime: 5 * 60 * 1000,
   })
   const taxGroups: any[] = taxGroupsData ?? []
+
+  const { data: pipeConfigsData } = useQuery({
+    queryKey: ['pipeConfigs-active'],
+    queryFn: () => pipeConfigApi.getAll({ active: true, size: 200 }).then((r: any) => {
+      const d = r.data.data
+      return (d?.content ?? d ?? []) as any[]
+    }),
+    staleTime: 10 * 60 * 1000,
+  })
+  const pipeLengths: number[] = Array.from(new Set(
+    (pipeConfigsData ?? []).map((c: any) => Number(c.lengthM)).filter((l: number) => l > 0)
+  )).sort((a, b) => a - b)
 
   useEffect(() => {
     if (editInvoice && !initialized.current) {
@@ -492,6 +570,7 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
       const updated = { ...it, [field]: value }
       if (field === 'meters')   updated.quantity = Math.ceil((value as number) / (it.lengthM ?? 5.25))
       if (field === 'quantity') updated.meters   = (value as number) * (it.lengthM ?? 5.25)
+      if (field === 'lengthM')  updated.quantity = Math.ceil(it.meters / (value as number))
       return updated
     }))
   }
@@ -767,6 +846,15 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
                             className={`w-full px-2 pr-8 py-1 text-xs text-right border border-blue-200 bg-blue-50/50 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300 ${NO_SPINNER}`} />
                           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-blue-400 pointer-events-none">pipes</span>
                         </div>
+                        {pipeLengths.length > 0 && (
+                          <select value={it.lengthM}
+                            onChange={e => updateItem(it.id, 'lengthM', parseFloat(e.target.value))}
+                            className="w-full mt-1 px-2 py-1 text-[10px] text-center border border-gray-200 rounded-md bg-white text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-300 cursor-pointer">
+                            {pipeLengths.map(l => (
+                              <option key={l} value={l}>{l}m</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
 
                       {/* Price/m */}
