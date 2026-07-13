@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, CreditCard, Plus, Loader2, X } from 'lucide-react'
-import { purchaseBillApi, vendorPaymentApi, vendorApi } from '@/services/api'
+import { purchaseBillApi, vendorPaymentApi, vendorApi, tdsApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -56,7 +56,13 @@ export default function PaymentsMadeTab() {
     referenceNumber: '',
     paymentDate: format(new Date(), 'yyyy-MM-dd'),
     notes: '',
+    tdsSectionId: '',
+    tdsRate: '',
+    tdsAmount: '',
   })
+  const [tdsSections, setTdsSections] = useState<any[]>([])
+
+  useEffect(() => { tdsApi.getSections().then(r => setTdsSections((r.data as any).data ?? [])) }, [])
 
   const { data, isLoading } = useQuery({
     queryKey: ['vendor-payments', outletId],
@@ -115,6 +121,32 @@ export default function PaymentsMadeTab() {
       referenceNumber: '',
       paymentDate: format(new Date(), 'yyyy-MM-dd'),
       notes: '',
+      tdsSectionId: '',
+      tdsRate: '',
+      tdsAmount: '',
+    })
+  }
+
+  function setFormField(k: string, v: string) {
+    setForm(prev => {
+      const next = { ...prev, [k]: v }
+      if (k === 'tdsSectionId') {
+        const sec = tdsSections.find((s: any) => String(s.id) === v)
+        if (sec) {
+          next.tdsRate = String(parseFloat(sec.rate))
+          const base = parseFloat(next.amount) || 0
+          if (base > 0) next.tdsAmount = ((base * parseFloat(sec.rate)) / 100).toFixed(2)
+        } else {
+          next.tdsRate = ''
+          next.tdsAmount = ''
+        }
+      }
+      if (k === 'amount' || k === 'tdsRate') {
+        const base = parseFloat(k === 'amount' ? v : next.amount) || 0
+        const rate = parseFloat(k === 'tdsRate' ? v : next.tdsRate) || 0
+        if (base > 0 && rate > 0) next.tdsAmount = ((base * rate) / 100).toFixed(2)
+      }
+      return next
     })
   }
 
@@ -149,7 +181,7 @@ export default function PaymentsMadeTab() {
       if (amt > balance + 0.01) { toast.error('Amount exceeds balance due'); return }
     }
 
-    payMutation.mutate({
+    const payload: any = {
       supplierId: parseInt(selectedVendorId),
       outletId: outletId!,
       billId: selectedBillId ? parseInt(selectedBillId) : undefined,
@@ -158,7 +190,12 @@ export default function PaymentsMadeTab() {
       referenceNumber: form.referenceNumber || undefined,
       paymentDate: form.paymentDate,
       notes: form.notes || undefined,
-    })
+    }
+    if (form.tdsSectionId) {
+      payload.tdsSectionId = parseInt(form.tdsSectionId)
+      payload.tdsAmount = parseFloat(form.tdsAmount) || 0
+    }
+    payMutation.mutate(payload)
   }
 
   return (
@@ -303,7 +340,7 @@ export default function PaymentsMadeTab() {
                   <input
                     type="number" min="0" step="0.01"
                     value={form.amount}
-                    onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+                    onChange={e => setFormField('amount', e.target.value)}
                     className={inp}
                     placeholder="0.00"
                   />
@@ -343,6 +380,43 @@ export default function PaymentsMadeTab() {
                     placeholder="UTR / Cheque number (optional)"
                   />
                 </div>
+              </div>
+
+              {/* TDS Deduction */}
+              <div className="border border-gray-100 rounded-xl p-4 bg-gray-50">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                  TDS Deduction <span className="normal-case font-normal">(optional)</span>
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className={lbl}>TDS Section</label>
+                    <select className={inp} value={form.tdsSectionId} onChange={e => setFormField('tdsSectionId', e.target.value)}>
+                      <option value="">No TDS</option>
+                      {tdsSections.map((s: any) => (
+                        <option key={s.id} value={s.id}>{s.sectionCode} — {s.description}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {form.tdsSectionId && (
+                    <>
+                      <div>
+                        <label className={lbl}>TDS Rate (%)</label>
+                        <input type="number" min="0" step="0.01" className={inp}
+                          value={form.tdsRate} onChange={e => setFormField('tdsRate', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className={lbl}>TDS Amount (₹)</label>
+                        <input type="number" min="0" step="0.01" className={inp}
+                          value={form.tdsAmount} onChange={e => setFormField('tdsAmount', e.target.value)} />
+                      </div>
+                    </>
+                  )}
+                </div>
+                {form.tdsSectionId && form.tdsAmount && form.amount && (
+                  <p className="text-xs mt-3 text-violet-700 font-semibold">
+                    Net payable to vendor: ₹{fmt((parseFloat(form.amount) || 0) - (parseFloat(form.tdsAmount) || 0))}
+                  </p>
+                )}
               </div>
 
               {/* Notes */}
