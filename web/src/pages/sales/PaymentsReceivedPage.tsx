@@ -165,7 +165,7 @@ function RecordPaymentModal({ onClose, onSaved }: RecordPaymentModalProps) {
 export default function PaymentsReceivedPage() {
   const { outletId } = useAuthStore()
   const queryClient = useQueryClient()
-  const [tab, setTab]     = useState<'summary' | 'transactions'>('summary')
+  const [tab, setTab]     = useState<'summary' | 'transactions'>('transactions')
   const [search, setSearch] = useState('')
   const [from, setFrom]   = useState(isoStartOfMonth())
   const [to,   setTo]     = useState(isoToday())
@@ -260,7 +260,7 @@ export default function PaymentsReceivedPage() {
       <div className="p-6">
         {/* Tabs */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5 w-fit">
-          {(['summary', 'transactions'] as const).map(t => (
+          {(['transactions', 'summary'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
                 tab === t ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
