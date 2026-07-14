@@ -353,26 +353,31 @@ function ProcessContractorsSection() {
   const vendors: any[] = vendorRes ?? []
 
   const [selected, setSelected] = useState<Record<string, number | null>>({
-    FABRICATION: null, SPINNING: null, COATING: null,
+    FABRICATION: null, COATING: null,
   })
+  const [spinningAdd, setSpinningAdd] = useState<number | null>(null)
   const [saving, setSaving] = useState<Record<string, boolean>>({})
+  const [removing, setRemoving] = useState<Record<number, boolean>>({})
 
   useEffect(() => {
     if (assignments.length) {
-      const m: Record<string, number | null> = { FABRICATION: null, SPINNING: null, COATING: null }
-      assignments.forEach((a: any) => { m[a.processType] = a.supplierId })
+      const m: Record<string, number | null> = { FABRICATION: null, COATING: null }
+      assignments.forEach((a: any) => {
+        if (a.processType !== 'SPINNING') m[a.processType] = a.supplierId
+      })
       setSelected(m)
     }
   }, [assignments])
 
   async function save(processType: string) {
-    const id = selected[processType]
+    const id = processType === 'SPINNING' ? spinningAdd : selected[processType]
     if (!id) return
     setSaving(s => ({ ...s, [processType]: true }))
     try {
       await processContractorApi.upsert(processType, id)
       qc.invalidateQueries({ queryKey: ['process-contractors'] })
       toast.success(`${processType.charAt(0) + processType.slice(1).toLowerCase()} contractor saved`)
+      if (processType === 'SPINNING') setSpinningAdd(null)
     } catch (e: any) {
       toast.error(e.response?.data?.message ?? 'Failed to save')
     } finally {
@@ -380,7 +385,22 @@ function ProcessContractorsSection() {
     }
   }
 
+  async function removeContractor(id: number) {
+    setRemoving(r => ({ ...r, [id]: true }))
+    try {
+      await processContractorApi.remove(id)
+      qc.invalidateQueries({ queryKey: ['process-contractors'] })
+      toast.success('Contractor removed')
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? 'Failed to remove')
+    } finally {
+      setRemoving(r => ({ ...r, [id]: false }))
+    }
+  }
+
   const isLoading = loadingAssign || loadingVendors
+  const spinningAssignments: any[] = assignments.filter((a: any) => a.processType === 'SPINNING')
+  const assignedSpinningIds = new Set(spinningAssignments.map((a: any) => a.supplierId))
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden ring-1 ring-gray-100">
@@ -390,7 +410,7 @@ function ProcessContractorsSection() {
         </div>
         <div>
           <h2 className="text-sm font-bold text-white">Process Contractors</h2>
-          <p className="text-xs text-blue-100">Assign a vendor to each factory process for payment tracking</p>
+          <p className="text-xs text-blue-100">Assign vendors to factory processes for payment tracking</p>
         </div>
       </div>
 
@@ -401,7 +421,8 @@ function ProcessContractorsSection() {
         </div>
       ) : (
         <div className="p-6 space-y-4">
-          {PROCESSES.map(p => {
+          {/* FABRICATION & COATING — single contractor */}
+          {PROCESSES.filter(p => p.type !== 'SPINNING').map(p => {
             const current = assignments.find((a: any) => a.processType === p.type)
             const currentName = current?.supplier?.name ?? null
             return (
@@ -439,6 +460,60 @@ function ProcessContractorsSection() {
               </div>
             )
           })}
+
+          {/* SPINNING — multiple contractors */}
+          <div className="rounded-xl border p-4 bg-violet-50 border-violet-200">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+              <p className="text-sm font-bold text-gray-700">Spinning</p>
+              <span className="ml-auto text-xs text-gray-400">{spinningAssignments.length} contractor{spinningAssignments.length !== 1 ? 's' : ''}</span>
+            </div>
+
+            {/* Existing spinning contractors as chips */}
+            {spinningAssignments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {spinningAssignments.map((a: any) => (
+                  <div key={a.id} className="flex items-center gap-1.5 bg-white border border-violet-200 rounded-lg px-3 py-1.5">
+                    <span className="text-sm font-medium text-gray-700">{a.supplier?.name ?? `Vendor #${a.supplierId}`}</span>
+                    <button
+                      onClick={() => removeContractor(a.id)}
+                      disabled={removing[a.id]}
+                      className="text-gray-300 hover:text-red-400 transition-colors ml-1 disabled:opacity-40"
+                    >
+                      {removing[a.id] ? <Loader2 size={11} className="animate-spin" /> : <span className="text-xs leading-none">✕</span>}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add new spinning contractor */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <select
+                  value={spinningAdd ?? ''}
+                  onChange={e => setSpinningAdd(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full appearance-none bg-white border border-gray-200 rounded-xl px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 transition-colors text-gray-700"
+                >
+                  <option value="">— Add contractor —</option>
+                  {vendors
+                    .filter((v: any) => !assignedSpinningIds.has(v.id))
+                    .map((v: any) => (
+                      <option key={v.id} value={v.id}>{v.name}{v.phone ? ` · ${v.phone}` : ''}</option>
+                    ))}
+                </select>
+                <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              </div>
+              <button
+                onClick={() => save('SPINNING')}
+                disabled={!spinningAdd || saving['SPINNING']}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-blue-600 rounded-xl hover:from-violet-700 hover:to-blue-700 disabled:opacity-40 transition-all whitespace-nowrap"
+              >
+                {saving['SPINNING'] ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                Add
+              </button>
+            </div>
+          </div>
 
           {vendors.length === 0 && (
             <p className="text-xs text-gray-400 text-center py-4">

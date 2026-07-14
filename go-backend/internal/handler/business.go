@@ -1417,7 +1417,9 @@ func (h *BusinessHandler) GetProcessContractors(w http.ResponseWriter, r *http.R
 	util.SendSuccess(w, "Process contractors retrieved", assignments)
 }
 
-// UpsertProcessContractor saves (create or update) a process→contractor mapping.
+// UpsertProcessContractor saves a process→contractor mapping.
+// For SPINNING: always inserts a new row (multiple contractors allowed).
+// For other types: upserts (one contractor per type).
 // Body: { processType: string, supplierId: int }
 func (h *BusinessHandler) UpsertProcessContractor(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -1434,22 +1436,48 @@ func (h *BusinessHandler) UpsertProcessContractor(w http.ResponseWriter, r *http
 	}
 
 	var a models.ProcessContractorAssignment
-	err := h.db.Where("process_type = ?", body.ProcessType).First(&a).Error
-	if err != nil {
-		a = models.ProcessContractorAssignment{ProcessType: body.ProcessType, SupplierID: body.SupplierID}
-		if err := h.db.Create(&a).Error; err != nil {
-			util.SendError(w, http.StatusInternalServerError, "Failed to create assignment")
-			return
+	if body.ProcessType == "SPINNING" {
+		// For spinning, check if this supplier is already assigned to avoid exact duplicates
+		err := h.db.Where("process_type = ? AND supplier_id = ?", body.ProcessType, body.SupplierID).First(&a).Error
+		if err != nil {
+			a = models.ProcessContractorAssignment{ProcessType: body.ProcessType, SupplierID: body.SupplierID}
+			if err := h.db.Create(&a).Error; err != nil {
+				util.SendError(w, http.StatusInternalServerError, "Failed to create assignment")
+				return
+			}
 		}
 	} else {
-		if err := h.db.Model(&a).Update("supplier_id", body.SupplierID).Error; err != nil {
-			util.SendError(w, http.StatusInternalServerError, "Failed to update assignment")
-			return
+		err := h.db.Where("process_type = ?", body.ProcessType).First(&a).Error
+		if err != nil {
+			a = models.ProcessContractorAssignment{ProcessType: body.ProcessType, SupplierID: body.SupplierID}
+			if err := h.db.Create(&a).Error; err != nil {
+				util.SendError(w, http.StatusInternalServerError, "Failed to create assignment")
+				return
+			}
+		} else {
+			if err := h.db.Model(&a).Update("supplier_id", body.SupplierID).Error; err != nil {
+				util.SendError(w, http.StatusInternalServerError, "Failed to update assignment")
+				return
+			}
 		}
 	}
 
 	h.db.Preload("Supplier").First(&a, a.ID)
 	util.SendSuccess(w, "Process contractor saved", a)
+}
+
+// DeleteProcessContractor removes a specific process→contractor assignment by ID.
+func (h *BusinessHandler) DeleteProcessContractor(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	if err := h.db.Delete(&models.ProcessContractorAssignment{}, id).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to delete assignment")
+		return
+	}
+	util.SendSuccess(w, "Process contractor removed", nil)
 }
 
 // ─── Challan Photo ────────────────────────────────────────────────────────────

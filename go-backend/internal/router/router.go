@@ -2010,6 +2010,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PUT /api/business/spinning-rates", middleware.Chain(businessHandler.UpsertSpinningRates, middleware.Authenticate(db)))
 	mux.HandleFunc("GET /api/business/process-contractors", middleware.Chain(businessHandler.GetProcessContractors, middleware.Authenticate(db)))
 	mux.HandleFunc("PUT /api/business/process-contractors", middleware.Chain(businessHandler.UpsertProcessContractor, middleware.Authenticate(db)))
+	mux.HandleFunc("DELETE /api/business/process-contractors/{id}", middleware.Chain(businessHandler.DeleteProcessContractor, middleware.Authenticate(db)))
 
 	// ==================== USER PREFERENCES ====================
 	mux.HandleFunc("GET /api/users/preferences", middleware.Chain(

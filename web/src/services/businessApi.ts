@@ -501,6 +501,9 @@ export const processContractorApi = {
   upsert: (processType: string, supplierId: number) =>
     api.put<{ data: ProcessContractorAssignment }>('/business/process-contractors', { processType, supplierId })
       .then(unwrap<ProcessContractorAssignment>),
+
+  remove: (id: number) =>
+    api.delete(`/business/process-contractors/${id}`),
 }
 
 // ─── Spinning Bed Rates ───────────────────────────────────────────────────────
