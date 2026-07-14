@@ -14,6 +14,7 @@ import 'screens/reports/reports_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/sales_orders/sales_orders_screen.dart';
 import 'screens/purchases/purchases_screen.dart';
+import 'screens/purchases/direct_purchases_screen.dart';
 import 'screens/invoices/invoices_screen.dart';
 import 'screens/vendors/vendors_screen.dart';
 import 'screens/expenses/expenses_screen.dart';
@@ -82,7 +83,8 @@ class PosApp extends ConsumerWidget {
             GoRoute(path: '/dashboard',   builder: (_, __) => const DashboardScreen()),
             GoRoute(path: '/pos',         builder: (_, __) => const POSScreen()),
             GoRoute(path: '/sales-orders',builder: (_, __) => const SalesOrdersScreen()),
-            GoRoute(path: '/purchases',   builder: (_, __) => const PurchasesScreen()),
+            GoRoute(path: '/purchases',         builder: (_, __) => const PurchasesScreen()),
+            GoRoute(path: '/purchases/direct',  builder: (_, __) => const DirectPurchasesScreen()),
             GoRoute(path: '/invoices',    builder: (_, __) => const InvoicesScreen()),
             GoRoute(path: '/vendors',     builder: (_, __) => const VendorsScreen()),
             GoRoute(path: '/orders',      builder: (_, __) => const OrdersScreen()),
@@ -276,7 +278,7 @@ class _AppShellState extends ConsumerState<_AppShell> {
 
 // ── Left Navigation Drawer ────────────────────────────────────────────────────
 
-class _AppDrawer extends StatelessWidget {
+class _AppDrawer extends StatefulWidget {
   final String currentPath;
   final dynamic auth;
   final WidgetRef ref;
@@ -288,7 +290,23 @@ class _AppDrawer extends StatelessWidget {
   });
 
   @override
+  State<_AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<_AppDrawer> {
+  bool _purchasesExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-expand if on a purchases route
+    _purchasesExpanded = widget.currentPath.startsWith('/purchases');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final currentPath = widget.currentPath;
+    final auth        = widget.auth;
     final roles = auth?.user?.roles as List<String>? ?? [];
     final isAdmin = roles.contains('SUPER_ADMIN') || roles.contains('ADMIN');
 
@@ -320,7 +338,12 @@ class _AppDrawer extends StatelessWidget {
                       const SizedBox(height: 6),
                       _sectionLabel('COMMERCE'),
                       _navItem(context, '/sales-orders', Icons.shopping_cart_outlined,     Icons.shopping_cart,     'Sales Orders'),
-                      _navItem(context, '/purchases',    Icons.local_shipping_outlined,    Icons.local_shipping,    'Purchases'),
+                      // ── Purchases expandable ───────────────────────────
+                      _purchasesExpander(context, currentPath),
+                      if (_purchasesExpanded) ...[
+                        _subNavItem(context, '/purchases',         Icons.assignment_outlined,      'PO',                currentPath),
+                        _subNavItem(context, '/purchases/direct',  Icons.receipt_long_outlined,    'Direct Purchases',  currentPath),
+                      ],
                       _navItem(context, '/invoices',     Icons.description_outlined,       Icons.description,       'Invoices'),
                       _navItem(context, '/vendors',      Icons.business_outlined,          Icons.business,          'Vendors'),
                       _navItem(context, '/customers',    Icons.people_outline,             Icons.people,            'Customers'),
@@ -358,8 +381,8 @@ class _AppDrawer extends StatelessWidget {
 
   // ── Header with app logo + user info ────────────────────────────────────────
   Widget _buildHeader() {
-    final name  = auth?.user?.name  ?? 'User';
-    final email = auth?.user?.email ?? '';
+    final name  = widget.auth?.user?.name  ?? 'User';
+    final email = widget.auth?.user?.email ?? '';
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'A';
 
     return Container(
@@ -483,7 +506,7 @@ class _AppDrawer extends StatelessWidget {
     IconData activeIcon,
     String label,
   ) {
-    final isActive = currentPath.startsWith(path);
+    final isActive = widget.currentPath.startsWith(path);
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
       decoration: isActive
@@ -520,9 +543,79 @@ class _AppDrawer extends StatelessWidget {
     );
   }
 
+  // ── Purchases expandable header ───────────────────────────────────────────
+  Widget _purchasesExpander(BuildContext context, String currentPath) {
+    final anyActive = currentPath.startsWith('/purchases');
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 1),
+      decoration: anyActive
+          ? BoxDecoration(
+              color: const Color(0xFF6C63FF).withOpacity(0.10),
+              borderRadius: BorderRadius.circular(10),
+            )
+          : null,
+      child: ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(horizontal: 0, vertical: -1),
+        contentPadding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+        leading: Icon(
+          Icons.local_shipping_outlined,
+          size: 18,
+          color: anyActive ? const Color(0xFF818CF8) : const Color(0xFF64748B),
+        ),
+        title: Text(
+          'Purchases',
+          style: TextStyle(
+            color: anyActive ? const Color(0xFFE2E8F0) : const Color(0xFF94A3B8),
+            fontWeight: anyActive ? FontWeight.w600 : FontWeight.w400,
+            fontSize: 13.5,
+          ),
+        ),
+        trailing: Icon(
+          _purchasesExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+          size: 18,
+          color: const Color(0xFF64748B),
+        ),
+        onTap: () => setState(() => _purchasesExpanded = !_purchasesExpanded),
+      ),
+    );
+  }
+
+  // ── Sub-navigation item (indented) ────────────────────────────────────────
+  Widget _subNavItem(BuildContext context, String path, IconData icon, String label, String currentPath) {
+    final isActive = currentPath == path;
+    return Container(
+      margin: const EdgeInsets.only(left: 20, top: 1, bottom: 1),
+      decoration: isActive
+          ? BoxDecoration(
+              color: const Color(0xFF6C63FF).withOpacity(0.14),
+              borderRadius: BorderRadius.circular(10),
+              border: const Border(left: BorderSide(color: Color(0xFF818CF8), width: 3)),
+            )
+          : null,
+      child: ListTile(
+        dense: true,
+        visualDensity: const VisualDensity(horizontal: 0, vertical: -2),
+        contentPadding: EdgeInsets.fromLTRB(isActive ? 9 : 12, 0, 12, 0),
+        leading: Icon(icon, size: 16,
+            color: isActive ? const Color(0xFF818CF8) : const Color(0xFF64748B)),
+        title: Text(label,
+            style: TextStyle(
+              color: isActive ? const Color(0xFFE2E8F0) : const Color(0xFF94A3B8),
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+              fontSize: 13,
+            )),
+        onTap: () {
+          Navigator.pop(context);
+          context.go(path);
+        },
+      ),
+    );
+  }
+
   // ── Out-of-Office toggle ──────────────────────────────────────────────────
   Widget _buildOutOfOfficeToggle(BuildContext context) {
-    final isOutOfOffice = auth?.user?.outOfOffice as bool? ?? false;
+    final isOutOfOffice = widget.auth?.user?.outOfOffice as bool? ?? false;
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 0, 10, 6),
       decoration: BoxDecoration(
@@ -565,7 +658,7 @@ class _AppDrawer extends StatelessWidget {
         trailing: Switch(
           value: isOutOfOffice,
           onChanged: (val) {
-            ref.read(authProvider.notifier).toggleOutOfOffice(val);
+            widget.ref.read(authProvider.notifier).toggleOutOfOffice(val);
           },
           activeColor: const Color(0xFFF97316),
           inactiveThumbColor: const Color(0xFF64748B),
@@ -597,7 +690,7 @@ class _AppDrawer extends StatelessWidget {
         ),
         onTap: () {
           Navigator.pop(context);
-          ref.read(authProvider.notifier).logout();
+          widget.ref.read(authProvider.notifier).logout();
         },
       ),
     );

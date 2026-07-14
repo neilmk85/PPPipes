@@ -294,6 +294,17 @@ class ApiService {
     return [];
   }
 
+  Future<List<dynamic>> getDirectPurchases({int page = 0, int size = 20, String? from, String? to}) async {
+    final params = <String, dynamic>{'page': page, 'size': size, 'isDirect': true};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/purchase-orders', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
   Future<Map<String, dynamic>> createDirectPurchase(Map<String, dynamic> data) async {
     final res = await _dio.post('/purchase-orders/direct', data: data);
     return res.data['data'] as Map<String, dynamic>;
