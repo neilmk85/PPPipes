@@ -6185,8 +6185,8 @@ class _PdiScreenState extends State<PdiScreen> {
     setState(() => _loading = true);
 
     final today = DateTime.now();
-    final c2From = _fmt(today.subtract(const Duration(days: 7)));
-    final c2To   = _fmt(today.subtract(const Duration(days: 4)));
+    final c2From = _fmt(today.subtract(const Duration(days: 8)));
+    final c2To   = _fmt(today.subtract(const Duration(days: 3)));
 
     // Fetch independently so one failure doesn't wipe the others
     final results = await Future.wait([
@@ -6222,11 +6222,13 @@ class _PdiScreenState extends State<PdiScreen> {
     final c2Map = <String, Map<int, int>>{};
     for (final e in c2Entries.cast<Map<String, dynamic>>()) {
       final name  = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
-      final dateStr = (e['date'] ?? e['createdAt'] ?? '') as String;
+      final dateStr = (e['entryDate'] ?? e['createdAt'] ?? '') as String;
       if (dateStr.isEmpty) continue;
-      final entryDate = DateTime.tryParse(dateStr.length > 10 ? dateStr : '${dateStr}T00:00:00');
+      final entryDate = DateTime.tryParse(dateStr);
       if (entryDate == null) continue;
-      final daysAgo = today.difference(entryDate).inDays;
+      final daysAgo = DateTime(today.year, today.month, today.day)
+          .difference(DateTime(entryDate.year, entryDate.month, entryDate.day))
+          .inDays;
       if (daysAgo < 4 || daysAgo > 7) continue;
       final count = (e['pipesCompleted'] as num?)?.toInt() ?? 0;
       c2Map.putIfAbsent(name, () => {4: 0, 5: 0, 6: 0, 7: 0});
