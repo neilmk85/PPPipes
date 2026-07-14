@@ -882,9 +882,9 @@ class ApiService {
     return (res.data['data'] as Map<String, dynamic>?) ?? {};
   }
 
-  Future<Map<String, dynamic>> getLedgerDetail(int outletId, int partyId, String from, String to) async {
+  Future<Map<String, dynamic>> getLedgerDetail(int outletId, int partyId, String partyType, String from, String to) async {
     final res = await _dio.get('/reports/ledger-detail', queryParameters: {
-      'outletId': outletId, 'partyId': partyId, 'from': from, 'to': to,
+      'outletId': outletId, 'partyId': partyId, 'partyType': partyType, 'from': from, 'to': to,
     });
     return (res.data['data'] as Map<String, dynamic>?) ?? {};
   }

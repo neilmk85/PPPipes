@@ -112,9 +112,18 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
     }
   }
 
+  String _partyType(String accountType) {
+    switch (accountType.toUpperCase()) {
+      case 'DEBTOR':
+      case 'CUSTOMER': return 'customer';
+      default:         return 'supplier';
+    }
+  }
+
   void _openDetail(Map<String, dynamic> account) {
     final partyId = account['partyId'];
     if (partyId == null) return;
+    final typeStr = (account['accountType'] ?? '').toString();
 
     showModalBottomSheet(
       context: context,
@@ -123,11 +132,12 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
       builder: (_) => _LedgerDetailSheet(
         account: account,
         partyId: partyId is int ? partyId : int.tryParse(partyId.toString()) ?? 0,
+        partyType: _partyType(typeStr),
         from: _dateFmt.format(_range.start),
         to: _dateFmt.format(_range.end),
         outletId: ref.read(authProvider).user?.outletId ?? 0,
         amtFmt: _amtFmt,
-        color: _typeColor((account['accountType'] ?? '').toString()),
+        color: _typeColor(typeStr),
       ),
     );
   }
@@ -436,6 +446,7 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
 class _LedgerDetailSheet extends StatefulWidget {
   final Map<String, dynamic> account;
   final int partyId;
+  final String partyType;
   final String from;
   final String to;
   final int outletId;
@@ -445,6 +456,7 @@ class _LedgerDetailSheet extends StatefulWidget {
   const _LedgerDetailSheet({
     required this.account,
     required this.partyId,
+    required this.partyType,
     required this.from,
     required this.to,
     required this.outletId,
@@ -473,7 +485,7 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
   Future<void> _load() async {
     try {
       final data = await ApiService().getLedgerDetail(
-        widget.outletId, widget.partyId, widget.from, widget.to,
+        widget.outletId, widget.partyId, widget.partyType, widget.from, widget.to,
       );
       setState(() {
         _entries = (data['entries'] as List?) ?? [];
