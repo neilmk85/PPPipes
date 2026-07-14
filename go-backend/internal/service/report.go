@@ -1498,6 +1498,7 @@ func (rs *ReportService) LedgerSummary(outletId int, from, to time.Time) (Ledger
 	}
 
 	// ── 4. Customer accounts (Sundry Debtors) ────────────────────────────
+	// Debit  = total invoiced; Credit = actual receipts (sales_order_payments)
 	type partyRow struct {
 		ID     int
 		Name   string
@@ -1507,14 +1508,24 @@ func (rs *ReportService) LedgerSummary(outletId int, from, to time.Time) (Ledger
 	var custRows []partyRow
 	if err := rs.db.Raw(`
 		SELECT c.id, c.name,
-		       COALESCE(SUM(i.total_amount),0) as debit,
-		       COALESCE(SUM(i.paid_amount),0)  as credit
+		       COALESCE(inv.total,0)  AS debit,
+		       COALESCE(sop.total,0)  AS credit
 		FROM customers c
-		JOIN invoices i ON i.customer_id = c.id
-		WHERE i.outlet_id = ? AND i.issue_date >= ? AND i.issue_date <= ?
-		  AND i.status NOT IN ('CANCELLED','DRAFT')
-		GROUP BY c.id, c.name
-		ORDER BY c.name`, outletId, from, to).Scan(&custRows).Error; err != nil {
+		LEFT JOIN (
+		    SELECT customer_id, SUM(total_amount) AS total
+		    FROM invoices
+		    WHERE outlet_id = ? AND issue_date >= ? AND issue_date <= ?
+		      AND status NOT IN ('CANCELLED','DRAFT')
+		    GROUP BY customer_id
+		) inv ON inv.customer_id = c.id
+		LEFT JOIN (
+		    SELECT customer_id, SUM(amount) AS total
+		    FROM sales_order_payments
+		    WHERE outlet_id = ? AND payment_date >= ? AND payment_date <= ?
+		    GROUP BY customer_id
+		) sop ON sop.customer_id = c.id
+		WHERE inv.total IS NOT NULL OR sop.total IS NOT NULL
+		ORDER BY c.name`, outletId, from, to, outletId, from, to).Scan(&custRows).Error; err != nil {
 		return res, err
 	}
 	for _, r := range custRows {
