@@ -280,7 +280,23 @@ function ProductSearch({ onSelect }: { onSelect: (p: any) => void }) {
       try {
         const res = await productApi.search(query)
         const products = res.data.data ?? []
-        const withDiscounts = await Promise.all(products.map(async (p: any) => {
+
+        // For every 5.25m product, also generate a synthetic 6.5m entry
+        const expanded: any[] = []
+        products.forEach((p: any) => {
+          expanded.push(p)
+          if ((p.name ?? '').includes('5.25m')) {
+            expanded.push({
+              ...p,
+              _synthetic: true,
+              name: p.name.replace(/5\.25m/g, '6.5m'),
+              sku: p.sku ? p.sku.replace(/5\.25/g, '6.5') : p.sku,
+              lengthM: 6.5,
+            })
+          }
+        })
+
+        const withDiscounts = await Promise.all(expanded.map(async (p: any) => {
           try {
             const unitPrice = p.sellingPrice ?? p.price ?? 0
             if (unitPrice > 0) {
