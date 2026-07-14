@@ -1,13 +1,109 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Search, RotateCcw, X, Loader2, Plus, Trash2 } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths, startOfQuarter, endOfQuarter, subQuarters } from 'date-fns'
 import toast from 'react-hot-toast'
-import { saleReturnApi } from '@/services/api'
+import { saleReturnApi, productApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import CustomerSearchInput from '@/components/CustomerSearchInput'
 
 const REFUND_METHODS = ['CASH', 'CARD', 'UPI', 'CREDIT_NOTE', 'LEDGER_ADJUSTMENT']
+
+// ─── Product name autocomplete ─────────────────────────────────────────────────
+function ProductNameInput({ value, onChange, onSelectProduct }: {
+  value: string
+  onChange: (v: string) => void
+  onSelectProduct: (name: string, price: number) => void
+}) {
+  const [results, setResults] = useState<any[]>([])
+  const [open, setOpen]       = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [dropRect, setDropRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  useEffect(() => {
+    if (!open || !wrapRef.current) return
+    const update = () => {
+      if (!wrapRef.current) return
+      const r = wrapRef.current.getBoundingClientRect()
+      setDropRect({ top: r.bottom + 2, left: r.left, width: r.width })
+    }
+    update()
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    return () => { window.removeEventListener('scroll', update, true); window.removeEventListener('resize', update) }
+  }, [open])
+
+  useEffect(() => {
+    if (value.length < 2) { setResults([]); setOpen(false); return }
+    const t = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const res = await productApi.search(value)
+        const products: any[] = res.data.data ?? []
+        const expanded: any[] = []
+        products.forEach(p => {
+          expanded.push(p)
+          if ((p.name ?? '').includes('5.25m')) {
+            expanded.push({ ...p, name: p.name.replace(/5\.25m/g, '6.5m'), lengthM: 6.5, _synthetic: true })
+          }
+        })
+        setResults(expanded)
+        setOpen(true)
+      } catch { setResults([]) }
+      finally { setLoading(false) }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [value])
+
+  function pick(p: any) {
+    const price = p.sellingPrice ?? p.price ?? 0
+    onSelectProduct(p.name, price)
+    setOpen(false)
+    setResults([])
+  }
+
+  return (
+    <div ref={wrapRef} className="relative w-full">
+      <input
+        value={value}
+        onChange={e => { onChange(e.target.value); setOpen(true) }}
+        placeholder="Product name"
+        className="w-full border-0 outline-none text-sm text-gray-800 placeholder-gray-300"
+      />
+      {loading && <Loader2 size={11} className="animate-spin text-gray-300 absolute right-1 top-1/2 -translate-y-1/2" />}
+      {open && dropRect && results.length > 0 && createPortal(
+        <div
+          className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl max-h-56 overflow-y-auto"
+          style={{ top: dropRect.top, left: dropRect.left, width: Math.max(dropRect.width, 280) }}
+        >
+          {results.map((p, i) => (
+            <button key={`${p.id}-${i}`} type="button"
+              onMouseDown={e => { e.preventDefault(); pick(p) }}
+              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-violet-50 text-left border-b border-gray-50 last:border-0">
+              <span className="text-sm text-gray-800 truncate">{p.name}</span>
+              {(p.sellingPrice ?? p.price ?? 0) > 0 && (
+                <span className="text-xs font-semibold text-violet-600 ml-2 shrink-0">
+                  ₹{(p.sellingPrice ?? p.price).toLocaleString('en-IN')}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
 
 interface ReturnItem { productName: string; quantity: string; unitPrice: string }
 
@@ -129,9 +225,14 @@ function ProcessReturnModal({ onClose, outletId }: { onClose: () => void; outlet
                   {items.map((item, i) => (
                     <tr key={i}>
                       <td className="px-3 py-2">
-                        <input value={item.productName} onChange={e => updateItem(i, 'productName', e.target.value)}
-                          placeholder="Product name"
-                          className="w-full border-0 outline-none text-sm text-gray-800 placeholder-gray-300" />
+                        <ProductNameInput
+                          value={item.productName}
+                          onChange={v => updateItem(i, 'productName', v)}
+                          onSelectProduct={(name, price) => {
+                            updateItem(i, 'productName', name)
+                            if (price > 0) updateItem(i, 'unitPrice', String(price))
+                          }}
+                        />
                       </td>
                       <td className="px-3 py-2">
                         <input type="number" min={0} value={item.quantity}
