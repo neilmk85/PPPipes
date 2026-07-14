@@ -225,16 +225,18 @@ export default function LedgerReportPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="px-8 py-4 bg-white border-b border-gray-100 flex flex-wrap items-center gap-3">
-        <DateRangePicker fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
-        <div className="relative ml-auto">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div className="px-8 py-4 bg-white border-b border-gray-200 flex flex-wrap items-center gap-3 shadow-sm">
+        <DateRangePicker variant="light" fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
+        <div className="relative ml-auto w-72">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-violet-400 pointer-events-none" />
           <input
             value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search account..."
-            className="pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400/50 focus:border-violet-400 w-52 transition-colors"
+            placeholder="Search account name…"
+            className="w-full pl-10 pr-9 py-2.5 text-sm bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-0 focus:border-violet-400 transition-colors placeholder:text-gray-400 text-gray-700 shadow-sm"
           />
-          {search && <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"><X size={13} className="text-gray-400" /></button>}
+          {search
+            ? <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X size={14} /></button>
+            : null}
         </div>
       </div>
 

@@ -43,9 +43,10 @@ interface DateRangePickerProps {
   fromDate: string
   toDate: string
   onChange: (from: string, to: string) => void
+  variant?: 'dark' | 'light'
 }
 
-export function DateRangePicker({ fromDate, toDate, onChange }: DateRangePickerProps) {
+export function DateRangePicker({ fromDate, toDate, onChange, variant = 'dark' }: DateRangePickerProps) {
   const [open, setOpen]             = useState(false)
   const [preset, setPreset]         = useState<PresetKey | ''>('')
   const [customFrom, setCustomFrom] = useState(fromDate)
@@ -93,9 +94,13 @@ export function DateRangePicker({ fromDate, toDate, onChange }: DateRangePickerP
         ref={btnRef}
         onClick={handleOpen}
         className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-xl border transition-all ${
-          hasDate
-            ? 'bg-white/20 border-white/40 text-white backdrop-blur-sm'
-            : 'bg-white/10 border-white/20 text-white/90 hover:bg-white/20 hover:border-white/40 backdrop-blur-sm'
+          variant === 'light'
+            ? hasDate
+              ? 'bg-violet-50 border-violet-300 text-violet-700 shadow-sm'
+              : 'bg-white border-gray-300 text-gray-600 hover:border-violet-400 hover:text-violet-700 hover:bg-violet-50/60 shadow-sm'
+            : hasDate
+              ? 'bg-white/20 border-white/40 text-white backdrop-blur-sm'
+              : 'bg-white/10 border-white/20 text-white/90 hover:bg-white/20 hover:border-white/40 backdrop-blur-sm'
         }`}
       >
         <Calendar size={14} />
