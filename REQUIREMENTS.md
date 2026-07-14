@@ -348,3 +348,47 @@ The "Convert to PO" buttons on the Sales Order detail page were previously visib
 | `web/src/pages/orders/SalesOrderDetailPage.tsx` | `canConvertSO = hasPermission('CONVERT_SO_TO_PO')` gates the "Convert All" header button and each row's "Convert to PO" button. Users without the permission see a "No permission" placeholder instead of the button. |
 
 ---
+
+## REQ-012 · Direct Purchase (Mobile App)
+**Page:** Mobile → Purchases → Direct Purchases
+**Status:** Implemented
+
+Direct purchases are purchases made without a formal PO — cash buys, petty-cash vendor payments, walk-in supplier invoices. These must be tracked separately from standard Purchase Orders so finance can distinguish PO-backed procurement from ad-hoc spend.
+
+- **Left drawer** — Purchases is now a collapsible dropdown with two sub-items: **PO** (`/purchases`) and **Direct Purchases** (`/purchases/direct`).
+- **Direct Purchases screen** (`/purchases/direct`) — teal color scheme; lists all direct purchase records fetched via `GET /purchase-orders?isDirect=true`.
+- **Cards** show PO number, status badge, vendor name, date, total amount, and inline line items.
+- **Tapping a card** opens an edit bottom sheet pre-filled with the existing record.
+- **FAB** opens a create bottom sheet (blank form).
+- **Bottom sheet fields**: Vendor Name, optional date, line items (name, qty, rate, UOM), grand total auto-calculated.
+- **API**: `getDirectPurchases()` passes `isDirect: 'true'` (String, not bool). `getPurchaseOrders()` passes `isDirect: 'false'` to exclude direct purchases from the PO screen. `updateDirectPurchase(id, data)` calls `PUT /purchase-orders/direct/:id`.
+- **Back button**: uses `context.canPop() ? context.pop() : context.go('/purchases')` because drawer navigation uses `context.go()` which replaces the stack.
+
+---
+
+## REQ-013 · Out of Office
+**Status:** Pending
+
+Staff members need to mark themselves as "Out of Office" (away, on leave, or on-site at a customer location). This status is visible to managers and affects scheduling and task assignment.
+
+- Mobile app already has an Out of Office toggle in the left drawer for the logged-in user.
+- Requirement: expand this into a proper out-of-office feature with date range, reason, and visibility to admins.
+- Web app should show out-of-office status on the Staff page per user.
+- Possible fields: From date, To date, Reason (Leave / On-site / Other), Notes.
+- Admin view: list of who is currently out of office.
+
+---
+
+## REQ-014 · Loading + Invoice (Combined Dispatch Flow)
+**Status:** Pending
+
+When pipes are loaded onto a truck for dispatch, the operator needs to simultaneously generate a Loading Memo and an Invoice without switching between multiple screens. This is a single-flow screen combining both steps.
+
+- **Trigger**: From a Sales Order or Dispatch entry, tap "Load + Invoice".
+- **Step 1 — Loading details**: Select truck, driver, pipes being loaded (with qty), loading date.
+- **Step 2 — Invoice generation**: Auto-populate invoice from the loaded quantities; confirm invoice amount, tax, and payment terms.
+- **Output**: Creates a Loading record AND an Invoice in one submission.
+- Available on both web and mobile.
+- Reduces double-entry and prevents mismatch between loaded quantities and invoiced quantities.
+
+---
