@@ -284,6 +284,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final perms = ref.read(authProvider).user?.cardPermissions;
     final showDebtors   = perms == null || perms.reports.contains('debtors');
     final showCreditors = perms == null || perms.reports.contains('creditors');
+    final showDaybook   = perms == null || perms.reports.contains('daybook');
+    final showLedger    = perms == null || perms.reports.contains('ledger');
 
     return Container(
       color: Colors.transparent,
@@ -311,40 +313,61 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                   ],
                 ),
                 clipBehavior: Clip.hardEdge,
-                child: Row(
-                  children: [
-                    _navItem(
-                        icon: Icons.bar_chart_outlined,
-                        label: 'Sales',
-                        active: true,
-                        onTap: () {}),
-                    if (showDebtors)
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
                       _navItem(
-                          icon: Icons.account_balance_wallet_outlined,
-                          label: 'Debtors',
+                          icon: Icons.bar_chart_outlined,
+                          label: 'Sales',
+                          active: true,
+                          onTap: () {}),
+                      if (showDebtors)
+                        _navItem(
+                            icon: Icons.account_balance_wallet_outlined,
+                            label: 'Debtors',
+                            active: false,
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const DebtorsScreen()))),
+                      if (showCreditors)
+                        _navItem(
+                            icon: Icons.store_outlined,
+                            label: 'Creditors',
+                            active: false,
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const CreditorScreen()))),
+                      if (showDaybook)
+                        _navItem(
+                            icon: Icons.book_outlined,
+                            label: 'Day Book',
+                            active: false,
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const DaybookScreen()))),
+                      if (showLedger)
+                        _navItem(
+                            icon: Icons.account_balance_outlined,
+                            label: 'Ledger',
+                            active: false,
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const LedgerScreen()))),
+                      _navItem(
+                          icon: Icons.receipt_outlined,
+                          label: 'GST',
                           active: false,
                           onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (_) => const DebtorsScreen()))),
-                    if (showCreditors)
-                      _navItem(
-                          icon: Icons.store_outlined,
-                          label: 'Creditors',
-                          active: false,
-                          onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const CreditorScreen()))),
-                    _navItem(
-                        icon: Icons.receipt_outlined,
-                        label: 'GST',
-                        active: false,
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const GstScreen()))),
-                  ],
+                                  builder: (_) => const GstScreen()))),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -360,7 +383,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     required bool active,
     required VoidCallback onTap,
   }) {
-    return Expanded(
+    return SizedBox(
+      width: 76,
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
