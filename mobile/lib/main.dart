@@ -255,8 +255,8 @@ class _AppShellState extends ConsumerState<_AppShell> {
     final activeIdx = items.indexWhere((it) => location.startsWith(it.path));
     final auth     = ref.watch(authProvider);
 
-    // Business hub, every sub-screen, and all Operations screens use their own floating nav
-    final showBottomNav = !location.startsWith('/business') && section != _Section.operations;
+    // Business hub, Operations screens, and Reports use their own floating nav
+    final showBottomNav = !location.startsWith('/business') && section != _Section.operations && !location.startsWith('/reports');
 
     return Scaffold(
       key: appShellKey,
