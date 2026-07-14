@@ -15737,6 +15737,9 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
+  String get _curingStageType => widget.stageType == 'COATING' ? 'CURING_1' : 'CURING_2';
+  String get _curingLabel     => widget.stageType == 'COATING' ? 'Curing 1' : 'Curing 2';
+
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
@@ -15745,7 +15748,7 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
       final c2To   = _fmt(today.subtract(const Duration(days: 3)));
       final results = await Future.wait([
         ApiService().getProductionEntries(stageType: widget.stageType, from: _fmt(_from), to: _fmt(_to), size: 1000),
-        ApiService().getProductionEntries(stageType: 'CURING_2', from: c2From, to: c2To, size: 500),
+        ApiService().getProductionEntries(stageType: _curingStageType, from: c2From, to: c2To, size: 500),
       ]);
       final data      = results[0] as List;
       final c2Entries = results[1] as List;
@@ -15815,7 +15818,7 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
                 ),
                 const SizedBox(width: 10),
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Curing 2 Pipeline', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+                  Text('$_curingLabel Pipeline', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
                   Text('4th – 7th day pipes', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                 ]),
               ]),
