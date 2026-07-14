@@ -538,8 +538,8 @@ function TransfersPageFull() {
               <p className="text-blue-200 text-sm mt-0.5">Move stock between outlets — track request, approval, dispatch and receipt</p>
             </div>
           </div>
-          <button onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-white text-violet-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-violet-50 transition shadow-sm shrink-0">
+          <button disabled
+            className="flex items-center gap-2 bg-white/50 text-violet-700/50 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-not-allowed shadow-sm shrink-0">
             <Plus size={16} /> New Transfer
           </button>
         </div>
