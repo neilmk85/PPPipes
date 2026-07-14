@@ -449,7 +449,7 @@ function ChallanPhotoModal({ record, onClose, onUpdated }: {
             </div>
             <div>
               <h2 className="text-sm font-bold text-gray-900">Received Challan Photo</h2>
-              <p className="text-xs text-gray-400 mt-0.5">DC-{String(record.id).padStart(4, '0')} · {record.pipeName} · {record.vehicleNo || 'No vehicle'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{record.deliveryChallanNo || `DC-${String(record.id).padStart(4, '0')}`} · {record.pipeName} · {record.vehicleNo || 'No vehicle'}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100"><X size={16} /></button>
@@ -736,7 +736,7 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
   const [termsConditions,   setTermsConditions]   = useState('')
   const [shippingAmount,    setShippingAmount]     = useState(0)
   const [billDiscountPct,   setBillDiscountPct]   = useState(0)
-  const [deliveryChallanNo, setDeliveryChallanNo] = useState(`DC-${String(record.id).padStart(4, '0')}`)
+  const [deliveryChallanNo, setDeliveryChallanNo] = useState(record.deliveryChallanNo || `DC-${String(record.id).padStart(4, '0')}`)
   const [eWayBillNo,        setEWayBillNo]        = useState('')
   const [eInvoiceNo,        setEInvoiceNo]        = useState('')
   const [submitting,        setSubmitting]        = useState(false)
@@ -883,7 +883,7 @@ function ConvertToInvoiceModal({ record, outletId, onClose, onConverted }: {
               </div>
               <div>
                 <h2 className="text-[15px] font-bold text-gray-900 leading-none">Convert to Invoice</h2>
-                <p className="text-xs text-gray-400 mt-0.5">DC-{String(record.id).padStart(4, '0')} · {record.pipeName} · {record.quantity} pipes · Invoice number assigned on save</p>
+                <p className="text-xs text-gray-400 mt-0.5">{record.deliveryChallanNo || `DC-${String(record.id).padStart(4, '0')}`} · {record.pipeName} · {record.quantity} pipes · Invoice number assigned on save</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1620,8 +1620,16 @@ export default function LoadingPage() {
     vehicleNo: '', date: fmtDate(today), notes: '',
     driverName: '', driverContact: '', vendor: '', siteAddress: '', customerName: '',
     transportRate: '', rateType: 'per_trip',  // per_pipe | per_trip
+    deliveryChallanNo: '',
   }
   const [form, setForm] = useState(emptyForm)
+
+  const { data: nextDCData } = useQuery({
+    queryKey: ['loading-next-dc'],
+    queryFn: () => loadingRecordApi.nextDCNumber().then((r: any) => r.data.data?.nextNumber ?? ''),
+    staleTime: 0,
+  })
+
 
   const filteredSiteOptions: string[] = useMemo(() => {
     const selected = form.customerName.trim().toLowerCase()
@@ -1632,7 +1640,7 @@ export default function LoadingPage() {
     return partialKey ? customerAddressMap.get(partialKey)! : siteOptions
   }, [siteOptions, customerAddressMap, form.customerName])
 
-  function openModal()  { setForm(emptyForm); setPipeEntries([newEntry()]); setShowModal(true) }
+  function openModal()  { setForm({ ...emptyForm, deliveryChallanNo: nextDCData ?? '' }); setPipeEntries([newEntry()]); setShowModal(true) }
   function closeModal() { setShowModal(false) }
 
   function setField(k: keyof typeof emptyForm, v: string) {
@@ -1664,19 +1672,20 @@ export default function LoadingPage() {
     try {
       await Promise.all(valid.map(pe =>
         loadingRecordApi.create({
-          pipeName:      pe.pipeName,
-          lengthM:       pe.lengthM,
-          quantity:      parseInt(pe.qty),
-          pipeNo:        pe.pipeNo,
-          vehicleNo:     form.vehicleNo,
-          date:          form.date,
-          notes:         form.notes,
-          driverName:    form.driverName,
-          driverContact: form.driverContact,
-          vendor:        form.vendor,
-          customerName:  form.customerName,
-          siteAddress:   form.siteAddress,
-          transportRate: form.transportRate,
+          pipeName:          pe.pipeName,
+          lengthM:           pe.lengthM,
+          quantity:          parseInt(pe.qty),
+          pipeNo:            pe.pipeNo,
+          vehicleNo:         form.vehicleNo,
+          date:              form.date,
+          notes:             form.notes,
+          driverName:        form.driverName,
+          driverContact:     form.driverContact,
+          vendor:            form.vendor,
+          customerName:      form.customerName,
+          siteAddress:       form.siteAddress,
+          transportRate:     form.transportRate,
+          deliveryChallanNo: form.deliveryChallanNo || undefined,
           rateType:      form.rateType,
         })
       ))
@@ -1859,7 +1868,7 @@ export default function LoadingPage() {
                     {/* Delivery Challan */}
                     <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-mono text-gray-600">DC-{String(rec.id).padStart(4, '0')}</span>
+                        <span className="text-xs font-mono text-gray-600">{rec.deliveryChallanNo || `DC-${String(rec.id).padStart(4, '0')}`}</span>
                         <button
                           onClick={() => { setAutoPrint(false); setChallanRecord(rec) }}
                           title="View Delivery Challan"
@@ -2416,6 +2425,16 @@ export default function LoadingPage() {
                         options={filteredSiteOptions}
                         placeholder="Search or type address…"
                       />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                          Delivery Challan No.
+                        </label>
+                        <input type="text" value={form.deliveryChallanNo} onChange={e => setField('deliveryChallanNo', e.target.value)}
+                          placeholder="DC-20260714-0001"
+                          className="w-full px-3 py-2.5 text-sm border border-violet-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-300 bg-violet-50/30 font-mono text-gray-700" />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">

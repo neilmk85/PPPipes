@@ -191,6 +191,27 @@ func GenerateWBNumber(db *gorm.DB) (string, error) {
 	return fmt.Sprintf("WB-%03d", num), nil
 }
 
+func GenerateDCNumber(db *gorm.DB) (string, error) {
+	num, err := getNextSequenceValue(db, "dc_sequence")
+	if err != nil {
+		return "", err
+	}
+	dateStr := time.Now().Format("20060102")
+	return fmt.Sprintf("DC-%s-%04d", dateStr, num), nil
+}
+
+func PeekNextDCNumber(db *gorm.DB) (string, error) {
+	var seq Sequence
+	err := db.Where("name = ?", "dc_sequence").First(&seq).Error
+	if err == gorm.ErrRecordNotFound {
+		return fmt.Sprintf("DC-%s-%04d", time.Now().Format("20060102"), 1), nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("DC-%s-%04d", time.Now().Format("20060102"), seq.Value+1), nil
+}
+
 func ResetSequences(db *gorm.DB) error {
 	sequences := []string{
 		"order_sequence",

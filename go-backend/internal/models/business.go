@@ -253,6 +253,7 @@ type LoadingRecord struct {
 	CustomerName     string    `gorm:"column:customer_name" json:"customerName"`
 	CustomerPONo     string    `gorm:"column:customer_po_no" json:"customerPoNo"`
 	PipeNo           string    `gorm:"column:pipe_no" json:"pipeNo"`
+	DeliveryChallanNo string    `gorm:"column:delivery_challan_no;size:100" json:"deliveryChallanNo"`
 	ChallanPhotoURL  *string   `gorm:"column:challan_photo_url" json:"challanPhotoUrl"`
 	InvoiceID        *int      `gorm:"column:invoice_id" json:"invoiceId"`
 	InvoiceNumber    string    `gorm:"column:invoice_number" json:"invoiceNumber"`

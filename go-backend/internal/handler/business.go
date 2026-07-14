@@ -1039,11 +1039,26 @@ func (h *BusinessHandler) CreateLoadingRecord(w http.ResponseWriter, r *http.Req
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+	if row.DeliveryChallanNo == "" {
+		dcNo, err := util.GenerateDCNumber(h.db)
+		if err == nil {
+			row.DeliveryChallanNo = dcNo
+		}
+	}
 	if err := h.db.Create(&row).Error; err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to create loading record")
 		return
 	}
 	util.SendSuccess(w, "Loading record created", row)
+}
+
+func (h *BusinessHandler) PeekNextDCNumber(w http.ResponseWriter, r *http.Request) {
+	next, err := util.PeekNextDCNumber(h.db)
+	if err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to generate DC number")
+		return
+	}
+	util.SendSuccess(w, "Next DC number", map[string]string{"nextNumber": next})
 }
 
 func (h *BusinessHandler) UpdateLoadingRecord(w http.ResponseWriter, r *http.Request) {

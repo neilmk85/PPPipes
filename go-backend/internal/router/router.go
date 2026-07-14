@@ -1979,6 +1979,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("DELETE /api/business/pdis/{id}", middleware.Chain(businessHandler.DeletePDI, middleware.Authenticate(db)))
 
 	// Loading Records
+	mux.HandleFunc("GET /api/business/loading-records/next-dc-number", middleware.Chain(businessHandler.PeekNextDCNumber, middleware.Authenticate(db)))
 	mux.HandleFunc("GET /api/business/loading-records", middleware.Chain(businessHandler.ListLoadingRecords, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/loading-records", middleware.Chain(businessHandler.CreateLoadingRecord, middleware.Authenticate(db)))
 	mux.HandleFunc("GET /api/business/loading-records/{id}", middleware.Chain(businessHandler.GetLoadingRecord, middleware.Authenticate(db)))

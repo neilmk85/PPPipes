@@ -919,6 +919,8 @@ export const pdiApi = {
 }
 
 export const loadingRecordApi = {
+  nextDCNumber: () =>
+    api.get<ApiResponse<any>>('/business/loading-records/next-dc-number'),
   getAll: (params?: { from?: string; to?: string; pipeName?: string }) =>
     api.get<ApiResponse<any>>('/business/loading-records', { params }),
   getById: (id: number) =>
