@@ -54,6 +54,21 @@ func (ch *CustomerHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	util.SendPaginated(w, customers, total, totalPages, size, page)
 }
 
+// GetInvoiceSummary GET /api/customers/invoice-summary?outletId=N
+func (ch *CustomerHandler) GetInvoiceSummary(w http.ResponseWriter, r *http.Request) {
+	outletId, err := strconv.Atoi(r.URL.Query().Get("outletId"))
+	if err != nil || outletId == 0 {
+		util.SendError(w, http.StatusBadRequest, "outletId is required")
+		return
+	}
+	rows, err := ch.service.GetInvoiceSummary(outletId)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Invoice summary retrieved", rows)
+}
+
 // GetByID GET /api/customers/{id}
 func (ch *CustomerHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))

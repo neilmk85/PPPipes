@@ -243,6 +243,45 @@ func (cs *CustomerService) ToggleActive(id int) (*models.Customer, error) {
 	return customer, nil
 }
 
+// InvoiceSummaryRow holds per-customer invoice totals computed from the invoices table.
+type InvoiceSummaryRow struct {
+	CustomerID  int             `json:"customerId"`
+	TotalBilled decimal.Decimal `json:"totalBilled"`
+	TotalPaid   decimal.Decimal `json:"totalPaid"`
+	Outstanding decimal.Decimal `json:"outstanding"`
+}
+
+// GetInvoiceSummary returns invoice-based totals for every customer in the outlet.
+func (cs *CustomerService) GetInvoiceSummary(outletId int) ([]InvoiceSummaryRow, error) {
+	type row struct {
+		CustomerID  int
+		TotalBilled decimal.Decimal
+		TotalPaid   decimal.Decimal
+	}
+	var rows []row
+	err := cs.db.Raw(`
+		SELECT customer_id,
+		       COALESCE(SUM(total_amount), 0) AS total_billed,
+		       COALESCE(SUM(paid_amount),  0) AS total_paid
+		FROM invoices
+		WHERE outlet_id = ? AND customer_id IS NOT NULL
+		GROUP BY customer_id
+	`, outletId).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make([]InvoiceSummaryRow, len(rows))
+	for i, r := range rows {
+		result[i] = InvoiceSummaryRow{
+			CustomerID:  r.CustomerID,
+			TotalBilled: r.TotalBilled,
+			TotalPaid:   r.TotalPaid,
+			Outstanding: r.TotalBilled.Sub(r.TotalPaid),
+		}
+	}
+	return result, nil
+}
+
 // UpdateTotalSpent increments the total spent amount for a customer
 func (cs *CustomerService) UpdateTotalSpent(customerId int, amount decimal.Decimal) error {
 	return cs.db.Model(&models.Customer{}).Where("id = ?", customerId).

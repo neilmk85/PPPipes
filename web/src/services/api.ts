@@ -255,6 +255,8 @@ export const customerApi = {
   getLoyaltyHistory: (id: number, params?: any) =>
     api.get<ApiResponse<any>>(`/customers/${id}/loyalty-history`, { params }),
   getWithDues: () => api.get<ApiResponse<any>>('/customers/with-dues'),
+  getInvoiceSummary: (outletId: number) =>
+    api.get<ApiResponse<any>>('/customers/invoice-summary', { params: { outletId } }),
   importFile: (file: File, dryRun: boolean) => {
     const form = new FormData()
     form.append('file', file)

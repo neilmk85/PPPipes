@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, User, Users, AlertCircle, Upload, Download, FileText, FileSpreadsheet, ChevronDown, MapPin, Pencil, ToggleLeft, ToggleRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { customerApi } from '@/services/api'
+import { useAuthStore } from '@/store/authStore'
 import { Customer } from '@/types'
 import CustomerImportModal from './CustomerImportModal'
 
@@ -15,8 +16,16 @@ const segmentBadge: Record<string, string> = {
   WHOLESALE: 'bg-blue-100 text-blue-800',
 }
 
+function fmtCur(n: any) {
+  const v = parseFloat(String(n ?? 0))
+  if (isNaN(v) || v === 0) return '—'
+  return '₹' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 })
+}
+
 export default function CustomersPage() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const outletId = user?.outletId ?? 1
   const [search, setSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Customer[] | null>(null)
   const [showImport, setShowImport] = useState(false)
@@ -57,6 +66,21 @@ export default function CustomersPage() {
     queryFn: () => customerApi.getAll({ page: 0, size: 100 }).then(r => r.data.data),
   })
 
+  const { data: invoiceSummaryRaw } = useQuery({
+    queryKey: ['customer-invoice-summary', outletId],
+    queryFn: () => customerApi.getInvoiceSummary(outletId).then(r => r.data.data as any[]),
+  })
+  const invoiceSummaryMap = new Map<number, { totalBilled: number; totalPaid: number; outstanding: number }>(
+    (invoiceSummaryRaw ?? []).map((row: any) => [
+      row.customerId,
+      {
+        totalBilled: parseFloat(row.totalBilled ?? 0),
+        totalPaid: parseFloat(row.totalPaid ?? 0),
+        outstanding: parseFloat(row.outstanding ?? 0),
+      },
+    ])
+  )
+
   const toggleMut = useMutation({
     mutationFn: (id: number) => customerApi.toggleActive(id),
     onSuccess: (res) => {
@@ -77,7 +101,7 @@ export default function CustomersPage() {
   const customers: Customer[] = searchResults || data?.content || []
 
   const totalCustomers = data?.totalElements ?? customers.length
-  const withDues = customers.filter(c => (c.outstandingDue ?? 0) > 0).length
+  const withDues = customers.filter(c => (invoiceSummaryMap.get(c.id)?.outstanding ?? 0) > 0).length
   const premiumCount = customers.filter(c => c.segment === 'GOLD' || c.segment === 'VIP').length
 
   return (
@@ -181,8 +205,8 @@ export default function CustomersPage() {
             <tr className="bg-slate-50 border-y border-slate-200">
               <th className="px-6 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest">Customer</th>
               <th className="px-6 py-3 text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest">Phone / Email</th>
-              <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Total Spent</th>
-              <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Due Amount</th>
+              <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Total Billed</th>
+              <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Outstanding</th>
               <th className="px-6 py-3 text-right text-[11px] font-bold text-slate-500 uppercase tracking-widest">Actions</th>
             </tr>
           </thead>
@@ -220,15 +244,17 @@ export default function CustomersPage() {
                   <p>{c.phone}</p>
                   <p className="text-xs text-gray-400">{c.email}</p>
                 </td>
-                <td className="px-6 py-3 text-sm font-semibold text-gray-900 text-right">₹{c.totalSpent?.toLocaleString()}</td>
+                <td className="px-6 py-3 text-sm font-semibold text-gray-900 text-right">
+                  {fmtCur(invoiceSummaryMap.get(c.id)?.totalBilled)}
+                </td>
                 <td className="px-6 py-3 text-sm text-right">
-                  {c.outstandingDue > 0 ? (
+                  {(invoiceSummaryMap.get(c.id)?.outstanding ?? 0) > 0 ? (
                     <span className="text-red-600 font-medium flex items-center justify-end gap-1">
                       <AlertCircle size={12} />
-                      ₹{c.outstandingDue}
+                      {fmtCur(invoiceSummaryMap.get(c.id)?.outstanding)}
                     </span>
                   ) : (
-                    <span className="text-gray-400">-</span>
+                    <span className="text-gray-400">—</span>
                   )}
                 </td>
                 <td className="px-6 py-3 text-right">

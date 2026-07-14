@@ -554,6 +554,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		customerHandler.GetByPhone,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("GET /api/customers/invoice-summary", middleware.Chain(
+		customerHandler.GetInvoiceSummary,
+		middleware.Authenticate(db),
+	))
 	mux.HandleFunc("GET /api/customers/{id}", middleware.Chain(
 		customerHandler.GetByID,
 		middleware.Authenticate(db),
