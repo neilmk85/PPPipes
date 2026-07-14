@@ -282,10 +282,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   Widget _buildFloatingNav() {
     final perms = ref.read(authProvider).user?.cardPermissions;
+    final sysPerm = ref.read(authProvider).user?.permissions ?? [];
     final showDebtors   = perms == null || perms.reports.contains('debtors');
     final showCreditors = perms == null || perms.reports.contains('creditors');
-    final showDaybook   = perms == null || perms.reports.contains('daybook');
-    final showLedger    = perms == null || perms.reports.contains('ledger');
+    final showDaybook   = sysPerm.isEmpty || sysPerm.contains('VIEW_DAYBOOK_REPORT');
+    final showLedger    = sysPerm.isEmpty || sysPerm.contains('VIEW_LEDGER_REPORT');
 
     return Container(
       color: Colors.transparent,
@@ -568,10 +569,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     const SizedBox(height: 12),
                     Builder(builder: (ctx) {
                       final perms = ref.read(authProvider).user?.cardPermissions;
+                      final sysPerm = ref.read(authProvider).user?.permissions ?? [];
                       final canDebtors   = perms == null || perms.reports.contains('debtors');
                       final canCreditors = perms == null || perms.reports.contains('creditors');
-                      final canDaybook   = perms == null || perms.reports.contains('daybook');
-                      final canLedger    = perms == null || perms.reports.contains('ledger');
+                      final canDaybook   = sysPerm.isEmpty || sysPerm.contains('VIEW_DAYBOOK_REPORT');
+                      final canLedger    = sysPerm.isEmpty || sysPerm.contains('VIEW_LEDGER_REPORT');
                       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         if (canDebtors)
                           _MoreReportsTile(

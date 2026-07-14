@@ -164,6 +164,8 @@ export const PERMISSION_GROUPS = [
       { key: 'VIEW_PAYMENT_REPORT',        label: 'Payment Report',            desc: 'View payment collection reports' },
       { key: 'VIEW_DEBTORS_REPORT',        label: 'Debtors Report',            desc: 'View outstanding receivables' },
       { key: 'VIEW_CREDITORS_REPORT',      label: 'Creditors Report',          desc: 'View outstanding payables' },
+      { key: 'VIEW_DAYBOOK_REPORT',        label: 'Day Book Report',           desc: 'View daily transaction day book' },
+      { key: 'VIEW_LEDGER_REPORT',         label: 'Ledger Report',             desc: 'View account-wise ledger with drill-down' },
     ],
   },
   {
