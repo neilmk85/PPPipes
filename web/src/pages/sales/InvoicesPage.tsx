@@ -1956,13 +1956,6 @@ export default function InvoicesPage() {
                             <Edit2 size={14} />
                           </button>
                         )}
-                        {balance > 0 && (inv.status === 'SENT' || inv.status === 'PARTIAL' || inv.status === 'OVERDUE') && (
-                          <button onClick={e => { e.stopPropagation(); setCollectInvoice(inv) }}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold bg-green-600 hover:bg-green-700 text-white transition-colors"
-                            title="Collect balance payment">
-                            <CreditCard size={11} /> Collect
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
