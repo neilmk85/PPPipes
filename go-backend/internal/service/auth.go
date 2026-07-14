@@ -166,19 +166,10 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 				if ur.Role == nil {
 					continue
 				}
-				switch ur.Role.Name {
-				case models.RoleAdmin, models.RoleManager:
-					if !seen["CONVERT_SO_TO_PO"] {
-						permissions = append(permissions, "CONVERT_SO_TO_PO")
-						seen["CONVERT_SO_TO_PO"] = true
-					}
-					if !seen["CONVERT_LOADING_TO_INVOICE"] {
-						permissions = append(permissions, "CONVERT_LOADING_TO_INVOICE")
-						seen["CONVERT_LOADING_TO_INVOICE"] = true
-					}
-					if !seen["SET_OUT_OF_OFFICE"] {
-						permissions = append(permissions, "SET_OUT_OF_OFFICE")
-						seen["SET_OUT_OF_OFFICE"] = true
+				for _, p := range builtInRolePermissions(ur.Role.Name) {
+					if !seen[p] {
+						permissions = append(permissions, p)
+						seen[p] = true
 					}
 				}
 			}
@@ -198,6 +189,137 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 		Permissions:     permissions,
 		OutOfOffice:     user.OutOfOffice,
 	}
+}
+
+// builtInRolePermissions returns the default permission keys for a built-in role.
+// These are injected into the login response so the frontend can gate UI without
+// requiring the admin to manually configure a custom role.
+func builtInRolePermissions(role models.RoleName) []string {
+	// Full permission set — everything ADMIN gets.
+	all := []string{
+		// POS
+		"POS_ACCESS", "PROCESS_SALES", "PROCESS_RETURNS", "APPLY_DISCOUNTS", "OPEN_PRICE",
+		"MANAGE_DISCOUNTS",
+		// Products & Catalogue
+		"VIEW_PRODUCTS", "MANAGE_PRODUCTS", "IMPORT_PRODUCTS", "PRINT_BARCODES",
+		"VIEW_CATEGORIES", "MANAGE_CATEGORIES",
+		"VIEW_PRICE_LISTS", "MANAGE_PRICE_LISTS",
+		"VIEW_PIPE_CONFIGS", "MANAGE_PIPE_CONFIGS",
+		"VIEW_UOM", "MANAGE_UOM", "MANAGE_CONVERSION",
+		// Inventory
+		"VIEW_INVENTORY", "MANAGE_INVENTORY", "BULK_PURCHASE",
+		"VIEW_TRANSFERS", "MANAGE_TRANSFERS",
+		// Customers
+		"VIEW_CUSTOMERS", "MANAGE_CUSTOMERS", "IMPORT_CUSTOMERS",
+		// Sales & Orders
+		"VIEW_SALES_ORDERS", "MANAGE_SALES_ORDERS",
+		"VIEW_QUOTATIONS", "MANAGE_QUOTATIONS",
+		"VIEW_ORDERS", "MANAGE_ORDERS",
+		"VIEW_RETURNS", "MANAGE_RETURNS",
+		"CONVERT_SO_TO_PO",
+		"VIEW_INVOICES", "MANAGE_INVOICES",
+		"VIEW_DELIVERY_CHALLANS", "MANAGE_DELIVERY_CHALLANS",
+		"VIEW_CREDIT_NOTES", "MANAGE_CREDIT_NOTES",
+		// Payments
+		"VIEW_PAYMENTS", "MANAGE_PAYMENTS",
+		// Purchases
+		"VIEW_PURCHASES", "MANAGE_PURCHASES", "DIRECT_PURCHASE",
+		"VIEW_VENDORS", "MANAGE_VENDORS", "IMPORT_VENDORS",
+		"VIEW_PURCHASE_RETURNS", "MANAGE_PURCHASE_RETURNS",
+		"VIEW_VENDOR_CREDITS",
+		// Production
+		"VIEW_PRODUCTION_ORDERS", "MANAGE_PRODUCTION_ORDERS",
+		"VIEW_PRODUCTION_ENTRIES", "MANAGE_PRODUCTION_ENTRIES",
+		"VIEW_PRODUCTION_REPORTS", "VIEW_TRANSPORT_REPORT",
+		// Business Operations
+		"VIEW_BUSINESS",
+		"MANAGE_PDI", "PDI",
+		"MANAGE_LOADING", "CONVERT_LOADING_TO_INVOICE",
+		"MANAGE_TESTING_LAB", "MANAGE_DISCARD",
+		"MANAGE_LABOUR", "MANAGE_INCENTIVES",
+		"MANAGE_CEMENT_BAGS", "MANAGE_SILO", "MANAGE_STORE_MATERIAL",
+		"MANAGE_DIESEL", "MANAGE_EXTRA_VEHICLES",
+		"VIEW_MACHINES", "MANAGE_MACHINES", "MANAGE_MAINTENANCE",
+		"MANAGE_VEHICLES", "MANAGE_OVERHEAD_CONFIGS",
+		// Expenses
+		"VIEW_EXPENSES", "MANAGE_EXPENSES",
+		"VIEW_EXPENSE_CATEGORIES", "MANAGE_EXPENSE_CATEGORIES",
+		// Shifts
+		"VIEW_SHIFTS", "MANAGE_SHIFTS", "MANAGE_SHIFT_TEMPLATES",
+		// Reports
+		"VIEW_REPORTS", "VIEW_SALES_REPORT", "VIEW_PURCHASE_REPORT",
+		"VIEW_INVENTORY_REPORT", "VIEW_GST_REPORT", "VIEW_PAYMENT_REPORT",
+		"VIEW_DEBTORS_REPORT", "VIEW_CREDITORS_REPORT",
+		// Administration
+		"MANAGE_STAFF", "VIEW_STAFF", "MANAGE_ROLES", "MANAGE_SETTINGS", "VIEW_ACTIVITY_LOGS",
+		"SET_OUT_OF_OFFICE",
+	}
+
+	switch role {
+	case models.RoleAdmin:
+		return all
+
+	case models.RoleManager:
+		exclude := map[string]bool{
+			"MANAGE_ROLES": true, "MANAGE_SETTINGS": true,
+			"MANAGE_STAFF": true, "VIEW_ACTIVITY_LOGS": true,
+			"IMPORT_CUSTOMERS": true, "IMPORT_VENDORS": true, "IMPORT_PRODUCTS": true,
+		}
+		out := make([]string, 0, len(all))
+		for _, p := range all {
+			if !exclude[p] {
+				out = append(out, p)
+			}
+		}
+		return out
+
+	case models.RoleCashier:
+		return []string{
+			"POS_ACCESS", "PROCESS_SALES", "PROCESS_RETURNS",
+			"VIEW_PRODUCTS", "VIEW_CATEGORIES", "VIEW_PRICE_LISTS",
+			"VIEW_CUSTOMERS",
+			"VIEW_SALES_ORDERS", "VIEW_ORDERS", "MANAGE_ORDERS",
+			"VIEW_INVOICES", "VIEW_DELIVERY_CHALLANS",
+			"VIEW_PAYMENTS",
+			"VIEW_SHIFTS", "MANAGE_SHIFTS",
+			"SET_OUT_OF_OFFICE",
+		}
+
+	case models.RoleInventoryManager:
+		return []string{
+			"VIEW_PRODUCTS", "MANAGE_PRODUCTS", "PRINT_BARCODES",
+			"VIEW_CATEGORIES", "VIEW_PIPE_CONFIGS",
+			"VIEW_INVENTORY", "MANAGE_INVENTORY", "BULK_PURCHASE",
+			"VIEW_TRANSFERS", "MANAGE_TRANSFERS",
+			"VIEW_PURCHASES", "MANAGE_PURCHASES", "DIRECT_PURCHASE",
+			"VIEW_VENDORS", "MANAGE_VENDORS",
+			"VIEW_PURCHASE_RETURNS", "MANAGE_PURCHASE_RETURNS", "VIEW_VENDOR_CREDITS",
+			"VIEW_PRODUCTION_ORDERS", "VIEW_PRODUCTION_ENTRIES",
+			"VIEW_REPORTS", "VIEW_INVENTORY_REPORT", "VIEW_PURCHASE_REPORT",
+			"VIEW_SHIFTS",
+			"SET_OUT_OF_OFFICE",
+		}
+
+	case models.RoleAccountant:
+		return []string{
+			"VIEW_CUSTOMERS",
+			"VIEW_SALES_ORDERS", "VIEW_QUOTATIONS",
+			"VIEW_INVOICES", "MANAGE_INVOICES",
+			"VIEW_DELIVERY_CHALLANS",
+			"VIEW_CREDIT_NOTES", "MANAGE_CREDIT_NOTES",
+			"VIEW_PAYMENTS", "MANAGE_PAYMENTS",
+			"VIEW_PURCHASES", "VIEW_VENDORS", "VIEW_VENDOR_CREDITS",
+			"VIEW_PURCHASE_RETURNS",
+			"VIEW_EXPENSES", "MANAGE_EXPENSES",
+			"VIEW_EXPENSE_CATEGORIES",
+			"VIEW_REPORTS", "VIEW_SALES_REPORT", "VIEW_PURCHASE_REPORT",
+			"VIEW_INVENTORY_REPORT", "VIEW_GST_REPORT", "VIEW_PAYMENT_REPORT",
+			"VIEW_DEBTORS_REPORT", "VIEW_CREDITORS_REPORT",
+			"VIEW_SHIFTS",
+			"SET_OUT_OF_OFFICE",
+		}
+	}
+	return []string{}
 }
 
 // Login authenticates a user with email and password
