@@ -131,7 +131,7 @@ function LedgerDetailDrawer({ account, outletId, from, to, onClose, companyName 
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; font-size:12px; color:#111; background:#fff; padding:24px 32px; }
-    @page { size: A4 landscape; margin: 16mm 14mm; }
+    @page { size: A4 landscape; margin: 0; }
 
     /* ── Header ── */
     .header { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:14px; border-bottom:2px solid #4f46e5; margin-bottom:14px; }
