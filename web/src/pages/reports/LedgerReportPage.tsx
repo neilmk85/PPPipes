@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { format, subDays } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Search, X, ChevronRight, Loader2 } from 'lucide-react'
+import { ArrowLeft, BookOpen, Search, X, ChevronRight, Loader2, FileSpreadsheet, FileText } from 'lucide-react'
 import { reportApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { DateRangePicker } from '@/components/DateRangePicker'
@@ -62,6 +62,7 @@ function LedgerDetailDrawer({ account, outletId, from, to, onClose }: {
 }) {
   const [detail, setDetail] = useState<LedgerDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState<'xl' | 'pdf' | null>(null)
 
   useEffect(() => {
     if (!account.partyId) { setLoading(false); return }
@@ -72,20 +73,60 @@ function LedgerDetailDrawer({ account, outletId, from, to, onClose }: {
       .finally(() => setLoading(false))
   }, [account, outletId, from, to])
 
+  async function downloadXl() {
+    if (!account.partyId) return
+    setDownloading('xl')
+    try {
+      const token = localStorage.getItem('accessToken') ?? ''
+      const params = new URLSearchParams({ outletId: String(outletId), from, to, partyType: account.accountType, partyId: String(account.partyId) })
+      const res = await fetch(`/api/reports/ledger-detail-excel?${params}`, { headers: { Authorization: `Bearer ${token}` } })
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${account.name}_ledger_${from}_${to}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloading(null)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-white h-full flex flex-col shadow-2xl">
+      <div className="relative w-[80%] bg-white h-full flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-3 flex-shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3 flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
             <BookOpen size={16} className="text-violet-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 truncate">{account.name}</p>
             <p className="text-xs text-gray-500 capitalize">{account.accountType} · {dmy(from)} – {dmy(to)}</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors">
+          {detail && detail.entries?.length > 0 && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={downloadXl}
+                disabled={!!downloading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-colors disabled:opacity-50"
+              >
+                {downloading === 'xl'
+                  ? <Loader2 size={13} className="animate-spin" />
+                  : <FileSpreadsheet size={13} />}
+                XL
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors"
+              >
+                <FileText size={13} />
+                PDF
+              </button>
+            </div>
+          )}
+          <button onClick={onClose} className="w-8 h-8 rounded-xl hover:bg-gray-100 flex items-center justify-center transition-colors flex-shrink-0">
             <X size={16} className="text-gray-500" />
           </button>
         </div>
