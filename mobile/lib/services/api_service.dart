@@ -355,6 +355,11 @@ class ApiService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> getPurchaseBillDetail(int id) async {
+    final res = await _dio.get('/purchase-bills/$id');
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
   Future<String> getInvoiceNextNumber() async {
     final res = await _dio.get('/invoices/next-number');
     return res.data['data']?.toString() ?? '';

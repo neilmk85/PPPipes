@@ -6,6 +6,286 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/parse.dart' as p;
 
+// ── Voucher detail bottom-sheet ───────────────────────────────────────────────
+
+class _VoucherDetailSheet extends StatefulWidget {
+  final Map<String, dynamic> entry;
+  const _VoucherDetailSheet({required this.entry});
+  @override
+  State<_VoucherDetailSheet> createState() => _VoucherDetailSheetState();
+}
+
+class _VoucherDetailSheetState extends State<_VoucherDetailSheet> {
+  final _amtFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+  Map<String, dynamic>? _detail;
+  bool _loading = false;
+  String? _error;
+
+  String get _type => (widget.entry['voucherType'] ?? '').toString().toUpperCase();
+  bool get _isInvoice      => _type == 'INVOICE';
+  bool get _isPurchaseBill => _type == 'PURCHASE_BILL';
+  bool get _needsFetch     => _isInvoice || _isPurchaseBill;
+  int  get _refId          => p.d(widget.entry['refId']).toInt();
+
+  @override
+  void initState() {
+    super.initState();
+    if (_needsFetch && _refId > 0) _fetchDetail();
+  }
+
+  Future<void> _fetchDetail() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = _isInvoice
+          ? await ApiService().getInvoiceDetail(_refId)
+          : await ApiService().getPurchaseBillDetail(_refId);
+      setState(() { _detail = data; _loading = false; });
+    } catch (e) {
+      setState(() { _loading = false; _error = e.toString(); });
+    }
+  }
+
+  Color _typeColor(String type) {
+    switch (type) {
+      case 'INVOICE':           return const Color(0xFF2563EB);
+      case 'PAYMENT_RECEIVED':  return const Color(0xFF16A34A);
+      case 'VENDOR_PAYMENT':    return const Color(0xFFDC2626);
+      case 'CREDIT_NOTE':       return const Color(0xFFD97706);
+      case 'PURCHASE_BILL':     return const Color(0xFF7C3AED);
+      case 'SALE_RETURN':       return const Color(0xFFEA580C);
+      case 'PURCHASE_RETURN':   return const Color(0xFF0D9488);
+      case 'VENDOR_CREDIT':     return const Color(0xFF6366F1);
+      case 'EXPENSE':           return const Color(0xFFDB2777);
+      default:                  return const Color(0xFF64748B);
+    }
+  }
+
+  String _typeLabel(String type) => type.replaceAll('_', ' ');
+
+  @override
+  Widget build(BuildContext context) {
+    final debit   = p.d(widget.entry['debit']);
+    final credit  = p.d(widget.entry['credit']);
+    final amt     = debit > 0 ? debit : credit;
+    final isDebit = debit > 0;
+    final tc      = _typeColor(_type);
+    final party     = (widget.entry['party'] ?? '').toString();
+    final narration = (widget.entry['narration'] ?? '').toString();
+    final voucherNo = (widget.entry['voucherNo'] ?? '').toString();
+    final dateStr   = (widget.entry['date'] ?? '').toString();
+    String displayDate = dateStr;
+    try {
+      displayDate = DateFormat('d MMM yyyy').format(DateTime.parse(dateStr.substring(0, 10)));
+    } catch (_) {}
+
+    final lineItems = (
+        _detail?['items'] as List? ??
+        _detail?['invoiceItems'] as List? ??
+        _detail?['billItems'] as List? ??
+        _detail?['lines'] as List? ?? []);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      expand: false,
+      builder: (ctx, scroll) => Column(children: [
+        Container(
+          margin: const EdgeInsets.only(top: 10),
+          width: 36, height: 4,
+          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+        ),
+        Expanded(
+          child: ListView(controller: scroll, padding: const EdgeInsets.fromLTRB(16, 12, 16, 32), children: [
+
+            // Type badge + voucher no
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: tc.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: tc.withValues(alpha: 0.3)),
+                ),
+                child: Text(_typeLabel(_type),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: tc)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(voucherNo,
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  overflow: TextOverflow.ellipsis)),
+            ]),
+            const SizedBox(height: 14),
+
+            // Amount hero
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(isDebit ? 'Debit (Dr)' : 'Credit (Cr)',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(_amtFmt.format(amt),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                          color: isDebit ? const Color(0xFF2563EB) : const Color(0xFF16A34A))),
+                ])),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  const Text('Date', style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                  const SizedBox(height: 2),
+                  Text(displayDate,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 12),
+
+            if (party.isNotEmpty) ...[
+              _infoRow('Party', party),
+              const SizedBox(height: 8),
+            ],
+            if (narration.isNotEmpty) ...[
+              _infoRow('Narration', narration),
+              const SizedBox(height: 8),
+            ],
+
+            // Line items section
+            if (_needsFetch) ...[
+              const SizedBox(height: 4),
+              const Text('LINE ITEMS',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                      color: Color(0xFF94A3B8), letterSpacing: 0.8)),
+              const SizedBox(height: 8),
+              if (_loading)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ))
+              else if (_error != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
+                  child: Text(_error!, style: const TextStyle(fontSize: 12, color: Colors.red)),
+                )
+              else if (lineItems.isEmpty)
+                const Center(child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No items found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13)),
+                ))
+              else
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(11)),
+                      ),
+                      child: const Row(children: [
+                        Expanded(child: Text('Item', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8)))),
+                        SizedBox(width: 40, child: Text('Qty', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8)))),
+                        SizedBox(width: 72, child: Text('Amount', textAlign: TextAlign.right, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8)))),
+                      ]),
+                    ),
+                    ...lineItems.asMap().entries.map((entry) {
+                      final i    = entry.key;
+                      final item = entry.value as Map<String, dynamic>;
+                      final name  = (item['productName'] ?? item['itemName'] ?? item['description'] ?? 'Item ${i + 1}').toString();
+                      final qty   = (item['quantity'] ?? item['qty'] ?? '').toString();
+                      final total = p.d(item['lineTotal'] ?? item['totalPrice'] ?? item['amount'] ?? 0);
+                      final isLast = i == lineItems.length - 1;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        decoration: BoxDecoration(
+                          border: Border(top: const BorderSide(color: Color(0xFFF1F5F9)),
+                              bottom: isLast ? const BorderSide(color: Color(0xFFE2E8F0)) : BorderSide.none),
+                        ),
+                        child: Row(children: [
+                          Expanded(child: Text(name,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
+                          SizedBox(width: 40, child: Text(qty, textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
+                          SizedBox(width: 72, child: Text(
+                              total > 0 ? '₹${total.toStringAsFixed(0)}' : '—',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1E293B)))),
+                        ]),
+                      );
+                    }),
+                    if (_detail != null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.vertical(bottom: Radius.circular(11)),
+                        ),
+                        child: Column(children: [
+                          if (_detail!['subtotal'] != null)
+                            _totRow('Subtotal', p.d(_detail!['subtotal'])),
+                          if (p.d(_detail!['discountAmount']) > 0)
+                            _totRow('Discount', p.d(_detail!['discountAmount']), neg: true),
+                          if (_detail!['taxAmount'] != null || _detail!['gstAmount'] != null)
+                            _totRow('Tax / GST', p.d(_detail!['taxAmount'] ?? _detail!['gstAmount'])),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                              const Text('Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              Text('₹${p.d(_detail!['totalAmount'] ?? _detail!['grandTotal'] ?? _detail!['total'] ?? amt).toStringAsFixed(0)}',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                            ]),
+                          ),
+                          if (_detail!['paidAmount'] != null || _detail!['amountPaid'] != null)
+                            _totRow('Paid', p.d(_detail!['paidAmount'] ?? _detail!['amountPaid']), green: true),
+                        ]),
+                      ),
+                  ]),
+                ),
+            ],
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _infoRow(String label, String value) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+    ),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('$label  ', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+      Expanded(child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
+    ]),
+  );
+
+  Widget _totRow(String label, double value, {bool neg = false, bool green = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+      Text(
+        '${neg ? '−' : ''}₹${value.abs().toStringAsFixed(0)}',
+        style: TextStyle(
+          fontSize: 11, fontWeight: FontWeight.w600,
+          color: neg ? const Color(0xFFDC2626) : green ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+        ),
+      ),
+    ]),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class DaybookScreen extends ConsumerStatefulWidget {
   const DaybookScreen({super.key});
 
@@ -125,6 +405,18 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
 
   double get _totalDebit  => _filtered.fold(0.0, (s, e) => s + p.d(e['debit']));
   double get _totalCredit => _filtered.fold(0.0, (s, e) => s + p.d(e['credit']));
+
+  void _showEntryDetail(Map<String, dynamic> entry) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _VoucherDetailSheet(entry: entry),
+    );
+  }
 
   Color _typeColor(String type) {
     switch (type.toUpperCase()) {
@@ -269,7 +561,9 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
                   final credit = p.d(e['credit']);
                   final typeStr = (e['voucherType'] ?? '').toString();
                   final tc = _typeColor(typeStr);
-                  return Container(
+                  return GestureDetector(
+                    onTap: () => _showEntryDetail(e),
+                    child: Container(
                     margin: const EdgeInsets.only(bottom: 6),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -280,7 +574,7 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
                       border: Border(left: BorderSide(color: tc, width: 3)),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Row(children: [
@@ -312,7 +606,7 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
                           ],
                         ])),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisAlignment: MainAxisAlignment.center, children: [
                           if (debit > 0)
                             Text(_amtFmt.format(debit),
@@ -323,9 +617,11 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
                           Text(debit > 0 ? 'Dr' : 'Cr',
                               style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
                         ]),
+                        const SizedBox(width: 4),
+                        Icon(Icons.chevron_right, size: 16, color: Colors.grey.shade300),
                       ]),
                     ),
-                  );
+                  ));
                 },
                 childCount: dayEntries.length,
               ),

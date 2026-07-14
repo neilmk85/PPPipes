@@ -484,6 +484,7 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
   bool _downloading = false;
   String? _partyName;
   final _dateFmt = DateFormat('d MMM yy');
+  final _xlKey = GlobalKey();
 
   @override
   void initState() {
@@ -531,8 +532,20 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
       final name = (_partyName ?? widget.account['name'] ?? 'ledger').replaceAll(' ', '_');
       final file = File('${dir.path}/${name}_${widget.from}_${widget.to}.xlsx');
       await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(file.path)], text: 'Ledger — ${widget.account['name'] ?? ''}');
+      final box = _xlKey.currentContext?.findRenderObject() as RenderBox?;
+      final origin = box != null
+          ? box.localToGlobal(Offset.zero) & box.size
+          : null;
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
+        subject: 'Ledger — ${widget.account['name'] ?? ''}',
+        text: 'Ledger — ${widget.account['name'] ?? ''}',
+        sharePositionOrigin: origin,
+      );
     } catch (e) {
+      // Ignore share sheet cancellation (user dismissed the sheet)
+      final msg = e.toString();
+      if (msg.contains('cancel') || msg.contains('-128')) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Download failed: $e'), backgroundColor: Colors.red),
@@ -696,6 +709,7 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : Row(children: [
                           GestureDetector(
+                            key: _xlKey,
                             onTap: _downloadXl,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

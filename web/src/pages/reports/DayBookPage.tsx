@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { BookOpen, TrendingUp, TrendingDown, Minus, Download, ChevronDown, ChevronUp } from 'lucide-react'
-import { reportApi } from '@/services/api'
+import { BookOpen, Download, ChevronDown, ChevronUp, X, ChevronRight, Package } from 'lucide-react'
+import { reportApi, invoiceApi, purchaseBillApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { DateRangePicker } from '@/components/DateRangePicker'
 
@@ -91,9 +91,196 @@ function VoucherBadge({ type }: { type: VoucherType }) {
   )
 }
 
+// ─── Voucher Detail Drawer ────────────────────────────────────────────────────
+
+function VoucherDetailDrawer({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+  const isInvoice     = entry.voucherType === 'INVOICE'
+  const isPurchaseBill = entry.voucherType === 'PURCHASE_BILL'
+  const needsFetch    = isInvoice || isPurchaseBill
+
+  const { data: detailRes, isLoading } = useQuery({
+    queryKey: ['daybook-voucher', entry.voucherType, entry.refId],
+    queryFn: () => {
+      if (isInvoice)     return invoiceApi.getById(entry.refId)
+      if (isPurchaseBill) return purchaseBillApi.getById(entry.refId)
+      return Promise.resolve(null)
+    },
+    enabled: needsFetch && entry.refId > 0,
+  })
+
+  const detail = (detailRes as any)?.data?.data ?? (detailRes as any)?.data ?? null
+  const meta   = VOUCHER_META[entry.voucherType] ?? { label: entry.voucherType, color: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400' }
+
+  const amtColor = parseAmt(entry.debit) > 0 ? 'text-emerald-600' : 'text-rose-500'
+  const amtLabel = parseAmt(entry.debit) > 0 ? 'Dr' : 'Cr'
+  const amtValue = parseAmt(entry.debit) > 0 ? entry.debit : entry.credit
+
+  // line items for invoice or purchase bill
+  const lineItems: any[] = detail?.items ?? detail?.lines ?? detail?.invoiceItems ?? detail?.billItems ?? []
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end" onClick={onClose}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+
+      {/* Panel */}
+      <div
+        className="relative w-[480px] max-w-full h-full bg-white shadow-2xl flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 bg-gray-50">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold ${meta.color}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
+            {meta.label}
+          </span>
+          <span className="text-sm font-mono text-gray-500 flex-1">{entry.voucherNo}</span>
+          <button onClick={onClose} className="w-7 h-7 rounded-full hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <X size={15} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+
+          {/* Amount hero */}
+          <div className="rounded-2xl bg-gray-50 border border-gray-100 px-5 py-4 flex items-center gap-4">
+            <div className="flex-1">
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-0.5">{amtLabel === 'Dr' ? 'Debit (Dr)' : 'Credit (Cr)'}</p>
+              <p className={`text-2xl font-bold ${amtColor}`}>₹{fmtPlain(amtValue)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-400 mb-0.5">Date</p>
+              <p className="text-sm font-semibold text-gray-700">
+                {(() => { try { return format(new Date(entry.date.substring(0, 10) + 'T00:00:00'), 'd MMM yyyy') } catch { return entry.date } })()}
+              </p>
+            </div>
+          </div>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {entry.party && (
+              <div className="col-span-2 bg-white border border-gray-100 rounded-xl px-4 py-3">
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Party</p>
+                <p className="text-sm font-semibold text-gray-800">{entry.party}</p>
+              </div>
+            )}
+            {entry.narration && (
+              <div className="col-span-2 bg-white border border-gray-100 rounded-xl px-4 py-3">
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Narration</p>
+                <p className="text-sm text-gray-700">{entry.narration}</p>
+              </div>
+            )}
+            {entry.status && (
+              <div className="bg-white border border-gray-100 rounded-xl px-4 py-3">
+                <p className="text-xs text-gray-400 font-medium mb-0.5">Status</p>
+                <p className="text-sm font-semibold text-gray-800 capitalize">{entry.status.toLowerCase()}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Line items (invoice / purchase bill) */}
+          {needsFetch && (
+            <>
+              <div className="flex items-center gap-2 pt-1">
+                <Package size={14} className="text-gray-400" />
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Line Items</p>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8 text-gray-400">
+                  <div className="w-6 h-6 border-2 border-violet-200 border-t-violet-500 rounded-full animate-spin mr-2" />
+                  Loading…
+                </div>
+              ) : lineItems.length > 0 ? (
+                <div className="rounded-xl border border-gray-100 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Item</th>
+                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-gray-500">Qty</th>
+                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-gray-500">Rate</th>
+                        <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {lineItems.map((item: any, i: number) => {
+                        const name  = item.productName ?? item.itemName ?? item.description ?? `Item ${i + 1}`
+                        const qty   = item.quantity ?? item.qty ?? ''
+                        const rate  = item.unitPrice ?? item.rate ?? item.price ?? ''
+                        const total = item.lineTotal ?? item.totalPrice ?? item.amount ?? ''
+                        return (
+                          <tr key={i} className="hover:bg-gray-50/60">
+                            <td className="px-4 py-2.5 text-gray-800 font-medium">{name}</td>
+                            <td className="px-3 py-2.5 text-right text-gray-600">{qty}</td>
+                            <td className="px-3 py-2.5 text-right text-gray-600">{rate ? `₹${fmtPlain(rate)}` : '—'}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-gray-800">{total ? `₹${fmtPlain(total)}` : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  {/* Totals */}
+                  {detail && (
+                    <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 space-y-1.5">
+                      {detail.subtotal != null && (
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Subtotal</span>
+                          <span>₹{fmtPlain(detail.subtotal)}</span>
+                        </div>
+                      )}
+                      {detail.discountAmount != null && parseAmt(detail.discountAmount) > 0 && (
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Discount</span>
+                          <span className="text-rose-500">−₹{fmtPlain(detail.discountAmount)}</span>
+                        </div>
+                      )}
+                      {(detail.taxAmount ?? detail.gstAmount) != null && (
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Tax / GST</span>
+                          <span>₹{fmtPlain(detail.taxAmount ?? detail.gstAmount)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold text-gray-800 pt-1 border-t border-gray-200">
+                        <span>Total</span>
+                        <span>₹{fmtPlain(detail.totalAmount ?? detail.grandTotal ?? detail.total ?? amtValue)}</span>
+                      </div>
+                      {(detail.paidAmount ?? detail.amountPaid) != null && (
+                        <div className="flex justify-between text-xs text-emerald-600 font-semibold">
+                          <span>Paid</span>
+                          <span>₹{fmtPlain(detail.paidAmount ?? detail.amountPaid)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : !isLoading && (
+                <div className="text-center py-4 text-gray-400 text-sm">No line items found</div>
+              )}
+            </>
+          )}
+
+          {/* For non-fetchable types, show payment info from inline data */}
+          {!needsFetch && (
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Details</p>
+              <div className="space-y-1.5">
+                {entry.party && <div className="flex justify-between"><span className="text-gray-400">Party</span><span className="font-medium">{entry.party}</span></div>}
+                {entry.voucherNo && <div className="flex justify-between"><span className="text-gray-400">Ref No.</span><span className="font-mono text-gray-700">{entry.voucherNo}</span></div>}
+                <div className="flex justify-between"><span className="text-gray-400">Amount</span><span className={`font-bold ${amtColor}`}>₹{fmtPlain(amtValue)} {amtLabel}</span></div>
+                {entry.narration && <div className="flex flex-col gap-0.5 pt-1 border-t border-gray-200"><span className="text-gray-400 text-xs">Narration</span><span>{entry.narration}</span></div>}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Day Group ────────────────────────────────────────────────────────────────
 
-function DayGroup({ date, entries }: { date: string; entries: Entry[] }) {
+function DayGroup({ date, entries, onSelect }: { date: string; entries: Entry[]; onSelect: (e: Entry) => void }) {
   const [open, setOpen] = useState(true)
   const dayDebit  = entries.reduce((s, e) => s + parseAmt(e.debit), 0)
   const dayCredit = entries.reduce((s, e) => s + parseAmt(e.credit), 0)
@@ -136,7 +323,11 @@ function DayGroup({ date, entries }: { date: string; entries: Entry[] }) {
           <table className="w-full text-sm">
             <tbody className="divide-y divide-gray-100">
               {entries.map((e, i) => (
-                <tr key={i} className="hover:bg-gray-50/70 transition-colors group">
+                <tr
+                  key={i}
+                  className="hover:bg-violet-50/60 transition-colors group cursor-pointer"
+                  onClick={() => onSelect(e)}
+                >
                   <td className="px-4 py-3 w-28 shrink-0">
                     <span className="text-xs text-gray-400 font-mono">
                       {(() => {
@@ -181,6 +372,9 @@ function DayGroup({ date, entries }: { date: string; entries: Entry[] }) {
                       <span className="text-gray-200">—</span>
                     )}
                   </td>
+                  <td className="px-2 py-3 w-8">
+                    <ChevronRight size={14} className="text-gray-300 group-hover:text-violet-400 transition-colors" />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -199,6 +393,7 @@ export default function DayBookPage() {
   const [to,   setTo]   = useState(new Date().toISOString().split('T')[0])
   const [activeTypes, setActiveTypes] = useState<Set<VoucherType>>(new Set(ALL_TYPES))
   const [search, setSearch] = useState('')
+  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['daybook', outletId, from, to],
@@ -281,6 +476,7 @@ export default function DayBookPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50">
 
       {/* ── Hero header ── */}
@@ -417,7 +613,7 @@ export default function DayBookPage() {
 
         {/* Day groups */}
         {!isLoading && grouped.map(([date, entries]) => (
-          <DayGroup key={date} date={date} entries={entries} />
+          <DayGroup key={date} date={date} entries={entries} onSelect={setSelectedEntry} />
         ))}
 
         {/* Grand totals */}
@@ -445,5 +641,11 @@ export default function DayBookPage() {
         )}
       </div>
     </div>
+
+    {/* Voucher detail drawer */}
+    {selectedEntry && (
+      <VoucherDetailDrawer entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+    )}
+    </>
   )
 }
