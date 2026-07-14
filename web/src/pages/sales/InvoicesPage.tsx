@@ -1891,7 +1891,6 @@ export default function InvoicesPage() {
             <thead className="bg-gray-50 text-[11px] text-gray-500 uppercase tracking-wide">
               <tr>
                 <th className="px-4 py-3 text-left">Invoice #</th>
-                <th className="px-4 py-3 text-left">Order #</th>
                 <th className="px-4 py-3 text-left">Customer</th>
                 <th className="px-4 py-3 text-center">Items</th>
                 <th className="px-4 py-3 text-right">Total</th>
@@ -1918,15 +1917,6 @@ export default function InvoicesPage() {
                   <tr key={inv.id} onClick={() => setViewId(inv.id)} className="hover:bg-gray-50 transition-colors cursor-pointer">
                     <td className="px-4 py-3">
                       <span title={inv.invoiceNumber} className="font-mono text-xs font-semibold text-primary-600">{shortNum(inv.invoiceNumber)}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {inv.order?.orderNumber
-                        ? <span className="flex items-center gap-1">
-                            <ShoppingCart size={10} className="text-primary-400 shrink-0" />
-                            <span title={inv.order.orderNumber} className="font-mono text-xs text-primary-600">{shortNum(inv.order.orderNumber)}</span>
-                          </span>
-                        : <span className="text-gray-300 text-xs">—</span>
-                      }
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700">{inv.customer?.name ?? <span className="text-gray-400 italic">Walk-in</span>}</td>
                     <td className="px-4 py-3 text-center text-sm text-gray-600">{inv.items?.length ?? 0}</td>
