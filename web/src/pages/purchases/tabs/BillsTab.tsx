@@ -12,6 +12,14 @@ function fmtCur(n: any) {
   return '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function fmtDate(d: string | null | undefined) {
+  if (!d) return '—'
+  try {
+    const date = new Date(d.includes('T') ? d : d + 'T00:00:00')
+    return format(date, 'd MMM yyyy')
+  } catch { return d }
+}
+
 const STATUS_COLORS: Record<string, string> = {
   DRAFT:   'bg-gray-100 text-gray-600',
   UNPAID:  'text-red-600',
@@ -201,8 +209,8 @@ export default function BillsTab() {
                     <td className="px-4 py-3 font-mono font-medium text-primary-700">{b.billNumber}</td>
                     <td className="px-4 py-3 text-gray-500">{b.vendorBillNumber || '—'}</td>
                     <td className="px-4 py-3 text-gray-800 font-medium">{b.supplier?.name}</td>
-                    <td className="px-4 py-3 text-gray-500">{b.billDate}</td>
-                    <td className="px-4 py-3 text-gray-500">{b.dueDate || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500">{fmtDate(b.billDate)}</td>
+                    <td className="px-4 py-3 text-gray-500">{fmtDate(b.dueDate)}</td>
                     <td className="px-4 py-3 text-right font-semibold">{fmtCur(b.totalAmount)}</td>
                     <td className="px-4 py-3 text-right font-semibold text-red-600">{fmtCur(balance)}</td>
                     <td className="px-4 py-3">
@@ -261,8 +269,8 @@ export default function BillsTab() {
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {[
-                  ['Bill Date', viewBill.billDate],
-                  ['Due Date', viewBill.dueDate || '—'],
+                  ['Bill Date', fmtDate(viewBill.billDate)],
+                  ['Due Date', fmtDate(viewBill.dueDate)],
                   ['Vendor Bill #', viewBill.vendorBillNumber || '—'],
                   ['Status', viewBill.status],
                 ].map(([label, val]) => (
