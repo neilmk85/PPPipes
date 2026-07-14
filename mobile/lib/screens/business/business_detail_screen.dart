@@ -6146,44 +6146,52 @@ class _PdiScreenState extends State<PdiScreen> {
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
+  Future<List<dynamic>> _safeFetch(Future<List<dynamic>> fut, String label) async {
+    try {
+      return await fut;
+    } catch (e, st) {
+      debugPrint('[$label] fetch error: $e\n$st');
+      return [];
+    }
+  }
+
   Future<void> _loadAll() async {
     setState(() => _loading = true);
-    try {
-      final results = await Future.wait([
-        ApiService().getPdiEntries(from: _fmt(_from), to: _fmt(_to)),
-        ApiService().getProductionEntries(stageType: 'FINAL_TESTING', size: 500),
-        ApiService().getPdiEntries(size: 2000),   // all entries for party name list
-      ]);
-      final entries      = results[0];
-      final ftEntries    = results[1];
-      final allEntries   = results[2];
 
-      // Group final testing by pipe name and sum pipesCompleted
-      final map = <String, int>{};
-      for (final e in ftEntries.cast<Map<String, dynamic>>()) {
-        final name = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
-        map[name] = (map[name] ?? 0) + ((e['pipesCompleted'] as num?)?.toInt() ?? 0);
-      }
-      final pipeOpts = map.entries.map((e) => {'pipeName': e.key, 'available': e.value}).toList()
-        ..sort((a, b) => (a['pipeName'] as String).compareTo(b['pipeName'] as String));
+    // Fetch independently so one failure doesn't wipe the others
+    final results = await Future.wait([
+      _safeFetch(ApiService().getPdiEntries(from: _fmt(_from), to: _fmt(_to)), 'PDI-range'),
+      _safeFetch(ApiService().getProductionEntries(stageType: 'FINAL_TESTING', size: 500), 'FINAL_TESTING'),
+      _safeFetch(ApiService().getPdiEntries(size: 2000), 'PDI-all'),
+    ]);
 
-      // Unique third party names from ALL historical PDI entries
-      final seen = <String>{};
-      final partyNames = allEntries
-          .cast<Map<String, dynamic>>()
-          .map((e) => (e['thirdParty'] ?? '').toString().trim())
-          .where((s) => s.isNotEmpty && seen.add(s))
-          .toList()..sort();
+    final entries    = results[0];
+    final ftEntries  = results[1];
+    final allEntries = results[2];
 
-      setState(() {
-        _entries             = entries.cast<Map<String, dynamic>>();
-        _pipeOptions         = pipeOpts;
-        _allThirdPartyOptions = partyNames;
-        _loading             = false;
-      });
-    } catch (_) {
-      setState(() => _loading = false);
+    // Group final testing by pipe name and sum pipesCompleted
+    final map = <String, int>{};
+    for (final e in ftEntries.cast<Map<String, dynamic>>()) {
+      final name = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
+      map[name] = (map[name] ?? 0) + ((e['pipesCompleted'] as num?)?.toInt() ?? 0);
     }
+    final pipeOpts = map.entries.map((e) => {'pipeName': e.key, 'available': e.value}).toList()
+      ..sort((a, b) => (a['pipeName'] as String).compareTo(b['pipeName'] as String));
+
+    // Unique third party names from ALL historical PDI entries
+    final seen = <String>{};
+    final partyNames = allEntries
+        .cast<Map<String, dynamic>>()
+        .map((e) => (e['thirdParty'] ?? '').toString().trim())
+        .where((s) => s.isNotEmpty && seen.add(s))
+        .toList()..sort();
+
+    setState(() {
+      _entries              = entries.cast<Map<String, dynamic>>();
+      _pipeOptions          = pipeOpts;
+      _allThirdPartyOptions = partyNames;
+      _loading              = false;
+    });
   }
 
   int _passCount(Map<String, dynamic> e) =>
