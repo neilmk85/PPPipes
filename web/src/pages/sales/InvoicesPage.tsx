@@ -1559,10 +1559,10 @@ function ViewInvoiceModal({ id, onClose, onUpdated, onEdit }: {
           {/* Action buttons */}
           {inv && (
             <div className="px-6 py-4 border-t bg-gray-50 flex flex-wrap gap-2 shrink-0">
-              {inv.status === 'DRAFT' && onEdit && (
+              {onEdit && (
                 <button onClick={() => { onEdit(inv); onClose() }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600">
-                  <Edit2 size={13} /> Edit Draft
+                  <Edit2 size={13} /> Edit
                 </button>
               )}
               {inv.status === 'DRAFT' && (

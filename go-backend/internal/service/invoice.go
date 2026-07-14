@@ -280,10 +280,6 @@ func (is *InvoiceService) Update(id int, req InvoiceCreateRequest) (*models.Invo
 		return nil, err
 	}
 
-	if invoice.Status != models.InvoiceStatusDraft {
-		return nil, &util.BusinessException{Message: "Only DRAFT invoices can be updated"}
-	}
-
 	// Delete existing items
 	if err := is.db.Where("invoice_id = ?", id).Delete(&models.InvoiceItem{}).Error; err != nil {
 		return nil, err
