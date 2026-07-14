@@ -507,9 +507,8 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
 
   Widget _buildNavItems() {
     return Row(key: const ValueKey('dbnav'), children: [
-      _floatItem(icon: Icons.search,       label: 'Search', active: false, onTap: () => setState(() => _showSearch = true)),
+      _floatItem(icon: Icons.search,        label: 'Search',   active: false, onTap: () => setState(() => _showSearch = true)),
       _floatItem(icon: Icons.book_outlined, label: 'Day Book', active: true,  onTap: () {}),
-      _floatItem(icon: Icons.date_range,   label: 'Date',   active: false, onTap: _pickRange),
     ]);
   }
 
