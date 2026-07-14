@@ -662,10 +662,10 @@ class _SummaryCards extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1.8,
+      childAspectRatio: 1.55,
       children: cards.map((c) {
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: _color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
@@ -677,11 +677,15 @@ class _SummaryCards extends StatelessWidget {
             children: [
               Icon(c.$3, color: _color, size: 20),
               const SizedBox(height: 4),
-              Text(c.$2,
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _color)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(c.$2,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _color)),
+              ),
               Text(c.$1,
                   style: const TextStyle(
                       color: Colors.grey, fontSize: 12)),
