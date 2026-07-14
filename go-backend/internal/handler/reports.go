@@ -452,3 +452,26 @@ func (rh *ReportHandler) GetLedgerDetail(w http.ResponseWriter, r *http.Request)
 	}
 	util.SendSuccess(w, "Ledger detail retrieved", result)
 }
+
+func (rh *ReportHandler) GetLedgerDetailExcel(w http.ResponseWriter, r *http.Request) {
+	outletId, from, to, err := parseReportParams(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid parameters")
+		return
+	}
+	partyType := r.URL.Query().Get("partyType")
+	partyId, err := strconv.Atoi(r.URL.Query().Get("partyId"))
+	if err != nil || (partyType != "customer" && partyType != "supplier") {
+		util.SendError(w, http.StatusBadRequest, "Invalid partyType or partyId")
+		return
+	}
+	data, err := rh.service.LedgerDetailExcel(outletId, partyType, partyId, from, to)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	filename := "ledger_" + r.URL.Query().Get("from") + "_" + r.URL.Query().Get("to") + ".xlsx"
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Write(data)
+}

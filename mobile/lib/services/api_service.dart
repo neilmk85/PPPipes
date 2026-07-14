@@ -889,6 +889,13 @@ class ApiService {
     return (res.data['data'] as Map<String, dynamic>?) ?? {};
   }
 
+  Future<List<int>> getLedgerDetailExcel(int outletId, int partyId, String partyType, String from, String to) async {
+    final res = await _dio.get<List<int>>('/reports/ledger-detail-excel', queryParameters: {
+      'outletId': outletId, 'partyId': partyId, 'partyType': partyType, 'from': from, 'to': to,
+    }, options: Options(responseType: ResponseType.bytes));
+    return res.data ?? [];
+  }
+
   // ── Discard ──────────────────────────────────────────────────────────────────
 
   Future<List<dynamic>> getDiscardEntries({String? from, String? to}) async {

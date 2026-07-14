@@ -1628,6 +1628,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		reportHandler.GetLedgerDetail,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("GET /api/reports/ledger-detail-excel", middleware.Chain(
+		reportHandler.GetLedgerDetailExcel,
+		middleware.Authenticate(db),
+	))
 	mux.HandleFunc("GET /api/reports/tds", middleware.Chain(
 		tdsHandler.GetReport,
 		middleware.Authenticate(db),

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/nilesh/pos-backend/internal/models"
 	"github.com/shopspring/decimal"
+	excelize "github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -1597,13 +1599,17 @@ func (rs *ReportService) LedgerSummary(outletId int, from, to time.Time) (Ledger
 // ─── Ledger Detail (single party) ─────────────────────────────────────────────
 
 type LedgerEntry struct {
-	Date        string          `json:"date"`
-	Particulars string          `json:"particulars"`
-	VoucherType string          `json:"voucherType"`
-	VoucherNo   string          `json:"voucherNo"`
-	Debit       decimal.Decimal `json:"debit"`
-	Credit      decimal.Decimal `json:"credit"`
-	Balance     decimal.Decimal `json:"balance"`
+	Date            string          `json:"date"`
+	Particulars     string          `json:"particulars"`
+	VoucherType     string          `json:"voucherType"`
+	VoucherNo       string          `json:"voucherNo"`
+	VoucherID       int             `json:"voucherId,omitempty"`
+	Debit           decimal.Decimal `json:"debit"`
+	Credit          decimal.Decimal `json:"credit"`
+	Balance         decimal.Decimal `json:"balance"`
+	PaymentMethod   string          `json:"paymentMethod,omitempty"`
+	ReferenceNumber string          `json:"referenceNumber,omitempty"`
+	Notes           string          `json:"notes,omitempty"`
 }
 
 type LedgerDetailResponse struct {
@@ -1627,24 +1633,29 @@ func (rs *ReportService) LedgerDetail(outletId int, partyType string, partyId in
 
 		// All transactions merged and sorted by date (Tally-style)
 		type txn struct {
-			Date        time.Time
-			Particulars string
-			VoucherType string
-			VoucherNo   string
-			Debit       decimal.Decimal
-			Credit      decimal.Decimal
+			Date            time.Time
+			Particulars     string
+			VoucherType     string
+			VoucherNo       string
+			VoucherID       int
+			Debit           decimal.Decimal
+			Credit          decimal.Decimal
+			PaymentMethod   string
+			ReferenceNumber string
+			Notes           string
 		}
 		var all []txn
 
 		// Invoices → Dr (customer owes us)
 		type invRow struct {
+			ID          int
 			IssueDate   time.Time
 			InvoiceNo   string
 			TotalAmount decimal.Decimal
 		}
 		var invs []invRow
 		rs.db.Raw(`
-			SELECT issue_date, invoice_number as invoice_no, total_amount
+			SELECT id, issue_date, invoice_number as invoice_no, total_amount
 			FROM invoices
 			WHERE outlet_id = ? AND customer_id = ? AND issue_date >= ? AND issue_date <= ?
 			  AND status NOT IN ('CANCELLED','DRAFT')
@@ -1653,12 +1664,14 @@ func (rs *ReportService) LedgerDetail(outletId int, partyType string, partyId in
 			all = append(all, txn{
 				Date: inv.IssueDate, Particulars: "Sales Invoice",
 				VoucherType: "Invoice", VoucherNo: inv.InvoiceNo,
+				VoucherID: inv.ID,
 				Debit: inv.TotalAmount, Credit: zero,
 			})
 		}
 
 		// Receipts from sales_order_payments → Cr (customer paid us)
 		type rcptRow struct {
+			ID              int
 			PaymentDate     time.Time
 			Amount          decimal.Decimal
 			PaymentMethod   string
@@ -1667,29 +1680,31 @@ func (rs *ReportService) LedgerDetail(outletId int, partyType string, partyId in
 		}
 		var rcpts []rcptRow
 		rs.db.Raw(`
-			SELECT payment_date, amount, payment_method,
+			SELECT id, payment_date, amount, payment_method,
 			       COALESCE(reference_number,'') as reference_number,
 			       COALESCE(notes,'') as notes
 			FROM sales_order_payments
 			WHERE outlet_id = ? AND customer_id = ? AND payment_date >= ? AND payment_date <= ?
 			ORDER BY payment_date`, outletId, partyId, from, to).Scan(&rcpts)
 		for _, r := range rcpts {
-			ref := r.ReferenceNumber
-			if ref == "" {
-				ref = r.Notes
-			}
-			if ref == "" {
-				ref = r.PaymentMethod
+			voucherNo := r.ReferenceNumber
+			if voucherNo == "" {
+				voucherNo = r.PaymentMethod
 			}
 			all = append(all, txn{
 				Date: r.PaymentDate, Particulars: "Receipt",
-				VoucherType: "Receipt", VoucherNo: ref,
+				VoucherType: "Receipt", VoucherNo: voucherNo,
+				VoucherID: r.ID, PaymentMethod: r.PaymentMethod,
+				ReferenceNumber: r.ReferenceNumber, Notes: r.Notes,
 				Debit: zero, Credit: r.Amount,
 			})
 		}
 
-		// Sort by date (stable — invoices before receipts on same day)
-		sort.Slice(all, func(i, j int) bool {
+		// Sort by date ascending; receipts before invoices on same day (advance first)
+		sort.SliceStable(all, func(i, j int) bool {
+			if all[i].Date.Equal(all[j].Date) {
+				return all[i].VoucherType == "Receipt"
+			}
 			return all[i].Date.Before(all[j].Date)
 		})
 
@@ -1698,6 +1713,8 @@ func (rs *ReportService) LedgerDetail(outletId int, partyType string, partyId in
 			res.Entries = append(res.Entries, LedgerEntry{
 				Date: t.Date.Format("02 Jan 2006"), Particulars: t.Particulars,
 				VoucherType: t.VoucherType, VoucherNo: t.VoucherNo,
+				VoucherID: t.VoucherID, PaymentMethod: t.PaymentMethod,
+				ReferenceNumber: t.ReferenceNumber, Notes: t.Notes,
 				Debit: t.Debit, Credit: t.Credit, Balance: running,
 			})
 		}
@@ -1743,6 +1760,119 @@ func (rs *ReportService) LedgerDetail(outletId int, partyType string, partyId in
 	res.OpeningBalance = zero
 	res.ClosingBalance = running
 	return res, nil
+}
+
+// LedgerDetailExcel returns an Excel workbook for a party's ledger detail in the given period.
+func (rs *ReportService) LedgerDetailExcel(outletId int, partyType string, partyId int, from, to time.Time) ([]byte, error) {
+	detail, err := rs.LedgerDetail(outletId, partyType, partyId, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	f := excelize.NewFile()
+	sh := "Ledger"
+	f.SetSheetName("Sheet1", sh)
+
+	// Header styles
+	titleStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true, Size: 14},
+		Alignment: &excelize.Alignment{Horizontal: "center"},
+	})
+	boldStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Bold: true, Color: "FFFFFF"},
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"4472C4"}, Pattern: 1},
+	})
+	drStyle, _ := f.NewStyle(&excelize.Style{
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"#FFF2CC"}, Pattern: 1},
+		NumFmt: 4,
+	})
+	crStyle, _ := f.NewStyle(&excelize.Style{
+		Fill: excelize.Fill{Type: "pattern", Color: []string{"#E2EFDA"}, Pattern: 1},
+		NumFmt: 4,
+	})
+	numStyle, _ := f.NewStyle(&excelize.Style{NumFmt: 4})
+	balDrStyle, _ := f.NewStyle(&excelize.Style{
+		Font:   &excelize.Font{Color: "C00000"},
+		NumFmt: 4,
+	})
+	balCrStyle, _ := f.NewStyle(&excelize.Style{
+		Font:   &excelize.Font{Color: "375623"},
+		NumFmt: 4,
+	})
+
+	// Title
+	f.MergeCell(sh, "A1", "H1")
+	f.SetCellValue(sh, "A1", detail.PartyName+" — Ledger")
+	f.SetCellStyle(sh, "A1", "A1", titleStyle)
+	f.MergeCell(sh, "A2", "H2")
+	f.SetCellValue(sh, "A2", from.Format("02 Jan 2006")+" to "+to.Format("02 Jan 2006"))
+	f.SetCellStyle(sh, "A2", "A2", titleStyle)
+
+	// Opening balance row
+	f.SetCellValue(sh, "A3", "Opening Balance")
+	f.SetCellValue(sh, "H3", detail.OpeningBalance.InexactFloat64())
+	f.SetCellStyle(sh, "H3", "H3", numStyle)
+
+	// Column headers
+	headers := []string{"Date", "Particulars", "Voucher Type", "Voucher No", "Reference", "Debit (Dr)", "Credit (Cr)", "Balance"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 5)
+		f.SetCellValue(sh, cell, h)
+		f.SetCellStyle(sh, cell, cell, boldStyle)
+	}
+
+	// Data rows
+	row := 6
+	for _, e := range detail.Entries {
+		f.SetCellValue(sh, fmt.Sprintf("A%d", row), e.Date)
+		f.SetCellValue(sh, fmt.Sprintf("B%d", row), e.Particulars)
+		f.SetCellValue(sh, fmt.Sprintf("C%d", row), e.VoucherType)
+		f.SetCellValue(sh, fmt.Sprintf("D%d", row), e.VoucherNo)
+		ref := e.ReferenceNumber
+		if ref == "" {
+			ref = e.Notes
+		}
+		f.SetCellValue(sh, fmt.Sprintf("E%d", row), ref)
+		dr := e.Debit.InexactFloat64()
+		cr := e.Credit.InexactFloat64()
+		bal := e.Balance.InexactFloat64()
+		if dr > 0 {
+			f.SetCellValue(sh, fmt.Sprintf("F%d", row), dr)
+			f.SetCellStyle(sh, fmt.Sprintf("F%d", row), fmt.Sprintf("F%d", row), drStyle)
+		}
+		if cr > 0 {
+			f.SetCellValue(sh, fmt.Sprintf("G%d", row), cr)
+			f.SetCellStyle(sh, fmt.Sprintf("G%d", row), fmt.Sprintf("G%d", row), crStyle)
+		}
+		f.SetCellValue(sh, fmt.Sprintf("H%d", row), bal)
+		if bal >= 0 {
+			f.SetCellStyle(sh, fmt.Sprintf("H%d", row), fmt.Sprintf("H%d", row), balDrStyle)
+		} else {
+			f.SetCellStyle(sh, fmt.Sprintf("H%d", row), fmt.Sprintf("H%d", row), balCrStyle)
+		}
+		row++
+	}
+
+	// Closing balance footer
+	f.SetCellValue(sh, fmt.Sprintf("A%d", row), "Closing Balance")
+	f.SetCellValue(sh, fmt.Sprintf("H%d", row), detail.ClosingBalance.InexactFloat64())
+	closStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Bold: true}, NumFmt: 4})
+	f.SetCellStyle(sh, fmt.Sprintf("A%d", row), fmt.Sprintf("H%d", row), closStyle)
+
+	// Column widths
+	f.SetColWidth(sh, "A", "A", 14)
+	f.SetColWidth(sh, "B", "B", 22)
+	f.SetColWidth(sh, "C", "C", 14)
+	f.SetColWidth(sh, "D", "D", 18)
+	f.SetColWidth(sh, "E", "E", 20)
+	f.SetColWidth(sh, "F", "G", 14)
+	f.SetColWidth(sh, "H", "H", 16)
+
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // LedgerTDSPayable returns total TDS deducted in period (for the TDS Payable ledger account).

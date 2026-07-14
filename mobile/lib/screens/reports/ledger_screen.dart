@@ -1,6 +1,14 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -473,6 +481,8 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
   double _closingBalance = 0;
   bool _loading = true;
   String? _error;
+  bool _downloading = false;
+  String? _partyName;
   final _dateFmt = DateFormat('d MMM yy');
 
   @override
@@ -490,6 +500,7 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
         _entries = (data['entries'] as List?) ?? [];
         _openingBalance = p.d(data['openingBalance']);
         _closingBalance = p.d(data['closingBalance']);
+        _partyName = data['partyName']?.toString();
         _loading = false;
       });
     } catch (e) {
@@ -508,6 +519,137 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
       case 'PURCHASE_BILL':   return const Color(0xFF7C3AED);
       default:                return const Color(0xFF64748B);
     }
+  }
+
+  Future<void> _downloadXl() async {
+    setState(() => _downloading = true);
+    try {
+      final bytes = await ApiService().getLedgerDetailExcel(
+        widget.outletId, widget.partyId, widget.partyType, widget.from, widget.to,
+      );
+      final dir = await getTemporaryDirectory();
+      final name = (_partyName ?? widget.account['name'] ?? 'ledger').replaceAll(' ', '_');
+      final file = File('${dir.path}/${name}_${widget.from}_${widget.to}.xlsx');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], text: 'Ledger — ${widget.account['name'] ?? ''}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  Future<void> _downloadPdf() async {
+    setState(() => _downloading = true);
+    try {
+      final name = _partyName ?? widget.account['name'] ?? '';
+      final pdf = pw.Document();
+      final amtFmt = widget.amtFmt;
+
+      pdf.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        header: (ctx) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Text('$name — Ledger', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+          pw.Text('${widget.from}  to  ${widget.to}', style: const pw.TextStyle(fontSize: 10)),
+          pw.SizedBox(height: 4),
+          pw.Text('Opening Balance: ${amtFmt.format(_openingBalance.abs())}  ${_openingBalance >= 0 ? "Dr" : "Cr"}',
+              style: const pw.TextStyle(fontSize: 9)),
+          pw.Divider(),
+        ]),
+        footer: (ctx) => pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('Closing Balance: ${amtFmt.format(_closingBalance.abs())}  ${_closingBalance >= 0 ? "Dr" : "Cr"}',
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+          pw.Text('Page ${ctx.pageNumber} of ${ctx.pagesCount}', style: const pw.TextStyle(fontSize: 9)),
+        ]),
+        build: (ctx) => [
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+            columnWidths: {
+              0: const pw.FixedColumnWidth(60),
+              1: const pw.FlexColumnWidth(2),
+              2: const pw.FixedColumnWidth(60),
+              3: const pw.FlexColumnWidth(2),
+              4: const pw.FixedColumnWidth(70),
+              5: const pw.FixedColumnWidth(70),
+              6: const pw.FixedColumnWidth(70),
+            },
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.indigo700),
+                children: ['Date', 'Particulars', 'Type', 'Voucher No', 'Debit (Dr)', 'Credit (Cr)', 'Balance']
+                    .map((h) => pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                          child: pw.Text(h, style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 8)),
+                        ))
+                    .toList(),
+              ),
+              ..._entries.asMap().entries.map((entry) {
+                final i = entry.key;
+                final e = entry.value as Map<String, dynamic>;
+                final debit  = p.d(e['debit']);
+                final credit = p.d(e['credit']);
+                final bal    = p.d(e['balance'] ?? e['runningBalance']);
+                final bg = i.isEven ? PdfColors.grey50 : PdfColors.white;
+                return pw.TableRow(
+                  decoration: pw.BoxDecoration(color: bg),
+                  children: [
+                    e['date'] ?? '',
+                    e['particulars'] ?? '',
+                    e['voucherType'] ?? '',
+                    e['voucherNo'] ?? '',
+                    debit  > 0 ? amtFmt.format(debit)  : '',
+                    credit > 0 ? amtFmt.format(credit) : '',
+                    '${amtFmt.format(bal.abs())} ${bal >= 0 ? "Dr" : "Cr"}',
+                  ].map((cell) => pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: pw.Text(cell.toString(), style: const pw.TextStyle(fontSize: 7.5)),
+                      )).toList(),
+                );
+              }),
+            ],
+          ),
+        ],
+      ));
+
+      final bytes = await pdf.save();
+      final dir = await getTemporaryDirectory();
+      final safeName = name.replaceAll(' ', '_');
+      final file = File('${dir.path}/${safeName}_${widget.from}_${widget.to}.pdf');
+      await file.writeAsBytes(bytes);
+      await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: file.path.split('/').last);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
+  void _showEntryDetail(Map<String, dynamic> e) {
+    final vType = (e['voucherType'] ?? '').toString().toUpperCase();
+    final isInvoice = vType == 'INVOICE';
+    final vc = _voucherColor(vType);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => isInvoice
+          ? _InvoiceDetailModal(
+              voucherId: (e['voucherId'] as num?)?.toInt() ?? 0,
+              entry: e,
+              color: vc,
+              amtFmt: widget.amtFmt,
+            )
+          : _ReceiptDetailModal(entry: e, color: vc, amtFmt: widget.amtFmt),
+    );
   }
 
   @override
@@ -547,6 +689,46 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
                   child: Text(name,
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
                 ),
+                // XL download button
+                if (!_loading && _entries.isNotEmpty) ...[
+                  _downloading
+                      ? const SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Row(children: [
+                          GestureDetector(
+                            onTap: _downloadXl,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.table_chart_outlined, color: Colors.white, size: 13),
+                                SizedBox(width: 3),
+                                Text('XL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                              ]),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: _downloadPdf,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.picture_as_pdf_outlined, color: Colors.white, size: 13),
+                                SizedBox(width: 3),
+                                Text('PDF', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                              ]),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ]),
+                ],
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
@@ -588,8 +770,8 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
                               final e = _entries[i] as Map<String, dynamic>;
                               final vType = (e['voucherType'] ?? '').toString();
                               final vc = _voucherColor(vType);
-                              final debit  = p.d(e['debit']);
-                              final credit = p.d(e['credit']);
+                              final debit   = p.d(e['debit']);
+                              final credit  = p.d(e['credit']);
                               final balance = p.d(e['balance'] ?? e['runningBalance']);
                               final dateStr = (e['date'] ?? '').toString();
                               String formattedDate = dateStr;
@@ -597,61 +779,66 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
                                 formattedDate = _dateFmt.format(DateTime.parse(dateStr));
                               } catch (_) {}
 
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
-                                  border: Border(left: BorderSide(color: vc, width: 3)),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
-                                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      Row(children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color: vc.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
+                              return GestureDetector(
+                                onTap: () => _showEntryDetail(e),
+                                child: Container(
+                                  margin: const EdgeInsets.only(bottom: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+                                    border: Border(left: BorderSide(color: vc, width: 3)),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+                                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Row(children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: vc.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(vType.replaceAll('_', ' '),
+                                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: vc)),
                                           ),
-                                          child: Text(vType.replaceAll('_', ' '),
-                                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: vc)),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Expanded(
-                                          child: Text(e['voucherNo'] ?? '',
-                                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
-                                              overflow: TextOverflow.ellipsis),
-                                        ),
-                                        Text(formattedDate,
-                                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(e['voucherNo'] ?? '',
+                                                style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                                                overflow: TextOverflow.ellipsis),
+                                          ),
+                                          Text(formattedDate,
+                                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
+                                        ]),
+                                        if ((e['particulars'] ?? e['narration'] ?? '').toString().isNotEmpty) ...[
+                                          const SizedBox(height: 3),
+                                          Text(e['particulars'] ?? e['narration'] ?? '',
+                                              style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                                        ],
+                                      ])),
+                                      const SizedBox(width: 10),
+                                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                        if (debit > 0)
+                                          Text(widget.amtFmt.format(debit),
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                                        if (credit > 0)
+                                          Text(widget.amtFmt.format(credit),
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                                        if (balance != 0)
+                                          Text(widget.amtFmt.format(balance.abs()),
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                color: Colors.grey.shade500,
+                                                fontWeight: FontWeight.w500,
+                                              )),
+                                        const SizedBox(height: 2),
+                                        Icon(Icons.chevron_right, size: 14, color: Colors.grey.shade400),
                                       ]),
-                                      if ((e['particulars'] ?? e['narration'] ?? '').toString().isNotEmpty) ...[
-                                        const SizedBox(height: 3),
-                                        Text(e['particulars'] ?? e['narration'] ?? '',
-                                            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
-                                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                                      ],
-                                    ])),
-                                    const SizedBox(width: 10),
-                                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                      if (debit > 0)
-                                        Text(widget.amtFmt.format(debit),
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
-                                      if (credit > 0)
-                                        Text(widget.amtFmt.format(credit),
-                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
-                                      if (balance != 0)
-                                        Text(widget.amtFmt.format(balance.abs()),
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              color: Colors.grey.shade500,
-                                              fontWeight: FontWeight.w500,
-                                            )),
                                     ]),
-                                  ]),
+                                  ),
                                 ),
                               );
                             },
@@ -668,6 +855,205 @@ class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
           overflow: TextOverflow.ellipsis),
       const SizedBox(height: 2),
       Text(label, style: const TextStyle(color: Colors.white70, fontSize: 9), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ─── Receipt Detail Modal ─────────────────────────────────────────────────────
+
+class _ReceiptDetailModal extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final Color color;
+  final NumberFormat amtFmt;
+
+  const _ReceiptDetailModal({required this.entry, required this.color, required this.amtFmt});
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = p.d(entry['credit']);
+    final method = (entry['paymentMethod'] ?? '').toString();
+    final ref    = (entry['referenceNumber'] ?? '').toString();
+    final notes  = (entry['notes'] ?? '').toString();
+    final date   = (entry['date'] ?? '').toString();
+    final vno    = (entry['voucherNo'] ?? '').toString();
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Handle
+        Center(child: Container(
+          width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+        )),
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+            child: Text('RECEIPT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+          ),
+          const Spacer(),
+          GestureDetector(onTap: () => Navigator.pop(context),
+              child: Icon(Icons.close, color: Colors.grey.shade400)),
+        ]),
+        const SizedBox(height: 16),
+        Center(child: Text(amtFmt.format(amount),
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: color))),
+        const SizedBox(height: 4),
+        Center(child: Text(date, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13))),
+        const SizedBox(height: 16),
+        const Divider(),
+        const SizedBox(height: 8),
+        _row('Payment Method', method.isEmpty ? '—' : method),
+        if (vno.isNotEmpty) _row('Reference / UTR', vno),
+        if (ref.isNotEmpty && ref != vno) _row('Reference No.', ref),
+        if (notes.isNotEmpty) _row('Narration', notes),
+        const SizedBox(height: 8),
+      ]),
+    );
+  }
+
+  Widget _row(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(width: 130,
+          child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)))),
+      Expanded(child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)))),
+    ]),
+  );
+}
+
+// ─── Invoice Detail Modal ─────────────────────────────────────────────────────
+
+class _InvoiceDetailModal extends StatefulWidget {
+  final int voucherId;
+  final Map<String, dynamic> entry;
+  final Color color;
+  final NumberFormat amtFmt;
+
+  const _InvoiceDetailModal({
+    required this.voucherId,
+    required this.entry,
+    required this.color,
+    required this.amtFmt,
+  });
+
+  @override
+  State<_InvoiceDetailModal> createState() => _InvoiceDetailModalState();
+}
+
+class _InvoiceDetailModalState extends State<_InvoiceDetailModal> {
+  Map<String, dynamic>? _detail;
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await ApiService().getInvoiceDetail(widget.voucherId);
+      setState(() { _detail = data; _loading = false; });
+    } catch (e) {
+      setState(() { _loading = false; _error = e.toString(); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final color = widget.color;
+    final amtFmt = widget.amtFmt;
+    final inv = _detail;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.95,
+      builder: (ctx, sc) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                : ListView(controller: sc, padding: const EdgeInsets.all(20), children: [
+                    // Handle
+                    Center(child: Container(
+                      width: 36, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                    )),
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+                        child: Text('INVOICE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(entry['voucherNo'] ?? '', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      const Spacer(),
+                      GestureDetector(onTap: () => Navigator.pop(context),
+                          child: Icon(Icons.close, color: Colors.grey.shade400)),
+                    ]),
+                    const SizedBox(height: 8),
+                    Text(entry['date'] ?? '', style: const TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    // Line items
+                    if (inv != null) ...[
+                      const Text('Items', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      ...(inv['items'] as List? ?? []).map((item) {
+                        final it = item as Map<String, dynamic>;
+                        final qty = p.d(it['quantity']);
+                        final price = p.d(it['unitPrice'] ?? it['price'] ?? 0);
+                        final total = p.d(it['lineTotal'] ?? it['total'] ?? 0);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(it['productName'] ?? it['name'] ?? '',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text('${qty % 1 == 0 ? qty.toInt() : qty} × ${amtFmt.format(price)}',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                            ])),
+                            Text(amtFmt.format(total),
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          ]),
+                        );
+                      }),
+                      const Divider(),
+                      _totRow('Sub Total', amtFmt.format(p.d(inv['subtotal'] ?? inv['subTotal'] ?? 0))),
+                      if (p.d(inv['discountAmount'] ?? 0) > 0)
+                        _totRow('Discount', '−${amtFmt.format(p.d(inv['discountAmount']))}'),
+                      if (p.d(inv['taxAmount'] ?? 0) > 0)
+                        _totRow('Tax (GST)', amtFmt.format(p.d(inv['taxAmount']))),
+                      _totRow('Total', amtFmt.format(p.d(inv['totalAmount'] ?? 0)), bold: true),
+                      if (p.d(inv['paidAmount'] ?? 0) > 0)
+                        _totRow('Paid', amtFmt.format(p.d(inv['paidAmount']))),
+                    ] else ...[
+                      _totRow('Total', amtFmt.format(p.d(entry['debit'])), bold: true),
+                    ],
+                    const SizedBox(height: 16),
+                  ]),
+      ),
+    );
+  }
+
+  Widget _totRow(String label, String value, {bool bold = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(children: [
+      Expanded(child: Text(label, style: TextStyle(fontSize: 12, fontWeight: bold ? FontWeight.w700 : FontWeight.normal))),
+      Text(value, style: TextStyle(fontSize: 12, fontWeight: bold ? FontWeight.w700 : FontWeight.normal)),
     ]),
   );
 }
