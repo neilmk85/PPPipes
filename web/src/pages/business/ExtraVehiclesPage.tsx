@@ -14,6 +14,7 @@ interface VehicleItem {
   rateType: RateType
   quantity: string
   rate:     string
+  vendor:   string
 }
 
 const VEHICLE_KEYS = ['crane', 'jcb', 'tractor', 'excavator', 'tipper', 'selfLoader', 'generator', 'transitMixer'] as const
@@ -42,7 +43,7 @@ interface ExtraVehiclesEntry {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function emptyVehicle(): VehicleItem {
-  return { enabled: false, rateType: 'per_day', quantity: '', rate: '' }
+  return { enabled: false, rateType: 'per_day', quantity: '', rate: '', vendor: '' }
 }
 function emptyVehicleMap(): VehicleMap {
   return Object.fromEntries(VEHICLE_KEYS.map(k => [k, emptyVehicle()])) as VehicleMap
@@ -269,10 +270,9 @@ function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => voi
 }
 
 // ─── Add / Edit Modal ─────────────────────────────────────────────────────────
-interface VehicleFieldError { qty?: string; rate?: string }
+interface VehicleFieldError { qty?: string; rate?: string; vendor?: string }
 interface FormErrors {
   date?:          string
-  vendor?:        string
   vehicles?:      string
   vehicleFields?: Partial<Record<VehicleKey, VehicleFieldError>>
 }
@@ -283,9 +283,8 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
   onClose: () => void
   vendorSuggestions: string[]
 }) {
-  const [date, setDate]       = useState(initial?.date     ?? todayStr())
-  const [vendor, setVendor]   = useState(initial?.vendor   ?? '')
-  const [notes, setNotes]     = useState(initial?.notes    ?? '')
+  const [date, setDate]   = useState(initial?.date  ?? todayStr())
+  const [notes, setNotes] = useState(initial?.notes ?? '')
   const [vehicles, setVehicles] = useState<VehicleMap>(
     initial?.vehicles
       ? { ...emptyVehicleMap(), ...initial.vehicles }
@@ -303,13 +302,12 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
 
   const setVehicleField = (key: VehicleKey, field: keyof VehicleItem, value: any) => {
     setVehicles(v => ({ ...v, [key]: { ...v[key], [field]: value } }))
-    // clear per-vehicle field error when user types
-    if (field === 'quantity' || field === 'rate') {
-      const errKey = field === 'quantity' ? 'qty' : 'rate'
+    if (field === 'quantity' || field === 'rate' || field === 'vendor') {
+      const errKey = field === 'quantity' ? 'qty' : field === 'rate' ? 'rate' : 'vendor'
       setErrors(prev => {
-        if (!prev.vehicleFields?.[key]?.[errKey]) return prev
+        if (!prev.vehicleFields?.[key]?.[errKey as keyof VehicleFieldError]) return prev
         const vf = { ...prev.vehicleFields, [key]: { ...prev.vehicleFields[key] } }
-        delete vf[key]![errKey]
+        delete vf[key]![errKey as keyof VehicleFieldError]
         if (!Object.keys(vf[key]!).length) delete vf[key]
         return { ...prev, vehicleFields: Object.keys(vf).length ? vf : undefined }
       })
@@ -335,8 +333,7 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
     e.preventDefault()
     const newErrors: FormErrors = {}
 
-    if (!date)          newErrors.date    = 'Please select a date'
-    if (!vendor.trim()) newErrors.vendor  = 'Please enter a vendor name'
+    if (!date) newErrors.date = 'Please select a date'
 
     const anyEnabled = VEHICLE_KEYS.some(k => vehicles[k].enabled)
     if (!anyEnabled) {
@@ -347,8 +344,9 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
         const v = vehicles[k]
         if (!v.enabled) continue
         const fe: VehicleFieldError = {}
-        if (!v.quantity || parseFloat(v.quantity) <= 0) fe.qty  = 'Qty required'
-        if (!v.rate     || parseFloat(v.rate)     <= 0) fe.rate = 'Rate required'
+        if (!v.vendor.trim())                           fe.vendor = 'Vendor required'
+        if (!v.quantity || parseFloat(v.quantity) <= 0) fe.qty    = 'Qty required'
+        if (!v.rate     || parseFloat(v.rate)     <= 0) fe.rate   = 'Rate required'
         if (Object.keys(fe).length) vf[k] = fe
       }
       if (Object.keys(vf).length) newErrors.vehicleFields = vf
@@ -359,8 +357,9 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
       return
     }
 
+    const firstVendor = VEHICLE_KEYS.map(k => vehicles[k]).find(v => v.enabled)?.vendor.trim() ?? ''
     setSaving(true)
-    setTimeout(() => { onSave({ date, vendor: vendor.trim(), vehicles, notes: notes.trim() }); setSaving(false) }, 250)
+    setTimeout(() => { onSave({ date, vendor: firstVendor, vehicles, notes: notes.trim() }); setSaving(false) }, 250)
   }
 
   const inputCls  = (disabled: boolean, err?: boolean) =>
@@ -375,7 +374,7 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
       :          'border-gray-200 bg-white focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-400'
     }`
 
-  const hasAnyError = !!(errors.date || errors.vendor || errors.vehicles || errors.vehicleFields)
+  const hasAnyError = !!(errors.date || errors.vehicles || errors.vehicleFields)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -405,41 +404,24 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
               </div>
             )}
 
-            {/* Date + Vendor row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Date <span className="text-red-500">*</span></label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={e => { setDate(e.target.value); clearErr('date') }}
-                  className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-colors ${
-                    errors.date
-                      ? 'border-red-400 bg-red-50/20 focus:ring-red-400/30 focus:border-red-500'
-                      : 'border-gray-200 focus:ring-fuchsia-500/30 focus:border-fuchsia-400'
-                  }`}
-                />
-                {errors.date && (
-                  <p className="flex items-center gap-1 mt-1.5 text-xs text-red-500">
-                    <AlertTriangle size={11} /> {errors.date}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Vendor <span className="text-red-500">*</span></label>
-                <div className={errors.vendor ? 'ring-1 ring-red-400 rounded-xl' : ''}>
-                  <VendorAutocomplete
-                    value={vendor}
-                    onChange={v => { setVendor(v); clearErr('vendor') }}
-                    suggestions={vendorSuggestions}
-                  />
-                </div>
-                {errors.vendor && (
-                  <p className="flex items-center gap-1 mt-1.5 text-xs text-red-500">
-                    <AlertTriangle size={11} /> {errors.vendor}
-                  </p>
-                )}
-              </div>
+            {/* Date row */}
+            <div className="max-w-[200px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Date <span className="text-red-500">*</span></label>
+              <input
+                type="date"
+                value={date}
+                onChange={e => { setDate(e.target.value); clearErr('date') }}
+                className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-colors ${
+                  errors.date
+                    ? 'border-red-400 bg-red-50/20 focus:ring-red-400/30 focus:border-red-500'
+                    : 'border-gray-200 focus:ring-fuchsia-500/30 focus:border-fuchsia-400'
+                }`}
+              />
+              {errors.date && (
+                <p className="flex items-center gap-1 mt-1.5 text-xs text-red-500">
+                  <AlertTriangle size={11} /> {errors.date}
+                </p>
+              )}
             </div>
 
             {/* Vehicle rows */}
@@ -468,7 +450,7 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
                   const dis    = !v.enabled
                   const amount = calcAmount(v)
                   const ve     = errors.vehicleFields?.[key]
-                  const hasErr = !!(ve?.qty || ve?.rate)
+                  const hasErr = !!(ve?.qty || ve?.rate || ve?.vendor)
 
                   return (
                     <div key={key}>
@@ -514,8 +496,26 @@ function EntryModal({ initial, onSave, onClose, vendorSuggestions }: {
                           className={inputCls(dis, !!ve?.rate)} />
                       </div>
 
-                      {/* Per-vehicle inline error */}
-                      {hasErr && (
+                      {/* Per-vehicle vendor field — shown when enabled */}
+                      {v.enabled && (
+                        <div className="mt-1 ml-7 mr-1">
+                          <div className={ve?.vendor ? 'ring-1 ring-red-400 rounded-xl' : ''}>
+                            <VendorAutocomplete
+                              value={v.vendor}
+                              onChange={val => setVehicleField(key, 'vendor', val)}
+                              suggestions={vendorSuggestions}
+                            />
+                          </div>
+                          {ve?.vendor && (
+                            <p className="flex items-center gap-1 mt-0.5 text-[11px] text-red-500">
+                              <AlertTriangle size={10} /> {ve.vendor}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Per-vehicle field errors (qty / rate) */}
+                      {(ve?.qty || ve?.rate) && (
                         <p className="flex items-center gap-1 mt-0.5 ml-1 text-[11px] text-red-500">
                           <AlertTriangle size={10} />
                           {[ve?.qty, ve?.rate].filter(Boolean).join(' · ')}
@@ -623,7 +623,14 @@ export default function ExtraVehiclesPage() {
   })
 
   const vendorSuggestions = useMemo(() => {
-    const local = entries.map(e => e.vendor).filter(Boolean)
+    const local: string[] = []
+    entries.forEach(e => {
+      VEHICLE_KEYS.forEach(k => {
+        const v = e.vehicles?.[k]
+        if (v?.enabled && v.vendor) local.push(v.vendor)
+      })
+      if (e.vendor) local.push(e.vendor)
+    })
     return [...new Set([...apiVendors, ...local])].sort((a, b) => a.localeCompare(b))
   }, [apiVendors, entries])
 
@@ -737,12 +744,10 @@ export default function ExtraVehiclesPage() {
                         </td>
                       )}
 
-                      {/* Vendor — only on first vehicle row */}
-                      {isFirst && (
-                        <td rowSpan={span} className={`px-5 py-3.5 align-top ${topBorder}`}>
-                          <span className="text-sm font-medium text-gray-500">{entry.vendor}</span>
-                        </td>
-                      )}
+                      {/* Vendor — per vehicle row */}
+                      <td className={`px-5 py-3.5 ${topBorder}`}>
+                        <span className="text-sm font-medium text-gray-500">{v.vendor || entry.vendor || '—'}</span>
+                      </td>
 
                       {/* Vehicle name */}
                       <td className={`px-5 py-3.5 ${topBorder}`}>

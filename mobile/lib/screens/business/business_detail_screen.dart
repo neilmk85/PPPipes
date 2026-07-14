@@ -3830,7 +3830,8 @@ class _ExtraVehiclesScreenState extends State<ExtraVehiclesScreen> {
         final q = _search.toLowerCase();
         return e.vendor.toLowerCase().contains(q) ||
                (e.notes ?? '').toLowerCase().contains(q) ||
-               e.activeKeys.any((k) => (_vehicleLabels[k] ?? k).toLowerCase().contains(q));
+               e.activeKeys.any((k) => (_vehicleLabels[k] ?? k).toLowerCase().contains(q)) ||
+               e.activeKeys.any((k) => (e.vehicles[k]?.vendor ?? '').toLowerCase().contains(q));
       }
       return true;
     }).toList();
@@ -3838,7 +3839,16 @@ class _ExtraVehiclesScreenState extends State<ExtraVehiclesScreen> {
 
   List<String> get _vendorSuggestions {
     final seen = <String>{};
-    return _allItems.map((e) => e.vendor).where((v) => v.isNotEmpty && seen.add(v)).toList()..sort();
+    final result = <String>[];
+    for (final e in _allItems) {
+      for (final k in _vehicleKeys) {
+        final vd = e.vehicles[k]?.vendor ?? '';
+        if (vd.isNotEmpty && seen.add(vd)) result.add(vd);
+      }
+      if (e.vendor.isNotEmpty && seen.add(e.vendor)) result.add(e.vendor);
+    }
+    result.sort();
+    return result;
   }
 
   Future<void> _showAddEdit(BuildContext context, {_ExtraVehicleEntry? editing}) async {
@@ -4135,18 +4145,25 @@ class _ExtraVehicleCard extends StatelessWidget {
                 final rateLabel = v.rateType == 'per_day' ? 'day' : 'hr';
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
-                      child: Text(_vehicleLabels[k] ?? k, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('${v.quantity % 1 == 0 ? v.quantity.toInt() : v.quantity} / $rateLabel',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    const Spacer(),
-                    Text('₹${fmt.format(v.amount)}',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(color: color.withOpacity(0.08), borderRadius: BorderRadius.circular(20)),
+                        child: Text(_vehicleLabels[k] ?? k, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('${v.quantity % 1 == 0 ? v.quantity.toInt() : v.quantity} / $rateLabel',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      const Spacer(),
+                      Text('₹${fmt.format(v.amount)}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ]),
+                    if (v.vendor.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, left: 2),
+                        child: Text(v.vendor, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      ),
                   ]),
                 );
               }),
