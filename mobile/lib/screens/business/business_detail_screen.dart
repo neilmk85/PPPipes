@@ -6497,30 +6497,10 @@ class _PdiScreenState extends State<PdiScreen> {
                           ),
                   ),
                   actions: [
-                    SizedBox(
-                      width: 48, height: 48,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.water_outlined, color: Colors.white),
-                            onPressed: () => _showCuring2Sheet(context),
-                            tooltip: 'Curing 2 Pipeline',
-                          ),
-                          if (_curing2Rows.isNotEmpty)
-                            Positioned(
-                              right: 2, top: 6,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(8)),
-                                child: Text(
-                                  '${_curing2Rows.fold(0, (s, r) => s + r.total)}',
-                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.water_outlined, color: Colors.white),
+                      onPressed: () => _showCuring2Sheet(context),
+                      tooltip: 'Curing 2 Pipeline',
                     ),
                     IconButton(
                       icon: Icon(
@@ -15692,6 +15672,7 @@ class PccpStageScreen extends StatefulWidget {
 class _PccpStageScreenState extends State<PccpStageScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _entries = [];
+  List<_C2Row> _curing2Rows = [];
   late DateTime _from, _to;
   String _search = '';
   bool _searchOpen = false;
@@ -15709,6 +15690,13 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
     final now = DateTime.now();
     _to   = now;
     _from = DateTime(now.year, now.month, 1);
+    // Mock data — replaced by real data once _load() completes
+    _curing2Rows = const [
+      _C2Row(pipeName: 'DN 300 NP3 5.25m', day4: 12, day5: 8,  day6: 5,  day7: 3),
+      _C2Row(pipeName: 'DN 400 NP3 5.25m', day4: 7,  day5: 11, day6: 9,  day7: 4),
+      _C2Row(pipeName: 'DN 300 NP3 6.5m',  day4: 5,  day5: 3,  day6: 0,  day7: 2),
+      _C2Row(pipeName: 'DN 500 NP2 5.25m', day4: 0,  day5: 6,  day6: 4,  day7: 1),
+    ];
     _load();
   }
 
@@ -15752,16 +15740,137 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final data = await ApiService().getProductionEntries(
-        stageType: widget.stageType,
-        from: _fmt(_from),
-        to: _fmt(_to),
-        size: 1000,
-      );
-      if (mounted) setState(() { _entries = data.cast<Map<String, dynamic>>(); _loading = false; });
+      final today = DateTime.now();
+      final c2From = _fmt(today.subtract(const Duration(days: 8)));
+      final c2To   = _fmt(today.subtract(const Duration(days: 3)));
+      final results = await Future.wait([
+        ApiService().getProductionEntries(stageType: widget.stageType, from: _fmt(_from), to: _fmt(_to), size: 1000),
+        ApiService().getProductionEntries(stageType: 'CURING_2', from: c2From, to: c2To, size: 500),
+      ]);
+      final data      = results[0] as List;
+      final c2Entries = results[1] as List;
+
+      final c2Map = <String, Map<int, int>>{};
+      for (final e in c2Entries.cast<Map<String, dynamic>>()) {
+        final name     = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
+        final dateStr  = (e['entryDate'] ?? e['createdAt'] ?? '') as String;
+        final entryDate = DateTime.tryParse(dateStr);
+        if (entryDate == null) continue;
+        final daysAgo  = DateTime(today.year, today.month, today.day)
+            .difference(DateTime(entryDate.year, entryDate.month, entryDate.day))
+            .inDays;
+        if (daysAgo < 4 || daysAgo > 7) continue;
+        final count = (e['pipesCompleted'] as num?)?.toInt() ?? 1;
+        c2Map.putIfAbsent(name, () => {4: 0, 5: 0, 6: 0, 7: 0});
+        c2Map[name]![daysAgo] = (c2Map[name]![daysAgo] ?? 0) + count;
+      }
+      final c2Rows = c2Map.entries.map((e) => _C2Row(
+        pipeName: e.key,
+        day4: e.value[4]!, day5: e.value[5]!, day6: e.value[6]!, day7: e.value[7]!,
+      )).toList()..sort((a, b) => b.total.compareTo(a.total));
+
+      if (mounted) setState(() {
+        _entries      = data.cast<Map<String, dynamic>>();
+        _curing2Rows  = c2Rows;
+        _loading      = false;
+      });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showCuring2Sheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 4),
+                width: 36, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF3730A3), Color(0xFF4338CA)]),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.water_outlined, size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Curing 2 Pipeline', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+                  Text('4th – 7th day pipes', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                ]),
+              ]),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Row(children: [
+                const Expanded(child: Text('Pipe', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B7280)))),
+                for (final d in [4, 5, 6, 7])
+                  SizedBox(width: 52, child: Text('Day $d', textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B7280)))),
+              ]),
+            ),
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+            if (_curing2Rows.isEmpty)
+              Expanded(child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.water_outlined, size: 40, color: Colors.grey.shade300),
+                const SizedBox(height: 8),
+                Text('No curing 2 data in range', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+              ])))
+            else
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: _curing2Rows.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF9FAFB)),
+                  itemBuilder: (_, i) {
+                    final r = _curing2Rows[i];
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                      child: Row(children: [
+                        Expanded(child: Text(r.pipeName,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                        for (final count in [r.day4, r.day5, r.day6, r.day7])
+                          SizedBox(width: 52, child: Center(
+                            child: count > 0
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                    decoration: BoxDecoration(color: const Color(0xFFEDE9FE), borderRadius: BorderRadius.circular(10)),
+                                    child: Text('$count', textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5B21B6))),
+                                  )
+                                : Text('—', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey.shade300)),
+                          )),
+                      ]),
+                    );
+                  },
+                ),
+              ),
+          ]),
+        ),
+      ),
+    );
   }
 
   List<Map<String, dynamic>> get _filtered {
@@ -15877,6 +15986,18 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
                               child: SizedBox(width: 18, height: 18,
                                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                             ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () => _showCuring2Sheet(context),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.18),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.water_outlined, color: Colors.white, size: 18),
+                            ),
+                          ),
                           const SizedBox(width: 6),
                           GestureDetector(
                             onTap: () {
