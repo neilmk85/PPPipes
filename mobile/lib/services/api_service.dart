@@ -284,7 +284,7 @@ class ApiService {
 
   // ---- Purchase Orders ----
   Future<List<dynamic>> getPurchaseOrders({int page = 0, int size = 20, String? from, String? to}) async {
-    final params = <String, dynamic>{'page': page, 'size': size};
+    final params = <String, dynamic>{'page': page, 'size': size, 'isDirect': 'false'};
     if (from != null) params['from'] = from;
     if (to != null) params['to'] = to;
     final res = await _dio.get('/purchase-orders', queryParameters: params);
@@ -295,7 +295,7 @@ class ApiService {
   }
 
   Future<List<dynamic>> getDirectPurchases({int page = 0, int size = 20, String? from, String? to}) async {
-    final params = <String, dynamic>{'page': page, 'size': size, 'isDirect': true};
+    final params = <String, dynamic>{'page': page, 'size': size, 'isDirect': 'true'};
     if (from != null) params['from'] = from;
     if (to != null) params['to'] = to;
     final res = await _dio.get('/purchase-orders', queryParameters: params);
