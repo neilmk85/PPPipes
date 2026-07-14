@@ -57,8 +57,8 @@ interface LedgerDetail {
 }
 
 // ── Detail drawer ─────────────────────────────────────────────────────────────
-function LedgerDetailDrawer({ account, outletId, from, to, onClose }: {
-  account: LedgerAccount; outletId: number; from: string; to: string; onClose: () => void
+function LedgerDetailDrawer({ account, outletId, from, to, onClose, companyName }: {
+  account: LedgerAccount; outletId: number; from: string; to: string; onClose: () => void; companyName: string
 }) {
   const [detail, setDetail] = useState<LedgerDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -92,6 +92,149 @@ function LedgerDetailDrawer({ account, outletId, from, to, onClose }: {
     }
   }
 
+  function printPdf() {
+    if (!detail) return
+    const entries = detail.entries ?? []
+    const fmt = (v: number | string) => {
+      const n = typeof v === 'string' ? parseFloat(v) : v
+      if (!n && n !== 0) return '—'
+      return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
+    const balClass = (v: number | string) => {
+      const n = typeof v === 'string' ? parseFloat(v) : v
+      return n < 0 ? 'color:#dc2626' : n > 0 ? 'color:#166534' : 'color:#9ca3af'
+    }
+    const rows = entries.map((e, i) => {
+      const dr = parseFloat(String(e.debit)) > 0 ? fmt(e.debit) : ''
+      const cr = parseFloat(String(e.credit)) > 0 ? fmt(e.credit) : ''
+      const bal = fmt(e.balance)
+      const balN = parseFloat(String(e.balance))
+      const balLabel = balN < 0 ? 'Cr' : 'Dr'
+      return `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#fff'}">
+        <td>${e.date}</td>
+        <td>${e.particulars}<br/><span style="font-size:10px;color:#6b7280">${e.voucherType}</span></td>
+        <td style="font-family:monospace;font-size:11px">${e.voucherNo ?? ''}</td>
+        <td style="text-align:right;color:#1e40af;font-weight:600">${dr}</td>
+        <td style="text-align:right;color:#15803d;font-weight:600">${cr}</td>
+        <td style="text-align:right;font-weight:700;${balClass(e.balance)}">${bal} <span style="font-size:10px">${balLabel}</span></td>
+      </tr>`
+    }).join('')
+
+    const opBal = parseFloat(String(detail.openingBalance))
+    const clBal = parseFloat(String(detail.closingBalance))
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Ledger – ${account.name}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size:12px; color:#111; background:#fff; padding:24px 32px; }
+    @page { size: A4 landscape; margin: 16mm 14mm; }
+
+    /* ── Header ── */
+    .header { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:14px; border-bottom:2px solid #4f46e5; margin-bottom:14px; }
+    .co-name { font-size:20px; font-weight:800; color:#4f46e5; letter-spacing:-0.5px; }
+    .co-sub  { font-size:11px; color:#6b7280; margin-top:2px; }
+    .doc-title { text-align:right; }
+    .doc-title h2 { font-size:16px; font-weight:700; color:#111; }
+    .doc-title p  { font-size:11px; color:#6b7280; margin-top:2px; }
+
+    /* ── Party info strip ── */
+    .party-strip { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0; border:1px solid #e5e7eb; border-radius:6px; margin-bottom:14px; overflow:hidden; }
+    .ps-cell { padding:8px 14px; background:#f9fafb; }
+    .ps-cell:not(:last-child) { border-right:1px solid #e5e7eb; }
+    .ps-label { font-size:9px; text-transform:uppercase; letter-spacing:.6px; color:#9ca3af; font-weight:600; }
+    .ps-val   { font-size:13px; font-weight:700; color:#111; margin-top:2px; }
+    .ps-val.neg { color:#dc2626; }
+    .ps-val.pos { color:#15803d; }
+
+    /* ── Table ── */
+    table { width:100%; border-collapse:collapse; font-size:11.5px; }
+    thead tr { background:#4f46e5; }
+    thead th { color:#fff; padding:8px 10px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.5px; font-weight:600; }
+    thead th.r { text-align:right; }
+    tbody td { padding:6px 10px; border-bottom:1px solid #f3f4f6; vertical-align:top; }
+    tbody tr:last-child td { border-bottom:none; }
+
+    /* ── Footer ── */
+    .footer { margin-top:16px; border-top:2px solid #4f46e5; padding-top:10px; display:flex; justify-content:space-between; align-items:center; }
+    .footer-closing { font-size:13px; font-weight:700; }
+    .footer-meta { font-size:10px; color:#9ca3af; text-align:right; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="co-name">${companyName}</div>
+      <div class="co-sub">Account Ledger Statement</div>
+    </div>
+    <div class="doc-title">
+      <h2>LEDGER</h2>
+      <p>Period: ${dmy(from)} &ndash; ${dmy(to)}</p>
+      <p>Printed: ${new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+    </div>
+  </div>
+
+  <div class="party-strip">
+    <div class="ps-cell">
+      <div class="ps-label">Party Name</div>
+      <div class="ps-val">${account.name}</div>
+    </div>
+    <div class="ps-cell">
+      <div class="ps-label">Account Type</div>
+      <div class="ps-val" style="text-transform:capitalize">${account.accountType}</div>
+    </div>
+    <div class="ps-cell">
+      <div class="ps-label">Opening Balance</div>
+      <div class="ps-val ${opBal < 0 ? 'neg' : opBal > 0 ? 'pos' : ''}">${fmt(detail.openingBalance)} ${opBal < 0 ? 'Cr' : 'Dr'}</div>
+    </div>
+    <div class="ps-cell">
+      <div class="ps-label">Closing Balance</div>
+      <div class="ps-val ${clBal < 0 ? 'neg' : clBal > 0 ? 'pos' : ''}">${fmt(detail.closingBalance)} ${clBal < 0 ? 'Cr' : 'Dr'}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:90px">Date</th>
+        <th>Particulars</th>
+        <th style="width:140px">Voucher No</th>
+        <th class="r" style="width:110px">Debit (Dr)</th>
+        <th class="r" style="width:110px">Credit (Cr)</th>
+        <th class="r" style="width:120px">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#ede9fe">
+        <td colspan="5" style="font-weight:600;color:#4f46e5">Opening Balance</td>
+        <td style="text-align:right;font-weight:700;${balClass(detail.openingBalance)}">${fmt(detail.openingBalance)} <span style="font-size:10px">${opBal < 0 ? 'Cr' : 'Dr'}</span></td>
+      </tr>
+      ${rows}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div class="footer-closing">
+      Closing Balance: <span style="${balClass(detail.closingBalance)}">${fmt(detail.closingBalance)} ${clBal < 0 ? 'Cr' : 'Dr'}</span>
+      &nbsp;&nbsp;|&nbsp;&nbsp; Total Entries: ${entries.length}
+    </div>
+    <div class="footer-meta">
+      ${companyName} &bull; Ledger Report &bull; ${dmy(from)} to ${dmy(to)}
+    </div>
+  </div>
+</body>
+</html>`
+
+    const win = window.open('', '_blank', 'width=1000,height=700')
+    if (!win) return
+    win.document.write(html)
+    win.document.close()
+    win.onload = () => { win.focus(); win.print() }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
@@ -118,7 +261,7 @@ function LedgerDetailDrawer({ account, outletId, from, to, onClose }: {
                 XL
               </button>
               <button
-                onClick={() => window.print()}
+                onClick={printPdf}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors"
               >
                 <FileText size={13} />
@@ -201,7 +344,8 @@ function LedgerDetailDrawer({ account, outletId, from, to, onClose }: {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LedgerReportPage() {
   const navigate = useNavigate()
-  const { outletId } = useAuthStore()
+  const { outletId, user } = useAuthStore()
+  const companyName = user?.outletName || 'P&P Pipe Products'
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const thirtyAgo = format(subDays(new Date(), 89), 'yyyy-MM-dd')
@@ -367,6 +511,7 @@ export default function LedgerReportPage() {
           from={from}
           to={to}
           onClose={() => setSelected(null)}
+          companyName={companyName}
         />
       )}
     </div>
