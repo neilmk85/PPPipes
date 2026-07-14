@@ -6133,6 +6133,13 @@ class _PdiScreenState extends State<PdiScreen> {
     super.initState();
     _to   = DateTime.now();
     _from = _to.subtract(const Duration(days: 29));
+    // Mock data — replaced by real data once _loadAll() completes
+    _curing2Rows = const [
+      _C2Row(pipeName: 'DN 300 NP3 5.25m', day4: 12, day5: 8,  day6: 5,  day7: 3),
+      _C2Row(pipeName: 'DN 400 NP3 5.25m', day4: 7,  day5: 11, day6: 9,  day7: 4),
+      _C2Row(pipeName: 'DN 300 NP3 6.5m',  day4: 5,  day5: 3,  day6: 0,  day7: 2),
+      _C2Row(pipeName: 'DN 500 NP2 5.25m', day4: 0,  day5: 6,  day6: 4,  day7: 1),
+    ];
     _loadAll();
   }
 
