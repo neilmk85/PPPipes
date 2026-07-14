@@ -23,6 +23,8 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
   bool _showSearch = false;
   String _query = '';
   final _searchCtrl = TextEditingController();
+  Set<String> _selectedTypes = {};
+  final Set<String> _expandedDays = {};
 
   DateTimeRange _range = DateTimeRange(
     start: DateTime.now(),
@@ -31,6 +33,7 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
 
   final _amtFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
   final _dateFmt = DateFormat('yyyy-MM-dd');
+  final _displayDateFmt = DateFormat('d MMM yyyy');
 
   @override
   void initState() {
@@ -51,7 +54,16 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
       final from = _dateFmt.format(_range.start);
       final to   = _dateFmt.format(_range.end);
       final data = await ApiService().getDaybook(outletId, from, to);
-      setState(() { _entries = data; _loading = false; });
+      setState(() {
+        _entries = data;
+        _loading = false;
+        // Auto-expand all days on fresh load
+        _expandedDays.clear();
+        for (final e in data) {
+          final d = (e['date'] ?? '').toString().substring(0, 10);
+          if (d.isNotEmpty) _expandedDays.add(d);
+        }
+      });
     } catch (e) {
       setState(() { _loading = false; _error = e.toString(); });
     }
@@ -70,37 +82,283 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
     }
   }
 
-  List<dynamic> get _filtered {
-    if (_query.isEmpty) return _entries;
-    final q = _query.toLowerCase();
-    return _entries.where((e) =>
-      (e['party'] ?? '').toString().toLowerCase().contains(q) ||
-      (e['voucherType'] ?? '').toString().toLowerCase().contains(q) ||
-      (e['narration'] ?? '').toString().toLowerCase().contains(q) ||
-      (e['voucherNo'] ?? '').toString().toLowerCase().contains(q)
-    ).toList();
+  Set<String> get _allTypes {
+    final types = <String>{};
+    for (final e in _entries) {
+      final t = (e['voucherType'] ?? '').toString().trim();
+      if (t.isNotEmpty) types.add(t);
+    }
+    return types;
   }
 
-  double get _totalDebit  => _entries.fold(0.0, (s, e) => s + p.d(e['debit']));
-  double get _totalCredit => _entries.fold(0.0, (s, e) => s + p.d(e['credit']));
+  List<dynamic> get _filtered {
+    var list = _entries;
+    if (_selectedTypes.isNotEmpty) {
+      list = list.where((e) => _selectedTypes.contains((e['voucherType'] ?? '').toString().trim())).toList();
+    }
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      list = list.where((e) =>
+        (e['party'] ?? '').toString().toLowerCase().contains(q) ||
+        (e['voucherType'] ?? '').toString().toLowerCase().contains(q) ||
+        (e['narration'] ?? '').toString().toLowerCase().contains(q) ||
+        (e['voucherNo'] ?? '').toString().toLowerCase().contains(q)
+      ).toList();
+    }
+    return list;
+  }
+
+  Map<String, List<dynamic>> get _groupedByDate {
+    final filtered = _filtered;
+    final map = <String, List<dynamic>>{};
+    for (final e in filtered) {
+      final d = (e['date'] ?? '').toString();
+      final key = d.length >= 10 ? d.substring(0, 10) : d;
+      map.putIfAbsent(key, () => []).add(e);
+    }
+    // Sort dates descending
+    final sorted = Map.fromEntries(
+      map.entries.toList()..sort((a, b) => b.key.compareTo(a.key)),
+    );
+    return sorted;
+  }
+
+  double get _totalDebit  => _filtered.fold(0.0, (s, e) => s + p.d(e['debit']));
+  double get _totalCredit => _filtered.fold(0.0, (s, e) => s + p.d(e['credit']));
 
   Color _typeColor(String type) {
     switch (type.toUpperCase()) {
-      case 'INVOICE':         return const Color(0xFF2563EB);
-      case 'RECEIPT':         return const Color(0xFF16A34A);
-      case 'PAYMENT':         return const Color(0xFFDC2626);
-      case 'CREDIT NOTE':     return const Color(0xFFD97706);
-      case 'PURCHASE BILL':   return const Color(0xFF7C3AED);
-      case 'SALE RETURN':     return const Color(0xFFEA580C);
-      case 'PURCHASE RETURN': return const Color(0xFF0D9488);
-      case 'VENDOR CREDIT':   return const Color(0xFF6366F1);
-      default:                return const Color(0xFF64748B);
+      case 'INVOICE':           return const Color(0xFF2563EB);
+      case 'PAYMENT_RECEIVED':
+      case 'RECEIPT':           return const Color(0xFF16A34A);
+      case 'VENDOR_PAYMENT':
+      case 'PAYMENT':           return const Color(0xFFDC2626);
+      case 'CREDIT_NOTE':
+      case 'CREDIT NOTE':       return const Color(0xFFD97706);
+      case 'PURCHASE_BILL':
+      case 'PURCHASE BILL':     return const Color(0xFF7C3AED);
+      case 'SALE_RETURN':
+      case 'SALE RETURN':       return const Color(0xFFEA580C);
+      case 'PURCHASE_RETURN':
+      case 'PURCHASE RETURN':   return const Color(0xFF0D9488);
+      case 'VENDOR_CREDIT':
+      case 'VENDOR CREDIT':     return const Color(0xFF6366F1);
+      case 'EXPENSE':           return const Color(0xFFDB2777);
+      default:                  return const Color(0xFF64748B);
     }
   }
 
+  String _typeLabel(String type) => type.replaceAll('_', ' ');
+
   @override
   Widget build(BuildContext context) {
+    final grouped = _groupedByDate;
+    final allTypes = _allTypes.toList()..sort();
     final filtered = _filtered;
+
+    final sliverItems = <Widget>[];
+
+    // Filter chips
+    if (!_loading && _entries.isNotEmpty) {
+      sliverItems.add(SliverToBoxAdapter(
+        child: SizedBox(
+          height: 44,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            children: [
+              _typeChip('All', _selectedTypes.isEmpty, () => setState(() => _selectedTypes.clear())),
+              ...allTypes.map((t) => _typeChip(
+                _typeLabel(t), _selectedTypes.contains(t),
+                () => setState(() {
+                  if (_selectedTypes.contains(t)) {
+                    _selectedTypes.remove(t);
+                  } else {
+                    _selectedTypes.add(t);
+                  }
+                }),
+                color: _typeColor(t),
+              )),
+            ],
+          ),
+        ),
+      ));
+    }
+
+    if (_loading) {
+      sliverItems.add(const SliverFillRemaining(child: Center(child: CircularProgressIndicator())));
+    } else if (_error != null) {
+      sliverItems.add(SliverFillRemaining(
+        child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 12),
+          Text(_error!),
+          const SizedBox(height: 16),
+          FilledButton(onPressed: _load,
+            style: FilledButton.styleFrom(backgroundColor: _color),
+            child: const Text('Retry')),
+        ])),
+      ));
+    } else if (filtered.isEmpty) {
+      sliverItems.add(SliverFillRemaining(
+        child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.book_outlined, size: 48, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Text(
+            _query.isNotEmpty || _selectedTypes.isNotEmpty
+                ? 'No entries match your filter'
+                : 'No transactions on this date',
+            style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+          ),
+        ])),
+      ));
+    } else {
+      // Build date groups
+      for (final entry in grouped.entries) {
+        final dateKey = entry.key;
+        final dayEntries = entry.value;
+        final isExpanded = _expandedDays.contains(dateKey);
+        final dayDebit  = dayEntries.fold(0.0, (s, e) => s + p.d(e['debit']));
+        final dayCredit = dayEntries.fold(0.0, (s, e) => s + p.d(e['credit']));
+
+        DateTime? parsedDate;
+        try { parsedDate = DateTime.parse(dateKey); } catch (_) {}
+
+        sliverItems.add(SliverToBoxAdapter(
+          child: GestureDetector(
+            onTap: () => setState(() {
+              if (isExpanded) _expandedDays.remove(dateKey);
+              else _expandedDays.add(dateKey);
+            }),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [_color, _colorDark]),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(children: [
+                Icon(Icons.calendar_today_outlined, color: Colors.white.withValues(alpha: 0.9), size: 15),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    parsedDate != null ? _displayDateFmt.format(parsedDate) : dateKey,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ),
+                Text('${dayEntries.length} entries', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                const SizedBox(width: 10),
+                _miniStat(_amtFmt.format(dayDebit), 'Dr'),
+                const SizedBox(width: 8),
+                _miniStat(_amtFmt.format(dayCredit), 'Cr'),
+                const SizedBox(width: 6),
+                Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white70, size: 18),
+              ]),
+            ),
+          ),
+        ));
+
+        if (isExpanded) {
+          sliverItems.add(SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (ctx, i) {
+                  final e = dayEntries[i] as Map<String, dynamic>;
+                  final debit  = p.d(e['debit']);
+                  final credit = p.d(e['credit']);
+                  final typeStr = (e['voucherType'] ?? '').toString();
+                  final tc = _typeColor(typeStr);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
+                      ],
+                      border: Border(left: BorderSide(color: tc, width: 3)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Row(children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: tc.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(_typeLabel(typeStr),
+                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: tc, letterSpacing: 0.2)),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(e['voucherNo'] ?? '',
+                                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ]),
+                          if ((e['party'] ?? '').toString().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(e['party'] ?? '',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
+                          ],
+                          if ((e['narration'] ?? '').toString().isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(e['narration'] ?? '',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ],
+                        ])),
+                        const SizedBox(width: 12),
+                        Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisAlignment: MainAxisAlignment.center, children: [
+                          if (debit > 0)
+                            Text(_amtFmt.format(debit),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2563EB))),
+                          if (credit > 0)
+                            Text(_amtFmt.format(credit),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF16A34A))),
+                          Text(debit > 0 ? 'Dr' : 'Cr',
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
+                        ]),
+                      ]),
+                    ),
+                  );
+                },
+                childCount: dayEntries.length,
+              ),
+            ),
+          ));
+        }
+      }
+
+      // Grand total footer
+      sliverItems.add(SliverToBoxAdapter(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(children: [
+            const Expanded(
+              child: Text('Grand Total', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+            Text('Dr: ${_amtFmt.format(_totalDebit)}',
+                style: const TextStyle(color: Color(0xFF93C5FD), fontWeight: FontWeight.w700, fontSize: 12)),
+            const SizedBox(width: 16),
+            Text('Cr: ${_amtFmt.format(_totalCredit)}',
+                style: const TextStyle(color: Color(0xFF86EFAC), fontWeight: FontWeight.w700, fontSize: 12)),
+          ]),
+        ),
+      ));
+
+      sliverItems.add(const SliverToBoxAdapter(child: SizedBox(height: 80)));
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       body: CustomScrollView(slivers: [
@@ -136,131 +394,52 @@ class _DaybookScreenState extends ConsumerState<DaybookScreen> {
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
                     child: Row(children: [
-                      _hStat('${filtered.length}', 'Entries'),
-                      _hStat(_amtFmt.format(_totalDebit),  'Debit'),
-                      _hStat(_amtFmt.format(_totalCredit), 'Credit'),
+                      _hStat('${_filtered.length}', 'Entries'),
+                      _hStat(_amtFmt.format(_totalDebit),  'Total Dr'),
+                      _hStat(_amtFmt.format(_totalCredit), 'Total Cr'),
                     ]),
                   )),
               ]),
             ),
           ),
         ),
-        if (_loading)
-          const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-        else if (_error != null)
-          SliverFillRemaining(
-            child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 12),
-              Text(_error!),
-              const SizedBox(height: 16),
-              FilledButton(onPressed: _load,
-                style: FilledButton.styleFrom(backgroundColor: _color),
-                child: const Text('Retry')),
-            ])),
-          )
-        else if (filtered.isEmpty)
-          SliverFillRemaining(
-            child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.book_outlined, size: 48, color: Colors.grey.shade300),
-              const SizedBox(height: 12),
-              Text(
-                _query.isNotEmpty ? 'No entries match your search' : 'No transactions on this date',
-                style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600),
-              ),
-            ])),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (ctx, i) {
-                  final e = filtered[i] as Map<String, dynamic>;
-                  final debit  = p.d(e['debit']);
-                  final credit = p.d(e['credit']);
-                  final typeStr = (e['voucherType'] ?? '').toString();
-                  final tc = _typeColor(typeStr);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Container(
-                          width: 40, height: 40,
-                          decoration: BoxDecoration(
-                            color: tc.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            debit > 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                            color: tc, size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Row(children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: tc.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(typeStr,
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: tc, letterSpacing: 0.2)),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(e['voucherNo'] ?? '',
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                                  overflow: TextOverflow.ellipsis),
-                            ),
-                            Text(e['date'] ?? '',
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
-                          ]),
-                          if ((e['party'] ?? '').toString().isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(e['party'] ?? '',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
-                          ],
-                          if ((e['narration'] ?? '').toString().isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(e['narration'] ?? '',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ],
-                        ])),
-                        const SizedBox(width: 12),
-                        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          if (debit > 0)
-                            Text(_amtFmt.format(debit),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2563EB))),
-                          if (credit > 0)
-                            Text(_amtFmt.format(credit),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF16A34A))),
-                          const SizedBox(height: 2),
-                          Text(debit > 0 ? 'Dr' : 'Cr',
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
-                        ]),
-                      ]),
-                    ),
-                  );
-                },
-                childCount: filtered.length,
-              ),
-            ),
-          ),
+        ...sliverItems,
       ]),
       bottomNavigationBar: _buildFloatingNav(),
     );
   }
+
+  Widget _typeChip(String label, bool selected, VoidCallback onTap, {Color? color}) {
+    final c = color ?? _color;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? c : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? c : const Color(0xFFE2E8F0)),
+          boxShadow: selected ? [BoxShadow(color: c.withValues(alpha: 0.25), blurRadius: 6, offset: const Offset(0, 2))] : [],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : const Color(0xFF64748B),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniStat(String value, String label) => Row(mainAxisSize: MainAxisSize.min, children: [
+    Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+    const SizedBox(width: 3),
+    Text(value, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+  ]);
 
   Widget _buildFloatingNav() {
     return Container(

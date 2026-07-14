@@ -85,7 +85,8 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
       case 'DEBTOR':
       case 'CUSTOMER':       return const Color(0xFF2563EB);
       case 'CREDITOR':
-      case 'VENDOR':         return const Color(0xFF7C3AED);
+      case 'VENDOR':
+      case 'SUPPLIER':       return const Color(0xFF7C3AED);
       case 'BANK':           return const Color(0xFF0891B2);
       case 'CASH':           return const Color(0xFF16A34A);
       case 'EXPENSE':        return const Color(0xFFDC2626);
@@ -100,7 +101,8 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
       case 'DEBTOR':
       case 'CUSTOMER':       return Icons.person_outlined;
       case 'CREDITOR':
-      case 'VENDOR':         return Icons.store_outlined;
+      case 'VENDOR':
+      case 'SUPPLIER':       return Icons.store_outlined;
       case 'BANK':           return Icons.account_balance_outlined;
       case 'CASH':           return Icons.payments_outlined;
       case 'EXPENSE':        return Icons.trending_down_outlined;
@@ -108,6 +110,26 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
       case 'REVENUE':        return Icons.trending_up_outlined;
       default:               return Icons.account_circle_outlined;
     }
+  }
+
+  void _openDetail(Map<String, dynamic> account) {
+    final partyId = account['partyId'];
+    if (partyId == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LedgerDetailSheet(
+        account: account,
+        partyId: partyId is int ? partyId : int.tryParse(partyId.toString()) ?? 0,
+        from: _dateFmt.format(_range.start),
+        to: _dateFmt.format(_range.end),
+        outletId: ref.read(authProvider).user?.outletId ?? 0,
+        amtFmt: _amtFmt,
+        color: _typeColor((account['accountType'] ?? '').toString()),
+      ),
+    );
   }
 
   @override
@@ -201,74 +223,82 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
                   final debit   = p.d(a['debit']);
                   final credit  = p.d(a['credit']);
                   final closing = p.d(a['closingBalance']);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
-                      ],
-                    ),
-                    child: Column(children: [
-                      // Account header
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                        child: Row(children: [
-                          Container(
-                            width: 38, height: 38,
-                            decoration: BoxDecoration(
-                              color: tc.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(9),
-                            ),
-                            child: Icon(_typeIcon(typeStr), color: tc, size: 18),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(a['name'] ?? '',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
-                            const SizedBox(height: 1),
+                  final hasDetail = a['partyId'] != null;
+
+                  return GestureDetector(
+                    onTap: hasDetail ? () => _openDetail(a) : null,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+                        ],
+                        border: hasDetail ? Border.all(color: tc.withValues(alpha: 0.15)) : null,
+                      ),
+                      child: Column(children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                          child: Row(children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                              width: 38, height: 38,
                               decoration: BoxDecoration(
                                 color: tc.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(9),
                               ),
-                              child: Text(typeStr,
-                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: tc, letterSpacing: 0.2)),
+                              child: Icon(_typeIcon(typeStr), color: tc, size: 18),
                             ),
-                          ])),
-                          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                            Text(_amtFmt.format(closing.abs()),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: closing >= 0 ? const Color(0xFF2563EB) : const Color(0xFF16A34A),
-                                )),
-                            Text(closing >= 0 ? 'Dr Balance' : 'Cr Balance',
-                                style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500)),
+                            const SizedBox(width: 10),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(a['name'] ?? '',
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+                              const SizedBox(height: 1),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: tc.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(typeStr,
+                                    style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: tc, letterSpacing: 0.2)),
+                              ),
+                            ])),
+                            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                              Text(_amtFmt.format(closing.abs()),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: closing >= 0 ? const Color(0xFF2563EB) : const Color(0xFF16A34A),
+                                  )),
+                              Text(closing >= 0 ? 'Dr Balance' : 'Cr Balance',
+                                  style: TextStyle(fontSize: 9.5, color: Colors.grey.shade500)),
+                            ]),
+                            if (hasDetail) ...[
+                              const SizedBox(width: 6),
+                              Icon(Icons.chevron_right, color: tc.withValues(alpha: 0.5), size: 18),
+                            ],
                           ]),
-                        ]),
-                      ),
-                      // Amount row
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Row(children: [
-                          _amtCol('Opening', opening, const Color(0xFF64748B)),
-                          _divider(),
-                          _amtCol('Debit', debit, const Color(0xFF2563EB)),
-                          _divider(),
-                          _amtCol('Credit', credit, const Color(0xFF16A34A)),
-                          _divider(),
-                          _amtCol('Closing', closing.abs(), closing >= 0 ? const Color(0xFF2563EB) : const Color(0xFF16A34A)),
-                        ]),
-                      ),
-                    ]),
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(children: [
+                            _amtCol('Opening', opening, const Color(0xFF64748B)),
+                            _divider(),
+                            _amtCol('Debit', debit, const Color(0xFF2563EB)),
+                            _divider(),
+                            _amtCol('Credit', credit, const Color(0xFF16A34A)),
+                            _divider(),
+                            _amtCol('Closing', closing.abs(), closing >= 0 ? const Color(0xFF2563EB) : const Color(0xFF16A34A)),
+                          ]),
+                        ),
+                      ]),
+                    ),
                   );
                 },
                 childCount: filtered.length,
@@ -397,6 +427,236 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
     child: Column(mainAxisSize: MainAxisSize.min, children: [
       Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
       Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+}
+
+// ---- Ledger Detail Bottom Sheet ----
+
+class _LedgerDetailSheet extends StatefulWidget {
+  final Map<String, dynamic> account;
+  final int partyId;
+  final String from;
+  final String to;
+  final int outletId;
+  final NumberFormat amtFmt;
+  final Color color;
+
+  const _LedgerDetailSheet({
+    required this.account,
+    required this.partyId,
+    required this.from,
+    required this.to,
+    required this.outletId,
+    required this.amtFmt,
+    required this.color,
+  });
+
+  @override
+  State<_LedgerDetailSheet> createState() => _LedgerDetailSheetState();
+}
+
+class _LedgerDetailSheetState extends State<_LedgerDetailSheet> {
+  List<dynamic> _entries = [];
+  double _openingBalance = 0;
+  double _closingBalance = 0;
+  bool _loading = true;
+  String? _error;
+  final _dateFmt = DateFormat('d MMM yy');
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await ApiService().getLedgerDetail(
+        widget.outletId, widget.partyId, widget.from, widget.to,
+      );
+      setState(() {
+        _entries = (data['entries'] as List?) ?? [];
+        _openingBalance = p.d(data['openingBalance']);
+        _closingBalance = p.d(data['closingBalance']);
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() { _loading = false; _error = e.toString(); });
+    }
+  }
+
+  Color _voucherColor(String type) {
+    switch (type.toUpperCase()) {
+      case 'INVOICE':         return const Color(0xFF2563EB);
+      case 'PAYMENT_RECEIVED':
+      case 'RECEIPT':         return const Color(0xFF16A34A);
+      case 'VENDOR_PAYMENT':
+      case 'PAYMENT':         return const Color(0xFFDC2626);
+      case 'CREDIT_NOTE':     return const Color(0xFFD97706);
+      case 'PURCHASE_BILL':   return const Color(0xFF7C3AED);
+      default:                return const Color(0xFF64748B);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.account['name'] ?? '';
+    final c = widget.color;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (ctx, scrollCtrl) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(children: [
+          // Handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 36, height: 4,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+            ),
+          ),
+          // Header
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [c, Color.lerp(c, Colors.black, 0.2)!]),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(children: [
+              Row(children: [
+                Expanded(
+                  child: Text(name,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+                    child: const Icon(Icons.close, color: Colors.white, size: 16),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                _sheetStat(widget.amtFmt.format(_openingBalance.abs()),
+                    _openingBalance >= 0 ? 'Opening Dr' : 'Opening Cr'),
+                _sheetStat(widget.amtFmt.format(_closingBalance.abs()),
+                    _closingBalance >= 0 ? 'Closing Dr' : 'Closing Cr'),
+                _sheetStat('${_entries.length}', 'Transactions'),
+              ]),
+            ]),
+          ),
+          // Entries
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                    : _entries.isEmpty
+                        ? Center(
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey.shade300),
+                              const SizedBox(height: 8),
+                              Text('No transactions', style: TextStyle(color: Colors.grey.shade500)),
+                            ]),
+                          )
+                        : ListView.builder(
+                            controller: scrollCtrl,
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            itemCount: _entries.length,
+                            itemBuilder: (ctx, i) {
+                              final e = _entries[i] as Map<String, dynamic>;
+                              final vType = (e['voucherType'] ?? '').toString();
+                              final vc = _voucherColor(vType);
+                              final debit  = p.d(e['debit']);
+                              final credit = p.d(e['credit']);
+                              final balance = p.d(e['balance'] ?? e['runningBalance']);
+                              final dateStr = (e['date'] ?? '').toString();
+                              String formattedDate = dateStr;
+                              try {
+                                formattedDate = _dateFmt.format(DateTime.parse(dateStr));
+                              } catch (_) {}
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6)],
+                                  border: Border(left: BorderSide(color: vc, width: 3)),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+                                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Row(children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: vc.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(vType.replaceAll('_', ' '),
+                                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: vc)),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(e['voucherNo'] ?? '',
+                                              style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                                              overflow: TextOverflow.ellipsis),
+                                        ),
+                                        Text(formattedDate,
+                                            style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
+                                      ]),
+                                      if ((e['particulars'] ?? e['narration'] ?? '').toString().isNotEmpty) ...[
+                                        const SizedBox(height: 3),
+                                        Text(e['particulars'] ?? e['narration'] ?? '',
+                                            style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      ],
+                                    ])),
+                                    const SizedBox(width: 10),
+                                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                      if (debit > 0)
+                                        Text(widget.amtFmt.format(debit),
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                                      if (credit > 0)
+                                        Text(widget.amtFmt.format(credit),
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                                      if (balance != 0)
+                                        Text(widget.amtFmt.format(balance.abs()),
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              color: Colors.grey.shade500,
+                                              fontWeight: FontWeight.w500,
+                                            )),
+                                    ]),
+                                  ]),
+                                ),
+                              );
+                            },
+                          ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _sheetStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+          overflow: TextOverflow.ellipsis),
+      const SizedBox(height: 2),
+      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 9), textAlign: TextAlign.center),
     ]),
   );
 }
