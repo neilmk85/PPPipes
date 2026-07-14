@@ -310,6 +310,11 @@ class ApiService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> updateDirectPurchase(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/purchase-orders/direct/$id', data: data);
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> updatePOStatus(int id, String status) async {
     final res = await _dio.patch('/purchase-orders/$id/status', data: {'status': status});
     return res.data['data'] as Map<String, dynamic>;
