@@ -548,13 +548,13 @@ export const staffApi = {
 // User Card Permissions
 export const userCardPermissionsApi = {
   get: (userId: number) => api.get<ApiResponse<any>>(`/card-permissions/${userId}`),
-  update: (userId: number, data: { business: string[]; pccp: string[] }) =>
+  update: (userId: number, data: { business: string[]; pccp: string[]; reports: string[] }) =>
     api.put<ApiResponse<any>>(`/card-permissions/${userId}`, data),
 }
 
 export const roleCardPermissionsApi = {
   get: (roleName: string) => api.get<ApiResponse<any>>(`/card-permissions/role/${encodeURIComponent(roleName)}`),
-  update: (roleName: string, data: { business: string[]; pccp: string[] }) =>
+  update: (roleName: string, data: { business: string[]; pccp: string[]; reports: string[] }) =>
     api.put<ApiResponse<any>>(`/card-permissions/role/${encodeURIComponent(roleName)}`, data),
 }
 

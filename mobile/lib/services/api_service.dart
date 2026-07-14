@@ -854,6 +854,18 @@ class ApiService {
     return [];
   }
 
+  Future<List<dynamic>> getDaybook(int outletId, String from, String to) async {
+    final res = await _dio.get('/reports/daybook', queryParameters: {'outletId': outletId, 'from': from, 'to': to});
+    final data = res.data['data'];
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> getLedger(int outletId, String from, String to) async {
+    final res = await _dio.get('/reports/ledger', queryParameters: {'outletId': outletId, 'from': from, 'to': to});
+    return (res.data['data'] as Map<String, dynamic>?) ?? {};
+  }
+
   // ── Discard ──────────────────────────────────────────────────────────────────
 
   Future<List<dynamic>> getDiscardEntries({String? from, String? to}) async {

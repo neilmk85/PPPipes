@@ -43,11 +43,19 @@ const PCCP_STAGES = [
 
 const BUSINESS_CATEGORIES = ['Production', 'Quality', 'Operations', 'Materials', 'Logistics', 'HR']
 
+const REPORTS_CARDS = [
+  { key: 'debtors',   label: 'Debtors Ledger',   subtitle: 'Customer outstanding receivables' },
+  { key: 'creditors', label: 'Creditors Ledger',  subtitle: 'Vendor outstanding payables' },
+  { key: 'daybook',   label: 'Day Book',           subtitle: 'Daily transaction journal' },
+  { key: 'ledger',    label: 'Ledger',             subtitle: 'Account-wise balance summary' },
+]
+
 export default function UserCardPermissionsPage() {
   const qc = useQueryClient()
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [business, setBusiness] = useState<string[]>([])
   const [pccp, setPccp] = useState<string[]>([])
+  const [reports, setReports] = useState<string[]>([])
   const [dirty, setDirty] = useState(false)
 
   const { data: staffData } = useQuery({
@@ -65,12 +73,13 @@ export default function UserCardPermissionsPage() {
     if (permsData) {
       setBusiness((permsData as any).business ?? [])
       setPccp((permsData as any).pccp ?? [])
+      setReports((permsData as any).reports ?? [])
       setDirty(false)
     }
   }, [permsData])
 
   const saveMutation = useMutation({
-    mutationFn: () => userCardPermissionsApi.update(selectedUserId!, { business, pccp }),
+    mutationFn: () => userCardPermissionsApi.update(selectedUserId!, { business, pccp, reports }),
     onSuccess: () => {
       toast.success('Permissions saved')
       qc.invalidateQueries({ queryKey: ['card-permissions', selectedUserId] })
@@ -91,6 +100,12 @@ export default function UserCardPermissionsPage() {
   const clearBusiness = () => { setBusiness([]); setDirty(true) }
   const selectAllPccp = () => { setPccp(PCCP_STAGES.map(s => s.key)); setDirty(true) }
   const clearPccp = () => { setPccp([]); setDirty(true) }
+  const toggleReports = (key: string) => {
+    setReports(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+    setDirty(true)
+  }
+  const selectAllReports = () => { setReports(REPORTS_CARDS.map(c => c.key)); setDirty(true) }
+  const clearReports = () => { setReports([]); setDirty(true) }
 
   const users = staffData ?? []
   const selectedUser = users.find((u: any) => u.id === selectedUserId)
@@ -157,7 +172,7 @@ export default function UserCardPermissionsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-bold text-gray-900">{selectedUser?.name || selectedUser?.email}</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">{selectedUser?.roles?.[0] ?? 'USER'} · {business.length} business cards · {pccp.length} PCCP stages</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{selectedUser?.roles?.[0] ?? 'USER'} · {business.length} business · {pccp.length} PCCP · {reports.length} reports</p>
                 </div>
                 <button
                   onClick={() => saveMutation.mutate()}
@@ -239,6 +254,43 @@ export default function UserCardPermissionsPage() {
                             ? <CheckSquare size={15} className="shrink-0 text-violet-500" />
                             : <Square size={15} className="shrink-0 text-gray-300" />}
                           <span className="text-sm font-medium">{stage.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Reports */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900">Reports</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">{reports.length} of {REPORTS_CARDS.length} selected · mobile app report access</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={selectAllReports} className="text-xs text-emerald-600 hover:underline font-medium">Select All</button>
+                    <span className="text-gray-300">·</span>
+                    <button onClick={clearReports} className="text-xs text-gray-400 hover:underline">Clear</button>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-2 gap-2">
+                    {REPORTS_CARDS.map(card => {
+                      const checked = reports.includes(card.key)
+                      return (
+                        <button
+                          key={card.key}
+                          onClick={() => toggleReports(card.key)}
+                          className={`flex items-center gap-2.5 px-3 py-3 rounded-lg border text-left transition-all ${checked ? 'border-emerald-500 bg-emerald-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-700'}`}
+                        >
+                          {checked
+                            ? <CheckSquare size={15} className="shrink-0 text-emerald-500" />
+                            : <Square size={15} className="shrink-0 text-gray-300" />}
+                          <div>
+                            <div className="text-sm font-medium">{card.label}</div>
+                            <div className="text-xs text-gray-400 mt-0.5">{card.subtitle}</div>
+                          </div>
                         </button>
                       )
                     })}

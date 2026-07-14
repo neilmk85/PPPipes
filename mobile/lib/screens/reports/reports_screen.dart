@@ -10,8 +10,10 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/parse.dart' as sp;
 import '../../widgets/date_filter_dropdown.dart';
+import 'daybook_screen.dart';
 import 'debtors_screen.dart';
 import 'gst_screen.dart';
+import 'ledger_screen.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -279,6 +281,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       );
 
   Widget _buildFloatingNav() {
+    final perms = ref.read(authProvider).user?.cardPermissions;
+    final showDebtors   = perms == null || perms.reports.contains('debtors');
+    final showCreditors = perms == null || perms.reports.contains('creditors');
+
     return Container(
       color: Colors.transparent,
       child: SafeArea(
@@ -312,22 +318,24 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         label: 'Sales',
                         active: true,
                         onTap: () {}),
-                    _navItem(
-                        icon: Icons.account_balance_wallet_outlined,
-                        label: 'Debtors',
-                        active: false,
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const DebtorsScreen()))),
-                    _navItem(
-                        icon: Icons.store_outlined,
-                        label: 'Creditors',
-                        active: false,
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const CreditorScreen()))),
+                    if (showDebtors)
+                      _navItem(
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: 'Debtors',
+                          active: false,
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const DebtorsScreen()))),
+                    if (showCreditors)
+                      _navItem(
+                          icon: Icons.store_outlined,
+                          label: 'Creditors',
+                          active: false,
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const CreditorScreen()))),
                     _navItem(
                         icon: Icons.receipt_outlined,
                         label: 'GST',
@@ -534,36 +542,69 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    _MoreReportsTile(
-                      icon: Icons.account_balance_wallet_outlined,
-                      color: const Color(0xFFE53935),
-                      title: 'Debtors Ledger',
-                      subtitle: 'Customer outstanding receivables',
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const DebtorsScreen())),
-                    ),
-                    _MoreReportsTile(
-                      icon: Icons.store_outlined,
-                      color: const Color(0xFF5E35B1),
-                      title: 'Creditors Ledger',
-                      subtitle: 'Vendor outstanding payables',
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const CreditorScreen())),
-                    ),
-                    _MoreReportsTile(
-                      icon: Icons.receipt_outlined,
-                      color: const Color(0xFF1565C0),
-                      title: 'GST Reports',
-                      subtitle: 'GSTR-1, GSTR-3B & HSN summary',
-                      onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const GstScreen())),
-                    ),
+                    Builder(builder: (ctx) {
+                      final perms = ref.read(authProvider).user?.cardPermissions;
+                      final canDebtors   = perms == null || perms.reports.contains('debtors');
+                      final canCreditors = perms == null || perms.reports.contains('creditors');
+                      final canDaybook   = perms == null || perms.reports.contains('daybook');
+                      final canLedger    = perms == null || perms.reports.contains('ledger');
+                      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        if (canDebtors)
+                          _MoreReportsTile(
+                            icon: Icons.account_balance_wallet_outlined,
+                            color: const Color(0xFFE53935),
+                            title: 'Debtors Ledger',
+                            subtitle: 'Customer outstanding receivables',
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const DebtorsScreen())),
+                          ),
+                        if (canCreditors)
+                          _MoreReportsTile(
+                            icon: Icons.store_outlined,
+                            color: const Color(0xFF5E35B1),
+                            title: 'Creditors Ledger',
+                            subtitle: 'Vendor outstanding payables',
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const CreditorScreen())),
+                          ),
+                        if (canDaybook)
+                          _MoreReportsTile(
+                            icon: Icons.book_outlined,
+                            color: const Color(0xFF0891B2),
+                            title: 'Day Book',
+                            subtitle: 'Daily transaction journal',
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const DaybookScreen())),
+                          ),
+                        if (canLedger)
+                          _MoreReportsTile(
+                            icon: Icons.account_balance_outlined,
+                            color: const Color(0xFF7C3AED),
+                            title: 'Ledger',
+                            subtitle: 'Account-wise balance summary',
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const LedgerScreen())),
+                          ),
+                        _MoreReportsTile(
+                          icon: Icons.receipt_outlined,
+                          color: const Color(0xFF1565C0),
+                          title: 'GST Reports',
+                          subtitle: 'GSTR-1, GSTR-3B & HSN summary',
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const GstScreen())),
+                        ),
+                      ]);
+                    }),
                     const SizedBox(height: 16),
                   ],
                 ),

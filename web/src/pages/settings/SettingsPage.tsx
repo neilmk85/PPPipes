@@ -458,7 +458,7 @@ function RoleModal({ role, onClose, onDone }: { role: any | null; onClose: () =>
       }
       // Save process permissions
       const roleName = isEdit ? role.name : name
-      await roleCardPermissionsApi.update(roleName, { business, pccp })
+      await roleCardPermissionsApi.update(roleName, { business, pccp, reports: [] })
       await qc.invalidateQueries({ queryKey: ['custom-roles'] })
       await qc.invalidateQueries({ queryKey: ['role-card-permissions', roleName] })
       toast.success(isEdit ? 'Role updated' : 'Role created')
@@ -1330,7 +1330,7 @@ function CardPermissionsSettings() {
   }, [permsData])
 
   const saveMutation = useMutation({
-    mutationFn: () => roleCardPermissionsApi.update(selectedRole!, { business, pccp }),
+    mutationFn: () => roleCardPermissionsApi.update(selectedRole!, { business, pccp, reports: [] }),
     onSuccess: () => {
       toast.success('Card permissions saved')
       qc.invalidateQueries({ queryKey: ['role-card-permissions', selectedRole] })

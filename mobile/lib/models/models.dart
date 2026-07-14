@@ -8,12 +8,14 @@ import '../utils/parse.dart' as p;
 class CardPermissions {
   final List<String> business;
   final List<String> pccp;
+  final List<String> reports;
 
-  const CardPermissions({required this.business, required this.pccp});
+  const CardPermissions({required this.business, required this.pccp, required this.reports});
 
   factory CardPermissions.fromJson(Map<String, dynamic> json) => CardPermissions(
         business: List<String>.from(json['business'] ?? []),
         pccp: List<String>.from(json['pccp'] ?? []),
+        reports: List<String>.from(json['reports'] ?? []),
       );
 }
 

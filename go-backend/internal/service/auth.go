@@ -99,6 +99,7 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 	if !isSuperAdmin {
 		business := make([]string, 0)
 		pccp := make([]string, 0)
+		reports := make([]string, 0)
 
 		var customRoleName string
 		for _, ur := range user.UserRoles {
@@ -116,6 +117,8 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 					business = append(business, p.CardKey)
 				} else if p.CardType == "pccp" {
 					pccp = append(pccp, p.CardKey)
+				} else if p.CardType == "reports" {
+					reports = append(reports, p.CardKey)
 				}
 			}
 		} else {
@@ -126,11 +129,13 @@ func (s *AuthService) buildAuthResponse(user *models.User, accessToken, refreshT
 					business = append(business, p.CardKey)
 				} else if p.CardType == "pccp" {
 					pccp = append(pccp, p.CardKey)
+				} else if p.CardType == "reports" {
+					reports = append(reports, p.CardKey)
 				}
 			}
 		}
 
-		cardPerms = &CardPermissions{Business: business, Pccp: pccp}
+		cardPerms = &CardPermissions{Business: business, Pccp: pccp, Reports: reports}
 	}
 
 	// Build named permissions list.

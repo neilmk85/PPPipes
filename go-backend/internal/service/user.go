@@ -54,6 +54,7 @@ func (s *UserService) resolveRoleIDs(roleNames []string) ([]int, error) {
 type CardPermissions struct {
 	Business []string `json:"business"`
 	Pccp     []string `json:"pccp"`
+	Reports  []string `json:"reports"`
 }
 
 // UserResponse represents a user with roles and outlet
@@ -623,20 +624,24 @@ func (s *UserService) GetCardPermissions(userID int) (*CardPermissions, error) {
 	}
 	business := make([]string, 0)
 	pccp := make([]string, 0)
+	reports := make([]string, 0)
 	for _, p := range perms {
 		if p.CardType == "business" {
 			business = append(business, p.CardKey)
 		} else if p.CardType == "pccp" {
 			pccp = append(pccp, p.CardKey)
+		} else if p.CardType == "reports" {
+			reports = append(reports, p.CardKey)
 		}
 	}
-	return &CardPermissions{Business: business, Pccp: pccp}, nil
+	return &CardPermissions{Business: business, Pccp: pccp, Reports: reports}, nil
 }
 
 // UpdateCardPermissionsRequest is the body for setting card permissions
 type UpdateCardPermissionsRequest struct {
 	Business []string `json:"business"`
 	Pccp     []string `json:"pccp"`
+	Reports  []string `json:"reports"`
 }
 
 // UpdateCardPermissions replaces all card permissions for a user
@@ -651,6 +656,9 @@ func (s *UserService) UpdateCardPermissions(userID int, req *UpdateCardPermissio
 		}
 		for _, k := range req.Pccp {
 			newPerms = append(newPerms, models.UserCardPermission{UserID: userID, CardKey: k, CardType: "pccp"})
+		}
+		for _, k := range req.Reports {
+			newPerms = append(newPerms, models.UserCardPermission{UserID: userID, CardKey: k, CardType: "reports"})
 		}
 		if len(newPerms) > 0 {
 			return tx.Create(&newPerms).Error
@@ -667,14 +675,17 @@ func (s *UserService) GetRoleCardPermissions(roleName string) (*CardPermissions,
 	}
 	business := make([]string, 0)
 	pccp := make([]string, 0)
+	reports := make([]string, 0)
 	for _, p := range perms {
 		if p.CardType == "business" {
 			business = append(business, p.CardKey)
 		} else if p.CardType == "pccp" {
 			pccp = append(pccp, p.CardKey)
+		} else if p.CardType == "reports" {
+			reports = append(reports, p.CardKey)
 		}
 	}
-	return &CardPermissions{Business: business, Pccp: pccp}, nil
+	return &CardPermissions{Business: business, Pccp: pccp, Reports: reports}, nil
 }
 
 // UpdateRoleCardPermissions replaces all card permissions for a role
@@ -689,6 +700,9 @@ func (s *UserService) UpdateRoleCardPermissions(roleName string, req *UpdateCard
 		}
 		for _, k := range req.Pccp {
 			newPerms = append(newPerms, models.RoleCardPermission{RoleName: roleName, CardKey: k, CardType: "pccp"})
+		}
+		for _, k := range req.Reports {
+			newPerms = append(newPerms, models.RoleCardPermission{RoleName: roleName, CardKey: k, CardType: "reports"})
 		}
 		if len(newPerms) > 0 {
 			return tx.Create(&newPerms).Error
