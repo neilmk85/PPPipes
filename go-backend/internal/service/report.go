@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -1608,42 +1609,86 @@ func (rs *ReportService) LedgerDetail(outletId int, partyType string, partyId in
 	running := zero
 
 	if partyType == "customer" {
-		// Fetch customer name
 		var name string
 		rs.db.Raw("SELECT name FROM customers WHERE id = ?", partyId).Scan(&name)
 		res.PartyName = strings.ToUpper(name)
 		res.PartyType = "customer"
 
-		// Invoices (debit)
+		// All transactions merged and sorted by date (Tally-style)
+		type txn struct {
+			Date        time.Time
+			Particulars string
+			VoucherType string
+			VoucherNo   string
+			Debit       decimal.Decimal
+			Credit      decimal.Decimal
+		}
+		var all []txn
+
+		// Invoices → Dr (customer owes us)
 		type invRow struct {
 			IssueDate   time.Time
 			InvoiceNo   string
 			TotalAmount decimal.Decimal
-			PaidAmount  decimal.Decimal
 		}
 		var invs []invRow
 		rs.db.Raw(`
-			SELECT issue_date, invoice_number as invoice_no, total_amount, paid_amount
+			SELECT issue_date, invoice_number as invoice_no, total_amount
 			FROM invoices
 			WHERE outlet_id = ? AND customer_id = ? AND issue_date >= ? AND issue_date <= ?
 			  AND status NOT IN ('CANCELLED','DRAFT')
 			ORDER BY issue_date`, outletId, partyId, from, to).Scan(&invs)
-
 		for _, inv := range invs {
-			running = running.Add(inv.TotalAmount)
-			res.Entries = append(res.Entries, LedgerEntry{
-				Date: inv.IssueDate.Format("02 Jan 2006"), Particulars: "Sales Invoice",
+			all = append(all, txn{
+				Date: inv.IssueDate, Particulars: "Sales Invoice",
 				VoucherType: "Invoice", VoucherNo: inv.InvoiceNo,
-				Debit: inv.TotalAmount, Credit: zero, Balance: running,
+				Debit: inv.TotalAmount, Credit: zero,
 			})
-			if inv.PaidAmount.GreaterThan(zero) {
-				running = running.Sub(inv.PaidAmount)
-				res.Entries = append(res.Entries, LedgerEntry{
-					Date: inv.IssueDate.Format("02 Jan 2006"), Particulars: "Payment Received",
-					VoucherType: "Receipt", VoucherNo: inv.InvoiceNo,
-					Debit: zero, Credit: inv.PaidAmount, Balance: running,
-				})
+		}
+
+		// Receipts from sales_order_payments → Cr (customer paid us)
+		type rcptRow struct {
+			PaymentDate     time.Time
+			Amount          decimal.Decimal
+			PaymentMethod   string
+			ReferenceNumber string
+			Notes           string
+		}
+		var rcpts []rcptRow
+		rs.db.Raw(`
+			SELECT payment_date, amount, payment_method,
+			       COALESCE(reference_number,'') as reference_number,
+			       COALESCE(notes,'') as notes
+			FROM sales_order_payments
+			WHERE outlet_id = ? AND customer_id = ? AND payment_date >= ? AND payment_date <= ?
+			ORDER BY payment_date`, outletId, partyId, from, to).Scan(&rcpts)
+		for _, r := range rcpts {
+			ref := r.ReferenceNumber
+			if ref == "" {
+				ref = r.Notes
 			}
+			if ref == "" {
+				ref = r.PaymentMethod
+			}
+			all = append(all, txn{
+				Date: r.PaymentDate, Particulars: "Receipt",
+				VoucherType: "Receipt", VoucherNo: ref,
+				Debit: zero, Credit: r.Amount,
+			})
+		}
+
+		// Sort by date (stable — invoices before receipts on same day)
+		sort.Slice(all, func(i, j int) bool {
+			return all[i].Date.Before(all[j].Date)
+		})
+
+		for _, t := range all {
+			running = running.Add(t.Debit).Sub(t.Credit)
+			res.Entries = append(res.Entries, LedgerEntry{
+				Date: t.Date.Format("02 Jan 2006"), Particulars: t.Particulars,
+				VoucherType: t.VoucherType, VoucherNo: t.VoucherNo,
+				Debit: t.Debit, Credit: t.Credit, Balance: running,
+			})
 		}
 
 	} else if partyType == "supplier" {
