@@ -6264,6 +6264,118 @@ class _PdiScreenState extends State<PdiScreen> {
   }
 
 
+  void _showCuring2Sheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.85,
+        expand: false,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(children: [
+            // Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 4),
+                width: 36, height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+              child: Row(children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFF3730A3), Color(0xFF4338CA)]),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.water_outlined, size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Curing 2 Pipeline', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1F2937))),
+                  Text('4th – 7th day pipes', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                ]),
+              ]),
+            ),
+            const Divider(height: 1),
+            // Table header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Row(children: [
+                const Expanded(child: Text('Pipe', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B7280)))),
+                for (final d in [4, 5, 6, 7])
+                  SizedBox(
+                    width: 52,
+                    child: Text('Day $d', textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B7280))),
+                  ),
+              ]),
+            ),
+            const Divider(height: 1, color: Color(0xFFF3F4F6)),
+            // Rows
+            if (_curing2Rows.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.water_outlined, size: 40, color: Colors.grey.shade300),
+                    const SizedBox(height: 8),
+                    Text('No curing 2 data in range', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+                  ]),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollCtrl,
+                  padding: const EdgeInsets.only(bottom: 24),
+                  itemCount: _curing2Rows.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF9FAFB)),
+                  itemBuilder: (_, i) {
+                    final r = _curing2Rows[i];
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                      child: Row(children: [
+                        Expanded(child: Text(r.pipeName,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                        for (final count in [r.day4, r.day5, r.day6, r.day7])
+                          SizedBox(
+                            width: 52,
+                            child: Center(
+                              child: count > 0
+                                  ? Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEDE9FE),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text('$count', textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5B21B6))),
+                                    )
+                                  : Text('—', textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade300)),
+                            ),
+                          ),
+                      ]),
+                    );
+                  },
+                ),
+              ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   void _openAdd() {
     showModalBottomSheet(
       context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
@@ -6412,6 +6524,28 @@ class _PdiScreenState extends State<PdiScreen> {
                         ),
                       ),
                     ),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.water_outlined, color: Colors.white),
+                          onPressed: () => _showCuring2Sheet(context),
+                          tooltip: 'Curing 2 Pipeline',
+                        ),
+                        if (_curing2Rows.isNotEmpty)
+                          Positioned(
+                            right: 6, top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle),
+                              child: Text(
+                                '${_curing2Rows.fold(0, (s, r) => s + r.total)}',
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     IconButton(
                       icon: const Icon(Icons.add, color: Colors.white),
                       onPressed: _openAdd,
@@ -6448,89 +6582,6 @@ class _PdiScreenState extends State<PdiScreen> {
                     ),
                   ),
                 ),
-
-                // ── Curing 2 pipeline ──────────────────────────────────────
-                if (_curing2Rows.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [Color(0xFF3730A3), Color(0xFF4338CA)]),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.water_outlined, size: 13, color: Colors.white),
-                              SizedBox(width: 5),
-                              Text('Curing 2 Pipeline', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
-                            ]),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('4–7 day pipes', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                        ]),
-                        const SizedBox(height: 8),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE0E7FF)),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
-                          ),
-                          child: Column(children: [
-                            // Column headers
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                              child: Row(children: [
-                                const Expanded(child: Text('Pipe', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B7280)))),
-                                for (final d in [4, 5, 6, 7])
-                                  SizedBox(
-                                    width: 44,
-                                    child: Text('Day $d', textAlign: TextAlign.center,
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF6B7280))),
-                                  ),
-                              ]),
-                            ),
-                            const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                            ..._curing2Rows.asMap().entries.map((entry) {
-                              final r = entry.value;
-                              final isLast = entry.key == _curing2Rows.length - 1;
-                              return Column(children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                                  child: Row(children: [
-                                    Expanded(child: Text(r.pipeName,
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
-                                    for (final count in [r.day4, r.day5, r.day6, r.day7])
-                                      SizedBox(
-                                        width: 44,
-                                        child: Center(
-                                          child: count > 0
-                                              ? Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFEDE9FE),
-                                                    borderRadius: BorderRadius.circular(10),
-                                                  ),
-                                                  child: Text('$count', textAlign: TextAlign.center,
-                                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF5B21B6))),
-                                                )
-                                              : Text('—', textAlign: TextAlign.center,
-                                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade300)),
-                                        ),
-                                      ),
-                                  ]),
-                                ),
-                                if (!isLast) const Divider(height: 1, color: Color(0xFFF9FAFB)),
-                              ]);
-                            }),
-                          ]),
-                        ),
-                      ]),
-                    ),
-                  ),
 
                 if (filtered.isEmpty)
                   const SliverFillRemaining(child: Center(child: Text('No PDI entries found')))
