@@ -492,9 +492,10 @@ function CreateInvoicePanel({ outletId, onClose, onCreated, editInvoice }: {
     }),
     staleTime: 10 * 60 * 1000,
   })
-  const pipeLengths: number[] = Array.from(new Set(
-    (pipeConfigsData ?? []).map((c: any) => Number(c.lengthM)).filter((l: number) => l > 0)
-  )).sort((a, b) => a - b)
+  const pipeLengths: number[] = Array.from(new Set([
+    5.25, 6.5,
+    ...(pipeConfigsData ?? []).map((c: any) => Number(c.lengthM)).filter((l: number) => l > 0),
+  ])).sort((a, b) => a - b)
 
   useEffect(() => {
     if (editInvoice && !initialized.current) {

@@ -575,9 +575,10 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
     }),
     staleTime: 10 * 60 * 1000,
   })
-  const pipeLengths: number[] = Array.from(new Set(
-    (pipeConfigsData ?? []).map((c: any) => Number(c.lengthM)).filter((l: number) => l > 0)
-  )).sort((a, b) => a - b)
+  const pipeLengths: number[] = Array.from(new Set([
+    5.25, 6.5,
+    ...(pipeConfigsData ?? []).map((c: any) => Number(c.lengthM)).filter((l: number) => l > 0),
+  ])).sort((a, b) => a - b)
 
   const { data: nextNumberData } = useQuery({
     queryKey: ['quotation-next-number'],
@@ -1035,9 +1036,10 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
     }),
     staleTime: 10 * 60 * 1000,
   })
-  const pipeLengths2: number[] = Array.from(new Set(
-    (pipeConfigsData2 ?? []).map((c: any) => Number(c.lengthM)).filter((l: number) => l > 0)
-  )).sort((a, b) => a - b)
+  const pipeLengths2: number[] = Array.from(new Set([
+    5.25, 6.5,
+    ...(pipeConfigsData2 ?? []).map((c: any) => Number(c.lengthM)).filter((l: number) => l > 0),
+  ])).sort((a, b) => a - b)
 
   useEffect(() => {
     const frameId = requestAnimationFrame(() => setVisible(true))
