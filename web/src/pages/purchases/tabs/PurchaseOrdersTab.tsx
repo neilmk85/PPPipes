@@ -68,10 +68,20 @@ function ProductPicker({ onSelect }: { onSelect: (p: any) => void }) {
     enabled: dq.trim().length > 0,
   })
 
-  const results = (rawResults as any[]).filter((p: any) =>
-    p.purchasable !== false &&
-    !NON_PURCHASABLE_NAMES.includes(p.name?.toLowerCase())
-  )
+  const results = (() => {
+    const filtered = (rawResults as any[]).filter((p: any) =>
+      p.purchasable !== false &&
+      !NON_PURCHASABLE_NAMES.includes(p.name?.toLowerCase())
+    )
+    const expanded: any[] = []
+    filtered.forEach(p => {
+      expanded.push(p)
+      if ((p.name ?? '').includes('5.25m')) {
+        expanded.push({ ...p, _synthetic: true, name: p.name.replace(/5\.25m/g, '6.5m'), sku: p.sku?.replace(/5\.25/g, '6.5') ?? p.sku, lengthM: 6.5 })
+      }
+    })
+    return expanded
+  })()
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
