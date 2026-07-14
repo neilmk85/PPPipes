@@ -65,6 +65,42 @@ const RATE_FIELDS: {
     color:       'bg-rose-100',
     iconColor:   'text-rose-600',
   },
+  {
+    key:         'spinningSmallBedRate',
+    label:       'Spinning Small Bed',
+    unit:        '₹ / pipe',
+    description: 'Rate per pipe paid to the spinning contractor for small bed',
+    icon:        <Bed size={20} />,
+    color:       'bg-violet-100',
+    iconColor:   'text-violet-600',
+  },
+  {
+    key:         'spinningLargeBedRate',
+    label:       'Spinning Large Bed',
+    unit:        '₹ / pipe',
+    description: 'Rate per pipe paid to the spinning contractor for large bed',
+    icon:        <BedDouble size={20} />,
+    color:       'bg-purple-100',
+    iconColor:   'text-purple-600',
+  },
+  {
+    key:         'spinningExtraLargeBedRate',
+    label:       'Spinning Extra Large Bed',
+    unit:        '₹ / pipe',
+    description: 'Rate per pipe paid to the spinning contractor for extra large bed',
+    icon:        <BedDouble size={20} />,
+    color:       'bg-indigo-100',
+    iconColor:   'text-indigo-600',
+  },
+  {
+    key:         'coatingRate',
+    label:       'Coating Rate',
+    unit:        '₹ / pipe',
+    description: 'Flat rate per pipe paid to the coating contractor',
+    icon:        <Paintbrush size={20} />,
+    color:       'bg-cyan-100',
+    iconColor:   'text-cyan-600',
+  },
 ]
 
 function fmt(val: string) {
@@ -538,11 +574,15 @@ export default function BusinessSettingsPage() {
   })
 
   const emptyForm = {
-    smallBedRate:      '',
-    largeBedRate:      '',
-    labourRatePerDay:  '',
-    otRatePerHour:     '',
-    fabricationRateKg: '',
+    smallBedRate:              '',
+    largeBedRate:              '',
+    labourRatePerDay:          '',
+    otRatePerHour:             '',
+    fabricationRateKg:         '',
+    spinningSmallBedRate:      '',
+    spinningLargeBedRate:      '',
+    spinningExtraLargeBedRate: '',
+    coatingRate:               '',
   }
 
   const [form, setForm] = useState(emptyForm)
@@ -550,11 +590,15 @@ export default function BusinessSettingsPage() {
   useEffect(() => {
     if (cfg) {
       setForm({
-        smallBedRate:      cfg.smallBedRate      ?? '',
-        largeBedRate:      cfg.largeBedRate      ?? '',
-        labourRatePerDay:  cfg.labourRatePerDay  ?? '',
-        otRatePerHour:     cfg.otRatePerHour     ?? '',
-        fabricationRateKg: cfg.fabricationRateKg ?? '',
+        smallBedRate:              cfg.smallBedRate              ?? '',
+        largeBedRate:              cfg.largeBedRate              ?? '',
+        labourRatePerDay:          cfg.labourRatePerDay          ?? '',
+        otRatePerHour:             cfg.otRatePerHour             ?? '',
+        fabricationRateKg:         cfg.fabricationRateKg         ?? '',
+        spinningSmallBedRate:      cfg.spinningSmallBedRate      ?? '',
+        spinningLargeBedRate:      cfg.spinningLargeBedRate      ?? '',
+        spinningExtraLargeBedRate: cfg.spinningExtraLargeBedRate ?? '',
+        coatingRate:               cfg.coatingRate               ?? '',
       })
     }
   }, [cfg])

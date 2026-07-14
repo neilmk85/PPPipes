@@ -284,14 +284,18 @@ func (Labour) TableName() string { return "biz_labour" }
 // Single-row settings table (always upserted on ID = 1).
 
 type BusinessRateConfig struct {
-	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	SmallBedRate      string    `gorm:"column:small_bed_rate" json:"smallBedRate"`           // ₹ per pipe
-	LargeBedRate      string    `gorm:"column:large_bed_rate" json:"largeBedRate"`           // ₹ per pipe
-	LabourRatePerDay  string    `gorm:"column:labour_rate_per_day" json:"labourRatePerDay"`  // ₹ per labour per day
-	OTRatePerHour     string    `gorm:"column:ot_rate_per_hour" json:"otRatePerHour"`        // ₹ per labour per OT hour
-	FabricationRateKg string    `gorm:"column:fabrication_rate_kg" json:"fabricationRateKg"` // ₹ per kg
-	CreatedAt         time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt         time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID                        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	SmallBedRate              string    `gorm:"column:small_bed_rate" json:"smallBedRate"`                           // ₹ per pipe (moulding)
+	LargeBedRate              string    `gorm:"column:large_bed_rate" json:"largeBedRate"`                           // ₹ per pipe (moulding)
+	LabourRatePerDay          string    `gorm:"column:labour_rate_per_day" json:"labourRatePerDay"`                  // ₹ per labour per day
+	OTRatePerHour             string    `gorm:"column:ot_rate_per_hour" json:"otRatePerHour"`                        // ₹ per labour per OT hour
+	FabricationRateKg         string    `gorm:"column:fabrication_rate_kg" json:"fabricationRateKg"`                 // ₹ per kg
+	SpinningSmallBedRate      string    `gorm:"column:spinning_small_bed_rate" json:"spinningSmallBedRate"`          // ₹ per pipe (spinning)
+	SpinningLargeBedRate      string    `gorm:"column:spinning_large_bed_rate" json:"spinningLargeBedRate"`          // ₹ per pipe (spinning)
+	SpinningExtraLargeBedRate string    `gorm:"column:spinning_extra_large_bed_rate" json:"spinningExtraLargeBedRate"` // ₹ per pipe (spinning)
+	CoatingRate               string    `gorm:"column:coating_rate" json:"coatingRate"`                              // ₹ per pipe (coating)
+	CreatedAt                 time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt                 time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (BusinessRateConfig) TableName() string { return "biz_rate_config" }
