@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { format, subDays } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Search, X, ChevronRight, Loader2, FileSpreadsheet, FileText } from 'lucide-react'
+import { ArrowLeft, BookOpen, Search, X, ChevronRight, Loader2, FileSpreadsheet, FileText, ArrowUpAZ, ArrowDownAZ } from 'lucide-react'
 import { reportApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import { DateRangePicker } from '@/components/DateRangePicker'
@@ -353,6 +353,7 @@ export default function LedgerReportPage() {
   const [from, setFrom] = useState(thirtyAgo)
   const [to, setTo] = useState(today)
   const [search, setSearch] = useState('')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [accounts, setAccounts] = useState<LedgerAccount[]>([])
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState<LedgerAccount | null>(null)
@@ -368,9 +369,13 @@ export default function LedgerReportPage() {
 
   useEffect(() => { load() }, [outletId, from, to])
 
-  const filtered = accounts.filter(a =>
-    !search || a.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = accounts
+    .filter(a => !search || a.name.toLowerCase().includes(search.toLowerCase()))
+    .slice()
+    .sort((a, b) => sortDir === 'asc'
+      ? a.name.localeCompare(b.name)
+      : b.name.localeCompare(a.name)
+    )
 
   const typeLabel = (t: string) => {
     if (t === 'customer') return { label: 'Debtor', cls: 'bg-blue-50 text-blue-600' }
@@ -412,6 +417,20 @@ export default function LedgerReportPage() {
       {/* Toolbar */}
       <div className="px-8 py-4 bg-white border-b border-gray-200 flex flex-wrap items-center gap-3 shadow-sm">
         <DateRangePicker variant="light" fromDate={from} toDate={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
+        <div className="flex items-center gap-1 rounded-lg border border-gray-200 p-0.5 bg-gray-50">
+          <button
+            onClick={() => setSortDir('asc')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${sortDir === 'asc' ? 'bg-white text-violet-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <ArrowUpAZ size={14} /> A→Z
+          </button>
+          <button
+            onClick={() => setSortDir('desc')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${sortDir === 'desc' ? 'bg-white text-violet-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <ArrowDownAZ size={14} /> Z→A
+          </button>
+        </div>
         <div className="relative ml-auto w-72">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-violet-400 pointer-events-none" />
           <input
