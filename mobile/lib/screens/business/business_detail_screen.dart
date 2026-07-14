@@ -6531,27 +6531,30 @@ class _PdiScreenState extends State<PdiScreen> {
                         ),
                       ),
                     ),
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.water_outlined, color: Colors.white),
-                          onPressed: () => _showCuring2Sheet(context),
-                          tooltip: 'Curing 2 Pipeline',
-                        ),
-                        if (_curing2Rows.isNotEmpty)
-                          Positioned(
-                            right: 6, top: 8,
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle),
-                              child: Text(
-                                '${_curing2Rows.fold(0, (s, r) => s + r.total)}',
-                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                    SizedBox(
+                      width: 48, height: 48,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.water_outlined, color: Colors.white),
+                            onPressed: () => _showCuring2Sheet(context),
+                            tooltip: 'Curing 2 Pipeline',
+                          ),
+                          if (_curing2Rows.isNotEmpty)
+                            Positioned(
+                              right: 2, top: 6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(8)),
+                                child: Text(
+                                  '${_curing2Rows.fold(0, (s, r) => s + r.total)}',
+                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.add, color: Colors.white),
