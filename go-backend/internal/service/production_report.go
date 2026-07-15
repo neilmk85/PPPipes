@@ -321,7 +321,7 @@ func (s *ProductionReportService) GetContractorCostReport(fromDate, toDate strin
 
 // ── Spinning Bed Cost Report ──────────────────────────────────────────────────
 // Returns spinning contractor cost per production order, inferred from the
-// demoulding bed_type entry for the same order.
+// spinning bed_type entry for the same order.
 
 type SpinningCostRow struct {
 	PONumber           string          `gorm:"column:po_number"            json:"poNumber"`
@@ -368,7 +368,7 @@ func (s *ProductionReportService) GetSpinningCostReport(fromDate, toDate string,
 		LEFT JOIN (
 			SELECT production_order_id, bed_type
 			FROM production_entries
-			WHERE stage_type = 'DEMOULDING' AND bed_type IS NOT NULL
+			WHERE stage_type = 'SPINNING' AND bed_type IS NOT NULL
 			GROUP BY production_order_id, bed_type
 		) dem ON dem.production_order_id = po.id
 		LEFT JOIN spinning_bed_rates sbr

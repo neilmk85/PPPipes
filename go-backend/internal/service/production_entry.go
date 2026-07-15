@@ -188,28 +188,19 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 	}
 
 	// 5. BedType validation
-	// DEMOULDING: required. SPINNING: optional. All other stages: not allowed.
+	// SPINNING: required. All other stages: not allowed.
 	var bedTypePtr *models.BedType
-	if stage == models.StageDemoulding {
+	if stage == models.StageSpinning {
 		if req.BedType == nil || *req.BedType == "" {
-			return nil, &util.BusinessException{StatusCode: 400, Message: "bedType is required for DEMOULDING stage"}
+			return nil, &util.BusinessException{StatusCode: 400, Message: "bedType is required for SPINNING stage"}
 		}
 		bt := models.BedType(*req.BedType)
 		if bt != models.BedSmall && bt != models.BedLarge && bt != models.BedExtraLarge {
 			return nil, &util.BusinessException{StatusCode: 400, Message: "bedType must be SMALL_BED, LARGE_BED or EXTRA_LARGE_BED"}
 		}
 		bedTypePtr = &bt
-	} else if stage == models.StageSpinning {
-		// Optional for spinning — accept if provided and valid, ignore if empty
-		if req.BedType != nil && *req.BedType != "" {
-			bt := models.BedType(*req.BedType)
-			if bt != models.BedSmall && bt != models.BedLarge && bt != models.BedExtraLarge {
-				return nil, &util.BusinessException{StatusCode: 400, Message: "bedType must be SMALL_BED, LARGE_BED or EXTRA_LARGE_BED"}
-			}
-			bedTypePtr = &bt
-		}
 	} else if req.BedType != nil && *req.BedType != "" {
-		return nil, &util.BusinessException{StatusCode: 400, Message: "bedType is only valid for DEMOULDING and SPINNING stages"}
+		return nil, &util.BusinessException{StatusCode: 400, Message: "bedType is only valid for the SPINNING stage"}
 	}
 
 	// 6. Compute rejected count

@@ -16187,6 +16187,7 @@ class _OrderEntry {
   final TextEditingController completedCtrl = TextEditingController();
   final TextEditingController notesCtrl = TextEditingController();
   String? processedError;
+  String? bedType; // SPINNING stage only
   _OrderEntry(this.order);
   void dispose() {
     processedCtrl.dispose();
@@ -16585,6 +16586,21 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
       return;
     }
 
+    // SPINNING: bed type is required for every selected order
+    if (widget.stageType == 'SPINNING') {
+      final missingBed = _selected.values.any(
+        (e) => (int.tryParse(e.processedCtrl.text.trim()) ?? 0) > 0 && (e.bedType == null || e.bedType!.isEmpty),
+      );
+      if (missingBed) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Select a bed type for each spinning entry')),
+          );
+        }
+        return;
+      }
+    }
+
     setState(() => _submitting = true);
     int successCount = 0;
     // Send full RFC3339 UTC so Go's *time.Time decoder accepts it
@@ -16616,6 +16632,8 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           'entryDate': dateStr,
           if (entry.notesCtrl.text.trim().isNotEmpty)
             'notes': entry.notesCtrl.text.trim(),
+          if (widget.stageType == 'SPINNING' && entry.bedType != null && entry.bedType!.isNotEmpty)
+            'bedType': entry.bedType,
         };
 
         // COATING: send explicit consumption for the selected sand only
@@ -16982,6 +17000,42 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                         ]),
                                       );
                                     }),
+                                    // Bed type selector (SPINNING only — required)
+                                    if (widget.stageType == 'SPINNING') ...[
+                                      const SizedBox(height: 10),
+                                      Text('Bed Type *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.indigo[700])),
+                                      const SizedBox(height: 6),
+                                      Row(children: [
+                                        for (final bed in [
+                                          ('SMALL_BED', 'Small'),
+                                          ('LARGE_BED', 'Large'),
+                                          ('EXTRA_LARGE_BED', 'Extra Large'),
+                                        ]) ...[
+                                          GestureDetector(
+                                            onTap: () => setState(() => entry!.bedType = bed.$1),
+                                            child: Container(
+                                              margin: const EdgeInsets.only(right: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                              decoration: BoxDecoration(
+                                                color: entry!.bedType == bed.$1 ? Colors.indigo[600] : Colors.white,
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: entry.bedType == bed.$1 ? Colors.indigo[600]! : Colors.grey[300]!,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                bed.$2,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: entry.bedType == bed.$1 ? Colors.white : Colors.grey[700],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ]),
+                                    ],
                                     // Material stock warning (FABRICATION only)
                                     _buildStockWarning(order, int.tryParse(entry.processedCtrl.text) ?? 0),
                                     const SizedBox(height: 8),

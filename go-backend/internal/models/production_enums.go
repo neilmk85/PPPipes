@@ -41,7 +41,7 @@ var MaterialStages = map[ProdStageType]bool{
 	StageCoating:     true,
 }
 
-// BedType is used only during the DEMOULDING stage
+// BedType is used only during the SPINNING stage
 type BedType string
 
 const (

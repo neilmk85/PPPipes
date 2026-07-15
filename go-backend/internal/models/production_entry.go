@@ -17,7 +17,7 @@ type ProductionEntry struct {
 	EntryDate      time.Time `gorm:"column:entry_date;type:date" json:"entryDate"`
 	Notes          *string   `gorm:"column:notes;type:text" json:"notes"`
 
-	// DEMOULDING-only field; must be NULL for all other stages
+	// SPINNING-only field; must be NULL for all other stages
 	BedType *BedType `gorm:"column:bed_type" json:"bedType"`
 
 	// Optional operational metadata

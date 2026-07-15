@@ -933,40 +933,20 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
           </select>
         </div>
 
-        {/* Bed Type — DEMOULDING (required) or SPINNING (optional) */}
-        {(stage === 'DEMOULDING' || stage === 'SPINNING') && (
+        {/* Bed Type — SPINNING only (required) */}
+        {stage === 'SPINNING' && (
           <>
             <div className="self-stretch w-px bg-gray-100 mx-1" />
             <div className="flex flex-col gap-1">
-              <label className={`text-[10px] font-semibold uppercase tracking-wide ${
-                stage === 'DEMOULDING' ? 'text-teal-500' : 'text-blue-500'
-              }`}>
-                Bed Type {stage === 'DEMOULDING' ? '*' : '(optional)'}
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">
+                Bed Type *
               </label>
               <div className="flex gap-2 flex-wrap">
-                {stage === 'SPINNING' && (
-                  <label
-                    className={`flex items-center gap-1.5 cursor-pointer px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
-                      !data.bedType
-                        ? 'bg-gray-200 border-gray-300 text-gray-700'
-                        : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
-                    }`}
-                  >
-                    <input type="radio" name={`bedType-${order.id}`} value=""
-                      checked={!data.bedType}
-                      onChange={() => set('bedType', '')}
-                      className="sr-only"
-                    />
-                    None
-                  </label>
-                )}
                 {BED_TYPES.map(bt => (
                   <label key={bt.key}
                     className={`flex items-center gap-1.5 cursor-pointer px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
                       data.bedType === bt.key
-                        ? stage === 'DEMOULDING'
-                          ? 'bg-teal-600 border-teal-600 text-white'
-                          : 'bg-blue-600 border-blue-600 text-white'
+                        ? 'bg-blue-600 border-blue-600 text-white'
                         : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'
                     }`}
                   >
@@ -1783,7 +1763,7 @@ export default function ProductionEntryPage() {
         pipesRejected:     rejected > 0 ? rejected : undefined,
         entryDate:         d.entryDate ? new Date(d.entryDate) : undefined,
         notes:             d.notes || undefined,
-        bedType:           selectedStage === 'DEMOULDING' ? d.bedType || undefined : undefined,
+        bedType:           selectedStage === 'SPINNING' ? d.bedType || undefined : undefined,
         shiftName:         d.shiftName || undefined,
         consumptions:      d.materialInputs.length > 0
           ? d.materialInputs.map(m => ({
