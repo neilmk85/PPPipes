@@ -104,9 +104,11 @@ function fmt(val: string) {
 
 const PROCESSES: { type: string; label: string; color: string; dotColor: string }[] = [
   { type: 'FABRICATION',         label: 'Fabrication',              color: 'bg-amber-50 border-amber-200',   dotColor: 'bg-amber-500'  },
-  { type: 'COATING',   label: 'Coating',   color: 'bg-blue-50 border-blue-200',   dotColor: 'bg-blue-500'   },
-  { type: 'WINDING_2', label: 'Winding 2', color: 'bg-purple-50 border-purple-200', dotColor: 'bg-purple-500' },
-  { type: 'COATING_2', label: 'Coating 2', color: 'bg-teal-50 border-teal-200',     dotColor: 'bg-teal-500'   },
+  { type: 'SPINNING_SMALL_BED',       label: 'Spinning — Small Bed',       color: 'bg-violet-50 border-violet-200', dotColor: 'bg-violet-500' },
+  { type: 'SPINNING_LARGE_BED',       label: 'Spinning — Large Bed',       color: 'bg-purple-50 border-purple-200', dotColor: 'bg-purple-500' },
+  { type: 'SPINNING_EXTRA_LARGE_BED', label: 'Spinning — Extra Large Bed', color: 'bg-indigo-50 border-indigo-200', dotColor: 'bg-indigo-500' },
+  { type: 'COATING',                  label: 'Coating',                    color: 'bg-blue-50 border-blue-200',     dotColor: 'bg-blue-500'   },
+  { type: 'COATING_2',                label: 'Coating 2',                  color: 'bg-teal-50 border-teal-200',     dotColor: 'bg-teal-500'   },
 ]
 
 function ProcessContractorsSection() {
@@ -124,14 +126,14 @@ function ProcessContractorsSection() {
   const vendors: any[] = vendorRes ?? []
 
   const [selected, setSelected] = useState<Record<string, number | null>>({
-    FABRICATION: null, COATING: null, WINDING_2: null, COATING_2: null,
+    FABRICATION: null, SPINNING_SMALL_BED: null, SPINNING_LARGE_BED: null, SPINNING_EXTRA_LARGE_BED: null, COATING: null, COATING_2: null,
   })
   const [saving, setSaving] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (assignments.length) {
       const m: Record<string, number | null> = {
-        FABRICATION: null, COATING: null, WINDING_2: null, COATING_2: null,
+        FABRICATION: null, SPINNING_SMALL_BED: null, SPINNING_LARGE_BED: null, SPINNING_EXTRA_LARGE_BED: null, COATING: null, COATING_2: null,
       }
       assignments.forEach((a: any) => { m[a.processType] = a.supplierId })
       setSelected(m)
