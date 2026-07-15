@@ -39,6 +39,15 @@ const RATE_FIELDS: {
     iconColor:   'text-blue-600',
   },
   {
+    key:         'extraLargeBedRate',
+    label:       'Extra Large Bed Rate',
+    unit:        '₹ / pipe',
+    description: 'Rate charged per pipe produced on the extra large bed',
+    icon:        <BedDouble size={20} />,
+    color:       'bg-indigo-100',
+    iconColor:   'text-indigo-600',
+  },
+  {
     key:         'labourRatePerDay',
     label:       'Labour Rate',
     unit:        '₹ / labour / day',
@@ -64,15 +73,6 @@ const RATE_FIELDS: {
     icon:        <Hammer size={20} />,
     color:       'bg-rose-100',
     iconColor:   'text-rose-600',
-  },
-  {
-    key:         'extraLargeBedRate',
-    label:       'Extra Large Bed Rate',
-    unit:        '₹ / pipe',
-    description: 'Rate charged per pipe produced on the extra large bed',
-    icon:        <BedDouble size={20} />,
-    color:       'bg-indigo-100',
-    iconColor:   'text-indigo-600',
   },
   {
     key:         'winding2Rate',
