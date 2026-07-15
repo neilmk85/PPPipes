@@ -335,9 +335,6 @@ export default function BusinessSettingsPage() {
                   key={f.key}
                   className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-4 flex flex-col gap-2"
                 >
-                  <div className={`w-9 h-9 rounded-xl ${f.color} flex items-center justify-center ${f.iconColor}`}>
-                    {f.icon}
-                  </div>
                   <div>
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest leading-none">{f.label}</p>
                     <p className="text-lg font-extrabold text-gray-800 tabular-nums mt-1 leading-none">
