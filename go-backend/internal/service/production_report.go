@@ -286,7 +286,7 @@ func (s *ProductionReportService) GetContractorCostReport(fromDate, toDate strin
 		LEFT JOIN (
 			SELECT production_order_id, SUM(pipes_completed) AS pipes_completed
 			FROM production_entries
-			WHERE stage_type = 'COATING'`
+			WHERE stage_type IN ('COATING', 'COATING_2')`
 	if fromDate != "" {
 		query += " AND DATE(entry_date) >= ?"
 		args = append(args, fromDate)

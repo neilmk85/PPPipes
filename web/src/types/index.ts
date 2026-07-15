@@ -300,11 +300,13 @@ export const PROD_STAGES = [
   { key: 'CURING_1',            label: 'Curing 1' },
   { key: 'WINDING',             label: 'Winding' },
   { key: 'COATING',             label: 'Coating' },
+  { key: 'WINDING_2',           label: 'Winding 2' },
+  { key: 'COATING_2',           label: 'Coating 2' },
   { key: 'CURING_2',            label: 'Curing 2' },
   { key: 'FINAL_TESTING',       label: 'Final Testing' },
 ] as const
 
-export const MATERIAL_STAGES = ['FABRICATION', 'SPINNING', 'WINDING', 'COATING']
+export const MATERIAL_STAGES = ['FABRICATION', 'SPINNING', 'WINDING', 'COATING', 'WINDING_2', 'COATING_2']
 
 export const BED_TYPES = [
   { key: 'SMALL_BED',       label: 'Small Bed' },
@@ -317,6 +319,8 @@ export const MACHINE_TYPES = [
   { key: 'SPINNING',    label: 'Spinning' },
   { key: 'WINDING',     label: 'Winding' },
   { key: 'COATING',     label: 'Coating' },
+  { key: 'WINDING_2',   label: 'Winding 2' },
+  { key: 'COATING_2',   label: 'Coating 2' },
   { key: 'CURING',      label: 'Curing' },
   { key: 'OTHER',       label: 'Other' },
 ] as const

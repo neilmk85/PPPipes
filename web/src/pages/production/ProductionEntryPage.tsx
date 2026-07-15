@@ -57,6 +57,8 @@ const STAGE_META: Record<string, {
   CURING_2:            { icon: Clock,        accent: 'text-sky-600',     bg: 'bg-sky-50',     border: 'border-indigo-300',  hoverBg: 'hover:bg-sky-50/60',     hoverShadow: 'hover:shadow-sky-100',     activeShadow: 'shadow-sky-300/40'     },
   WINDING:             { icon: Wind,         accent: 'text-indigo-600',  bg: 'bg-indigo-50',  border: 'border-indigo-300',  hoverBg: 'hover:bg-indigo-50/60',  hoverShadow: 'hover:shadow-indigo-100',  activeShadow: 'shadow-indigo-300/40'  },
   COATING:             { icon: Paintbrush,   accent: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-indigo-300',  hoverBg: 'hover:bg-violet-50/60',  hoverShadow: 'hover:shadow-violet-100',  activeShadow: 'shadow-violet-300/40'  },
+  WINDING_2:           { icon: Wind,         accent: 'text-indigo-600',  bg: 'bg-indigo-50',  border: 'border-indigo-300',  hoverBg: 'hover:bg-indigo-50/60',  hoverShadow: 'hover:shadow-indigo-100',  activeShadow: 'shadow-indigo-300/40'  },
+  COATING_2:           { icon: Paintbrush,   accent: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-indigo-300',  hoverBg: 'hover:bg-violet-50/60',  hoverShadow: 'hover:shadow-violet-100',  activeShadow: 'shadow-violet-300/40'  },
   FINAL_TESTING:       { icon: CheckCircle2, accent: 'text-green-600',   bg: 'bg-green-50',   border: 'border-indigo-300',  hoverBg: 'hover:bg-green-50/60',   hoverShadow: 'hover:shadow-green-100',   activeShadow: 'shadow-green-300/40'   },
 }
 
@@ -86,6 +88,8 @@ const STAGE_COLS: { key: string; label: string; field: string; accent: string }[
   { key: 'CURING_1',            label: 'Curing 1',     field: 'curing1',            accent: 'text-cyan-600'    },
   { key: 'WINDING',             label: 'Winding',      field: 'winding',            accent: 'text-indigo-600'  },
   { key: 'COATING',             label: 'Coating',      field: 'coating',            accent: 'text-violet-600'  },
+  { key: 'WINDING_2',           label: 'Winding 2',    field: 'winding2',           accent: 'text-indigo-600'  },
+  { key: 'COATING_2',           label: 'Coating 2',    field: 'coating2',           accent: 'text-violet-600'  },
   { key: 'CURING_2',            label: 'Curing 2',     field: 'curing2',            accent: 'text-sky-600'     },
   { key: 'FINAL_TESTING',       label: 'Final Test',   field: 'finalTesting',       accent: 'text-green-600'   },
 ]
@@ -508,8 +512,8 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
     : false   // configData not yet loaded
   const stockDataReady     = !needsMaterialCheck || (!!configData && stageMaterials.length > 0 && inventorySettled)
 
-  // ── Silo balance check (SPINNING → Silo 1+2, COATING → Silo 3) ───────────
-  const isSiloStage = stage === 'SPINNING' || stage === 'COATING'
+  // ── Silo balance check (SPINNING → Silo 1+2, COATING/COATING_2 → Silo 3) ──
+  const isSiloStage = stage === 'SPINNING' || stage === 'COATING' || stage === 'COATING_2'
   const { data: siloSummary } = useQuery({
     queryKey: ['silo-summary'],
     queryFn:  () => siloFillsApi.summary(),
@@ -533,7 +537,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
       // Combined Silo 1 + Silo 2 balance
       return (siloSummary.silos[0]?.balanceMt ?? 0) + (siloSummary.silos[1]?.balanceMt ?? 0)
     }
-    // COATING → Silo 3
+    // COATING / COATING_2 → Silo 3
     return siloSummary.silos[2]?.balanceMt ?? 0
   })()
 
@@ -580,8 +584,8 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
       return
     }
     let stageMatsList = configData.materials.filter((m: any) => m.stageType === stage)
-    // For COATING, filter to only the selected sand material
-    if (stage === 'COATING' && coatingSandType) {
+    // For COATING / COATING_2, filter to only the selected sand material
+    if ((stage === 'COATING' || stage === 'COATING_2') && coatingSandType) {
       const sandName = coatingSandType === 'plaster' ? 'plaster sand' : 'crushed sand'
       const sandMats = stageMatsList.filter((m: any) =>
         (m.materialProduct?.name ?? '').toLowerCase().includes(sandName)
@@ -1868,6 +1872,8 @@ export default function ProductionEntryPage() {
                 CURING_1:            '/images/curing1.jpeg',
                 WINDING:             '/images/winding.jpg',
                 COATING:             '/images/coating.avif',
+                WINDING_2:           '/images/winding.jpg',
+                COATING_2:           '/images/coating.avif',
                 CURING_2:            '/images/curing2.jpg',
                 FINAL_TESTING:       '/images/final-testing.webp',
               }
@@ -2109,7 +2115,7 @@ export default function ProductionEntryPage() {
         <form onSubmit={handleSubmit} className="flex-1 min-w-0 space-y-5">
 
           {/* ── Coating sand mix toggle ── */}
-          {selectedStage === 'COATING' && (
+          {(selectedStage === 'COATING' || selectedStage === 'COATING_2') && (
             <div className="inline-flex items-center gap-4 bg-white rounded-2xl px-5 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
               <span className="text-sm font-bold text-gray-900 shrink-0">Sand Mix</span>
               <div className="flex gap-1.5 bg-gray-100/80 rounded-2xl p-1.5">
@@ -2163,7 +2169,7 @@ export default function ProductionEntryPage() {
                     index={index}
                     totalOrders={selectedIds.length}
                     showValidation={showValidation}
-                    coatingSandType={selectedStage === 'COATING' ? coatingSandType : undefined}
+                    coatingSandType={(selectedStage === 'COATING' || selectedStage === 'COATING_2') ? coatingSandType : undefined}
                   />
                 )
               })}

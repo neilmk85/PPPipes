@@ -15409,6 +15409,8 @@ const _pccpStages = [
   _StageInfo('CURING_1',            'Curing 1',        Icons.water_drop_outlined,           Color(0xFF2563EB)),
   _StageInfo('WINDING',             'Winding',         Icons.loop_outlined,                 Color(0xFF1D4ED8)),
   _StageInfo('COATING',             'Coating',         Icons.format_paint_outlined,         Color(0xFF1E40AF)),
+  _StageInfo('WINDING_2',           'Winding 2',       Icons.loop_outlined,                 Color(0xFF1D4ED8)),
+  _StageInfo('COATING_2',           'Coating 2',       Icons.format_paint_outlined,         Color(0xFF1E40AF)),
   _StageInfo('CURING_2',            'Curing 2',        Icons.water_outlined,               Color(0xFF3730A3)),
   _StageInfo('FINAL_TESTING',       'Final Testing',   Icons.check_circle_outline,          Color(0xFF8B5CF6)),
   _StageInfo('PDI',                 'PDI',             Icons.assignment_turned_in_outlined,  Color(0xFF9333EA)),
@@ -16225,6 +16227,8 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   String _sandType = 'plaster'; // 'plaster' | 'crushed'
   // Cache of pipeConfigId → COATING materials (fetched lazily for COATING stage)
   final Map<int, List<dynamic>> _coatingMaterials = {};
+  // Cache of pipeConfigId → COATING_2 materials
+  final Map<int, List<dynamic>> _coating2Materials = {};
   // Cache of pipeConfigId → FABRICATION materials
   final Map<int, List<dynamic>> _fabricationMaterials = {};
   // Cache: materialProductId → quantityOnHand (for FABRICATION stock check)
@@ -16303,6 +16307,25 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                 .where((m) => m['stageType'] == 'COATING')
                 .toList();
             _coatingMaterials[id] = mats;
+          } catch (_) {}
+        }
+      }
+
+      // For COATING_2, pre-fetch pipe config materials for all unique configs
+      if (widget.stageType == 'COATING_2') {
+        final configIds = filtered
+            .map((o) => o['pipeConfigId'])
+            .whereType<int>()
+            .toSet();
+        for (final id in configIds) {
+          if (_coating2Materials.containsKey(id)) continue;
+          try {
+            final config = await _api.getPipeConfig(id);
+            final mats = (config['materials'] as List? ?? [])
+                .cast<Map<String, dynamic>>()
+                .where((m) => m['stageType'] == 'COATING_2')
+                .toList();
+            _coating2Materials[id] = mats;
           } catch (_) {}
         }
       }
@@ -16662,6 +16685,32 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           }
         }
 
+        // COATING_2: same logic as COATING using Silo 3 cement/sand materials
+        if (widget.stageType == 'COATING_2') {
+          final configId = entry.order['pipeConfigId'] as int?;
+          final mats = configId != null ? (_coating2Materials[configId] ?? []) : [];
+          final sandKey = _sandType == 'plaster' ? 'plaster sand' : 'crushed sand';
+          final sandMat = mats.cast<Map<String, dynamic>>().where((m) {
+            final name = (m['materialProduct']?['name'] ?? '').toString().toLowerCase();
+            return name.contains(sandKey);
+          }).toList();
+          if (sandMat.isNotEmpty) {
+            final mat = sandMat.first;
+            final qtyPerPipe = double.tryParse(mat['quantityPerPipe']?.toString() ?? '0') ?? 0;
+            final scrap = double.tryParse(mat['scrapPercent']?.toString() ?? '0') ?? 0;
+            final rawQty = qtyPerPipe * completed;
+            final consumedQty = scrap > 0 ? rawQty * (1 + scrap / 100) : rawQty;
+            payload['consumptions'] = [
+              {
+                'pipeConfigMaterialId': mat['id'],
+                'materialProductId': mat['materialProductId'],
+                'consumedQty': consumedQty,
+                'uom': mat['uom'] ?? 'kg',
+              }
+            ];
+          }
+        }
+
         // FABRICATION: send consumptions for all fabrication materials
         if (widget.stageType == 'FABRICATION') {
           final configId = entry.order['pipeConfigId'] as int?;
@@ -16807,8 +16856,8 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           ]),
         ),
         const SizedBox(height: 10),
-        // Coating: Sand Mix toggle
-        if (widget.stageType == 'COATING') ...[
+        // Coating / Coating 2: Sand Mix toggle
+        if (widget.stageType == 'COATING' || widget.stageType == 'COATING_2') ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(children: [

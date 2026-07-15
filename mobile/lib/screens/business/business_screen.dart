@@ -35,6 +35,8 @@ const _pccpStages = [
   _PccpStage('CURING_1',            'Curing 1',      Icons.water_drop_outlined,           Color(0xFF2563EB)),
   _PccpStage('WINDING',             'Winding',       Icons.loop_outlined,                 Color(0xFF1D4ED8)),
   _PccpStage('COATING',             'Coating',       Icons.format_paint_outlined,         Color(0xFF1E40AF)),
+  _PccpStage('WINDING_2',           'Winding 2',     Icons.loop_outlined,                 Color(0xFF1D4ED8)),
+  _PccpStage('COATING_2',           'Coating 2',     Icons.format_paint_outlined,         Color(0xFF1E40AF)),
   _PccpStage('CURING_2',            'Curing 2',      Icons.water_outlined,                Color(0xFF3730A3)),
   _PccpStage('FINAL_TESTING',       'Final Testing', Icons.check_circle_outline,          Color(0xFF8B5CF6)),
   _PccpStage('PDI',                 'PDI',           Icons.assignment_turned_in_outlined, Color(0xFF9333EA)),

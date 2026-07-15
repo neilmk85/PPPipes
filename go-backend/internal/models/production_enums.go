@@ -1,6 +1,6 @@
 package models
 
-// ProdStageType represents one of the 10 PCCP production process stages
+// ProdStageType represents one of the 12 PCCP production process stages
 type ProdStageType string
 
 const (
@@ -13,14 +13,17 @@ const (
 	StageCuring2         ProdStageType = "CURING_2"
 	StageWinding         ProdStageType = "WINDING"
 	StageCoating         ProdStageType = "COATING"
+	StageWinding2        ProdStageType = "WINDING_2"
+	StageCoating2        ProdStageType = "COATING_2"
 	StageFinalTesting    ProdStageType = "FINAL_TESTING"
 )
 
-// StageSequence defines the mandatory order of the 10 production stages
+// StageSequence defines the mandatory order of the 12 production stages
 var StageSequence = []ProdStageType{
 	StageFabrication, StageFabricationTest, StageMoulding,
 	StageSpinning, StageDemoulding, StageCuring1,
-	StageWinding, StageCoating, StageCuring2, StageFinalTesting,
+	StageWinding, StageCoating, StageWinding2, StageCoating2,
+	StageCuring2, StageFinalTesting,
 }
 
 // StageIndex returns the 0-based index of a stage in StageSequence, or -1 if not found
@@ -39,6 +42,8 @@ var MaterialStages = map[ProdStageType]bool{
 	StageSpinning:    true,
 	StageWinding:     true,
 	StageCoating:     true,
+	StageWinding2:    true,
+	StageCoating2:    true,
 }
 
 // BedType is used only during the SPINNING stage
@@ -70,6 +75,8 @@ const (
 	MachineTypeSpinning    MachineType = "SPINNING"
 	MachineTypeWinding     MachineType = "WINDING"
 	MachineTypeCoating     MachineType = "COATING"
+	MachineTypeWinding2    MachineType = "WINDING_2"
+	MachineTypeCoating2    MachineType = "COATING_2"
 	MachineTypeCuring      MachineType = "CURING"
 	MachineTypeOther       MachineType = "OTHER"
 )
