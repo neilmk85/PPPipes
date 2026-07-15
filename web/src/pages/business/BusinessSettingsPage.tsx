@@ -75,15 +75,6 @@ const RATE_FIELDS: {
     iconColor:   'text-rose-600',
   },
   {
-    key:         'winding2Rate',
-    label:       'Winding 2 Rate',
-    unit:        '₹ / pipe',
-    description: 'Rate per pipe paid to the winding contractor for second winding pass',
-    icon:        <Hammer size={20} />,
-    color:       'bg-purple-100',
-    iconColor:   'text-purple-600',
-  },
-  {
     key:         'coating2Rate',
     label:       'Coating 2 Rate',
     unit:        '₹ / pipe',
