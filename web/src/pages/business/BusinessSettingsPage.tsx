@@ -333,14 +333,14 @@ export default function BusinessSettingsPage() {
               {RATE_FIELDS.map(f => (
                 <div
                   key={f.key}
-                  className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-4 flex flex-col gap-2"
+                  className="bg-gray-900 rounded-2xl shadow-sm p-4 flex flex-col gap-2"
                 >
                   <div>
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest leading-none">{f.label}</p>
-                    <p className="text-lg font-extrabold text-gray-800 tabular-nums mt-1 leading-none">
+                    <p className="text-lg font-extrabold text-white tabular-nums mt-1 leading-none">
                       {fmt(cfg?.[f.key] ?? '')}
                     </p>
-                    <p className="text-[10px] text-gray-400 mt-1">{f.unit}</p>
+                    <p className="text-[10px] text-gray-500 mt-1">{f.unit}</p>
                   </div>
                 </div>
               ))}
