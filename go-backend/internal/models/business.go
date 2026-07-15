@@ -286,15 +286,15 @@ func (Labour) TableName() string { return "biz_labour" }
 
 type BusinessRateConfig struct {
 	ID                        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	SmallBedRate              string    `gorm:"column:small_bed_rate" json:"smallBedRate"`                           // ₹ per pipe (moulding)
-	LargeBedRate              string    `gorm:"column:large_bed_rate" json:"largeBedRate"`                           // ₹ per pipe (moulding)
-	LabourRatePerDay          string    `gorm:"column:labour_rate_per_day" json:"labourRatePerDay"`                  // ₹ per labour per day
-	OTRatePerHour             string    `gorm:"column:ot_rate_per_hour" json:"otRatePerHour"`                        // ₹ per labour per OT hour
-	FabricationRateKg         string    `gorm:"column:fabrication_rate_kg" json:"fabricationRateKg"`                 // ₹ per kg
-	SpinningSmallBedRate      string    `gorm:"column:spinning_small_bed_rate" json:"spinningSmallBedRate"`          // ₹ per pipe (spinning)
-	SpinningLargeBedRate      string    `gorm:"column:spinning_large_bed_rate" json:"spinningLargeBedRate"`          // ₹ per pipe (spinning)
-	SpinningExtraLargeBedRate string    `gorm:"column:spinning_extra_large_bed_rate" json:"spinningExtraLargeBedRate"` // ₹ per pipe (spinning)
-	CoatingRate               string    `gorm:"column:coating_rate" json:"coatingRate"`                              // ₹ per pipe (coating)
+	SmallBedRate      string `gorm:"column:small_bed_rate" json:"smallBedRate"`           // ₹ per pipe (small bed)
+	LargeBedRate      string `gorm:"column:large_bed_rate" json:"largeBedRate"`           // ₹ per pipe (large bed)
+	ExtraLargeBedRate string `gorm:"column:extra_large_bed_rate" json:"extraLargeBedRate"` // ₹ per pipe (extra large bed)
+	LabourRatePerDay  string `gorm:"column:labour_rate_per_day" json:"labourRatePerDay"`  // ₹ per labour per day
+	OTRatePerHour     string `gorm:"column:ot_rate_per_hour" json:"otRatePerHour"`        // ₹ per labour per OT hour
+	FabricationRateKg string `gorm:"column:fabrication_rate_kg" json:"fabricationRateKg"` // ₹ per kg
+	CoatingRate       string `gorm:"column:coating_rate" json:"coatingRate"`              // ₹ per pipe (coating)
+	Winding2Rate      string `gorm:"column:winding_2_rate" json:"winding2Rate"`           // ₹ per pipe (winding 2)
+	Coating2Rate      string `gorm:"column:coating_2_rate" json:"coating2Rate"`           // ₹ per pipe (coating 2)
 	CreatedAt                 time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt                 time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }

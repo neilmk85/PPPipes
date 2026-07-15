@@ -66,31 +66,31 @@ const RATE_FIELDS: {
     iconColor:   'text-rose-600',
   },
   {
-    key:         'spinningSmallBedRate',
-    label:       'Spinning Small Bed',
+    key:         'extraLargeBedRate',
+    label:       'Extra Large Bed Rate',
     unit:        '₹ / pipe',
-    description: 'Rate per pipe paid to the spinning contractor for small bed',
-    icon:        <Bed size={20} />,
-    color:       'bg-violet-100',
-    iconColor:   'text-violet-600',
+    description: 'Rate charged per pipe produced on the extra large bed',
+    icon:        <BedDouble size={20} />,
+    color:       'bg-indigo-100',
+    iconColor:   'text-indigo-600',
   },
   {
-    key:         'spinningLargeBedRate',
-    label:       'Spinning Large Bed',
+    key:         'winding2Rate',
+    label:       'Winding 2 Rate',
     unit:        '₹ / pipe',
-    description: 'Rate per pipe paid to the spinning contractor for large bed',
-    icon:        <BedDouble size={20} />,
+    description: 'Rate per pipe paid to the winding contractor for second winding pass',
+    icon:        <Hammer size={20} />,
     color:       'bg-purple-100',
     iconColor:   'text-purple-600',
   },
   {
-    key:         'spinningExtraLargeBedRate',
-    label:       'Spinning Extra Large Bed',
+    key:         'coating2Rate',
+    label:       'Coating 2 Rate',
     unit:        '₹ / pipe',
-    description: 'Rate per pipe paid to the spinning contractor for extra large bed',
-    icon:        <BedDouble size={20} />,
-    color:       'bg-indigo-100',
-    iconColor:   'text-indigo-600',
+    description: 'Flat rate per pipe paid to the coating contractor for second coating pass',
+    icon:        <Paintbrush size={20} />,
+    color:       'bg-teal-100',
+    iconColor:   'text-teal-600',
   },
   {
     key:         'coatingRate',
@@ -113,10 +113,9 @@ function fmt(val: string) {
 
 const PROCESSES: { type: string; label: string; color: string; dotColor: string }[] = [
   { type: 'FABRICATION',         label: 'Fabrication',              color: 'bg-amber-50 border-amber-200',   dotColor: 'bg-amber-500'  },
-  { type: 'SPINNING_SMALL_BED',  label: 'Spinning — Small Bed',     color: 'bg-violet-50 border-violet-200', dotColor: 'bg-violet-500' },
-  { type: 'SPINNING_LARGE_BED',  label: 'Spinning — Large Bed',     color: 'bg-purple-50 border-purple-200', dotColor: 'bg-purple-500' },
-  { type: 'SPINNING_EXTRA_LARGE_BED', label: 'Spinning — Extra Large Bed', color: 'bg-indigo-50 border-indigo-200', dotColor: 'bg-indigo-500' },
-  { type: 'COATING',             label: 'Coating',                  color: 'bg-blue-50 border-blue-200',     dotColor: 'bg-blue-500'   },
+  { type: 'COATING',   label: 'Coating',   color: 'bg-blue-50 border-blue-200',   dotColor: 'bg-blue-500'   },
+  { type: 'WINDING_2', label: 'Winding 2', color: 'bg-purple-50 border-purple-200', dotColor: 'bg-purple-500' },
+  { type: 'COATING_2', label: 'Coating 2', color: 'bg-teal-50 border-teal-200',     dotColor: 'bg-teal-500'   },
 ]
 
 function ProcessContractorsSection() {
@@ -134,14 +133,14 @@ function ProcessContractorsSection() {
   const vendors: any[] = vendorRes ?? []
 
   const [selected, setSelected] = useState<Record<string, number | null>>({
-    FABRICATION: null, SPINNING_SMALL_BED: null, SPINNING_LARGE_BED: null, SPINNING_EXTRA_LARGE_BED: null, COATING: null,
+    FABRICATION: null, COATING: null, WINDING_2: null, COATING_2: null,
   })
   const [saving, setSaving] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     if (assignments.length) {
       const m: Record<string, number | null> = {
-        FABRICATION: null, SPINNING_SMALL_BED: null, SPINNING_LARGE_BED: null, SPINNING_EXTRA_LARGE_BED: null, COATING: null,
+        FABRICATION: null, COATING: null, WINDING_2: null, COATING_2: null,
       }
       assignments.forEach((a: any) => { m[a.processType] = a.supplierId })
       setSelected(m)
@@ -246,15 +245,15 @@ export default function BusinessSettingsPage() {
   })
 
   const emptyForm = {
-    smallBedRate:              '',
-    largeBedRate:              '',
-    labourRatePerDay:          '',
-    otRatePerHour:             '',
-    fabricationRateKg:         '',
-    spinningSmallBedRate:      '',
-    spinningLargeBedRate:      '',
-    spinningExtraLargeBedRate: '',
-    coatingRate:               '',
+    smallBedRate:      '',
+    largeBedRate:      '',
+    extraLargeBedRate: '',
+    labourRatePerDay:  '',
+    otRatePerHour:     '',
+    fabricationRateKg: '',
+    coatingRate:       '',
+    winding2Rate:      '',
+    coating2Rate:      '',
   }
 
   const [form, setForm] = useState(emptyForm)
@@ -262,15 +261,15 @@ export default function BusinessSettingsPage() {
   useEffect(() => {
     if (cfg) {
       setForm({
-        smallBedRate:              cfg.smallBedRate              ?? '',
-        largeBedRate:              cfg.largeBedRate              ?? '',
-        labourRatePerDay:          cfg.labourRatePerDay          ?? '',
-        otRatePerHour:             cfg.otRatePerHour             ?? '',
-        fabricationRateKg:         cfg.fabricationRateKg         ?? '',
-        spinningSmallBedRate:      cfg.spinningSmallBedRate      ?? '',
-        spinningLargeBedRate:      cfg.spinningLargeBedRate      ?? '',
-        spinningExtraLargeBedRate: cfg.spinningExtraLargeBedRate ?? '',
-        coatingRate:               cfg.coatingRate               ?? '',
+        smallBedRate:      cfg.smallBedRate      ?? '',
+        largeBedRate:      cfg.largeBedRate      ?? '',
+        extraLargeBedRate: cfg.extraLargeBedRate ?? '',
+        labourRatePerDay:  cfg.labourRatePerDay  ?? '',
+        otRatePerHour:     cfg.otRatePerHour     ?? '',
+        fabricationRateKg: cfg.fabricationRateKg ?? '',
+        coatingRate:       cfg.coatingRate       ?? '',
+        winding2Rate:      cfg.winding2Rate      ?? '',
+        coating2Rate:      cfg.coating2Rate      ?? '',
       })
     }
   }, [cfg])

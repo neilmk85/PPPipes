@@ -447,18 +447,18 @@ export const labourApi = {
 // ─── Business Rate Config ─────────────────────────────────────────────────────
 
 export interface BusinessRateConfig {
-  id:                        number
-  smallBedRate:              string   // ₹ per pipe (moulding)
-  largeBedRate:              string   // ₹ per pipe (moulding)
-  labourRatePerDay:          string   // ₹ per labour per day
-  otRatePerHour:             string   // ₹ per labour per OT hour
-  fabricationRateKg:         string   // ₹ per kg
-  spinningSmallBedRate:      string   // ₹ per pipe (spinning)
-  spinningLargeBedRate:      string   // ₹ per pipe (spinning)
-  spinningExtraLargeBedRate: string   // ₹ per pipe (spinning)
-  coatingRate:               string   // ₹ per pipe (coating)
-  createdAt:                 string
-  updatedAt:                 string
+  id:                number
+  smallBedRate:      string   // ₹ per pipe (small bed)
+  largeBedRate:      string   // ₹ per pipe (large bed)
+  extraLargeBedRate: string   // ₹ per pipe (extra large bed)
+  labourRatePerDay:  string   // ₹ per labour per day
+  otRatePerHour:     string   // ₹ per labour per OT hour
+  fabricationRateKg: string   // ₹ per kg
+  coatingRate:       string   // ₹ per pipe (coating)
+  winding2Rate:      string   // ₹ per pipe (winding 2)
+  coating2Rate:      string   // ₹ per pipe (coating 2)
+  createdAt:         string
+  updatedAt:         string
 }
 
 // ─── Coating Contractor Rates ─────────────────────────────────────────────────
