@@ -92,13 +92,20 @@ c) We shall raise the Invoice(s)/Bill(s) every week and it will be promptly veri
 d) All charges towards usance period interest including Letter of Credit Opening and charges towards Letter of Credit amendments, if any, shall be borne and paid by you.`
 
 async function loadImgBase64(url: string): Promise<string> {
-  const res  = await fetch(url)
-  const blob = await res.blob()
-  return new Promise(resolve => {
-    const r = new FileReader()
-    r.onloadend = () => resolve(r.result as string)
-    r.readAsDataURL(blob)
-  })
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return ''
+    const blob = await res.blob()
+    if (!blob.type.startsWith('image/')) return ''
+    return new Promise(resolve => {
+      const r = new FileReader()
+      r.onloadend = () => resolve(r.result as string)
+      r.onerror   = () => resolve('')
+      r.readAsDataURL(blob)
+    })
+  } catch {
+    return ''
+  }
 }
 
 function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
