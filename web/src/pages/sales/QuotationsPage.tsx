@@ -301,13 +301,272 @@ async function buildQuotationDoc(q: any): Promise<jsPDF> {
   return doc
 }
 
+async function buildQuotationDocModern(q: any): Promise<jsPDF> {
+  const [logoB64, deityB64] = await Promise.all([
+    loadImgBase64('/pp-logo.png'),
+    loadImgBase64('/pp-deity.jpg'),
+  ])
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const L = 14
+  const R = 196
+  const W = 182
+  const TEAL: [number, number, number]  = [0, 82, 110]
+  const LTEAL: [number, number, number] = [235, 246, 251]
+
+  const dateStr = q.createdAt
+    ? format(new Date(q.createdAt), 'dd-MM-yyyy')
+    : format(new Date(), 'dd-MM-yyyy')
+  const validDate = q.validUntil
+    ? format(new Date(q.validUntil), 'dd-MM-yyyy')
+    : format(addDays(new Date(), 30), 'dd-MM-yyyy')
+
+  drawPageHeader(doc, logoB64, deityB64)
+  drawPageFooter(doc, logoB64)
+
+  // ── Title bar ────────────────────────────────────────────────────────
+  doc.setFillColor(...TEAL)
+  doc.rect(L, CONTENT_T, W, 9, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(255, 255, 255)
+  doc.text('QUOTATION', 105, CONTENT_T + 6.2, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.text(q.quotationNumber ?? 'P&P/Quotation/2026-27', L + 2, CONTENT_T + 6.2)
+  doc.text(`Date: ${dateStr}`, R - 2, CONTENT_T + 6.2, { align: 'right' })
+
+  // ── Two-column info cards ─────────────────────────────────────────────
+  const CARD_Y = CONTENT_T + 13
+  const CARD_H = 38
+  const COL1_W = 91
+  const COL2_W = 85
+  const COL2_X = R - COL2_W
+
+  // Bill To card
+  doc.setFillColor(...LTEAL)
+  doc.roundedRect(L, CARD_Y, COL1_W, CARD_H, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(6.5)
+  doc.setTextColor(...TEAL)
+  doc.text('BILL TO', L + 3, CARD_Y + 4.5)
+  doc.setDrawColor(...TEAL)
+  doc.setLineWidth(0.3)
+  doc.line(L + 1, CARD_Y + 6.5, L + COL1_W - 1, CARD_Y + 6.5)
+
+  let cy = CARD_Y + 11
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8.5)
+  doc.setTextColor(15, 15, 15)
+  doc.text((q.customer?.name ?? 'Customer').toUpperCase(), L + 3, cy); cy += 5
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(50, 50, 50)
+  if (q.customer?.address) {
+    const al = doc.splitTextToSize(q.customer.address, COL1_W - 6)
+    doc.text(al, L + 3, cy); cy += al.length * 4.2
+  }
+  if (q.customer?.city)  { doc.text(`Dist: ${q.customer.city}`, L + 3, cy); cy += 4.2 }
+  if (q.customer?.state) { doc.text(`State: ${q.customer.state}`, L + 3, cy); cy += 4.2 }
+  if (q.customer?.gstin) {
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...TEAL)
+    doc.text(`GSTIN: ${q.customer.gstin}`, L + 3, cy)
+  }
+
+  // Quotation details card
+  doc.setFillColor(...LTEAL)
+  doc.roundedRect(COL2_X, CARD_Y, COL2_W, CARD_H, 2, 2, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(6.5)
+  doc.setTextColor(...TEAL)
+  doc.text('QUOTATION DETAILS', COL2_X + 3, CARD_Y + 4.5)
+  doc.setDrawColor(...TEAL)
+  doc.setLineWidth(0.3)
+  doc.line(COL2_X + 1, CARD_Y + 6.5, COL2_X + COL2_W - 1, CARD_Y + 6.5)
+
+  const details: [string, string][] = [
+    ['Reference No.', q.quotationNumber ?? 'P&P/QT/2026-27'],
+    ['Date', dateStr],
+    ['Valid Until', validDate],
+  ]
+  let dy = CARD_Y + 13
+  details.forEach(([label, val]) => {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    doc.setTextColor(80, 80, 80)
+    doc.text(label, COL2_X + 3, dy)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(15, 15, 15)
+    doc.text(val, COL2_X + COL2_W - 3, dy, { align: 'right' })
+    dy += 7
+  })
+
+  // ── Subject line with left accent ─────────────────────────────────────
+  const sy = CARD_Y + CARD_H + 7
+  doc.setFillColor(...TEAL)
+  doc.rect(L, sy - 1, 2.5, 11, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8.5)
+  doc.setTextColor(15, 15, 15)
+  const subject = q.notes
+    ? `Sub: ${q.notes}`
+    : `Sub: Quotation for supply PCC Pipes As Per IS 784:2019.`
+  const subLines = doc.splitTextToSize(subject, W - 8)
+  doc.text(subLines, L + 5, sy + 4)
+
+  const bodyY = sy + subLines.length * 5 + 5
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(30, 30, 30)
+  doc.text('Dear Sir,', L, bodyY)
+  const introLines = doc.splitTextToSize(
+    'With reference to sited subject our quotation for supply of PCC pipes.', W)
+  doc.text(introLines, L, bodyY + 5.5)
+
+  // ── Items table ────────────────────────────────────────────────────────
+  const tableStartY = bodyY + introLines.length * 5.5 + 6
+  const items = q.items ?? []
+  const tableBody = items.map((item: any, idx: number) => [
+    String(idx + 1),
+    item.productName ?? '',
+    Number(item.quantity).toLocaleString('en-IN'),
+    INR(Number(item.unitPrice)),
+    INR(Number(item.lineTotal)),
+  ])
+  const subtotal   = Number(q.subtotal   ?? 0)
+  const taxAmount  = Number(q.taxAmount  ?? 0)
+  const grandTotal = Number(q.totalAmount ?? 0)
+  const taxRate    = items.length > 0 ? Number(items[0].taxRate ?? 18) : 18
+
+  autoTable(doc, {
+    startY: tableStartY,
+    margin: { top: HEADER_H + 4, bottom: 297 - FOOTER_Y + 4 },
+    head: [['SR\nNO.', 'DIA OF PIPE', 'QTY IN\nMTR', 'RATE /RMT', 'AMOUNT']],
+    body: tableBody,
+    theme: 'plain',
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 3,
+      textColor: [20, 20, 20],
+    },
+    headStyles: {
+      fillColor: [0, 82, 110],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      halign: 'center',
+      cellPadding: 3.5,
+    },
+    alternateRowStyles: { fillColor: [240, 249, 253] },
+    columnStyles: {
+      0: { cellWidth: 12, halign: 'center' as const },
+      1: { cellWidth: 72 },
+      2: { cellWidth: 22, halign: 'right' as const },
+      3: { cellWidth: 34, halign: 'right' as const },
+      4: { cellWidth: 42, halign: 'right' as const },
+    },
+    didDrawPage: (_data: any) => {
+      drawPageHeader(doc, logoB64, deityB64)
+      drawPageFooter(doc, logoB64)
+    },
+  })
+
+  // ── Totals block ──────────────────────────────────────────────────────
+  const finalY = (doc as any).lastAutoTable.finalY + 3
+  const TB_X = 108
+  const TB_W = 88
+  const TB_ROW = 7
+
+  doc.setFillColor(240, 249, 253)
+  doc.rect(TB_X, finalY, TB_W, TB_ROW, 'F')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(60, 60, 60)
+  doc.text('Sub Total', TB_X + 3, finalY + 4.8)
+  doc.text(INR(subtotal), R - 2, finalY + 4.8, { align: 'right' })
+
+  doc.setFillColor(240, 249, 253)
+  doc.rect(TB_X, finalY + TB_ROW, TB_W, TB_ROW, 'F')
+  doc.text(`GST @ ${taxRate}%`, TB_X + 3, finalY + TB_ROW + 4.8)
+  doc.text(INR(taxAmount), R - 2, finalY + TB_ROW + 4.8, { align: 'right' })
+
+  doc.setFillColor(...TEAL)
+  doc.rect(TB_X, finalY + TB_ROW * 2, TB_W, TB_ROW + 1, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(255, 255, 255)
+  doc.text('TOTAL AMOUNT', TB_X + 3, finalY + TB_ROW * 2 + 5.5)
+  doc.text(INR(grandTotal), R - 2, finalY + TB_ROW * 2 + 5.5, { align: 'right' })
+
+  // ── Page 2: Terms ─────────────────────────────────────────────────────
+  doc.addPage()
+  drawPageHeader(doc, logoB64, deityB64)
+  drawPageFooter(doc, logoB64)
+
+  let ty = CONTENT_T
+  doc.setFillColor(...TEAL)
+  doc.rect(L, ty, W, 8, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(255, 255, 255)
+  doc.text('TERMS & CONDITIONS', 105, ty + 5.5, { align: 'center' })
+  ty += 12
+
+  const terms = q.termsConditions || DEFAULT_TERMS
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(20, 20, 20)
+  const termLines = doc.splitTextToSize(terms.trim(), W)
+  doc.text(termLines, L, ty)
+  ty += termLines.length * 4.8 + 8
+
+  const closingY = Math.min(Math.max(ty + 6, CONTENT_T + 140), FOOTER_Y - 55)
+  doc.setFontSize(9)
+  const closingLines = doc.splitTextToSize(
+    'If you need any further clarification/information, please feel free to call us. Assuring you of our best services and now look forward to receive your valued order in return.', W)
+  doc.text(closingLines, L, closingY)
+
+  const sigY = closingY + closingLines.length * 5.5 + 8
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(30, 30, 30)
+  doc.text('Thanking you,', L, sigY)
+
+  doc.setFillColor(...LTEAL)
+  doc.roundedRect(120, sigY + 4, 76, 30, 2, 2, 'F')
+  doc.setDrawColor(...TEAL)
+  doc.setLineWidth(0.3)
+  doc.line(122, sigY + 28, 194, sigY + 28)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(...TEAL)
+  doc.text('For P & P Pipe Products Pvt Ltd', 158, sigY + 12, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(60, 60, 60)
+  doc.text('Authorized Signatory', 158, sigY + 32, { align: 'center' })
+
+  doc.setTextColor(30, 30, 30)
+  return doc
+}
+
 async function downloadQuotationPdf(q: any) {
   const doc = await buildQuotationDoc(q)
   doc.save(`Quotation-${q.quotationNumber ?? 'draft'}.pdf`)
 }
 
+async function downloadQuotationPdfModern(q: any) {
+  const doc = await buildQuotationDocModern(q)
+  doc.save(`Quotation-Modern-${q.quotationNumber ?? 'draft'}.pdf`)
+}
+
 async function printQuotationPdf(q: any) {
   const doc = await buildQuotationDoc(q)
+  doc.autoPrint()
+  window.open(doc.output('bloburl'), '_blank')
+}
+
+async function printQuotationPdfModern(q: any) {
+  const doc = await buildQuotationDocModern(q)
   doc.autoPrint()
   window.open(doc.output('bloburl'), '_blank')
 }
@@ -1615,6 +1874,14 @@ function ViewQuotationModal({ id, onClose, onStatusChange, onEdit }: { id: numbe
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-white transition-colors">
                 <Download size={12} /> Download PDF
               </button>
+              <button onClick={() => printQuotationPdfModern(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 rounded-lg hover:bg-teal-50 transition-colors">
+                <Printer size={12} /> Print Modern
+              </button>
+              <button onClick={() => downloadQuotationPdfModern(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 rounded-lg hover:bg-teal-50 transition-colors">
+                <Download size={12} /> Download Modern
+              </button>
               {q.status === 'DRAFT' && (
                 <button onClick={onEdit}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-300 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors">
@@ -1858,11 +2125,19 @@ export default function QuotationsPage() {
                       </button>
                     )}
                     <button onClick={() => printQuotationPdf(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors" title="Print">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors" title="Print Classic">
                       <Printer size={15} />
                     </button>
                     <button onClick={() => downloadQuotationPdf(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Download PDF">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Download Classic PDF">
+                      <Download size={15} />
+                    </button>
+                    <button onClick={() => printQuotationPdfModern(q)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors" title="Print Modern">
+                      <Printer size={15} />
+                    </button>
+                    <button onClick={() => downloadQuotationPdfModern(q)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors" title="Download Modern PDF">
                       <Download size={15} />
                     </button>
                   </div>
