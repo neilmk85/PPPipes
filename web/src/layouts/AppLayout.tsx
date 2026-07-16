@@ -62,6 +62,8 @@ const navEntries: NavEntry[] = [
       { path: '/production/reports/fabrication',    icon: <BarChart2 size={14} />,    label: 'Fabrication Report' },
       { path: '/production/reports/coating',        icon: <BarChart2 size={14} />,    label: 'Coating Report' },
       { path: '/production/reports/spinning',       icon: <BarChart2 size={14} />,    label: 'Spinning Report' },
+      { path: '/production/reports/winding2',       icon: <BarChart2 size={14} />,    label: 'Winding 2 Report' },
+      { path: '/production/reports/coating2',       icon: <BarChart2 size={14} />,    label: 'Coating 2 Report' },
     ],
   },
   {

@@ -68,6 +68,8 @@ import ProductionReportsPage from '@/pages/production/ProductionReportsPage'
 import FabricationReportPage from '@/pages/production/FabricationReportPage'
 import CoatingReportPage from '@/pages/production/CoatingReportPage'
 import SpinningReportPage from '@/pages/production/SpinningReportPage'
+import Winding2ReportPage from '@/pages/production/Winding2ReportPage'
+import Coating2ReportPage from '@/pages/production/Coating2ReportPage'
 import ProductionEntryDetailPage from '@/pages/production/ProductionEntryDetailPage'
 import BusinessPage from '@/pages/business/BusinessPage'
 import CementBagsPage from '@/pages/business/CementBagsPage'
@@ -223,6 +225,8 @@ export default function App() {
           <Route path="/production/reports/fabrication" element={<ProtectedRoute><FabricationReportPage /></ProtectedRoute>} />
           <Route path="/production/reports/coating" element={<ProtectedRoute><CoatingReportPage /></ProtectedRoute>} />
           <Route path="/production/reports/spinning" element={<ProtectedRoute><SpinningReportPage /></ProtectedRoute>} />
+          <Route path="/production/reports/winding2" element={<ProtectedRoute><Winding2ReportPage /></ProtectedRoute>} />
+          <Route path="/production/reports/coating2" element={<ProtectedRoute><Coating2ReportPage /></ProtectedRoute>} />
           <Route path="/site" element={<ProtectedRoute><SitePage /></ProtectedRoute>} />
           <Route path="/site/projects" element={<ProtectedRoute><SitesPage /></ProtectedRoute>} />
           <Route path="/site/projects/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
