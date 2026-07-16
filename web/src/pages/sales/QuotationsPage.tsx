@@ -323,108 +323,96 @@ async function buildQuotationDocModern(q: any): Promise<jsPDF> {
   drawPageHeader(doc, logoB64, deityB64)
   drawPageFooter(doc, logoB64)
 
-  // ── Title bar ────────────────────────────────────────────────────────
-  doc.setFillColor(...TEAL)
-  doc.rect(L, CONTENT_T, W, 9, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.setTextColor(255, 255, 255)
-  doc.text('QUOTATION', 105, CONTENT_T + 6.2, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.text(q.quotationNumber ?? 'P&P/Quotation/2026-27', L + 2, CONTENT_T + 6.2)
-  doc.text(`Date: ${dateStr}`, R - 2, CONTENT_T + 6.2, { align: 'right' })
-
-  // ── Two-column info cards ─────────────────────────────────────────────
-  const CARD_Y = CONTENT_T + 13
-  const CARD_H = 38
-  const COL1_W = 91
-  const COL2_W = 85
-  const COL2_X = R - COL2_W
-
-  // Bill To card
-  doc.setFillColor(...LTEAL)
-  doc.roundedRect(L, CARD_Y, COL1_W, CARD_H, 2, 2, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(6.5)
-  doc.setTextColor(...TEAL)
-  doc.text('TO', L + 3, CARD_Y + 4.5)
+  // ── Title row ─────────────────────────────────────────────────────────
   doc.setDrawColor(...TEAL)
-  doc.setLineWidth(0.3)
-  doc.line(L + 1, CARD_Y + 6.5, L + COL1_W - 1, CARD_Y + 6.5)
-
-  let cy = CARD_Y + 11
+  doc.setLineWidth(0.6)
+  doc.line(L, CONTENT_T, R, CONTENT_T)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8.5)
-  doc.setTextColor(15, 15, 15)
-  doc.text((q.customer?.name ?? 'Customer').toUpperCase(), L + 3, cy); cy += 5
+  doc.setFontSize(16)
+  doc.setTextColor(...TEAL)
+  doc.text('QUOTATION', L, CONTENT_T + 9)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor(50, 50, 50)
+  doc.setFontSize(8.5)
+  doc.setTextColor(100, 100, 100)
+  doc.text(q.quotationNumber ?? 'P&P/Quotation/2026-27', R, CONTENT_T + 5, { align: 'right' })
+  doc.text(`Date: ${dateStr}`, R, CONTENT_T + 11, { align: 'right' })
+  doc.setDrawColor(200, 215, 225)
+  doc.setLineWidth(0.3)
+  doc.line(L, CONTENT_T + 14, R, CONTENT_T + 14)
+
+  // ── To / Details two-column (plain text, no backgrounds) ─────────────
+  const INFO_Y = CONTENT_T + 20
+  const COL2_X = 120
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.setTextColor(...TEAL)
+  doc.text('TO', L, INFO_Y)
+
+  let cy = INFO_Y + 5.5
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(15, 15, 15)
+  doc.text((q.customer?.name ?? 'Customer').toUpperCase(), L, cy); cy += 5.5
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(60, 60, 60)
   if (q.customer?.address) {
-    const al = doc.splitTextToSize(q.customer.address, COL1_W - 6)
-    doc.text(al, L + 3, cy); cy += al.length * 4.2
+    const al = doc.splitTextToSize(q.customer.address, 98)
+    doc.text(al, L, cy); cy += al.length * 5
   }
-  if (q.customer?.city)  { doc.text(`Dist: ${q.customer.city}`, L + 3, cy); cy += 4.2 }
-  if (q.customer?.state) { doc.text(`State: ${q.customer.state}`, L + 3, cy); cy += 4.2 }
+  if (q.customer?.city)  { doc.text(`Dist: ${q.customer.city}`, L, cy); cy += 5 }
+  if (q.customer?.state) { doc.text(`State: ${q.customer.state}`, L, cy); cy += 5 }
   if (q.customer?.gstin) {
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(...TEAL)
-    doc.text(`GSTIN: ${q.customer.gstin}`, L + 3, cy)
+    doc.text(`GSTIN: ${q.customer.gstin}`, L, cy)
   }
 
-  // Quotation details card
-  doc.setFillColor(...LTEAL)
-  doc.roundedRect(COL2_X, CARD_Y, COL2_W, CARD_H, 2, 2, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(6.5)
-  doc.setTextColor(...TEAL)
-  doc.text('QUOTATION DETAILS', COL2_X + 3, CARD_Y + 4.5)
-  doc.setDrawColor(...TEAL)
-  doc.setLineWidth(0.3)
-  doc.line(COL2_X + 1, CARD_Y + 6.5, COL2_X + COL2_W - 1, CARD_Y + 6.5)
-
-  const details: [string, string][] = [
-    ['Reference No.', q.quotationNumber ?? 'P&P/QT/2026-27'],
+  // Right column — ref details, no box
+  const rDetails: [string, string][] = [
+    ['Ref No.', q.quotationNumber ?? 'P&P/QT/2026-27'],
     ['Date', dateStr],
     ['Valid Until', validDate],
   ]
-  let dy = CARD_Y + 13
-  details.forEach(([label, val]) => {
+  let dy = INFO_Y + 5.5
+  rDetails.forEach(([label, val]) => {
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(80, 80, 80)
-    doc.text(label, COL2_X + 3, dy)
+    doc.setFontSize(8.5)
+    doc.setTextColor(110, 110, 110)
+    doc.text(label, COL2_X, dy)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(15, 15, 15)
-    doc.text(val, COL2_X + COL2_W - 3, dy, { align: 'right' })
+    doc.setTextColor(20, 20, 20)
+    doc.text(val, R, dy, { align: 'right' })
     dy += 7
   })
 
-  // ── Subject line with left accent ─────────────────────────────────────
-  const sy = CARD_Y + CARD_H + 7
-  doc.setFillColor(...TEAL)
-  doc.rect(L, sy - 1, 2.5, 11, 'F')
+  // ── Thin divider ──────────────────────────────────────────────────────
+  const divY = Math.max(cy, dy) + 4
+  doc.setDrawColor(200, 215, 225)
+  doc.setLineWidth(0.3)
+  doc.line(L, divY, R, divY)
+
+  // ── Subject & intro ───────────────────────────────────────────────────
+  let sy = divY + 7
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8.5)
-  doc.setTextColor(15, 15, 15)
+  doc.setFontSize(9)
+  doc.setTextColor(20, 20, 20)
   const subject = q.notes
     ? `Sub: ${q.notes}`
     : `Sub: Quotation for supply PCC Pipes As Per IS 784:2019.`
-  const subLines = doc.splitTextToSize(subject, W - 8)
-  doc.text(subLines, L + 5, sy + 4)
+  const subLines = doc.splitTextToSize(subject, W)
+  doc.text(subLines, L, sy); sy += subLines.length * 5.5 + 3
 
-  const bodyY = sy + subLines.length * 5 + 5
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(30, 30, 30)
-  doc.text('Dear Sir,', L, bodyY)
+  doc.setFontSize(9)
+  doc.setTextColor(40, 40, 40)
+  doc.text('Dear Sir,', L, sy); sy += 5.5
   const introLines = doc.splitTextToSize(
     'With reference to sited subject our quotation for supply of PCC pipes.', W)
-  doc.text(introLines, L, bodyY + 5.5)
+  doc.text(introLines, L, sy); sy += introLines.length * 5.5 + 5
 
   // ── Items table ────────────────────────────────────────────────────────
-  const tableStartY = bodyY + introLines.length * 5.5 + 6
   const items = q.items ?? []
   const tableBody = items.map((item: any, idx: number) => [
     String(idx + 1),
@@ -439,25 +427,26 @@ async function buildQuotationDocModern(q: any): Promise<jsPDF> {
   const taxRate    = items.length > 0 ? Number(items[0].taxRate ?? 18) : 18
 
   autoTable(doc, {
-    startY: tableStartY,
+    startY: sy,
     margin: { top: HEADER_H + 4, bottom: 297 - FOOTER_Y + 4 },
     head: [['SR\nNO.', 'DIA OF PIPE', 'QTY IN\nMTR', 'RATE /RMT', 'AMOUNT']],
     body: tableBody,
     theme: 'plain',
     styles: {
-      fontSize: 8.5,
-      cellPadding: 3,
+      fontSize: 9,
+      cellPadding: 3.5,
       textColor: [20, 20, 20],
+      lineColor: [210, 225, 235],
+      lineWidth: 0.2,
     },
     headStyles: {
       fillColor: [0, 82, 110],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 8.5,
+      fontSize: 9,
       halign: 'center',
-      cellPadding: 3.5,
+      cellPadding: 4,
     },
-    alternateRowStyles: { fillColor: [240, 249, 253] },
     columnStyles: {
       0: { cellWidth: 12, halign: 'center' as const },
       1: { cellWidth: 72 },
@@ -471,32 +460,26 @@ async function buildQuotationDocModern(q: any): Promise<jsPDF> {
     },
   })
 
-  // ── Totals block ──────────────────────────────────────────────────────
-  const finalY = (doc as any).lastAutoTable.finalY + 3
-  const TB_X = 108
-  const TB_W = 88
-  const TB_ROW = 7
-
-  doc.setFillColor(240, 249, 253)
-  doc.rect(TB_X, finalY, TB_W, TB_ROW, 'F')
+  // ── Totals — plain right-aligned text, one teal line above grand total ─
+  const finalY = (doc as any).lastAutoTable.finalY + 5
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(60, 60, 60)
-  doc.text('Sub Total', TB_X + 3, finalY + 4.8)
-  doc.text(INR(subtotal), R - 2, finalY + 4.8, { align: 'right' })
-
-  doc.setFillColor(240, 249, 253)
-  doc.rect(TB_X, finalY + TB_ROW, TB_W, TB_ROW, 'F')
-  doc.text(`GST @ ${taxRate}%`, TB_X + 3, finalY + TB_ROW + 4.8)
-  doc.text(INR(taxAmount), R - 2, finalY + TB_ROW + 4.8, { align: 'right' })
-
-  doc.setFillColor(...TEAL)
-  doc.rect(TB_X, finalY + TB_ROW * 2, TB_W, TB_ROW + 1, 'F')
-  doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(255, 255, 255)
-  doc.text('TOTAL AMOUNT', TB_X + 3, finalY + TB_ROW * 2 + 5.5)
-  doc.text(INR(grandTotal), R - 2, finalY + TB_ROW * 2 + 5.5, { align: 'right' })
+  doc.setTextColor(80, 80, 80)
+  doc.text('Sub Total', 140, finalY)
+  doc.text(INR(subtotal), R, finalY, { align: 'right' })
+
+  doc.text(`GST @ ${taxRate}%`, 140, finalY + 7)
+  doc.text(INR(taxAmount), R, finalY + 7, { align: 'right' })
+
+  doc.setDrawColor(...TEAL)
+  doc.setLineWidth(0.5)
+  doc.line(130, finalY + 10, R, finalY + 10)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(...TEAL)
+  doc.text('Total Amount', 130, finalY + 17)
+  doc.text(INR(grandTotal), R, finalY + 17, { align: 'right' })
 
   // ── Page 2: Terms ─────────────────────────────────────────────────────
   doc.addPage()
@@ -504,46 +487,44 @@ async function buildQuotationDocModern(q: any): Promise<jsPDF> {
   drawPageFooter(doc, logoB64)
 
   let ty = CONTENT_T
-  doc.setFillColor(...TEAL)
-  doc.rect(L, ty, W, 8, 'F')
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
-  doc.setTextColor(255, 255, 255)
-  doc.text('TERMS & CONDITIONS', 105, ty + 5.5, { align: 'center' })
-  ty += 12
+  doc.setFontSize(11)
+  doc.setTextColor(...TEAL)
+  doc.text('Terms & Conditions', L, ty)
+  doc.setDrawColor(...TEAL)
+  doc.setLineWidth(0.5)
+  doc.line(L, ty + 2, L + 60, ty + 2)
+  ty += 9
 
   const terms = q.termsConditions || DEFAULT_TERMS
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(20, 20, 20)
+  doc.setFontSize(9)
+  doc.setTextColor(30, 30, 30)
   const termLines = doc.splitTextToSize(terms.trim(), W)
   doc.text(termLines, L, ty)
   ty += termLines.length * 4.8 + 8
 
-  const closingY = Math.min(Math.max(ty + 6, CONTENT_T + 140), FOOTER_Y - 55)
-  doc.setFontSize(9)
+  const closingY = Math.min(Math.max(ty + 6, CONTENT_T + 140), FOOTER_Y - 50)
   const closingLines = doc.splitTextToSize(
     'If you need any further clarification/information, please feel free to call us. Assuring you of our best services and now look forward to receive your valued order in return.', W)
   doc.text(closingLines, L, closingY)
 
-  const sigY = closingY + closingLines.length * 5.5 + 8
+  const sigY = closingY + closingLines.length * 5.5 + 10
   doc.setFont('helvetica', 'normal')
-  doc.setTextColor(30, 30, 30)
+  doc.setTextColor(50, 50, 50)
   doc.text('Thanking you,', L, sigY)
 
-  doc.setFillColor(...LTEAL)
-  doc.roundedRect(120, sigY + 4, 76, 30, 2, 2, 'F')
-  doc.setDrawColor(...TEAL)
-  doc.setLineWidth(0.3)
-  doc.line(122, sigY + 28, 194, sigY + 28)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(...TEAL)
-  doc.text('For P & P Pipe Products Pvt Ltd', 158, sigY + 12, { align: 'center' })
+  doc.text('For P & P Pipe Products Pvt Ltd', R, sigY + 6, { align: 'right' })
+  doc.setDrawColor(150, 170, 180)
+  doc.setLineWidth(0.3)
+  doc.line(130, sigY + 22, R, sigY + 22)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
-  doc.setTextColor(60, 60, 60)
-  doc.text('Authorized Signatory', 158, sigY + 32, { align: 'center' })
+  doc.setTextColor(100, 100, 100)
+  doc.text('Authorized Signatory', R, sigY + 28, { align: 'right' })
 
   doc.setTextColor(30, 30, 30)
   return doc
