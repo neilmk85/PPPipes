@@ -429,7 +429,7 @@ async function buildQuotationDocModern(q: any): Promise<jsPDF> {
   autoTable(doc, {
     startY: sy,
     margin: { top: HEADER_H + 4, bottom: 297 - FOOTER_Y + 4 },
-    head: [['SR\nNO.', 'DIA OF PIPE', 'QTY IN\nMTR', 'RATE /RMT', 'AMOUNT']],
+    head: [['#', 'Dia of Pipe', 'Qty (Mtr)', 'Rate /Rmt', 'Amount']],
     body: tableBody,
     theme: 'plain',
     styles: {
@@ -440,12 +440,12 @@ async function buildQuotationDocModern(q: any): Promise<jsPDF> {
       lineWidth: 0.2,
     },
     headStyles: {
-      fillColor: [0, 82, 110],
-      textColor: [255, 255, 255],
+      fillColor: [230, 243, 250],
+      textColor: [0, 82, 110],
       fontStyle: 'bold',
-      fontSize: 9,
+      fontSize: 8,
       halign: 'center',
-      cellPadding: 4,
+      cellPadding: 3,
     },
     columnStyles: {
       0: { cellWidth: 12, halign: 'center' as const },
