@@ -348,7 +348,7 @@ async function buildQuotationDocModern(q: any): Promise<jsPDF> {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(6.5)
   doc.setTextColor(...TEAL)
-  doc.text('BILL TO', L + 3, CARD_Y + 4.5)
+  doc.text('TO', L + 3, CARD_Y + 4.5)
   doc.setDrawColor(...TEAL)
   doc.setLineWidth(0.3)
   doc.line(L + 1, CARD_Y + 6.5, L + COL1_W - 1, CARD_Y + 6.5)
