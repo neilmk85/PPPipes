@@ -120,7 +120,7 @@ function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
   if (logoB64)  doc.addImage(logoB64,  'PNG',  36, 2, 32, 28)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(24)
-  doc.setTextColor(25, 25, 80)
+  doc.setTextColor(0, 100, 180)
   doc.text('Pipe Products Pvt. Ltd.', 80, 22)
   doc.setFillColor(0, 82, 110)
   doc.rect(0, 32, PAGE_W, 8, 'F')
