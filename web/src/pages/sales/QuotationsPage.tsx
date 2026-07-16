@@ -101,7 +101,7 @@ async function loadImgBase64(url: string): Promise<string> {
   })
 }
 
-function drawPageHeader(doc: jsPDF, logoB64: string) {
+function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
   doc.setFillColor(255, 255, 255)
   doc.rect(0, 0, PAGE_W, 32, 'F')
   for (let i = 4; i <= 30; i += 4) {
@@ -109,12 +109,13 @@ function drawPageHeader(doc: jsPDF, logoB64: string) {
     doc.setLineWidth(0.7)
     doc.line(0, i, PAGE_W, i)
   }
-  if (logoB64) doc.addImage(logoB64, 'PNG', 38, 2, 36, 28)
+  if (deityB64) doc.addImage(deityB64, 'JPEG', 5,  2, 28, 28)
+  if (logoB64)  doc.addImage(logoB64,  'PNG',  36, 2, 32, 28)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(24)
   doc.setTextColor(25, 25, 80)
   doc.text('Pipe Products Pvt. Ltd.', 80, 22)
-  doc.setFillColor(55, 55, 55)
+  doc.setFillColor(0, 82, 110)
   doc.rect(0, 32, PAGE_W, 8, 'F')
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
@@ -123,21 +124,25 @@ function drawPageHeader(doc: jsPDF, logoB64: string) {
   doc.setTextColor(30, 30, 30)
 }
 
-function drawPageFooter(doc: jsPDF) {
-  doc.setFillColor(220, 220, 220)
+function drawPageFooter(doc: jsPDF, logoB64: string) {
+  doc.setFillColor(210, 235, 248)
   doc.roundedRect(5, FOOTER_Y, PAGE_W - 10, 18, 3, 3, 'F')
+  if (logoB64) doc.addImage(logoB64, 'PNG', 7, FOOTER_Y + 4, 10, 10)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
   doc.setTextColor(50, 50, 50)
-  doc.text('Factory : Gat No. 156, At Post Hotgi, Tal. South Solapur, Dist. Solapur - 413215.', 18, FOOTER_Y + 6)
-  doc.text('Office : 14/B, Asara Housing Society, Hotgi Road, Solapur - 413003.',              18, FOOTER_Y + 12)
+  doc.text('Factory : Gat No. 156, At Post Hotgi, Tal. South Solapur, Dist. Solapur - 413215.', 20, FOOTER_Y + 6)
+  doc.text('Office : 14/B, Asara Housing Society, Hotgi Road, Solapur - 413003.',              20, FOOTER_Y + 12)
   doc.text('Cell : 9922450055',                 150, FOOTER_Y + 6)
   doc.text('e-mail : pppipeproducts@gmail.com', 150, FOOTER_Y + 12)
   doc.setTextColor(30, 30, 30)
 }
 
 async function buildQuotationDoc(q: any): Promise<jsPDF> {
-  const logoB64 = await loadImgBase64('/pp-logo.png')
+  const [logoB64, deityB64] = await Promise.all([
+    loadImgBase64('/pp-logo.png'),
+    loadImgBase64('/pp-deity.jpg'),
+  ])
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const L = 14
   const R = 196
@@ -148,8 +153,8 @@ async function buildQuotationDoc(q: any): Promise<jsPDF> {
     : format(new Date(), 'dd-MM-yyyy')
 
   // ── Page 1 header & footer ─────────────────────────────────────────────
-  drawPageHeader(doc, logoB64)
-  drawPageFooter(doc)
+  drawPageHeader(doc, logoB64, deityB64)
+  drawPageFooter(doc, logoB64)
 
   // ── Reference & date ──────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold')
@@ -179,11 +184,15 @@ async function buildQuotationDoc(q: any): Promise<jsPDF> {
   }
   if (q.customer?.city)  { doc.text(`DIST-${q.customer.city.toUpperCase()},`,   L, y); y += 5.5 }
   if (q.customer?.state) { doc.text(`STATE-${q.customer.state.toUpperCase()}.`, L, y); y += 5.5 }
+  if (q.customer?.gstin) {
+    doc.setFont('helvetica', 'bold')
+    doc.text('GST NO - ' + q.customer.gstin, L, y); y += 5.5
+  }
   y += 4
 
   // ── Subject line ──────────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold')
-  const subject = q.notes ? `Sub: - ${q.notes}` : `Sub: - Quotation for supply of PCC pipes.`
+  const subject = q.notes ? `Sub: - ${q.notes}` : `Sub: - Quotation for supply PCC Pipes As Per IS 784:2019.`
   const subLines = doc.splitTextToSize(subject, W)
   doc.text(subLines, 40, y); y += subLines.length * 5.5 + 4
 
@@ -192,7 +201,7 @@ async function buildQuotationDoc(q: any): Promise<jsPDF> {
   doc.setFontSize(9.5)
   doc.text('Dear Sir,', L, y); y += 5.5
   const introLines = doc.splitTextToSize(
-    'With reference to above our quotation for supply of PCC pipes as mentioned below.-', W)
+    'With reference to sited subject our quotation for supply of PCC pipes.', W)
   doc.text(introLines, L, y); y += introLines.length * 5.5 + 4
 
   // ── Items table ───────────────────────────────────────────────────────
@@ -212,12 +221,12 @@ async function buildQuotationDoc(q: any): Promise<jsPDF> {
 
   tableBody.push(['', 'TOTAL',          totalQty.toLocaleString('en-IN'), '', INR(subtotal)])
   tableBody.push(['', `GST ${taxRate}%`, '',                              '', INR(taxAmount)])
-  tableBody.push(['', 'GRAND TOTAL',    '',                              '', INR(grandTotal)])
+  tableBody.push(['', 'TOTAL AMOUNT',   '',                              '', INR(grandTotal)])
 
   autoTable(doc, {
     startY: y,
     margin: { top: HEADER_H + 4, bottom: 297 - FOOTER_Y + 4 },
-    head: [['SR\nNO.', 'DIA OF PCC PIPE', 'QTY\nRMT', 'RATE/ RMT', 'AMOUNT (RS)']],
+    head: [['SR\nNO.', 'DIA OF PIPE', 'QTY IN\nMTR', 'RATE /RMT', 'AMOUNT']],
     body: tableBody,
     theme: 'grid',
     styles:     { fontSize: 8.5, cellPadding: 2.5, textColor: [20,20,20], lineColor: [100,100,100], lineWidth: 0.2 },
@@ -236,15 +245,15 @@ async function buildQuotationDoc(q: any): Promise<jsPDF> {
       }
     },
     didDrawPage: (_data: any) => {
-      drawPageHeader(doc, logoB64)
-      drawPageFooter(doc)
+      drawPageHeader(doc, logoB64, deityB64)
+      drawPageFooter(doc, logoB64)
     },
   })
 
   // ── Page 2: Terms & Conditions ────────────────────────────────────────
   doc.addPage()
-  drawPageHeader(doc, logoB64)
-  drawPageFooter(doc)
+  drawPageHeader(doc, logoB64, deityB64)
+  drawPageFooter(doc, logoB64)
 
   let ty = CONTENT_T
   doc.setFont('helvetica', 'bold')
