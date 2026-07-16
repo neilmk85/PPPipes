@@ -1280,6 +1280,8 @@ const CARD_PERMISSION_PCCP = [
   { key: 'CURING_1',            label: 'Curing 1' },
   { key: 'WINDING',             label: 'Winding' },
   { key: 'COATING',             label: 'Coating' },
+  { key: 'WINDING_2',           label: 'Winding 2' },
+  { key: 'COATING_2',           label: 'Coating 2' },
   { key: 'CURING_2',            label: 'Curing 2' },
   { key: 'FINAL_TESTING',       label: 'Final Testing' },
   { key: 'PDI',                 label: 'PDI' },
