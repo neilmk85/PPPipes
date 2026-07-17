@@ -1,23 +1,46 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 
-const NAV_ITEMS = [
-  { key: 'projects',                  label: 'Projects',         disabled: false },
-  { key: 'contractors',               label: 'Contractors',      disabled: false },
-  { key: 'work-orders',               label: 'Work Orders',      disabled: false },
-  { key: 'material-stock',            label: 'Material Stock',   disabled: false },
-  { key: 'work-bills',                label: 'Work Bills',       disabled: false },
-  { key: 'client-bills',              label: 'RA Bills',         disabled: false },
-  { key: 'material-issues',           label: 'Material Issues',  disabled: true  },
-  { key: 'progress-claims',           label: 'Progress Claims',  disabled: true  },
-  { key: 'daily-progress',            label: 'Daily Progress',   disabled: true  },
-  { key: 'reports/financial-summary',         label: 'Financial Report',      disabled: true  },
-  { key: 'reports/progress-report',           label: 'Progress Report',       disabled: true  },
-  { key: 'reports/work-bills-by-contractor',  label: 'Contractor Ledger',     disabled: false },
+export interface NavItem {
+  key: string
+  label: string
+  disabled?: boolean
+}
+
+export const MAIN_CONTRACTOR_NAV: NavItem[] = [
+  { key: 'projects',                             label: 'Projects'          },
+  { key: 'contractors',                          label: 'Contractors'       },
+  { key: 'work-orders',                          label: 'Work Orders'       },
+  { key: 'material-stock',                       label: 'Material Stock'    },
+  { key: 'work-bills',                           label: 'Work Bills'        },
+  { key: 'daily-progress',                       label: 'Daily Progress',   disabled: true },
+  { key: 'reports/financial-summary',            label: 'Financial Report', disabled: true },
+  { key: 'reports/work-bills-by-contractor',     label: 'Contractor Ledger' },
+  { key: 'reports/progress-report',              label: 'Progress Report',  disabled: true },
 ]
+
+export const SUB_CONTRACTOR_NAV: NavItem[] = [
+  { key: 'sub-contracts',   label: 'Agreement',        disabled: true },
+  { key: 'client-bills',    label: 'RA Bills'                         },
+  { key: 'daily-progress',  label: 'Daily Progress',   disabled: true },
+  { key: 'material-stock',  label: 'Material Tracking'                },
+  { key: 'sub-labour',      label: 'Labour & Equipment', disabled: true },
+  { key: 'sub-reports',     label: 'Progress Report',  disabled: true },
+]
+
+const DEFAULT_NAV: NavItem[] = [...MAIN_CONTRACTOR_NAV, { key: 'client-bills', label: 'RA Bills' }]
 
 type NavTheme = 'dark' | 'light'
 
-export default function SiteFloatingNav({ theme = 'light', inline = false }: { theme?: NavTheme; inline?: boolean }) {
+export default function SiteFloatingNav({
+  theme = 'light',
+  inline = false,
+  items,
+}: {
+  theme?: NavTheme
+  inline?: boolean
+  items?: NavItem[]
+}) {
+  const resolvedItems = items ?? DEFAULT_NAV
   const navigate = useNavigate()
   const { pathname } = useLocation()
 
@@ -45,7 +68,7 @@ export default function SiteFloatingNav({ theme = 'light', inline = false }: { t
         overflowX: 'auto',
         maxWidth: '100%',
       }}>
-        {NAV_ITEMS.map(item => {
+        {resolvedItems.map(item => {
           const isActive = pathname === `/site/${item.key}` || pathname.startsWith(`/site/${item.key}/`)
           return (
             <button
