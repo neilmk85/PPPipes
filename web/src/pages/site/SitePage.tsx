@@ -250,6 +250,7 @@ export default function SitePage() {
         borderBottom: '1px solid rgba(255,255,255,0.04)',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 10,
       }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', letterSpacing: '0.12em' }}>PP PIPES</div>
