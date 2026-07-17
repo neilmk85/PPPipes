@@ -128,9 +128,9 @@ function RoleCard({ card }: { card: CardDef }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        flex: 1,
         display: 'flex',
         flexDirection: 'column',
+        flex: 1,
         background: '#0c1220',
         borderRadius: 16,
         overflow: 'hidden',
@@ -142,7 +142,7 @@ function RoleCard({ card }: { card: CardDef }) {
     >
       {/* Top — visual pane */}
       <div style={{
-        height: 180,
+        height: 260,
         flexShrink: 0,
         background: card.gradient,
         position: 'relative',
@@ -172,7 +172,7 @@ function RoleCard({ card }: { card: CardDef }) {
 
       {/* Bottom — content pane */}
       <div style={{
-        padding: '24px 32px 28px',
+        padding: '24px 32px 20px',
         display: 'flex',
         flexDirection: 'column',
       }}>
@@ -274,7 +274,7 @@ export default function SitePage() {
       </div>
 
       {/* Cards — full width */}
-      <div style={{ flex: 1, display: 'flex', gap: 16, padding: '0 16px 24px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '0 16px 24px' }}>
         {CARDS.map(card => <RoleCard key={card.role} card={card} />)}
       </div>
     </div>
