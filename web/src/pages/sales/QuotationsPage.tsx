@@ -122,7 +122,7 @@ function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
   doc.setFontSize(24)
   doc.setTextColor(0, 100, 180)
   doc.text('Pipe Products Pvt. Ltd.', 80, 22)
-  doc.setFillColor(0, 82, 110)
+  doc.setFillColor(0, 114, 196)
   doc.rect(0, 32, PAGE_W, 8, 'F')
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
@@ -559,8 +559,8 @@ async function buildQuotationDocClean(q: any): Promise<jsPDF> {
   const L = 14
   const R = 196
   const W = 182
-  const PRP: [number, number, number] = [88, 68, 184]
-  const LPRP: [number, number, number] = [248, 246, 255]
+  const PRP: [number, number, number] = [0, 114, 196]
+  const LPRP: [number, number, number] = [235, 245, 255]
   const GREY: [number, number, number] = [110, 110, 110]
 
   const dateStr = q.createdAt
