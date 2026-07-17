@@ -133,11 +133,6 @@ async function loadImgBase64(url: string): Promise<string> {
 function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
   doc.setFillColor(255, 255, 255)
   doc.rect(0, 0, PAGE_W, 32, 'F')
-  doc.setDrawColor(195, 225, 242)
-  doc.setLineWidth(0.15)
-  for (let i = 2.5; i <= 31; i += 2.5) {
-    doc.line(0, i, PAGE_W, i)
-  }
   if (deityB64) doc.addImage(deityB64, 'JPEG', 5,  2, 28, 28)
   if (logoB64)  doc.addImage(logoB64,  'PNG',  36, 2, 32, 28)
   doc.setFont('helvetica', 'bold')
@@ -1642,6 +1637,8 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
   })
   const nextQuotationNumber: string = nextNumberData ?? ''
 
+  function handleClose() { setVisible(false); setTimeout(onClose, 300) }
+
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(id)
@@ -1652,8 +1649,6 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
-
-  function handleClose() { setVisible(false); setTimeout(onClose, 300) }
 
   async function addProduct(p: any) {
     const unitPrice = p.sellingPrice ?? p.price ?? 0
@@ -1746,10 +1741,10 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
   return (
     <>
       {/* Backdrop */}
-      <div className={`fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
+      <div className={`fixed inset-0 bg-black/30 z-[100] transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
 
       {/* Sliding panel */}
-      <div className={`fixed inset-y-0 right-0 left-[220px] z-50 transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-y-0 right-0 left-[220px] z-[110] transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="w-full h-full bg-[#f8f9fb] flex flex-col overflow-hidden">
 
           {/* ── Header ── */}
@@ -2109,12 +2104,6 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
   }, [])
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
-
-  useEffect(() => {
     quotationApi.getById(id).then(r => {
       const q = r.data.data
       setQuotationNumber(q.quotationNumber ?? '')
@@ -2141,6 +2130,12 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
   }, [id])
 
   function handleClose() { setVisible(false); setTimeout(onClose, 300) }
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   async function addProduct(p: any) {
     const unitPrice = p.sellingPrice ?? p.price ?? 0
@@ -2229,8 +2224,8 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
 
   return (
     <>
-      <div className={`fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
-      <div className={`fixed inset-y-0 right-0 left-[220px] z-50 transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-0 bg-black/30 z-[100] transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
+      <div className={`fixed inset-y-0 right-0 left-[220px] z-[110] transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="w-full h-full bg-[#f8f9fb] flex flex-col overflow-hidden">
 
           <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between shrink-0">
