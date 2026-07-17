@@ -133,6 +133,11 @@ async function loadImgBase64(url: string): Promise<string> {
 function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
   doc.setFillColor(255, 255, 255)
   doc.rect(0, 0, PAGE_W, 32, 'F')
+  doc.setDrawColor(173, 214, 234)
+  doc.setLineWidth(0.4)
+  for (let i = 3; i <= 31; i += 3) {
+    doc.line(0, i, PAGE_W, i)
+  }
   if (deityB64) doc.addImage(deityB64, 'JPEG', 5,  2, 28, 28)
   if (logoB64)  doc.addImage(logoB64,  'PNG',  36, 2, 32, 28)
   doc.setFont('helvetica', 'bold')
