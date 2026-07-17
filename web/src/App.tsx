@@ -113,6 +113,9 @@ import ClientBillsPage from '@/pages/site/ClientBillsPage'
 import FinancialSummaryPage from '@/pages/site/reports/FinancialSummaryPage'
 import ProgressReportPage from '@/pages/site/reports/ProgressReportPage'
 import WorkBillsReportPage from '@/pages/site/reports/WorkBillsReportPage'
+import SubContractsPage from '@/pages/site/SubContractsPage'
+import LabourEquipmentPage from '@/pages/site/LabourEquipmentPage'
+import SubProgressReportPage from '@/pages/site/SubProgressReportPage'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 0 } }
@@ -248,6 +251,9 @@ export default function App() {
           <Route path="/site/reports/financial-summary" element={<ProtectedRoute><FinancialSummaryPage /></ProtectedRoute>} />
           <Route path="/site/reports/progress-report" element={<ProtectedRoute><ProgressReportPage /></ProtectedRoute>} />
           <Route path="/site/reports/work-bills-by-contractor" element={<ProtectedRoute><WorkBillsReportPage /></ProtectedRoute>} />
+          <Route path="/site/sub-contracts" element={<ProtectedRoute><SubContractsPage /></ProtectedRoute>} />
+          <Route path="/site/sub-labour" element={<ProtectedRoute><LabourEquipmentPage /></ProtectedRoute>} />
+          <Route path="/site/sub-reports" element={<ProtectedRoute><SubProgressReportPage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

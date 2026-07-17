@@ -604,6 +604,16 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Phase 26: Sub-contracts
+	if err := db.AutoMigrate(&models.SubContract{}); err != nil {
+		slog.Error("[Database] Failed to migrate SubContract", "error", err)
+		return err
+	}
+	if err := db.AutoMigrate(&models.SubContractItem{}); err != nil {
+		slog.Error("[Database] Failed to migrate SubContractItem", "error", err)
+		return err
+	}
+
 	slog.Info("[Database] Migrations completed successfully")
 	return nil
 }

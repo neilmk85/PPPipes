@@ -19,12 +19,12 @@ export const MAIN_CONTRACTOR_NAV: NavItem[] = [
 ]
 
 export const SUB_CONTRACTOR_NAV: NavItem[] = [
-  { key: 'sub-contracts',   label: 'Agreement',        disabled: true },
-  { key: 'client-bills',    label: 'RA Bills'                         },
-  { key: 'daily-progress',  label: 'Daily Progress',   disabled: true },
-  { key: 'material-stock',  label: 'Material Tracking'                },
-  { key: 'sub-labour',      label: 'Labour & Equipment', disabled: true },
-  { key: 'sub-reports',     label: 'Progress Report',  disabled: true },
+  { key: 'sub-contracts',   label: 'Agreement'          },
+  { key: 'client-bills',    label: 'RA Bills'           },
+  { key: 'daily-progress',  label: 'Daily Progress'     },
+  { key: 'material-stock',  label: 'Material Tracking'  },
+  { key: 'sub-labour',      label: 'Labour & Equipment' },
+  { key: 'sub-reports',     label: 'Progress Report'    },
 ]
 
 const DEFAULT_NAV: NavItem[] = [...MAIN_CONTRACTOR_NAV, { key: 'client-bills', label: 'RA Bills' }]
