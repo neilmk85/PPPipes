@@ -284,7 +284,7 @@ export default function SitePage() {
         </div>
 
         {/* Cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <div style={{ display: 'flex', flexDirection: 'row', gap: 22 }}>
           {CARDS.map(card => <RoleCard key={card.role} card={card} />)}
         </div>
       </div>
