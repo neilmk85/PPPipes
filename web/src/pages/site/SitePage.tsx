@@ -155,15 +155,15 @@ function RoleCard({ card }: { card: CardDef }) {
         {card.visual}
         <div style={{
           position: 'relative', zIndex: 1,
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+          fontSize: 10, fontWeight: 500, letterSpacing: '0.16em',
           color: 'rgba(255,255,255,0.45)', marginBottom: 10, textTransform: 'uppercase',
         }}>
           {card.role}
         </div>
         <div style={{
           position: 'relative', zIndex: 1,
-          fontSize: 28, fontWeight: 800, color: 'white',
-          lineHeight: 1.18, letterSpacing: '-0.4px',
+          fontSize: 28, fontWeight: 900, color: 'white',
+          lineHeight: 1.15, letterSpacing: '-0.3px',
           whiteSpace: 'pre-line',
         }}>
           {card.tagline}
@@ -177,21 +177,21 @@ function RoleCard({ card }: { card: CardDef }) {
         flexDirection: 'column',
       }}>
         <div style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+          fontSize: 10, fontWeight: 500, letterSpacing: '0.16em',
           color: card.accent, marginBottom: 8, textTransform: 'uppercase', opacity: 0.9,
         }}>
           {card.role}
         </div>
 
         <h2 style={{
-          fontSize: 20, fontWeight: 800, color: '#eef2ff',
-          lineHeight: 1.2, letterSpacing: '-0.3px', marginBottom: 8,
+          fontSize: 20, fontWeight: 700, color: '#eef2ff',
+          lineHeight: 1.2, letterSpacing: '0px', marginBottom: 8,
         }}>
           {card.title}
         </h2>
 
         <p style={{
-          fontSize: 12.5, color: '#475569',
+          fontSize: 13, fontWeight: 300, color: '#475569',
           lineHeight: 1.7, marginBottom: 16,
         }}>
           {card.subtitle}
@@ -204,7 +204,7 @@ function RoleCard({ card }: { card: CardDef }) {
           {card.features.map(f => (
             <div key={f} style={{
               display: 'flex', alignItems: 'center', gap: 7,
-              fontSize: 11.5, color: '#64748b',
+              fontSize: 12, fontWeight: 400, color: '#64748b',
             }}>
               <div style={{
                 width: 4, height: 4, borderRadius: '50%',
@@ -221,7 +221,7 @@ function RoleCard({ card }: { card: CardDef }) {
           border: `1px solid ${hovered ? card.accent + '55' : 'rgba(255,255,255,0.08)'}`,
           borderRadius: 8,
           padding: '9px 16px',
-          fontSize: 12, fontWeight: 600,
+          fontSize: 12, fontWeight: 500,
           color: hovered ? card.accent : '#64748b',
           width: 'fit-content',
           transform: hovered ? 'translateX(5px)' : 'translateX(0)',
@@ -242,6 +242,7 @@ export default function SitePage() {
       background: '#06090f',
       display: 'flex',
       flexDirection: 'column',
+      fontFamily: "'Roboto', sans-serif",
     }}>
       {/* Header */}
       <div style={{
@@ -251,23 +252,22 @@ export default function SitePage() {
         alignItems: 'center',
         gap: 10,
       }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', letterSpacing: '0.1em' }}>PP PIPES</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', letterSpacing: '0.12em' }}>PP PIPES</div>
         <div style={{ width: 1, height: 12, background: '#1e293b' }} />
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#1e293b', letterSpacing: '0.06em' }}>SITE MODULE</div>
+        <div style={{ fontSize: 11, fontWeight: 400, color: '#1e293b', letterSpacing: '0.08em' }}>SITE MODULE</div>
       </div>
 
       {/* Intro text */}
       <div style={{ padding: '56px 64px 40px' }}>
         <div style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+          fontSize: 10, fontWeight: 500, letterSpacing: '0.14em',
           color: '#1e3a5f', textTransform: 'uppercase', marginBottom: 16,
         }}>
           Select your operating mode
         </div>
         <h1 style={{
-          fontFamily: "'Roboto', sans-serif",
           fontSize: 46, fontWeight: 300, color: '#60a5fa',
-          lineHeight: 1.1, letterSpacing: '0px',
+          lineHeight: 1.1, letterSpacing: '-0.5px',
         }}>
           How is PP Pipes engaged on this project?
         </h1>
