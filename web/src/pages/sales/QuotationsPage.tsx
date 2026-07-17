@@ -87,6 +87,7 @@ The quoted rates include TCS as per Government norms.
 Transportation charges are based on the current prevailing transport rates.
 Delivery will be made only up to motorable roads.
 Unloading at the site shall be arranged and paid for by the purchaser.
+Transportation charges shall be applicable extra for deliveries made beyond the delivery location specified by the purchaser.
 
 4. Product Specification
 The PCC Pipes shall be manufactured in accordance with IS 784:2019.`
