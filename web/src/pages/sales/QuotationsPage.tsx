@@ -70,24 +70,26 @@ const CONTENT_T = 46
 const FOOTER_Y  = 274
 const PAGE_W    = 210
 
-const OFFICIAL_TERMS = `Following terms & conditions:-
-    The pipe rates are for at Site and based on the present rates of raw materials and other inputs. Any increase in the above prices of raw materials will be paid at actuals to us plus taxes & duties applicable there on.
+const OFFICIAL_TERMS = `Terms & Conditions
 
-1) Taxes & duties :-
-i) Our Price is Exclusive of GST. The prevailing rate of GST is 18%.
-ii) If there is any rise in present taxes/duties, or imposition of any new taxes or any LBT/Octroi, etc. are levied on supply of PCC pipes, the same shall be made applicable and paid to us extra.
-iii) The rates are including third party inspection charges.
-iv) Rates are including with TCS as per Govt. norms.
+1. Price Validity
+The quoted pipe rates are for delivery at site.
+Prices are based on the current rates of raw materials and other inputs.
+Any increase in raw material prices will be charged at actual cost, along with applicable taxes and duties.
 
-2) Transportation:-
-We have considered prevailing transport.
-The pipes shall be transported up to motorable roads only.
-Unloading of the pipes at site will be done by you at your cost.
+2. Taxes & Duties
+GST is extra. The prevailing GST rate is 18%.
+Any increase in existing taxes/duties or the introduction of new taxes (such as LBT, Octroi, etc.) during the supply period will be payable by the purchaser.
+The quoted rates include Third Party Inspection charges.
+The quoted rates include TCS as per Government norms.
 
-3) Specification: The PCC pipes shall be manufactured conforming to IS 784-2019.
+3. Transportation
+Transportation charges are based on the current prevailing transport rates.
+Delivery will be made only up to motorable roads.
+Unloading at the site shall be arranged and paid for by the purchaser.
 
-4) Payment terms:-
-100% Advance with PO`
+4. Product Specification
+The PCC Pipes shall be manufactured in accordance with IS 784:2019.`
 
 const DEFAULT_TERMS = `The pipe rates are for at Site and based on the present rates of raw materials and other inputs. Any increase in the above prices of raw materials will be paid at actuals to us plus taxes & duties applicable there on.
 
