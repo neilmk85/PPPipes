@@ -818,7 +818,7 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
   const W    = 182
   const FY   = 274
   const BLUE: [number, number, number]  = [0, 114, 196]
-  const LBLUE: [number, number, number] = [232, 244, 253]
+  const LBLUE: [number, number, number] = [244, 250, 255]
   const GREY: [number, number, number]  = [110, 110, 110]
 
   const dateStr = q.createdAt
@@ -843,7 +843,7 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
 
   // Blue accent rule
   doc.setFillColor(...BLUE)
-  doc.rect(L, 38, W, 0.7, 'F')
+  doc.rect(L, 38, W, 0.2, 'F')
 
   // Company name under logo
   doc.setFont('helvetica', 'bold')
@@ -859,6 +859,9 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
   const BOX2_X = L + BOX_W + GAP
 
   const drawBox = (bx: number, title: string, lines: (string | null)[]) => {
+    // Shadow layer — offset grey rect behind the box
+    doc.setFillColor(210, 220, 230)
+    doc.roundedRect(bx + 1, BOX_Y + 1.5, BOX_W, BOX_H, 2, 2, 'F')
     doc.setFillColor(...LBLUE)
     doc.roundedRect(bx, BOX_Y, BOX_W, BOX_H, 2, 2, 'F')
     doc.setFont('helvetica', 'bold')
