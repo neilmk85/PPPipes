@@ -809,6 +809,279 @@ async function printQuotationPdfClean(q: any) {
   window.open(doc.output('bloburl'), '_blank')
 }
 
+async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
+  const logoB64 = await loadImgBase64('/pp-logo.png')
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const L    = 14
+  const R    = 196
+  const W    = 182
+  const FY   = 274
+  const BLUE: [number, number, number]  = [0, 114, 196]
+  const LBLUE: [number, number, number] = [232, 244, 253]
+  const GREY: [number, number, number]  = [110, 110, 110]
+
+  const dateStr = q.createdAt
+    ? format(new Date(q.createdAt), 'dd-MM-yyyy')
+    : format(new Date(), 'dd-MM-yyyy')
+
+  // ── Footer (all pages) ────────────────────────────────────────────────
+  drawPageFooter(doc, logoB64)
+
+  // ── Top: "Quotation" left + Logo right ───────────────────────────────
+  if (logoB64) doc.addImage(logoB64, 'PNG', R - 32, 8, 32, 26)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(24)
+  doc.setTextColor(20, 20, 20)
+  doc.text('Quotation', L, 22)
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(...GREY)
+  doc.text(`Quotation No.  ${q.quotationNumber ?? 'P&P/QT/2026-27'}`, L, 29)
+  doc.text(`Date  ${dateStr}`, L, 34)
+
+  // Blue accent rule
+  doc.setFillColor(...BLUE)
+  doc.rect(L, 38, W, 0.7, 'F')
+
+  // Company name under logo
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.setTextColor(...BLUE)
+  doc.text('P & P Pipe Products Pvt. Ltd.', R, 37, { align: 'right' })
+
+  // ── Two light blue boxes ──────────────────────────────────────────────
+  const BOX_Y  = 42
+  const BOX_H  = 42
+  const GAP    = 4
+  const BOX_W  = (W - GAP) / 2
+  const BOX2_X = L + BOX_W + GAP
+
+  const drawBox = (bx: number, title: string, lines: (string | null)[]) => {
+    doc.setFillColor(...LBLUE)
+    doc.roundedRect(bx, BOX_Y, BOX_W, BOX_H, 2, 2, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(...BLUE)
+    doc.text(title, bx + 3, BOX_Y + 5)
+    doc.setDrawColor(...BLUE)
+    doc.setLineWidth(0.2)
+    doc.line(bx + 1, BOX_Y + 7.5, bx + BOX_W - 1, BOX_Y + 7.5)
+    let ly = BOX_Y + 13
+    lines.filter(Boolean).forEach((ln, i) => {
+      if (i === 0) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        doc.setTextColor(15, 15, 15)
+      } else {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7.5)
+        doc.setTextColor(55, 55, 55)
+      }
+      const wrapped = doc.splitTextToSize(ln as string, BOX_W - 6)
+      doc.text(wrapped, bx + 3, ly)
+      ly += wrapped.length * (i === 0 ? 5.5 : 4.5)
+    })
+  }
+
+  drawBox(L, 'Quotation By', [
+    'P & P Pipe Products Pvt. Ltd.',
+    'Gat No. 156, At Post Hotgi,',
+    'Tal. South Solapur, Dist. Solapur - 413215',
+    'Cell: 9922450055',
+    'pppipeproducts@gmail.com',
+  ])
+
+  drawBox(BOX2_X, 'Quotation To', [
+    (q.customer?.name ?? 'Customer').toUpperCase(),
+    q.customer?.address ?? null,
+    q.customer?.city  ? `Dist: ${q.customer.city}`   : null,
+    q.customer?.state ? `State: ${q.customer.state}` : null,
+    q.customer?.gstin ? `GSTIN: ${q.customer.gstin}` : null,
+  ])
+
+  // ── Subject ───────────────────────────────────────────────────────────
+  let sy = BOX_Y + BOX_H + 6
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(35, 35, 35)
+  const subject = q.notes
+    ? `Sub: ${q.notes}`
+    : `Sub: Quotation for supply PCC Pipes As Per IS 784:2019.`
+  const subLines = doc.splitTextToSize(subject, W)
+  doc.text(subLines, L, sy); sy += subLines.length * 5 + 4
+
+  // ── Items table ───────────────────────────────────────────────────────
+  const items      = q.items ?? []
+  const tableBody  = items.map((item: any, idx: number) => [
+    `${idx + 1}.`,
+    item.productName ?? '',
+    Number(item.quantity).toLocaleString('en-IN'),
+    INR(Number(item.unitPrice)),
+    INR(Number(item.lineTotal)),
+  ])
+  const subtotal   = Number(q.subtotal   ?? 0)
+  const taxAmount  = Number(q.taxAmount  ?? 0)
+  const grandTotal = Number(q.totalAmount ?? 0)
+  const taxRate    = items.length > 0 ? Number(items[0].taxRate ?? 18) : 18
+
+  autoTable(doc, {
+    startY: sy,
+    margin: { top: 12, bottom: 297 - FY + 4 },
+    head: [['#', 'Item & Description', 'Qty (Mtr)', 'Rate /Rmt', 'Amount']],
+    body: tableBody,
+    theme: 'plain',
+    styles: { fontSize: 9, cellPadding: 3.5, textColor: [20, 20, 20] },
+    headStyles: {
+      fillColor: BLUE,
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'center',
+      cellPadding: 3.5,
+    },
+    alternateRowStyles: { fillColor: LBLUE },
+    columnStyles: {
+      0: { cellWidth: 12, halign: 'center' as const },
+      1: { cellWidth: 72 },
+      2: { cellWidth: 22, halign: 'right' as const },
+      3: { cellWidth: 34, halign: 'right' as const },
+      4: { cellWidth: 42, halign: 'right' as const },
+    },
+    didDrawPage: (_d: any) => { drawPageFooter(doc, logoB64) },
+  })
+
+  // ── Below table: Terms (left) + Totals (right) ───────────────────────
+  const belowY  = (doc as any).lastAutoTable.finalY + 6
+  const TERMS_W = 90
+  const TOT_X   = L + TERMS_W + 8
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.setTextColor(30, 30, 30)
+  doc.text('Terms & Conditions', L, belowY + 1)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(75, 75, 75)
+  const shortT = [
+    `• Price is exclusive of GST @ ${taxRate}%.`,
+    '• 80% interest-free advance with confirmed order.',
+    '• Transportation up to motorable roads only.',
+    '• Pipes as per IS 784-2019.',
+  ]
+  shortT.forEach((ln, i) => doc.text(ln, L, belowY + 7 + i * 4.5))
+
+  // Totals
+  let ty = belowY
+  const totals: [string, string, boolean][] = [
+    ['Sub Total',       INR(subtotal),   false],
+    [`GST @ ${taxRate}%`, INR(taxAmount), false],
+    ['Total',           INR(grandTotal), true ],
+  ]
+  totals.forEach(([label, val, bold]) => {
+    if (bold) {
+      doc.setFillColor(...BLUE)
+      doc.rect(TOT_X, ty - 3, R - TOT_X, 9, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9.5)
+      doc.setTextColor(255, 255, 255)
+      doc.text(label, TOT_X + 3, ty + 2.5)
+      doc.text(val,   R - 2,     ty + 2.5, { align: 'right' })
+      ty += 13
+    } else {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8.5)
+      doc.setTextColor(60, 60, 60)
+      doc.text(label, TOT_X + 3, ty)
+      doc.text(val,   R - 2,     ty,       { align: 'right' })
+      doc.setDrawColor(215, 215, 215)
+      doc.setLineWidth(0.2)
+      doc.line(TOT_X, ty + 3, R, ty + 3)
+      ty += 9
+    }
+  })
+
+  // ── Signature ─────────────────────────────────────────────────────────
+  const sigY = belowY + 37
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...BLUE)
+  doc.text('For P & P Pipe Products Pvt. Ltd.', R, sigY, { align: 'right' })
+  doc.setDrawColor(185, 185, 185)
+  doc.setLineWidth(0.3)
+  doc.line(148, sigY + 17, R, sigY + 17)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...GREY)
+  doc.text('Authorized Signatory', R, sigY + 22, { align: 'right' })
+
+  // ── Page 2: Full Terms ────────────────────────────────────────────────
+  doc.addPage()
+  drawPageFooter(doc, logoB64)
+
+  // Minimal page-2 header
+  if (logoB64) doc.addImage(logoB64, 'PNG', R - 28, 8, 28, 22)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(11)
+  doc.setTextColor(...BLUE)
+  doc.text('P & P Pipe Products Pvt. Ltd.', L, 19)
+  doc.setFillColor(...BLUE)
+  doc.rect(L, 24, W, 0.7, 'F')
+
+  let p2y = 31
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(...BLUE)
+  doc.text('Terms & Conditions', L, p2y)
+  doc.setDrawColor(...BLUE)
+  doc.setLineWidth(0.4)
+  doc.line(L, p2y + 2, L + 58, p2y + 2)
+  p2y += 9
+
+  const terms = q.termsConditions || DEFAULT_TERMS
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(25, 25, 25)
+  const termLines = doc.splitTextToSize(terms.trim(), W)
+  doc.text(termLines, L, p2y)
+  p2y += termLines.length * 4.8 + 10
+
+  const closingY = Math.min(Math.max(p2y, 180), FY - 45)
+  const closingLines = doc.splitTextToSize(
+    'If you need any further clarification/information, please feel free to call us. Assuring you of our best services and look forward to receiving your valued order.', W)
+  doc.text(closingLines, L, closingY)
+
+  const p2sigY = closingY + closingLines.length * 5 + 10
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(45, 45, 45)
+  doc.text('Thanking you,', L, p2sigY)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...BLUE)
+  doc.text('For P & P Pipe Products Pvt. Ltd.', R, p2sigY + 6, { align: 'right' })
+  doc.setDrawColor(185, 185, 185)
+  doc.setLineWidth(0.3)
+  doc.line(148, p2sigY + 22, R, p2sigY + 22)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...GREY)
+  doc.text('Authorized Signatory', R, p2sigY + 27, { align: 'right' })
+
+  return doc
+}
+
+async function downloadQuotationPdfBlue(q: any) {
+  const doc = await buildQuotationDocBlue(q)
+  doc.save(`Quotation-Blue-${q.quotationNumber ?? 'draft'}.pdf`)
+}
+
+async function printQuotationPdfBlue(q: any) {
+  const doc = await buildQuotationDocBlue(q)
+  doc.autoPrint()
+  window.open(doc.output('bloburl'), '_blank')
+}
+
 // ─── Product search dropdown ───────────────────────────────────────────────────
 
 function ProductSearch({ onSelect }: { onSelect: (p: any) => void }) {
@@ -2128,6 +2401,14 @@ function ViewQuotationModal({ id, onClose, onStatusChange, onEdit }: { id: numbe
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-200 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors">
                 <Download size={12} /> Download Pro
               </button>
+              <button onClick={() => printQuotationPdfBlue(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
+                <Printer size={12} /> Print Blue
+              </button>
+              <button onClick={() => downloadQuotationPdfBlue(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
+                <Download size={12} /> Download Blue
+              </button>
               {q.status === 'DRAFT' && (
                 <button onClick={onEdit}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-300 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors">
@@ -2392,6 +2673,14 @@ export default function QuotationsPage() {
                     </button>
                     <button onClick={() => downloadQuotationPdfClean(q)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors" title="Download Pro PDF">
+                      <Download size={15} />
+                    </button>
+                    <button onClick={() => printQuotationPdfBlue(q)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Print Blue">
+                      <Printer size={15} />
+                    </button>
+                    <button onClick={() => downloadQuotationPdfBlue(q)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Download Blue PDF">
                       <Download size={15} />
                     </button>
                   </div>
