@@ -142,7 +142,7 @@ function RoleCard({ card }: { card: CardDef }) {
     >
       {/* Top — visual pane */}
       <div style={{
-        height: 260,
+        height: 180,
         flexShrink: 0,
         background: card.gradient,
         position: 'relative',
