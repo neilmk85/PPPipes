@@ -859,9 +859,6 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
   const BOX2_X = L + BOX_W + GAP
 
   const drawBox = (bx: number, title: string, lines: (string | null)[]) => {
-    // Shadow layer — offset grey rect behind the box
-    doc.setFillColor(210, 220, 230)
-    doc.roundedRect(bx + 1, BOX_Y + 1.5, BOX_W, BOX_H, 2, 2, 'F')
     doc.setFillColor(...LBLUE)
     doc.roundedRect(bx, BOX_Y, BOX_W, BOX_H, 2, 2, 'F')
     doc.setFont('helvetica', 'bold')
@@ -907,7 +904,7 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
   // ── Subject ───────────────────────────────────────────────────────────
   let sy = BOX_Y + BOX_H + 6
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8.5)
+  doc.setFontSize(10)
   doc.setTextColor(35, 35, 35)
   const subject = q.notes
     ? `Sub: ${q.notes}`
@@ -955,32 +952,15 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
     didDrawPage: (_d: any) => { drawPageFooter(doc, logoB64) },
   })
 
-  // ── Below table: Terms (left) + Totals (right) ───────────────────────
-  const belowY  = (doc as any).lastAutoTable.finalY + 6
-  const TERMS_W = 90
-  const TOT_X   = L + TERMS_W + 8
+  // ── Totals (right-aligned, immediately below table) ──────────────────
+  const belowY = (doc as any).lastAutoTable.finalY + 6
+  const TOT_X  = 108
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(30, 30, 30)
-  doc.text('Terms & Conditions', L, belowY + 1)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.setTextColor(75, 75, 75)
-  const shortT = [
-    `• Price is exclusive of GST @ ${taxRate}%.`,
-    '• 80% interest-free advance with confirmed order.',
-    '• Transportation up to motorable roads only.',
-    '• Pipes as per IS 784-2019.',
-  ]
-  shortT.forEach((ln, i) => doc.text(ln, L, belowY + 7 + i * 4.5))
-
-  // Totals
   let ty = belowY
   const totals: [string, string, boolean][] = [
-    ['Sub Total',       INR(subtotal),   false],
-    [`GST @ ${taxRate}%`, INR(taxAmount), false],
-    ['Total',           INR(grandTotal), true ],
+    ['Sub Total',          INR(subtotal),   false],
+    [`GST @ ${taxRate}%`,  INR(taxAmount),  false],
+    ['Total',              INR(grandTotal), true ],
   ]
   totals.forEach(([label, val, bold]) => {
     if (bold) {
@@ -997,7 +977,7 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
       doc.setFontSize(8.5)
       doc.setTextColor(60, 60, 60)
       doc.text(label, TOT_X + 3, ty)
-      doc.text(val,   R - 2,     ty,       { align: 'right' })
+      doc.text(val,   R - 2,     ty, { align: 'right' })
       doc.setDrawColor(215, 215, 215)
       doc.setLineWidth(0.2)
       doc.line(TOT_X, ty + 3, R, ty + 3)
@@ -1005,8 +985,28 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
     }
   })
 
+  // ── Terms & Conditions at bottom of page ─────────────────────────────
+  const TC_Y = FY - 52
+  doc.setDrawColor(210, 210, 210)
+  doc.setLineWidth(0.2)
+  doc.line(L, TC_Y - 3, R, TC_Y - 3)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(30, 30, 30)
+  doc.text('Terms & Conditions', L, TC_Y)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  doc.setTextColor(75, 75, 75)
+  const shortT = [
+    `• Price is exclusive of GST @ ${taxRate}%.`,
+    '• 80% interest-free advance with confirmed order.',
+    '• Transportation up to motorable roads only.',
+    '• Pipes as per IS 784-2019.',
+  ]
+  shortT.forEach((ln, i) => doc.text(ln, L, TC_Y + 5.5 + i * 4.5))
+
   // ── Signature ─────────────────────────────────────────────────────────
-  const sigY = belowY + 37
+  const sigY = TC_Y - 28
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8.5)
   doc.setTextColor(...BLUE)
