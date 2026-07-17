@@ -1,165 +1,291 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  HardHat, Building2, ClipboardList, FileText, Archive,
-  IndianRupee, TrendingUp, CalendarDays, ChevronRight,
-  Wrench, Receipt,
-} from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 
 const MAIN_FEATURES = [
-  { icon: <Building2 size={13} />, label: 'Projects & Sites' },
-  { icon: <HardHat size={13} />, label: 'Contractors & Work Orders' },
-  { icon: <FileText size={13} />, label: 'Work Bills & Payments' },
-  { icon: <Archive size={13} />, label: 'Material Stock' },
-  { icon: <CalendarDays size={13} />, label: 'Daily Progress' },
-  { icon: <IndianRupee size={13} />, label: 'Financial Reports' },
+  'Projects & Sites', 'Contractors & Work Orders',
+  'Work Bills & Payments', 'Material Stock',
+  'Daily Progress', 'Financial Reports',
 ]
 
 const SUB_FEATURES = [
-  { icon: <ClipboardList size={13} />, label: 'Sub-contract Agreement' },
-  { icon: <Receipt size={13} />, label: 'RA Bills to Client' },
-  { icon: <CalendarDays size={13} />, label: 'Daily Progress Tracking' },
-  { icon: <Archive size={13} />, label: 'Material Tracking' },
-  { icon: <TrendingUp size={13} />, label: 'Progress Reports' },
-  { icon: <Wrench size={13} />, label: 'Labour & Equipment' },
+  'Sub-contract Agreement', 'RA Bills to Client',
+  'Daily Progress Tracking', 'Material Tracking',
+  'Progress Reports', 'Labour & Equipment',
 ]
 
-function HalfPanel({
-  role, title, subtitle, features, gradient, textColor, chipBg, chipText, ctaLabel, onClick,
-}: {
-  role: string; title: string; subtitle: string
-  features: { icon: React.ReactNode; label: string }[]
-  gradient: string; textColor: string; chipBg: string; chipText: string
-  ctaLabel: string; onClick: () => void
-}) {
+function MainVisual() {
+  return (
+    <svg viewBox="0 0 300 400" fill="none" xmlns="http://www.w3.org/2000/svg"
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+      <circle cx="260" cy="40" r="130" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+      <circle cx="260" cy="40" r="80" stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
+      <line x1="90" y1="110" x2="210" y2="70" stroke="rgba(167,139,250,0.22)" strokeWidth="0.8" />
+      <line x1="90" y1="110" x2="240" y2="180" stroke="rgba(167,139,250,0.18)" strokeWidth="0.8" />
+      <line x1="90" y1="110" x2="170" y2="260" stroke="rgba(167,139,250,0.2)" strokeWidth="0.8" />
+      <line x1="90" y1="110" x2="50" y2="230" stroke="rgba(167,139,250,0.15)" strokeWidth="0.8" />
+      <line x1="90" y1="110" x2="145" y2="155" stroke="rgba(167,139,250,0.28)" strokeWidth="0.8" />
+      <line x1="210" y1="70" x2="240" y2="180" stroke="rgba(167,139,250,0.13)" strokeWidth="0.8" />
+      <line x1="240" y1="180" x2="170" y2="260" stroke="rgba(167,139,250,0.13)" strokeWidth="0.8" />
+      <line x1="170" y1="260" x2="260" y2="300" stroke="rgba(167,139,250,0.1)" strokeWidth="0.8" />
+      <line x1="145" y1="155" x2="240" y2="180" stroke="rgba(167,139,250,0.16)" strokeWidth="0.8" />
+      <line x1="50" y1="230" x2="170" y2="260" stroke="rgba(167,139,250,0.12)" strokeWidth="0.8" />
+      <circle cx="90" cy="110" r="7" fill="rgba(167,139,250,0.85)" />
+      <circle cx="90" cy="110" r="14" stroke="rgba(167,139,250,0.25)" strokeWidth="1" />
+      <circle cx="210" cy="70" r="4.5" fill="rgba(167,139,250,0.55)" />
+      <circle cx="240" cy="180" r="4.5" fill="rgba(167,139,250,0.55)" />
+      <circle cx="170" cy="260" r="5" fill="rgba(167,139,250,0.6)" />
+      <circle cx="50" cy="230" r="4" fill="rgba(167,139,250,0.4)" />
+      <circle cx="145" cy="155" r="3.5" fill="rgba(167,139,250,0.6)" />
+      <circle cx="260" cy="300" r="3.5" fill="rgba(167,139,250,0.3)" />
+      <rect x="72" y="280" width="80" height="2" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="72" y="290" width="55" height="2" rx="1" fill="rgba(255,255,255,0.04)" />
+    </svg>
+  )
+}
+
+function SubVisual() {
+  return (
+    <svg viewBox="0 0 300 400" fill="none" xmlns="http://www.w3.org/2000/svg"
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+      <circle cx="260" cy="360" r="150" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+      <path d="M-10 70 Q55 70 80 100 Q105 130 160 128 Q215 126 240 96 Q265 66 310 68"
+        stroke="rgba(94,234,212,0.22)" strokeWidth="1.5" fill="none" />
+      <path d="M-10 145 Q45 145 80 168 Q115 191 165 189 Q215 187 248 164 Q281 141 310 143"
+        stroke="rgba(94,234,212,0.18)" strokeWidth="1.5" fill="none" />
+      <path d="M-10 225 Q70 225 105 248 Q140 271 185 266 Q230 261 258 238 Q286 215 310 217"
+        stroke="rgba(94,234,212,0.15)" strokeWidth="1.5" fill="none" />
+      <path d="M-10 305 Q60 305 100 284 Q140 263 195 278 Q250 293 310 290"
+        stroke="rgba(94,234,212,0.11)" strokeWidth="1.5" fill="none" />
+      <circle cx="80" cy="100" r="5" stroke="rgba(94,234,212,0.55)" strokeWidth="1.5" fill="rgba(20,184,166,0.2)" />
+      <circle cx="160" cy="128" r="5" stroke="rgba(94,234,212,0.55)" strokeWidth="1.5" fill="rgba(20,184,166,0.2)" />
+      <circle cx="240" cy="96" r="4.5" stroke="rgba(94,234,212,0.45)" strokeWidth="1.5" fill="rgba(20,184,166,0.15)" />
+      <circle cx="80" cy="168" r="4.5" stroke="rgba(94,234,212,0.45)" strokeWidth="1.5" fill="rgba(20,184,166,0.15)" />
+      <circle cx="165" cy="189" r="5" stroke="rgba(94,234,212,0.5)" strokeWidth="1.5" fill="rgba(20,184,166,0.18)" />
+      <circle cx="105" cy="248" r="4.5" stroke="rgba(94,234,212,0.4)" strokeWidth="1.5" fill="rgba(20,184,166,0.12)" />
+      <circle cx="195" cy="278" r="4.5" stroke="rgba(94,234,212,0.4)" strokeWidth="1.5" fill="rgba(20,184,166,0.12)" />
+      <rect x="20" y="54" width="36" height="10" rx="2.5" fill="rgba(94,234,212,0.14)" />
+      <rect x="20" y="130" width="36" height="10" rx="2.5" fill="rgba(94,234,212,0.11)" />
+      <rect x="20" y="210" width="36" height="10" rx="2.5" fill="rgba(94,234,212,0.09)" />
+      <rect x="20" y="290" width="36" height="10" rx="2.5" fill="rgba(94,234,212,0.07)" />
+    </svg>
+  )
+}
+
+interface CardDef {
+  role: string
+  tagline: string
+  title: string
+  subtitle: string
+  features: string[]
+  route: string
+  gradient: string
+  glow: string
+  glowHover: string
+  accent: string
+  visual: React.ReactNode
+  cta: string
+}
+
+const CARDS: CardDef[] = [
+  {
+    role: 'MAIN CONTRACTOR',
+    tagline: 'You manage\nthe site',
+    title: 'PP Pipes as Main Contractor',
+    subtitle: 'PP Pipes is contracted directly by the project owner. Manage sub-contractors, work orders, billing, and full site operations from one place.',
+    features: MAIN_FEATURES,
+    route: '/site/main-contractor',
+    gradient: 'linear-gradient(150deg, #1a0640 0%, #2e1065 28%, #4c1d95 55%, #5b21b6 78%, #6d28d9 100%)',
+    glow: '0 0 0 1px rgba(109,40,217,0.22), 0 4px 32px rgba(76,29,149,0.12)',
+    glowHover: '0 0 0 1px rgba(124,58,237,0.52), 0 12px 64px rgba(109,40,217,0.26), 0 0 120px rgba(76,29,149,0.1)',
+    accent: '#a78bfa',
+    visual: <MainVisual />,
+    cta: 'Enter main contractor mode',
+  },
+  {
+    role: 'SUB-CONTRACTOR',
+    tagline: 'You deliver\nthe work',
+    title: 'PP Pipes as Sub-contractor',
+    subtitle: 'PP Pipes is hired by a main civil contractor for pipe-laying work. Raise RA Bills, track agreements, and log daily progress on your scope.',
+    features: SUB_FEATURES,
+    route: '/site/sub-contractor',
+    gradient: 'linear-gradient(150deg, #011512 0%, #042f2e 28%, #134e4a 55%, #0f766e 78%, #0d9488 100%)',
+    glow: '0 0 0 1px rgba(15,118,110,0.22), 0 4px 32px rgba(19,78,74,0.12)',
+    glowHover: '0 0 0 1px rgba(20,184,166,0.52), 0 12px 64px rgba(13,148,136,0.26), 0 0 120px rgba(19,78,74,0.1)',
+    accent: '#5eead4',
+    visual: <SubVisual />,
+    cta: 'Enter sub-contractor mode',
+  },
+]
+
+function RoleCard({ card }: { card: CardDef }) {
+  const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
 
   return (
     <div
-      onClick={onClick}
+      onClick={() => navigate(card.route)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        display: 'flex',
+        background: '#0c1220',
+        borderRadius: 22,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        boxShadow: hovered ? card.glowHover : card.glow,
+        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
+        transition: 'box-shadow 0.38s cubic-bezier(0.4,0,0.2,1), transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+        minHeight: 400,
+      }}
+    >
+      {/* Left — visual pane */}
+      <div style={{
+        width: '40%',
+        flexShrink: 0,
+        background: card.gradient,
+        position: 'relative',
+        overflow: 'hidden',
+        padding: '52px 44px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-end',
+      }}>
+        {card.visual}
+        <div style={{
+          position: 'relative', zIndex: 1,
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+          color: 'rgba(255,255,255,0.45)', marginBottom: 14, textTransform: 'uppercase',
+        }}>
+          {card.role}
+        </div>
+        <div style={{
+          position: 'relative', zIndex: 1,
+          fontSize: 26, fontWeight: 800, color: 'white',
+          lineHeight: 1.18, letterSpacing: '-0.4px',
+          whiteSpace: 'pre-line',
+        }}>
+          {card.tagline}
+        </div>
+      </div>
+
+      {/* Right — content pane */}
+      <div style={{
         flex: 1,
-        background: gradient,
+        padding: '56px 56px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
-        padding: '64px 56px',
-        cursor: 'pointer',
-        transition: 'filter 0.25s ease',
-        filter: hovered ? 'brightness(0.97)' : 'brightness(1)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Background decoration */}
-      <div style={{
-        position: 'absolute', inset: 0, opacity: 0.04,
-        backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)',
-        pointerEvents: 'none',
-      }} />
-
-      {/* Role tag */}
-      <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-        color: chipText, background: chipBg,
-        padding: '4px 10px', borderRadius: 20, marginBottom: 20,
-        width: 'fit-content',
       }}>
-        {role}
-      </div>
+        <div style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+          color: card.accent, marginBottom: 18, textTransform: 'uppercase', opacity: 0.9,
+        }}>
+          {card.role}
+        </div>
 
-      {/* Title */}
-      <h2 style={{
-        fontSize: 38, fontWeight: 800, color: textColor,
-        lineHeight: 1.15, letterSpacing: '-0.5px', marginBottom: 14,
-      }}>
-        {title}
-      </h2>
+        <h2 style={{
+          fontSize: 30, fontWeight: 800, color: '#eef2ff',
+          lineHeight: 1.15, letterSpacing: '-0.5px', marginBottom: 16,
+        }}>
+          {card.title}
+        </h2>
 
-      {/* Subtitle */}
-      <p style={{
-        fontSize: 15, color: textColor, opacity: 0.72,
-        lineHeight: 1.65, marginBottom: 36, maxWidth: 400,
-      }}>
-        {subtitle}
-      </p>
+        <p style={{
+          fontSize: 14, color: '#475569',
+          lineHeight: 1.78, marginBottom: 36, maxWidth: 430,
+        }}>
+          {card.subtitle}
+        </p>
 
-      {/* Feature chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 44 }}>
-        {features.map(f => (
-          <div key={f.label} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: chipBg, color: chipText,
-            padding: '5px 11px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-          }}>
-            {f.icon}{f.label}
-          </div>
-        ))}
-      </div>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          gap: '11px 36px', marginBottom: 48,
+        }}>
+          {card.features.map(f => (
+            <div key={f} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              fontSize: 13, color: '#64748b',
+            }}>
+              <div style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: card.accent, flexShrink: 0, opacity: 0.65,
+              }} />
+              {f}
+            </div>
+          ))}
+        </div>
 
-      {/* CTA */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        fontSize: 14, fontWeight: 700, color: textColor,
-        transform: hovered ? 'translateX(6px)' : 'translateX(0)',
-        transition: 'transform 0.25s ease',
-      }}>
-        {ctaLabel}
-        <ChevronRight size={18} style={{ opacity: 0.8 }} />
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 9,
+          background: hovered ? `${card.accent}12` : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${hovered ? card.accent + '55' : 'rgba(255,255,255,0.08)'}`,
+          borderRadius: 11,
+          padding: '12px 20px',
+          fontSize: 13, fontWeight: 600,
+          color: hovered ? card.accent : '#64748b',
+          width: 'fit-content',
+          transform: hovered ? 'translateX(5px)' : 'translateX(0)',
+          transition: 'all 0.32s cubic-bezier(0.4,0,0.2,1)',
+        }}>
+          {card.cta}
+          <ArrowRight size={15} style={{ opacity: 0.85 }} />
+        </div>
       </div>
     </div>
   )
 }
 
 export default function SitePage() {
-  const navigate = useNavigate()
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* Top bar */}
+    <div style={{
+      minHeight: '100vh',
+      background: '#06090f',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      {/* Header */}
       <div style={{
-        padding: '20px 40px', background: 'white',
-        borderBottom: '1px solid #f1f5f9',
-        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '22px 64px',
+        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
       }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.05em' }}>SITE</div>
-        <div style={{ width: 1, height: 14, background: '#e2e8f0' }} />
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>Select your role for this session</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', letterSpacing: '0.1em' }}>PP PIPES</div>
+        <div style={{ width: 1, height: 12, background: '#1e293b' }} />
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#1e293b', letterSpacing: '0.06em' }}>SITE MODULE</div>
       </div>
 
-      {/* Split panels */}
-      <div style={{ display: 'flex', flex: 1 }}>
-        <HalfPanel
-          role="MAIN CONTRACTOR"
-          title={<>PP Pipes as<br />Main Contractor</>  as any}
-          subtitle="PP Pipes is directly contracted by the project owner. Manage sub-contractors, work orders, bills, and site operations."
-          features={MAIN_FEATURES}
-          gradient="linear-gradient(135deg, #4c1d95 0%, #5b21b6 30%, #7c3aed 65%, #8b5cf6 100%)"
-          textColor="#ffffff"
-          chipBg="rgba(255,255,255,0.18)"
-          chipText="rgba(255,255,255,0.92)"
-          ctaLabel="Enter Main Contractor mode"
-          onClick={() => navigate('/site/main-contractor')}
-        />
+      {/* Content */}
+      <div style={{
+        flex: 1,
+        padding: '72px 64px 80px',
+        maxWidth: 1240,
+        margin: '0 auto',
+        width: '100%',
+        boxSizing: 'border-box',
+      }}>
+        {/* Intro text */}
+        <div style={{ marginBottom: 52 }}>
+          <div style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+            color: '#1e3a5f', textTransform: 'uppercase', marginBottom: 18,
+          }}>
+            Select your operating mode
+          </div>
+          <h1 style={{
+            fontSize: 46, fontWeight: 800, color: '#c7d2fe',
+            lineHeight: 1.1, letterSpacing: '-1.2px', maxWidth: 580,
+          }}>
+            How is PP Pipes engaged on this project?
+          </h1>
+        </div>
 
-        {/* Divider */}
-        <div style={{ width: 2, background: 'white', zIndex: 1, flexShrink: 0 }} />
-
-        <HalfPanel
-          role="SUB-CONTRACTOR"
-          title={<>PP Pipes as<br />Sub-contractor</>  as any}
-          subtitle="PP Pipes is hired by a main contractor for pipe-laying work. Track agreements, raise RA Bills, log daily progress."
-          features={SUB_FEATURES}
-          gradient="linear-gradient(135deg, #134e4a 0%, #0f766e 30%, #0d9488 65%, #14b8a6 100%)"
-          textColor="#ffffff"
-          chipBg="rgba(255,255,255,0.18)"
-          chipText="rgba(255,255,255,0.92)"
-          ctaLabel="Enter Sub-contractor mode"
-          onClick={() => navigate('/site/sub-contractor')}
-        />
+        {/* Cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {CARDS.map(card => <RoleCard key={card.role} card={card} />)}
+        </div>
       </div>
     </div>
   )
