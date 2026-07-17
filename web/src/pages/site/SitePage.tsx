@@ -172,40 +172,39 @@ function RoleCard({ card }: { card: CardDef }) {
 
       {/* Bottom — content pane */}
       <div style={{
-        flex: 1,
-        padding: '40px 44px 44px',
+        padding: '24px 32px 28px',
         display: 'flex',
         flexDirection: 'column',
       }}>
         <div style={{
           fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
-          color: card.accent, marginBottom: 14, textTransform: 'uppercase', opacity: 0.9,
+          color: card.accent, marginBottom: 8, textTransform: 'uppercase', opacity: 0.9,
         }}>
           {card.role}
         </div>
 
         <h2 style={{
-          fontSize: 24, fontWeight: 800, color: '#eef2ff',
-          lineHeight: 1.2, letterSpacing: '-0.4px', marginBottom: 12,
+          fontSize: 20, fontWeight: 800, color: '#eef2ff',
+          lineHeight: 1.2, letterSpacing: '-0.3px', marginBottom: 8,
         }}>
           {card.title}
         </h2>
 
         <p style={{
-          fontSize: 13, color: '#475569',
-          lineHeight: 1.75, marginBottom: 28,
+          fontSize: 12.5, color: '#475569',
+          lineHeight: 1.7, marginBottom: 16,
         }}>
           {card.subtitle}
         </p>
 
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-          gap: '10px 20px', marginBottom: 36, flex: 1,
+          gap: '7px 16px', marginBottom: 20,
         }}>
           {card.features.map(f => (
             <div key={f} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 12, color: '#64748b',
+              display: 'flex', alignItems: 'center', gap: 7,
+              fontSize: 11.5, color: '#64748b',
             }}>
               <div style={{
                 width: 4, height: 4, borderRadius: '50%',
@@ -217,19 +216,19 @@ function RoleCard({ card }: { card: CardDef }) {
         </div>
 
         <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 9,
+          display: 'inline-flex', alignItems: 'center', gap: 8,
           background: hovered ? `${card.accent}12` : 'rgba(255,255,255,0.04)',
           border: `1px solid ${hovered ? card.accent + '55' : 'rgba(255,255,255,0.08)'}`,
-          borderRadius: 10,
-          padding: '11px 18px',
-          fontSize: 13, fontWeight: 600,
+          borderRadius: 8,
+          padding: '9px 16px',
+          fontSize: 12, fontWeight: 600,
           color: hovered ? card.accent : '#64748b',
           width: 'fit-content',
           transform: hovered ? 'translateX(5px)' : 'translateX(0)',
           transition: 'all 0.32s cubic-bezier(0.4,0,0.2,1)',
         }}>
           {card.cta}
-          <ArrowRight size={15} style={{ opacity: 0.85 }} />
+          <ArrowRight size={14} style={{ opacity: 0.85 }} />
         </div>
       </div>
     </div>
