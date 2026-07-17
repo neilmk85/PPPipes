@@ -133,18 +133,18 @@ async function loadImgBase64(url: string): Promise<string> {
 function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
   doc.setFillColor(255, 255, 255)
   doc.rect(0, 0, PAGE_W, 32, 'F')
-  for (let i = 4; i <= 30; i += 4) {
-    doc.setDrawColor(180, 220, 240)
-    doc.setLineWidth(0.7)
+  doc.setDrawColor(185, 218, 238)
+  doc.setLineWidth(0.3)
+  for (let i = 3; i <= 31; i += 3) {
     doc.line(0, i, PAGE_W, i)
   }
   if (deityB64) doc.addImage(deityB64, 'JPEG', 5,  2, 28, 28)
   if (logoB64)  doc.addImage(logoB64,  'PNG',  36, 2, 32, 28)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(24)
-  doc.setTextColor(0, 100, 180)
+  doc.setTextColor(31, 73, 125)
   doc.text('Pipe Products Pvt. Ltd.', 80, 22)
-  doc.setFillColor(0, 114, 196)
+  doc.setFillColor(70, 130, 180)
   doc.rect(0, 32, PAGE_W, 8, 'F')
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
