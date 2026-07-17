@@ -275,7 +275,7 @@ export default function SitePage() {
             Select your operating mode
           </div>
           <h1 style={{
-            fontSize: 46, fontWeight: 800, color: '#c7d2fe',
+            fontSize: 46, fontWeight: 800, color: '#60a5fa',
             lineHeight: 1.1, letterSpacing: '-1.2px', maxWidth: 580,
           }}>
             How is PP Pipes engaged on this project?
