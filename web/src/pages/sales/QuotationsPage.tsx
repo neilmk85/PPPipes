@@ -70,6 +70,25 @@ const CONTENT_T = 46
 const FOOTER_Y  = 274
 const PAGE_W    = 210
 
+const OFFICIAL_TERMS = `Following terms & conditions:-
+    The pipe rates are for at Site and based on the present rates of raw materials and other inputs. Any increase in the above prices of raw materials will be paid at actuals to us plus taxes & duties applicable there on.
+
+1) Taxes & duties :-
+i) Our Price is Exclusive of GST. The prevailing rate of GST is 18%.
+ii) If there is any rise in present taxes/duties, or imposition of any new taxes or any LBT/Octroi, etc. are levied on supply of PCC pipes, the same shall be made applicable and paid to us extra.
+iii) The rates are including third party inspection charges.
+iv) Rates are including with TCS as per Govt. norms.
+
+2) Transportation:-
+We have considered prevailing transport.
+The pipes shall be transported up to motorable roads only.
+Unloading of the pipes at site will be done by you at your cost.
+
+3) Specification: The PCC pipes shall be manufactured conforming to IS 784-2019.
+
+4) Payment terms:-
+100% Advance with PO`
+
 const DEFAULT_TERMS = `The pipe rates are for at Site and based on the present rates of raw materials and other inputs. Any increase in the above prices of raw materials will be paid at actuals to us plus taxes & duties applicable there on.
 
 1) Taxes & duties :-
@@ -1082,6 +1101,198 @@ async function downloadQuotationPdfBlue(q: any) {
 
 async function printQuotationPdfBlue(q: any) {
   const doc = await buildQuotationDocBlue(q)
+  doc.autoPrint()
+  window.open(doc.output('bloburl'), '_blank')
+}
+
+async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
+  const [logoB64, deityB64] = await Promise.all([
+    loadImgBase64('/pp-logo.png'),
+    loadImgBase64('/pp-deity.jpg'),
+  ])
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const L = 14
+  const R = 196
+  const W = 182
+  const BLUE: [number, number, number]  = [0, 114, 196]
+  const LBLUE: [number, number, number] = [235, 246, 252]
+
+  const dateStr = q.createdAt
+    ? format(new Date(q.createdAt), 'dd-MM-yyyy')
+    : format(new Date(), 'dd-MM-yyyy')
+
+  drawPageHeader(doc, logoB64, deityB64)
+  drawPageFooter(doc, logoB64)
+
+  // ── Ref & Date ────────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9.5)
+  doc.setTextColor(20, 20, 20)
+  doc.text(q.quotationNumber ?? 'P&P/Quotation/2026-27', L, CONTENT_T)
+  doc.text(`Date: - ${dateStr}`, R, CONTENT_T, { align: 'right' })
+
+  // ── QUOTATION heading ─────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(15)
+  doc.setTextColor(20, 20, 20)
+  doc.text('QUOTATION', PAGE_W / 2, CONTENT_T + 9, { align: 'center' })
+  doc.setDrawColor(20, 20, 20)
+  doc.setLineWidth(0.4)
+  doc.line(74, CONTENT_T + 11, 136, CONTENT_T + 11)
+
+  // ── Two info boxes ────────────────────────────────────────────────────
+  const BOX_Y  = CONTENT_T + 15
+  const BOX_H  = 38
+  const GAP    = 4
+  const BOX_W  = (W - GAP) / 2
+  const BOX2_X = L + BOX_W + GAP
+
+  const drawInfoBox = (bx: number, title: string, name: string, lines: (string | null)[]) => {
+    doc.setFillColor(...LBLUE)
+    doc.roundedRect(bx, BOX_Y, BOX_W, BOX_H, 2, 2, 'F')
+    doc.setDrawColor(...BLUE)
+    doc.setLineWidth(0.2)
+    doc.line(bx + 1, BOX_Y + 7, bx + BOX_W - 1, BOX_Y + 7)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(...BLUE)
+    doc.text(title, bx + 3, BOX_Y + 5)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(15, 15, 15)
+    doc.text(name.toUpperCase(), bx + 3, BOX_Y + 13)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    doc.setTextColor(55, 55, 55)
+    let ly = BOX_Y + 19
+    lines.filter(Boolean).forEach(ln => {
+      const wrapped = doc.splitTextToSize(ln as string, BOX_W - 6)
+      doc.text(wrapped, bx + 3, ly)
+      ly += wrapped.length * 4.5
+    })
+  }
+
+  drawInfoBox(L, 'QUOTATION BY', 'P & P Pipe Products Pvt. Ltd.', [
+    'Gat No. 156, At Post Hotgi,',
+    'Tal. South Solapur, Dist. Solapur - 413215',
+    'Cell: 9922450055 | pppipeproducts@gmail.com',
+  ])
+
+  drawInfoBox(BOX2_X, 'QUOTATION TO', q.customer?.name ?? 'Customer', [
+    q.customer?.address ?? null,
+    q.customer?.city  ? `Dist: ${q.customer.city}` : null,
+    q.customer?.state ? `State: ${q.customer.state}` : null,
+    q.customer?.gstin ? `GSTIN: ${q.customer.gstin}` : null,
+  ])
+
+  // ── Subject ───────────────────────────────────────────────────────────
+  let y = BOX_Y + BOX_H + 7
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9.5)
+  doc.setTextColor(20, 20, 20)
+  const subject = q.notes
+    ? `Sub: - ${q.notes}`
+    : `Sub: - Quotation for supply PCC Pipes As Per IS 784:2019.`
+  const subLines = doc.splitTextToSize(subject, W)
+  doc.text(subLines, L, y); y += subLines.length * 5.5 + 4
+
+  // ── Dear Sir ──────────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.text('Dear Sir,', L, y); y += 5.5
+  const introLines = doc.splitTextToSize(
+    'With reference to sited subject our quotation for supply of PCC pipes.', W)
+  doc.text(introLines, L, y); y += introLines.length * 5 + 4
+
+  // ── Items table ───────────────────────────────────────────────────────
+  const items      = q.items ?? []
+  const tableBody  = items.map((item: any, idx: number) => [
+    String(idx + 1),
+    item.productName ?? '',
+    Number(item.quantity).toLocaleString('en-IN'),
+    INR(Number(item.unitPrice)),
+    INR(Number(item.lineTotal)),
+  ])
+  const subtotal   = Number(q.subtotal   ?? 0)
+  const taxAmount  = Number(q.taxAmount  ?? 0)
+  const grandTotal = Number(q.totalAmount ?? 0)
+  const taxRate    = items.length > 0 ? Number(items[0].taxRate ?? 18) : 18
+
+  tableBody.push(['', 'TOTAL',          items.reduce((s: number, i: any) => s + Number(i.quantity), 0).toLocaleString('en-IN'), '', INR(subtotal)])
+  tableBody.push(['', `GST ${taxRate}%`, '', '', INR(taxAmount)])
+  tableBody.push(['', 'GRAND TOTAL',    '', '', INR(grandTotal)])
+
+  autoTable(doc, {
+    startY: y,
+    margin: { top: HEADER_H + 4, bottom: 297 - FOOTER_Y + 4 },
+    head: [['SR NO.', 'DIA OF PCC PIPE', 'QTY RMT', 'RATE/ RMT', 'AMOUNT (RS)']],
+    body: tableBody,
+    theme: 'grid',
+    styles:     { fontSize: 8.5, cellPadding: 2.5, textColor: [20, 20, 20], lineColor: [100, 100, 100], lineWidth: 0.2 },
+    headStyles: { fillColor: [255, 255, 255], textColor: [20, 20, 20], fontStyle: 'bold', fontSize: 8.5, halign: 'center', lineColor: [60, 60, 60], lineWidth: 0.3 },
+    columnStyles: {
+      0: { cellWidth: 14,  halign: 'center' as const },
+      1: { cellWidth: 70 },
+      2: { cellWidth: 24,  halign: 'right' as const },
+      3: { cellWidth: 34,  halign: 'right' as const },
+      4: { cellWidth: 40,  halign: 'right' as const },
+    },
+    didParseCell: (data: any) => {
+      if (data.section === 'body' && data.row.index >= items.length) {
+        data.cell.styles.fontStyle = 'bold'
+        data.cell.styles.fillColor = [245, 245, 245]
+      }
+    },
+    didDrawPage: (_d: any) => {
+      drawPageHeader(doc, logoB64, deityB64)
+      drawPageFooter(doc, logoB64)
+    },
+  })
+
+  // ── Page 2: Terms & Conditions ────────────────────────────────────────
+  doc.addPage()
+  drawPageHeader(doc, logoB64, deityB64)
+  drawPageFooter(doc, logoB64)
+
+  let ty = CONTENT_T
+  const terms = q.termsConditions ? `Following terms & conditions:-\n    ${q.termsConditions}` : OFFICIAL_TERMS
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(20, 20, 20)
+  const termLines = doc.splitTextToSize(terms.trim(), W)
+  doc.text(termLines, L, ty)
+  ty += termLines.length * 4.9 + 8
+
+  const closingY = Math.min(Math.max(ty, CONTENT_T + 145), FOOTER_Y - 52)
+  const closingLines = doc.splitTextToSize(
+    '      If you need any further clarification/information, please feel free to call us. Assuring you of our best services and now look forward to receive your valued order in return.', W)
+  doc.text(closingLines, L, closingY)
+
+  const sigY = closingY + closingLines.length * 5.5 + 8
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(20, 20, 20)
+  doc.text('Thanking you,', L, sigY)
+  doc.text('Regards,', R, sigY + 10, { align: 'right' })
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 100, 100)
+  doc.text('For: - P & P Pipe Products Pvt Ltd', R, sigY + 22, { align: 'right' })
+  doc.setDrawColor(80, 80, 80)
+  doc.setLineWidth(0.3)
+  doc.line(130, sigY + 37, R, sigY + 37)
+  doc.setFont('helvetica', 'bold')
+  doc.text('Authorized Signatory', R, sigY + 43, { align: 'right' })
+
+  return doc
+}
+
+async function downloadQuotationPdfOfficial(q: any) {
+  const doc = await buildQuotationDocOfficial(q)
+  doc.save(`Quotation-Official-${q.quotationNumber ?? 'draft'}.pdf`)
+}
+
+async function printQuotationPdfOfficial(q: any) {
+  const doc = await buildQuotationDocOfficial(q)
   doc.autoPrint()
   window.open(doc.output('bloburl'), '_blank')
 }
@@ -2413,6 +2624,14 @@ function ViewQuotationModal({ id, onClose, onStatusChange, onEdit }: { id: numbe
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
                 <Download size={12} /> Download Blue
               </button>
+              <button onClick={() => printQuotationPdfOfficial(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Printer size={12} /> Print Official
+              </button>
+              <button onClick={() => downloadQuotationPdfOfficial(q)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors">
+                <Download size={12} /> Download Official
+              </button>
               {q.status === 'DRAFT' && (
                 <button onClick={onEdit}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-300 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors">
@@ -2685,6 +2904,14 @@ export default function QuotationsPage() {
                     </button>
                     <button onClick={() => downloadQuotationPdfBlue(q)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Download Blue PDF">
+                      <Download size={15} />
+                    </button>
+                    <button onClick={() => printQuotationPdfOfficial(q)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Print Official">
+                      <Printer size={15} />
+                    </button>
+                    <button onClick={() => downloadQuotationPdfOfficial(q)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Download Official PDF">
                       <Download size={15} />
                     </button>
                   </div>
