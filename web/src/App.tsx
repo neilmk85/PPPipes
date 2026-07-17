@@ -96,6 +96,8 @@ import BusinessSettingsPage from '@/pages/business/BusinessSettingsPage'
 import LoadingInvoicePage from '@/pages/business/LoadingInvoicePage'
 import PrintInvoicesPage from '@/pages/business/PrintInvoicesPage'
 import SitePage from '@/pages/site/SitePage'
+import MainContractorPage from '@/pages/site/MainContractorPage'
+import SubContractorPage from '@/pages/site/SubContractorPage'
 import SitesPage from '@/pages/site/SitesPage'
 import ProjectDetailPage from '@/pages/site/ProjectDetailPage'
 import ContractorsPage from '@/pages/site/ContractorsPage'
@@ -229,6 +231,8 @@ export default function App() {
           <Route path="/production/reports/winding2" element={<ProtectedRoute><Winding2ReportPage /></ProtectedRoute>} />
           <Route path="/production/reports/coating2" element={<ProtectedRoute><Coating2ReportPage /></ProtectedRoute>} />
           <Route path="/site" element={<ProtectedRoute><SitePage /></ProtectedRoute>} />
+          <Route path="/site/main-contractor" element={<ProtectedRoute><MainContractorPage /></ProtectedRoute>} />
+          <Route path="/site/sub-contractor" element={<ProtectedRoute><SubContractorPage /></ProtectedRoute>} />
           <Route path="/site/projects" element={<ProtectedRoute><SitesPage /></ProtectedRoute>} />
           <Route path="/site/projects/:id" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
           <Route path="/site/contractors" element={<ProtectedRoute><ContractorsPage /></ProtectedRoute>} />

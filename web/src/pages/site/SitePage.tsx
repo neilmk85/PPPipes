@@ -1,172 +1,165 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import SiteFloatingNav from './SiteFloatingNav'
-import { Archive, FileText, HardHat, ClipboardList, FolderOpen, Truck, ClipboardCheck, CalendarDays, IndianRupee, TrendingUp } from 'lucide-react'
+import {
+  HardHat, Building2, ClipboardList, FileText, Archive,
+  IndianRupee, TrendingUp, CalendarDays, ChevronRight,
+  Wrench, Receipt,
+} from 'lucide-react'
 
-interface SiteCard {
-  key: string
-  tag: string
-  label: string
-  description: string
-  icon: React.ReactNode
-  buttonLabel: string
-  accentColor: string
-  lightBg: string
-  lightBorder: string
-  lightText: string
-  disabled?: boolean
-}
-
-const CARDS: SiteCard[] = [
-  {
-    key: 'projects', tag: 'MANAGEMENT', label: 'Projects',
-    description: 'Track site projects, contract values, scope of work and project timelines all in one place.',
-    icon: <FolderOpen size={20} />, buttonLabel: 'View Projects',
-    accentColor: '#3b82f6', lightBg: '#eff6ff', lightBorder: '#bfdbfe', lightText: '#1d4ed8',
-  },
-  {
-    key: 'contractors', tag: 'CONTRACTORS', label: 'Contractors',
-    description: 'Manage sub-contractors, rate contracts and contractor details for every site project.',
-    icon: <HardHat size={20} />, buttonLabel: 'View Contractors',
-    accentColor: '#6366f1', lightBg: '#eef2ff', lightBorder: '#c7d2fe', lightText: '#4338ca',
-  },
-  {
-    key: 'work-orders', tag: 'OPERATIONS', label: 'Work Orders',
-    description: 'Define sub-contract scope, track assigned work and monitor progress against each order.',
-    icon: <ClipboardList size={20} />, buttonLabel: 'View Work Orders',
-    accentColor: '#0ea5e9', lightBg: '#f0f9ff', lightBorder: '#bae6fd', lightText: '#0369a1',
-  },
-  {
-    key: 'material-stock', tag: 'INVENTORY', label: 'Material Stock',
-    description: 'Monitor site inventory levels, material receipts and consumption at each project location.',
-    icon: <Archive size={20} />, buttonLabel: 'View Stock',
-    accentColor: '#14b8a6', lightBg: '#f0fdfa', lightBorder: '#99f6e4', lightText: '#0f766e',
-    disabled: true,
-  },
-  {
-    key: 'work-bills', tag: 'BILLING', label: 'Work Bills',
-    description: 'Record and manage contractor invoices received, with GST, TDS deductions and payment tracking.',
-    icon: <FileText size={20} />, buttonLabel: 'View Bills',
-    accentColor: '#a855f7', lightBg: '#faf5ff', lightBorder: '#e9d5ff', lightText: '#7e22ce',
-  },
-  {
-    key: 'client-bills', tag: 'BILLING', label: 'RA Bills',
-    description: 'Raise Running Account Bills to your client with GST, TDS and retention tracking.',
-    icon: <FileText size={20} />, buttonLabel: 'View RA Bills',
-    accentColor: '#0d9488', lightBg: '#f0fdfa', lightBorder: '#99f6e4', lightText: '#0f766e',
-  },
-  {
-    key: 'material-issues', tag: 'LOGISTICS', label: 'Material Issues',
-    description: 'Record materials issued to contractors on-site with quantity, date and approval tracking.',
-    icon: <Truck size={20} />, buttonLabel: 'View Issues',
-    accentColor: '#22c55e', lightBg: '#f0fdf4', lightBorder: '#bbf7d0', lightText: '#15803d',
-    disabled: true,
-  },
-  {
-    key: 'progress-claims', tag: 'CLAIMS', label: 'Progress Claims',
-    description: 'Process contractor progress claims, verify completed work and approve payments.',
-    icon: <ClipboardCheck size={20} />, buttonLabel: 'View Claims',
-    accentColor: '#f43f5e', lightBg: '#fff1f2', lightBorder: '#fecdd3', lightText: '#be123c',
-    disabled: true,
-  },
-  {
-    key: 'daily-progress', tag: 'TRACKING', label: 'Daily Progress',
-    description: 'Log daily in-house work, labour attendance, equipment usage and site activity notes.',
-    icon: <CalendarDays size={20} />, buttonLabel: 'View Progress',
-    accentColor: '#06b6d4', lightBg: '#ecfeff', lightBorder: '#a5f3fc', lightText: '#0e7490',
-    disabled: true,
-  },
-  {
-    key: 'reports/financial-summary', tag: 'REPORTS', label: 'Financial Report',
-    description: 'Get a full picture of contractor invoices received, payments made, outstanding balances and cost summary.',
-    icon: <IndianRupee size={20} />, buttonLabel: 'View Report',
-    accentColor: '#10b981', lightBg: '#ecfdf5', lightBorder: '#a7f3d0', lightText: '#065f46',
-    disabled: true,
-  },
-  {
-    key: 'reports/progress-report', tag: 'ANALYTICS', label: 'Progress Report',
-    description: 'Analyse phase-wise completion percentages, daily trends and project velocity over time.',
-    icon: <TrendingUp size={20} />, buttonLabel: 'View Report',
-    accentColor: '#8b5cf6', lightBg: '#f5f3ff', lightBorder: '#ddd6fe', lightText: '#5b21b6',
-    disabled: true,
-  },
-  {
-    key: 'reports/work-bills-by-contractor', tag: 'BILLING', label: 'Contractor Ledger',
-    description: 'Contractor-wise summary of invoices received — subtotal, GST, TDS, net payable, paid and outstanding.',
-    icon: <FileText size={20} />, buttonLabel: 'View Ledger',
-    accentColor: '#7c3aed', lightBg: '#f5f3ff', lightBorder: '#ddd6fe', lightText: '#5b21b6',
-  },
+const MAIN_FEATURES = [
+  { icon: <Building2 size={13} />, label: 'Projects & Sites' },
+  { icon: <HardHat size={13} />, label: 'Contractors & Work Orders' },
+  { icon: <FileText size={13} />, label: 'Work Bills & Payments' },
+  { icon: <Archive size={13} />, label: 'Material Stock' },
+  { icon: <CalendarDays size={13} />, label: 'Daily Progress' },
+  { icon: <IndianRupee size={13} />, label: 'Financial Reports' },
 ]
 
-function SiteCard({ card }: { card: SiteCard }) {
-  const navigate = useNavigate()
+const SUB_FEATURES = [
+  { icon: <ClipboardList size={13} />, label: 'Sub-contract Agreement' },
+  { icon: <Receipt size={13} />, label: 'RA Bills to Client' },
+  { icon: <CalendarDays size={13} />, label: 'Daily Progress Tracking' },
+  { icon: <Archive size={13} />, label: 'Material Tracking' },
+  { icon: <TrendingUp size={13} />, label: 'Progress Reports' },
+  { icon: <Wrench size={13} />, label: 'Labour & Equipment' },
+]
+
+function HalfPanel({
+  role, title, subtitle, features, gradient, textColor, chipBg, chipText, ctaLabel, onClick,
+}: {
+  role: string; title: string; subtitle: string
+  features: { icon: React.ReactNode; label: string }[]
+  gradient: string; textColor: string; chipBg: string; chipText: string
+  ctaLabel: string; onClick: () => void
+}) {
   const [hovered, setHovered] = useState(false)
-  const active = hovered && !card.disabled
 
   return (
     <div
-      onClick={() => !card.disabled && navigate(`/site/${card.key}`)}
+      onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: '#ffffff',
-        borderRadius: 16,
-        padding: '28px 28px 24px',
-        cursor: card.disabled ? 'default' : 'pointer',
-        border: 'none',
-        boxShadow: active
-          ? '0 20px 50px rgba(0,0,0,0.13), 0 6px 16px rgba(0,0,0,0.07)'
-          : '0 4px 20px rgba(0,0,0,0.07), 0 1px 6px rgba(0,0,0,0.04)',
-        transform: active ? 'translateY(-5px)' : 'translateY(0)',
-        transition: 'transform 0.22s ease, box-shadow 0.22s ease',
-        opacity: card.disabled ? 0.55 : 1,
+        flex: 1,
+        background: gradient,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        padding: '64px 56px',
+        cursor: 'pointer',
+        transition: 'filter 0.25s ease',
+        filter: hovered ? 'brightness(0.97)' : 'brightness(1)',
+        position: 'relative',
+        overflow: 'hidden',
       }}
     >
-      {/* Label */}
-      <div style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', marginBottom: 10, lineHeight: 1.3 }}>
-        {card.label}
+      {/* Background decoration */}
+      <div style={{
+        position: 'absolute', inset: 0, opacity: 0.04,
+        backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Role tag */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+        color: chipText, background: chipBg,
+        padding: '4px 10px', borderRadius: 20, marginBottom: 20,
+        width: 'fit-content',
+      }}>
+        {role}
       </div>
 
-      {/* Description */}
-      <div style={{ color: '#64748b', lineHeight: 1.75, fontSize: 13.5, marginBottom: 22 }}>
-        {card.description}
+      {/* Title */}
+      <h2 style={{
+        fontSize: 38, fontWeight: 800, color: textColor,
+        lineHeight: 1.15, letterSpacing: '-0.5px', marginBottom: 14,
+      }}>
+        {title}
+      </h2>
+
+      {/* Subtitle */}
+      <p style={{
+        fontSize: 15, color: textColor, opacity: 0.72,
+        lineHeight: 1.65, marginBottom: 36, maxWidth: 400,
+      }}>
+        {subtitle}
+      </p>
+
+      {/* Feature chips */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 44 }}>
+        {features.map(f => (
+          <div key={f.label} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: chipBg, color: chipText,
+            padding: '5px 11px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+          }}>
+            {f.icon}{f.label}
+          </div>
+        ))}
       </div>
 
       {/* CTA */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 5,
-        color: card.disabled ? '#94a3b8' : card.accentColor, fontWeight: 600, fontSize: 13,
-        transform: active ? 'translateX(4px)' : 'translateX(0)',
-        transition: 'transform 0.22s ease',
+        display: 'flex', alignItems: 'center', gap: 8,
+        fontSize: 14, fontWeight: 700, color: textColor,
+        transform: hovered ? 'translateX(6px)' : 'translateX(0)',
+        transition: 'transform 0.25s ease',
       }}>
-        {card.disabled ? 'Coming Soon' : `${card.buttonLabel} →`}
+        {ctaLabel}
+        <ChevronRight size={18} style={{ opacity: 0.8 }} />
       </div>
     </div>
   )
 }
 
 export default function SitePage() {
-  return (
-    <div style={{ minHeight: '100vh', padding: '48px 48px 64px' }} className="site-animated-bg">
-      <SiteFloatingNav theme="light" />
+  const navigate = useNavigate()
 
-      {/* Header */}
-      <div style={{ marginBottom: 40, maxWidth: 520 }}>
-        <div style={{ fontSize: 32, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.5px', lineHeight: 1.2 }}>
-          Site Management
-        </div>
-        <p style={{ marginTop: 10, color: '#64748b', fontSize: 15, lineHeight: 1.6 }}>
-          Manage projects, contractors, billing and daily site operations
-        </p>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Top bar */}
+      <div style={{
+        padding: '20px 40px', background: 'white',
+        borderBottom: '1px solid #f1f5f9',
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8', letterSpacing: '0.05em' }}>SITE</div>
+        <div style={{ width: 1, height: 14, background: '#e2e8f0' }} />
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>Select your role for this session</div>
       </div>
 
-      {/* Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-        gap: 20,
-      }}>
-        {CARDS.map(card => <SiteCard key={card.key} card={card} />)}
+      {/* Split panels */}
+      <div style={{ display: 'flex', flex: 1 }}>
+        <HalfPanel
+          role="MAIN CONTRACTOR"
+          title={<>PP Pipes as<br />Main Contractor</>  as any}
+          subtitle="PP Pipes is directly contracted by the project owner. Manage sub-contractors, work orders, bills, and site operations."
+          features={MAIN_FEATURES}
+          gradient="linear-gradient(135deg, #4c1d95 0%, #5b21b6 30%, #7c3aed 65%, #8b5cf6 100%)"
+          textColor="#ffffff"
+          chipBg="rgba(255,255,255,0.18)"
+          chipText="rgba(255,255,255,0.92)"
+          ctaLabel="Enter Main Contractor mode"
+          onClick={() => navigate('/site/main-contractor')}
+        />
+
+        {/* Divider */}
+        <div style={{ width: 2, background: 'white', zIndex: 1, flexShrink: 0 }} />
+
+        <HalfPanel
+          role="SUB-CONTRACTOR"
+          title={<>PP Pipes as<br />Sub-contractor</>  as any}
+          subtitle="PP Pipes is hired by a main contractor for pipe-laying work. Track agreements, raise RA Bills, log daily progress."
+          features={SUB_FEATURES}
+          gradient="linear-gradient(135deg, #134e4a 0%, #0f766e 30%, #0d9488 65%, #14b8a6 100%)"
+          textColor="#ffffff"
+          chipBg="rgba(255,255,255,0.18)"
+          chipText="rgba(255,255,255,0.92)"
+          ctaLabel="Enter Sub-contractor mode"
+          onClick={() => navigate('/site/sub-contractor')}
+        />
       </div>
     </div>
   )
