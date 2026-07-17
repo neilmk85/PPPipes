@@ -1139,9 +1139,6 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
   doc.setFontSize(15)
   doc.setTextColor(20, 20, 20)
   doc.text('QUOTATION', PAGE_W / 2, CONTENT_T + 9, { align: 'center' })
-  doc.setDrawColor(20, 20, 20)
-  doc.setLineWidth(0.4)
-  doc.line(74, CONTENT_T + 11, 136, CONTENT_T + 11)
 
   // ── Two info boxes ────────────────────────────────────────────────────
   const BOX_Y  = CONTENT_T + 15
@@ -1258,7 +1255,7 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
   drawPageFooter(doc, logoB64)
 
   let ty = CONTENT_T
-  const terms = q.termsConditions ? `Following terms & conditions:-\n    ${q.termsConditions}` : OFFICIAL_TERMS
+  const terms = OFFICIAL_TERMS
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(20, 20, 20)
