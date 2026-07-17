@@ -1242,7 +1242,7 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
       if (data.section === 'body') {
         if (data.row.index >= items.length) {
           data.cell.styles.fontStyle = 'bold'
-          data.cell.styles.fillColor = [210, 234, 248]
+          data.cell.styles.fillColor = [224, 241, 251]
         } else if (data.row.index % 2 === 1) {
           data.cell.styles.fillColor = [232, 244, 253]
         } else {
