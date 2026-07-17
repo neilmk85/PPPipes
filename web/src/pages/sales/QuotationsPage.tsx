@@ -2540,9 +2540,15 @@ function ViewQuotationModal({ id, onClose, onStatusChange, onEdit }: { id: numbe
 
   const q = data
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-bold text-gray-900">{q?.quotationNumber ?? '…'}</h2>
@@ -2641,11 +2647,11 @@ function ViewQuotationModal({ id, onClose, onStatusChange, onEdit }: { id: numbe
             <div className="flex gap-2">
               <button onClick={() => printQuotationPdfOfficial(q)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors">
-                <Printer size={12} /> Print Official
+                <Printer size={12} /> Print
               </button>
               <button onClick={() => downloadQuotationPdfOfficial(q)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors">
-                <Download size={12} /> Download Official
+                <Download size={12} /> Download
               </button>
               {q.status === 'DRAFT' && (
                 <button onClick={onEdit}
@@ -2890,11 +2896,11 @@ export default function QuotationsPage() {
                       </button>
                     )}
                     <button onClick={() => printQuotationPdfOfficial(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Print Official">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Print">
                       <Printer size={15} />
                     </button>
                     <button onClick={() => downloadQuotationPdfOfficial(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Download Official PDF">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Download PDF">
                       <Download size={15} />
                     </button>
                   </div>
