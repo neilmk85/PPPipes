@@ -128,25 +128,26 @@ function RoleCard({ card }: { card: CardDef }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
+        flex: 1,
         display: 'flex',
+        flexDirection: 'column',
         background: '#0c1220',
-        borderRadius: 22,
+        borderRadius: 16,
         overflow: 'hidden',
         cursor: 'pointer',
         boxShadow: hovered ? card.glowHover : card.glow,
         transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
         transition: 'box-shadow 0.38s cubic-bezier(0.4,0,0.2,1), transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-        minHeight: 400,
       }}
     >
-      {/* Left — visual pane */}
+      {/* Top — visual pane */}
       <div style={{
-        width: '40%',
+        height: 260,
         flexShrink: 0,
         background: card.gradient,
         position: 'relative',
         overflow: 'hidden',
-        padding: '52px 44px',
+        padding: '36px 44px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-end',
@@ -155,13 +156,13 @@ function RoleCard({ card }: { card: CardDef }) {
         <div style={{
           position: 'relative', zIndex: 1,
           fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
-          color: 'rgba(255,255,255,0.45)', marginBottom: 14, textTransform: 'uppercase',
+          color: 'rgba(255,255,255,0.45)', marginBottom: 10, textTransform: 'uppercase',
         }}>
           {card.role}
         </div>
         <div style={{
           position: 'relative', zIndex: 1,
-          fontSize: 26, fontWeight: 800, color: 'white',
+          fontSize: 28, fontWeight: 800, color: 'white',
           lineHeight: 1.18, letterSpacing: '-0.4px',
           whiteSpace: 'pre-line',
         }}>
@@ -169,46 +170,45 @@ function RoleCard({ card }: { card: CardDef }) {
         </div>
       </div>
 
-      {/* Right — content pane */}
+      {/* Bottom — content pane */}
       <div style={{
         flex: 1,
-        padding: '56px 56px',
+        padding: '40px 44px 44px',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
       }}>
         <div style={{
           fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
-          color: card.accent, marginBottom: 18, textTransform: 'uppercase', opacity: 0.9,
+          color: card.accent, marginBottom: 14, textTransform: 'uppercase', opacity: 0.9,
         }}>
           {card.role}
         </div>
 
         <h2 style={{
-          fontSize: 30, fontWeight: 800, color: '#eef2ff',
-          lineHeight: 1.15, letterSpacing: '-0.5px', marginBottom: 16,
+          fontSize: 24, fontWeight: 800, color: '#eef2ff',
+          lineHeight: 1.2, letterSpacing: '-0.4px', marginBottom: 12,
         }}>
           {card.title}
         </h2>
 
         <p style={{
-          fontSize: 14, color: '#475569',
-          lineHeight: 1.78, marginBottom: 36, maxWidth: 430,
+          fontSize: 13, color: '#475569',
+          lineHeight: 1.75, marginBottom: 28,
         }}>
           {card.subtitle}
         </p>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: '11px 36px', marginBottom: 48,
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+          gap: '10px 20px', marginBottom: 36, flex: 1,
         }}>
           {card.features.map(f => (
             <div key={f} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              fontSize: 13, color: '#64748b',
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 12, color: '#64748b',
             }}>
               <div style={{
-                width: 5, height: 5, borderRadius: '50%',
+                width: 4, height: 4, borderRadius: '50%',
                 background: card.accent, flexShrink: 0, opacity: 0.65,
               }} />
               {f}
@@ -220,8 +220,8 @@ function RoleCard({ card }: { card: CardDef }) {
           display: 'inline-flex', alignItems: 'center', gap: 9,
           background: hovered ? `${card.accent}12` : 'rgba(255,255,255,0.04)',
           border: `1px solid ${hovered ? card.accent + '55' : 'rgba(255,255,255,0.08)'}`,
-          borderRadius: 11,
-          padding: '12px 20px',
+          borderRadius: 10,
+          padding: '11px 18px',
           fontSize: 13, fontWeight: 600,
           color: hovered ? card.accent : '#64748b',
           width: 'fit-content',
@@ -257,36 +257,26 @@ export default function SitePage() {
         <div style={{ fontSize: 11, fontWeight: 600, color: '#1e293b', letterSpacing: '0.06em' }}>SITE MODULE</div>
       </div>
 
-      {/* Content */}
-      <div style={{
-        flex: 1,
-        padding: '72px 64px 80px',
-        maxWidth: 1240,
-        margin: '0 auto',
-        width: '100%',
-        boxSizing: 'border-box',
-      }}>
-        {/* Intro text */}
-        <div style={{ marginBottom: 52 }}>
-          <div style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
-            color: '#1e3a5f', textTransform: 'uppercase', marginBottom: 18,
-          }}>
-            Select your operating mode
-          </div>
-          <h1 style={{
-            fontFamily: "'Roboto', sans-serif",
-            fontSize: 46, fontWeight: 300, color: '#60a5fa',
-            lineHeight: 1.1, letterSpacing: '0px', maxWidth: 580,
-          }}>
-            How is PP Pipes engaged on this project?
-          </h1>
+      {/* Intro text */}
+      <div style={{ padding: '56px 64px 40px' }}>
+        <div style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+          color: '#1e3a5f', textTransform: 'uppercase', marginBottom: 16,
+        }}>
+          Select your operating mode
         </div>
+        <h1 style={{
+          fontFamily: "'Roboto', sans-serif",
+          fontSize: 46, fontWeight: 300, color: '#60a5fa',
+          lineHeight: 1.1, letterSpacing: '0px',
+        }}>
+          How is PP Pipes engaged on this project?
+        </h1>
+      </div>
 
-        {/* Cards */}
-        <div style={{ display: 'flex', flexDirection: 'row', gap: 22 }}>
-          {CARDS.map(card => <RoleCard key={card.role} card={card} />)}
-        </div>
+      {/* Cards — full width */}
+      <div style={{ flex: 1, display: 'flex', gap: 16, padding: '0 16px 24px' }}>
+        {CARDS.map(card => <RoleCard key={card.role} card={card} />)}
       </div>
     </div>
   )
