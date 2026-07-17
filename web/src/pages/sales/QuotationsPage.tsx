@@ -1239,9 +1239,15 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
       4: { cellWidth: 40,  halign: 'right' as const },
     },
     didParseCell: (data: any) => {
-      if (data.section === 'body' && data.row.index >= items.length) {
-        data.cell.styles.fontStyle = 'bold'
-        data.cell.styles.fillColor = [245, 245, 245]
+      if (data.section === 'body') {
+        if (data.row.index >= items.length) {
+          data.cell.styles.fontStyle = 'bold'
+          data.cell.styles.fillColor = [245, 245, 245]
+        } else if (data.row.index % 2 === 1) {
+          data.cell.styles.fillColor = [232, 244, 253]
+        } else {
+          data.cell.styles.fillColor = [255, 255, 255]
+        }
       }
     },
     didDrawPage: (_d: any) => {
