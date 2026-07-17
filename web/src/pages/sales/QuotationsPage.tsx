@@ -144,7 +144,7 @@ function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
   doc.setFontSize(24)
   doc.setTextColor(31, 73, 125)
   doc.text('Pipe Products Pvt. Ltd.', 80, 22)
-  doc.setFillColor(220, 20, 20)
+  doc.setFillColor(70, 130, 180)
   doc.rect(0, 32, PAGE_W, 8, 'F')
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
@@ -1647,6 +1647,12 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
     return () => cancelAnimationFrame(id)
   }, [])
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   function handleClose() { setVisible(false); setTimeout(onClose, 300) }
 
   async function addProduct(p: any) {
@@ -2100,6 +2106,12 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
   useEffect(() => {
     const frameId = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(frameId)
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
   }, [])
 
   useEffect(() => {
