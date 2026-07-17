@@ -1255,7 +1255,7 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
   drawPageFooter(doc, logoB64)
 
   let ty = CONTENT_T
-  const terms = OFFICIAL_TERMS
+  const terms = q.termsConditions || OFFICIAL_TERMS
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(20, 20, 20)
@@ -1573,7 +1573,7 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
   const [billDiscPct, setBillDiscPct]       = useState(0)
   const [shippingAmt, setShippingAmt]       = useState(0)
   const [notes, setNotes]                   = useState('')
-  const [terms, setTerms]                   = useState('Prices are valid till the validity date mentioned above.\nGST as applicable.\nSubject to local jurisdiction.')
+  const [terms, setTerms]                   = useState(OFFICIAL_TERMS)
   const [items, setItems]                   = useState<LineItem[]>([])
   const [errors, setErrors]                 = useState<{ customer?: string; items?: string }>({})
 
@@ -2034,7 +2034,7 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
   const [billDiscPct, setBillDiscPct]       = useState(0)
   const [shippingAmt, setShippingAmt]       = useState(0)
   const [notes, setNotes]                   = useState('')
-  const [terms, setTerms]                   = useState('Prices are valid till the validity date mentioned above.\nGST as applicable.\nSubject to local jurisdiction.')
+  const [terms, setTerms]                   = useState(OFFICIAL_TERMS)
   const [items, setItems]                   = useState<LineItem[]>([])
   const [errors, setErrors]                 = useState<{ customer?: string; items?: string }>({})
 
