@@ -1649,12 +1649,6 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
     return () => cancelAnimationFrame(id)
   }, [])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
-
   async function addProduct(p: any) {
     const unitPrice = p.sellingPrice ?? p.price ?? 0
     const lm2 = p.lengthM ?? pipeLength(p.name ?? '')
@@ -1749,7 +1743,11 @@ function CreateQuotationPanel({ outletId, onClose, onCreated }: {
       <div className={`fixed inset-0 bg-black/30 z-[100] transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
 
       {/* Sliding panel */}
-      <div className={`fixed inset-y-0 right-0 left-[220px] z-[110] transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div
+        className={`fixed inset-y-0 right-0 left-[220px] z-[110] transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => { if (e.key === 'Escape') handleClose() }}
+      >
         <div className="w-full h-full bg-[#f8f9fb] flex flex-col overflow-hidden">
 
           {/* ── Header ── */}
@@ -2136,12 +2134,6 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
 
   function handleClose() { setVisible(false); setTimeout(onClose, 300) }
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [])
-
   async function addProduct(p: any) {
     const unitPrice = p.sellingPrice ?? p.price ?? 0
     const lm = p.lengthM ?? pipeLength(p.name ?? '')
@@ -2230,7 +2222,11 @@ function EditQuotationPanel({ id, outletId, onClose, onUpdated }: {
   return (
     <>
       <div className={`fixed inset-0 bg-black/30 z-[100] transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`} onClick={handleClose} />
-      <div className={`fixed inset-y-0 right-0 left-[220px] z-[110] transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div
+        className={`fixed inset-y-0 right-0 left-[220px] z-[110] transition-transform duration-300 ease-out ${visible ? 'translate-x-0' : 'translate-x-full'}`}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => { if (e.key === 'Escape') handleClose() }}
+      >
         <div className="w-full h-full bg-[#f8f9fb] flex flex-col overflow-hidden">
 
           <div className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between shrink-0">
@@ -2643,38 +2639,6 @@ function ViewQuotationModal({ id, onClose, onStatusChange, onEdit }: { id: numbe
         {q && (
           <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-between shrink-0 rounded-b-2xl">
             <div className="flex gap-2">
-              <button onClick={() => printQuotationPdf(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-white transition-colors">
-                <Printer size={12} /> Print
-              </button>
-              <button onClick={() => downloadQuotationPdf(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-gray-200 text-gray-600 rounded-lg hover:bg-white transition-colors">
-                <Download size={12} /> Download PDF
-              </button>
-              <button onClick={() => printQuotationPdfModern(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 rounded-lg hover:bg-teal-50 transition-colors">
-                <Printer size={12} /> Print Modern
-              </button>
-              <button onClick={() => downloadQuotationPdfModern(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 rounded-lg hover:bg-teal-50 transition-colors">
-                <Download size={12} /> Download Modern
-              </button>
-              <button onClick={() => printQuotationPdfClean(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-200 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors">
-                <Printer size={12} /> Print Pro
-              </button>
-              <button onClick={() => downloadQuotationPdfClean(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-violet-200 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors">
-                <Download size={12} /> Download Pro
-              </button>
-              <button onClick={() => printQuotationPdfBlue(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
-                <Printer size={12} /> Print Blue
-              </button>
-              <button onClick={() => downloadQuotationPdfBlue(q)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors">
-                <Download size={12} /> Download Blue
-              </button>
               <button onClick={() => printQuotationPdfOfficial(q)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors">
                 <Printer size={12} /> Print Official
@@ -2925,38 +2889,6 @@ export default function QuotationsPage() {
                         <Pencil size={15} />
                       </button>
                     )}
-                    <button onClick={() => printQuotationPdf(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors" title="Print Classic">
-                      <Printer size={15} />
-                    </button>
-                    <button onClick={() => downloadQuotationPdf(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Download Classic PDF">
-                      <Download size={15} />
-                    </button>
-                    <button onClick={() => printQuotationPdfModern(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors" title="Print Modern">
-                      <Printer size={15} />
-                    </button>
-                    <button onClick={() => downloadQuotationPdfModern(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-teal-50 transition-colors" title="Download Modern PDF">
-                      <Download size={15} />
-                    </button>
-                    <button onClick={() => printQuotationPdfClean(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors" title="Print Pro">
-                      <Printer size={15} />
-                    </button>
-                    <button onClick={() => downloadQuotationPdfClean(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50 transition-colors" title="Download Pro PDF">
-                      <Download size={15} />
-                    </button>
-                    <button onClick={() => printQuotationPdfBlue(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Print Blue">
-                      <Printer size={15} />
-                    </button>
-                    <button onClick={() => downloadQuotationPdfBlue(q)}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Download Blue PDF">
-                      <Download size={15} />
-                    </button>
                     <button onClick={() => printQuotationPdfOfficial(q)}
                       className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="Print Official">
                       <Printer size={15} />
