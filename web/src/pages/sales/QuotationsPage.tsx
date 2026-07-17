@@ -902,7 +902,7 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
   ])
 
   // ── Subject ───────────────────────────────────────────────────────────
-  let sy = BOX_Y + BOX_H + 6
+  let sy = BOX_Y + BOX_H + 12
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(35, 35, 35)
@@ -986,7 +986,7 @@ async function buildQuotationDocBlue(q: any): Promise<jsPDF> {
   })
 
   // ── Terms & Conditions at bottom of page ─────────────────────────────
-  const TC_Y = FY - 52
+  const TC_Y = FY - 44
   doc.setDrawColor(210, 210, 210)
   doc.setLineWidth(0.2)
   doc.line(L, TC_Y - 3, R, TC_Y - 3)
