@@ -162,7 +162,7 @@ function RoleCard({ card }: { card: CardDef }) {
         </div>
         <div style={{
           position: 'relative', zIndex: 1,
-          fontSize: 28, fontWeight: 900, color: 'white',
+          fontSize: 28, fontWeight: 300, color: 'white',
           lineHeight: 1.15, letterSpacing: '-0.3px',
           whiteSpace: 'pre-line',
         }}>
