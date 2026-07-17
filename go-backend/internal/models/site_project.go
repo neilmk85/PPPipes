@@ -13,6 +13,8 @@ type SiteProject struct {
 	EndDate       *string   `gorm:"column:end_date;type:date" json:"endDate"`
 	// ACTIVE | COMPLETED | ON_HOLD
 	Status        string    `gorm:"column:status;default:ACTIVE" json:"status"`
+	// MAIN_CONTRACTOR | SUB_CONTRACTOR
+	PPPipesRole   string    `gorm:"column:pp_pipes_role;default:MAIN_CONTRACTOR" json:"ppPipesRole"`
 	Notes         *string   `gorm:"column:notes;type:text" json:"notes"`
 	Active        bool      `gorm:"column:is_active;default:true" json:"active"`
 	OutletID      *int      `gorm:"column:outlet_id" json:"outletId"`

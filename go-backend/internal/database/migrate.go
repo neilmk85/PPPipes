@@ -586,6 +586,24 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Phase 25: RA Bills (PP Pipes as sub-contractor) + ppPipesRole on SiteProject
+	if err := db.AutoMigrate(&models.SiteProject{}); err != nil {
+		slog.Error("[Database] Failed to migrate SiteProject (phase 25)", "error", err)
+		return err
+	}
+	if err := db.AutoMigrate(&models.ClientBill{}); err != nil {
+		slog.Error("[Database] Failed to migrate ClientBill", "error", err)
+		return err
+	}
+	if err := db.AutoMigrate(&models.ClientBillItem{}); err != nil {
+		slog.Error("[Database] Failed to migrate ClientBillItem", "error", err)
+		return err
+	}
+	if err := db.AutoMigrate(&models.ClientBillPayment{}); err != nil {
+		slog.Error("[Database] Failed to migrate ClientBillPayment", "error", err)
+		return err
+	}
+
 	slog.Info("[Database] Migrations completed successfully")
 	return nil
 }

@@ -129,6 +129,9 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	workBillService := service.NewWorkBillService(db)
 	workBillHandler := handler.NewWorkBillHandler(workBillService)
 
+	clientBillService := service.NewClientBillService(db)
+	clientBillHandler := handler.NewClientBillHandler(clientBillService)
+
 	contractorService := service.NewContractorService(db)
 	contractorHandler := handler.NewContractorHandler(contractorService)
 
@@ -1166,6 +1169,40 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	))
 	mux.HandleFunc("DELETE /api/work-bills/{id}", middleware.Chain(
 		workBillHandler.Delete,
+		middleware.Authenticate(db),
+	))
+
+	// ==================== CLIENT BILLS (RA Bills — PP Pipes as sub-contractor) ====================
+	mux.HandleFunc("GET /api/client-bills", middleware.Chain(
+		clientBillHandler.GetAll,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("GET /api/client-bills/{id}", middleware.Chain(
+		clientBillHandler.GetByID,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("POST /api/client-bills", middleware.Chain(
+		clientBillHandler.Create,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("PUT /api/client-bills/{id}", middleware.Chain(
+		clientBillHandler.Update,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("PATCH /api/client-bills/{id}/status", middleware.Chain(
+		clientBillHandler.UpdateStatus,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("POST /api/client-bills/{id}/payments", middleware.Chain(
+		clientBillHandler.AddPayment,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("DELETE /api/client-bills/{id}/payments/{paymentId}", middleware.Chain(
+		clientBillHandler.DeletePayment,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("DELETE /api/client-bills/{id}", middleware.Chain(
+		clientBillHandler.Delete,
 		middleware.Authenticate(db),
 	))
 

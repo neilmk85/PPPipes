@@ -50,6 +50,12 @@ const CARDS: SiteCard[] = [
     accentColor: '#a855f7', lightBg: '#faf5ff', lightBorder: '#e9d5ff', lightText: '#7e22ce',
   },
   {
+    key: 'client-bills', tag: 'BILLING', label: 'RA Bills',
+    description: 'Raise Running Account Bills to your client with GST, TDS and retention tracking.',
+    icon: <FileText size={20} />, buttonLabel: 'View RA Bills',
+    accentColor: '#0d9488', lightBg: '#f0fdfa', lightBorder: '#99f6e4', lightText: '#0f766e',
+  },
+  {
     key: 'material-issues', tag: 'LOGISTICS', label: 'Material Issues',
     description: 'Record materials issued to contractors on-site with quantity, date and approval tracking.',
     icon: <Truck size={20} />, buttonLabel: 'View Issues',

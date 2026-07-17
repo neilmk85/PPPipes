@@ -1010,4 +1010,19 @@ export const workBillApi = {
   delete: (id: number) => api.delete<ApiResponse<any>>(`/work-bills/${id}`),
 }
 
+export const clientBillApi = {
+  getAll: (params?: { siteProjectId?: number; status?: string }) =>
+    api.get<ApiResponse<any[]>>('/client-bills', { params }),
+  getById: (id: number) => api.get<ApiResponse<any>>(`/client-bills/${id}`),
+  create: (data: any) => api.post<ApiResponse<any>>('/client-bills', data),
+  update: (id: number, data: any) => api.put<ApiResponse<any>>(`/client-bills/${id}`, data),
+  updateStatus: (id: number, status: string) =>
+    api.patch<ApiResponse<any>>(`/client-bills/${id}/status`, { status }),
+  addPayment: (id: number, data: any) =>
+    api.post<ApiResponse<any>>(`/client-bills/${id}/payments`, data),
+  deletePayment: (id: number, paymentId: number) =>
+    api.delete<ApiResponse<any>>(`/client-bills/${id}/payments/${paymentId}`),
+  delete: (id: number) => api.delete<ApiResponse<any>>(`/client-bills/${id}`),
+}
+
 export default api

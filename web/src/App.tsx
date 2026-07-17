@@ -107,6 +107,7 @@ import MaterialIssuesPage from '@/pages/site/MaterialIssuesPage'
 import ProgressClaimsPage from '@/pages/site/ProgressClaimsPage'
 import DailyProgressPage from '@/pages/site/DailyProgressPage'
 import MaterialStockPage from '@/pages/site/MaterialStockPage'
+import ClientBillsPage from '@/pages/site/ClientBillsPage'
 import FinancialSummaryPage from '@/pages/site/reports/FinancialSummaryPage'
 import ProgressReportPage from '@/pages/site/reports/ProgressReportPage'
 import WorkBillsReportPage from '@/pages/site/reports/WorkBillsReportPage'
@@ -239,6 +240,7 @@ export default function App() {
           <Route path="/site/progress-claims" element={<ProtectedRoute><ProgressClaimsPage /></ProtectedRoute>} />
           <Route path="/site/daily-progress" element={<ProtectedRoute><DailyProgressPage /></ProtectedRoute>} />
           <Route path="/site/material-stock" element={<ProtectedRoute><MaterialStockPage /></ProtectedRoute>} />
+          <Route path="/site/client-bills" element={<ProtectedRoute><ClientBillsPage /></ProtectedRoute>} />
           <Route path="/site/reports/financial-summary" element={<ProtectedRoute><FinancialSummaryPage /></ProtectedRoute>} />
           <Route path="/site/reports/progress-report" element={<ProtectedRoute><ProgressReportPage /></ProtectedRoute>} />
           <Route path="/site/reports/work-bills-by-contractor" element={<ProtectedRoute><WorkBillsReportPage /></ProtectedRoute>} />
