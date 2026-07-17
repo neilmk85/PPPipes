@@ -1256,12 +1256,45 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
 
   let ty = CONTENT_T
   const terms = q.termsConditions || OFFICIAL_TERMS
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
   doc.setTextColor(20, 20, 20)
-  const termLines = doc.splitTextToSize(terms.trim(), W)
-  doc.text(termLines, L, ty)
-  ty += termLines.length * 4.9 + 8
+
+  const LINE_H  = 5.6
+  const PARA_GAP = 3.5
+
+  terms.trim().split('\n').forEach((raw: string) => {
+    const line = raw.trimEnd()
+    const isMainHeading  = line === 'Terms & Conditions'
+    const isSectionHead  = /^\d+\.\s/.test(line)
+    const isEmpty        = line.trim() === ''
+
+    if (isEmpty) { ty += PARA_GAP; return }
+
+    if (isMainHeading) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      const wrapped = doc.splitTextToSize(line, W)
+      doc.text(wrapped, L, ty)
+      ty += wrapped.length * LINE_H + 2
+      return
+    }
+
+    if (isSectionHead) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9.5)
+      const wrapped = doc.splitTextToSize(line, W)
+      doc.text(wrapped, L, ty)
+      ty += wrapped.length * LINE_H
+      return
+    }
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    const wrapped = doc.splitTextToSize(line, W - 4)
+    doc.text(wrapped, L + 4, ty)
+    ty += wrapped.length * LINE_H
+  })
+
+  ty += 6
 
   const closingY = Math.min(Math.max(ty, CONTENT_T + 145), FOOTER_Y - 52)
   const closingLines = doc.splitTextToSize(
