@@ -682,7 +682,7 @@ export default function WorkOrdersPage() {
       <div className="border-b border-gray-200 px-6 py-5 flex items-center justify-between"
         style={{ background: 'linear-gradient(135deg, #c2d8f0 0%, #eaedf5 100%)' }}>
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/site')}
+          <button onClick={() => navigate('/site/main-contractor')}
             className="text-blue-700 hover:text-blue-900 transition-colors">
             <ArrowLeft size={18} />
           </button>

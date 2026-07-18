@@ -253,16 +253,16 @@ export default function SitePage() {
         justifyContent: 'center',
         gap: 10,
       }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', letterSpacing: '0.12em' }}>PP PIPES</div>
-        <div style={{ width: 1, height: 12, background: '#1e293b' }} />
-        <div style={{ fontSize: 11, fontWeight: 400, color: '#1e293b', letterSpacing: '0.08em' }}>SITE MODULE</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.12em' }}>PP PIPES</div>
+        <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.2)' }} />
+        <div style={{ fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.08em' }}>SITE MODULE</div>
       </div>
 
       {/* Intro text */}
       <div style={{ padding: '56px 64px 40px' }}>
         <div style={{
           fontSize: 10, fontWeight: 500, letterSpacing: '0.14em',
-          color: '#1e3a5f', textTransform: 'uppercase', marginBottom: 16,
+          color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', marginBottom: 16,
         }}>
           Select your operating mode
         </div>

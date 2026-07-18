@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -14,6 +15,7 @@ import {
   Cloud,
   Sun,
   CloudRain,
+  ArrowLeft,
 } from 'lucide-react'
 import {
   dailyProgressApi,
@@ -22,6 +24,7 @@ import {
   siteProjectApi,
   workPackageApi,
 } from '@/services/api'
+import SiteFloatingNav, { SUB_CONTRACTOR_NAV } from './SiteFloatingNav'
 
 const WEATHER_OPTIONS = ['SUNNY', 'CLOUDY', 'RAINY', 'STORMY']
 const WEATHER_ICONS: Record<string, React.ReactNode> = {
@@ -377,6 +380,7 @@ function Section({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DailyProgressPage() {
+  const navigate = useNavigate()
   const today = new Date().toISOString().slice(0, 10)
   const queryClient = useQueryClient()
 
@@ -445,6 +449,16 @@ export default function DailyProgressPage() {
 
   return (
     <div className="p-6">
+      {/* Nav row — matches the sibling sub-contractor tabs (Agreement, RA
+          Bills, Material Tracking, Labour & Equipment, Progress Report),
+          which this page was previously missing. */}
+      <div className="flex items-center gap-3 mb-3">
+        <button onClick={() => navigate('/site/sub-contractor')} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+          <ArrowLeft size={18} />
+        </button>
+        <SiteFloatingNav inline items={SUB_CONTRACTOR_NAV} />
+      </div>
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-xl bg-indigo-700 flex items-center justify-center">

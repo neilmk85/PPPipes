@@ -440,7 +440,7 @@ export default function MaterialIssuesPage() {
           <div className="flex items-start justify-between">
             <div>
               <button
-                onClick={() => navigate('/site')}
+                onClick={() => navigate(-1)}
                 className="flex items-center gap-1.5 text-green-200 hover:text-white text-sm mb-3 transition-colors"
               >
                 <ArrowLeft size={15} />

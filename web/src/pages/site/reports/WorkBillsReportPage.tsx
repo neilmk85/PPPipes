@@ -264,7 +264,7 @@ export default function WorkBillsReportPage() {
       <div style={{ background: 'linear-gradient(180deg, #ddd6fe 0%, #ede9fe 35%, #f5f3ff 65%, #faf9ff 85%, #ffffff 100%)' }}>
         {/* Nav row */}
         <div className="px-6 pt-4 pb-2 flex items-center gap-4">
-          <button onClick={() => navigate('/site')}
+          <button onClick={() => navigate('/site/main-contractor')}
             className="text-violet-500 hover:text-violet-900 transition-colors shrink-0">
             <ArrowLeft size={18} />
           </button>

@@ -413,7 +413,7 @@ export default function SitesPage() {
         className="animate-gradient border-b border-gray-200 px-6 py-5 flex items-center gap-4"
       >
         <div className="flex items-center gap-3 shrink-0">
-          <button onClick={() => navigate('/site')} className="text-blue-700 hover:text-blue-900 transition-colors">
+          <button onClick={() => navigate('/site/main-contractor')} className="text-blue-700 hover:text-blue-900 transition-colors">
             <ArrowLeft size={18} />
           </button>
           <div>

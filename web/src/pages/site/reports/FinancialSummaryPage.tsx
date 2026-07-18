@@ -75,7 +75,7 @@ export default function FinancialSummaryPage() {
         />
         <div className="relative px-8 py-8">
           <button
-            onClick={() => navigate('/site')}
+            onClick={() => navigate('/site/main-contractor')}
             className="flex items-center gap-1.5 text-emerald-200 hover:text-white text-sm mb-4 transition-colors"
           >
             <ArrowLeft size={15} />

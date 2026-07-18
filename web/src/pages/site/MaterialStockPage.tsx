@@ -585,7 +585,11 @@ export default function MaterialStockPage() {
       {/* Header */}
       <div style={{ background: 'linear-gradient(180deg, #99f6e4 0%, #ccfbf1 35%, #f0fdfa 65%, #f8fffe 85%, #ffffff 100%)' }}>
         <div className="px-6 pt-4 pb-2 flex items-center gap-4">
-          <button onClick={() => navigate('/site')} className="text-teal-600 hover:text-teal-900 transition-colors shrink-0">
+          {/* This tab is shared between the Main-Contractor and Sub-Contractor
+              card grids (same route, two different parents) — browser-history
+              back correctly returns to whichever one the user came from,
+              since a hardcoded route can't be right for both. */}
+          <button onClick={() => navigate(-1)} className="text-teal-600 hover:text-teal-900 transition-colors shrink-0">
             <ArrowLeft size={18} />
           </button>
           <div className="flex-1 flex justify-center">
