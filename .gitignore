@@ -4,6 +4,9 @@ go-backend/*.exe
 go-backend/*.test
 go-backend/vendor/
 go-backend/.air.toml.bak
+go-backend/ppp-backend-linux
+go-backend/ppp-backend-new
+go-backend/ppp-backend
 
 # Node / React frontend
 web/node_modules/
