@@ -114,6 +114,7 @@ const CARDS: CardDef[] = [
     glow: '0 0 0 1px rgba(29,78,216,0.22), 0 4px 32px rgba(30,58,138,0.12)',
     glowHover: '0 0 0 1px rgba(59,130,246,0.52), 0 12px 64px rgba(29,78,216,0.26), 0 0 120px rgba(30,58,138,0.1)',
     accent: '#93c5fd',
+    disabled: true,
     visual: <SubVisual />,
     cta: 'Enter sub-contractor mode',
   },
