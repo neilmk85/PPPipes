@@ -1200,9 +1200,9 @@ export default function PurchaseOrdersTab() {
                 {filtered.map((o: any) => {
                   const checked = checkedIds.has(o.id)
                   return (
-                    <tr key={o.id} className={`hover:bg-gray-50 transition-colors ${checked ? 'bg-indigo-50/50' : ''}`}>
+                    <tr key={o.id} onClick={() => setViewPo(o)} className={`cursor-pointer hover:bg-gray-50 transition-colors ${checked ? 'bg-indigo-50/50' : ''}`}>
                       <td className="py-3 pr-3 w-8">
-                        <button onClick={() => toggleOne(o.id)} className="text-gray-300 hover:text-primary-600 transition-colors">
+                        <button onClick={e => { e.stopPropagation(); toggleOne(o.id) }} className="text-gray-300 hover:text-primary-600 transition-colors">
                           {checked
                             ? <CheckSquare size={15} className="text-primary-600" />
                             : <Square size={15} />}
@@ -1219,7 +1219,7 @@ export default function PurchaseOrdersTab() {
                         </span>
                       </td>
                       <td className="py-3">
-                        <div className="flex gap-1 justify-end">
+                        <div className="flex gap-1 justify-end" onClick={e => e.stopPropagation()}>
                           <button onClick={() => setViewPo(o)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg" title="View">
                             <Eye size={15} />
                           </button>
