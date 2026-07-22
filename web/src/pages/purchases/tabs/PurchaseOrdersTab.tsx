@@ -501,29 +501,6 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
             </div>
           </div>
 
-          {/* Terms & Conditions */}
-          <div className="border border-gray-100 rounded-xl overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setTermsOpen(o => !o)}
-              className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 text-left hover:bg-gray-100 transition-colors"
-            >
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Terms &amp; Conditions</p>
-              <span className="text-xs text-gray-400">{termsOpen ? '▲ Hide' : '▼ Edit'}</span>
-            </button>
-            {termsOpen && (
-              <div className="p-4">
-                <textarea
-                  value={terms}
-                  onChange={e => setTerms(e.target.value)}
-                  rows={14}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y"
-                  placeholder="Enter terms and conditions…"
-                />
-              </div>
-            )}
-          </div>
-
           {/* Line Items */}
           <div className="border border-gray-100 rounded-xl overflow-hidden">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
@@ -648,6 +625,29 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
               <span className="text-gray-900">Total</span>
               <span className="text-indigo-700">{fmtCur(totals.grand)}</span>
             </div>
+          </div>
+
+          {/* Terms & Conditions */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setTermsOpen(o => !o)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 text-left hover:bg-gray-100 transition-colors"
+            >
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Terms &amp; Conditions</p>
+              <span className="text-xs text-gray-400">{termsOpen ? '▲ Hide' : '▼ Edit'}</span>
+            </button>
+            {termsOpen && (
+              <div className="p-4">
+                <textarea
+                  value={terms}
+                  onChange={e => setTerms(e.target.value)}
+                  rows={14}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y"
+                  placeholder="Enter terms and conditions…"
+                />
+              </div>
+            )}
           </div>
         </div>
 
