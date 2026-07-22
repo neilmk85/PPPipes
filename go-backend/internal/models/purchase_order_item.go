@@ -5,7 +5,8 @@ import "github.com/shopspring/decimal"
 type PurchaseOrderItem struct {
 	ID               int              `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
 	PurchaseOrderID  int              `gorm:"column:purchase_order_id" json:"purchaseOrderId"`
-	ProductID        int              `gorm:"column:product_id" json:"productId"`
+	ProductID        *int             `gorm:"column:product_id" json:"productId"`
+	Description      string           `gorm:"column:description" json:"description"`
 	VariantID        *int             `gorm:"column:variant_id" json:"variantId"`
 	OrderedQuantity  decimal.Decimal  `gorm:"column:ordered_quantity;type:decimal(10,2)" json:"orderedQuantity"`
 	ReceivedQuantity decimal.Decimal  `gorm:"column:received_quantity;type:decimal(10,2);default:0" json:"receivedQuantity"`

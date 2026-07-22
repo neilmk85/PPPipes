@@ -103,11 +103,12 @@ func (pos *PurchaseOrderService) GetByPONumber(poNumber string) (*models.Purchas
 
 // CreateItemData is internal struct for processing items
 type CreateItemData struct {
-	ProductID  int
-	Quantity   decimal.Decimal
-	UnitCost   decimal.Decimal
-	TaxRate    decimal.Decimal
-	LineTotal  decimal.Decimal
+	ProductID   *int
+	Description string
+	Quantity    decimal.Decimal
+	UnitCost    decimal.Decimal
+	TaxRate     decimal.Decimal
+	LineTotal   decimal.Decimal
 }
 
 // Create creates a new purchase order
@@ -127,13 +128,20 @@ func (pos *PurchaseOrderService) Create(data map[string]interface{}) (*models.Pu
 
 	for _, item := range items {
 		itemMap := item.(map[string]interface{})
-		qty := decimal.NewFromFloat(itemMap["quantity"].(float64))
+		qty := decimal.NewFromFloat(itemMap["qty"].(float64))
 		cost := decimal.NewFromFloat(itemMap["unitCost"].(float64))
 		taxRate := decimal.New(0, 0)
 
 		if tr, ok := itemMap["taxRate"].(float64); ok {
 			taxRate = decimal.NewFromFloat(tr)
 		}
+
+		var productID *int
+		if pid, ok := itemMap["productId"].(float64); ok {
+			id := int(pid)
+			productID = &id
+		}
+		desc, _ := itemMap["description"].(string)
 
 		lineSub := qty.Mul(cost)
 		lineTax := lineSub.Mul(taxRate).Div(decimal.NewFromInt(100)).Round(2)
@@ -142,11 +150,12 @@ func (pos *PurchaseOrderService) Create(data map[string]interface{}) (*models.Pu
 		taxAmount = taxAmount.Add(lineTax)
 
 		itemsData = append(itemsData, CreateItemData{
-			ProductID:  int(itemMap["productId"].(float64)),
-			Quantity:   qty,
-			UnitCost:   cost,
-			TaxRate:    taxRate,
-			LineTotal:  lineSub.Add(lineTax),
+			ProductID:   productID,
+			Description: desc,
+			Quantity:    qty,
+			UnitCost:    cost,
+			TaxRate:     taxRate,
+			LineTotal:   lineSub.Add(lineTax),
 		})
 	}
 
@@ -174,6 +183,7 @@ func (pos *PurchaseOrderService) Create(data map[string]interface{}) (*models.Pu
 	for _, item := range itemsData {
 		order.Items = append(order.Items, models.PurchaseOrderItem{
 			ProductID:       item.ProductID,
+			Description:     item.Description,
 			OrderedQuantity: item.Quantity,
 			UnitCost:        item.UnitCost,
 			TaxRate:         item.TaxRate,
@@ -217,13 +227,20 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 
 	for _, item := range items {
 		itemMap := item.(map[string]interface{})
-		qty := decimal.NewFromFloat(itemMap["quantity"].(float64))
+		qty := decimal.NewFromFloat(itemMap["qty"].(float64))
 		cost := decimal.NewFromFloat(itemMap["unitCost"].(float64))
 		taxRate := decimal.New(0, 0)
 
 		if tr, ok := itemMap["taxRate"].(float64); ok {
 			taxRate = decimal.NewFromFloat(tr)
 		}
+
+		var productID *int
+		if pid, ok := itemMap["productId"].(float64); ok {
+			id := int(pid)
+			productID = &id
+		}
+		desc, _ := itemMap["description"].(string)
 
 		lineSub := qty.Mul(cost)
 		lineTax := lineSub.Mul(taxRate).Div(decimal.NewFromInt(100)).Round(2)
@@ -232,11 +249,12 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 		taxAmount = taxAmount.Add(lineTax)
 
 		itemsData = append(itemsData, CreateItemData{
-			ProductID: int(itemMap["productId"].(float64)),
-			Quantity:  qty,
-			UnitCost:  cost,
-			TaxRate:   taxRate,
-			LineTotal: lineSub.Add(lineTax),
+			ProductID:   productID,
+			Description: desc,
+			Quantity:    qty,
+			UnitCost:    cost,
+			TaxRate:     taxRate,
+			LineTotal:   lineSub.Add(lineTax),
 		})
 	}
 
@@ -263,6 +281,7 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 	for _, item := range itemsData {
 		order.Items = append(order.Items, models.PurchaseOrderItem{
 			ProductID:        item.ProductID,
+			Description:      item.Description,
 			OrderedQuantity:  item.Quantity,
 			ReceivedQuantity: item.Quantity,
 			UnitCost:         item.UnitCost,
@@ -321,11 +340,12 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 			// Bill items mirror the PO items
 			for _, item := range itemsData {
 				bill.Items = append(bill.Items, models.PurchaseBillItem{
-					ProductID: item.ProductID,
-					Quantity:  item.Quantity,
-					UnitCost:  item.UnitCost,
-					TaxRate:   item.TaxRate,
-					LineTotal: item.LineTotal,
+					ProductID:   item.ProductID,
+					Description: item.Description,
+					Quantity:    item.Quantity,
+					UnitCost:    item.UnitCost,
+					TaxRate:     item.TaxRate,
+					LineTotal:   item.LineTotal,
 				})
 			}
 
@@ -334,14 +354,17 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 			}
 		}
 
-		// Update inventory for all items
+		// Update inventory for items that have a product (custom items have no productId)
 		for _, item := range itemsData {
+			if item.ProductID == nil {
+				continue
+			}
 			var inv models.Inventory
-			result := tx.Where("product_id = ? AND outlet_id = ?", item.ProductID, outletId).First(&inv)
+			result := tx.Where("product_id = ? AND outlet_id = ?", *item.ProductID, outletId).First(&inv)
 
 			if result.Error == gorm.ErrRecordNotFound {
 				if err := tx.Create(&models.Inventory{
-					ProductID:       item.ProductID,
+					ProductID:       *item.ProductID,
 					OutletID:        outletId,
 					QuantityOnHand:  item.Quantity,
 					LastStockUpdate: &now,
@@ -392,13 +415,20 @@ func (pos *PurchaseOrderService) Update(id int, data map[string]interface{}) (*m
 		// Create new items
 		for _, item := range items {
 			itemMap := item.(map[string]interface{})
-			qty := decimal.NewFromFloat(itemMap["quantity"].(float64))
+			qty := decimal.NewFromFloat(itemMap["qty"].(float64))
 			cost := decimal.NewFromFloat(itemMap["unitCost"].(float64))
 			taxRate := decimal.New(0, 0)
 
 			if tr, ok := itemMap["taxRate"].(float64); ok {
 				taxRate = decimal.NewFromFloat(tr)
 			}
+
+			var productID *int
+			if pid, ok := itemMap["productId"].(float64); ok {
+				id2 := int(pid)
+				productID = &id2
+			}
+			desc, _ := itemMap["description"].(string)
 
 			lineSub := qty.Mul(cost)
 			lineTax := lineSub.Mul(taxRate).Div(decimal.NewFromInt(100)).Round(2)
@@ -409,7 +439,8 @@ func (pos *PurchaseOrderService) Update(id int, data map[string]interface{}) (*m
 
 			pos.db.Create(&models.PurchaseOrderItem{
 				PurchaseOrderID: id,
-				ProductID:       int(itemMap["productId"].(float64)),
+				ProductID:       productID,
+				Description:     desc,
 				OrderedQuantity: qty,
 				UnitCost:        cost,
 				TaxRate:         taxRate,
