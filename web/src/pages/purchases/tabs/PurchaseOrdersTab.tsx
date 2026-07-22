@@ -328,7 +328,7 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
 10. Disputes: Subject to Hyderabad Jurisdiction.
 11. Insurance: In our scope.
 12. Force Majeure: Applicable.`)
-  const [termsOpen, setTermsOpen] = useState(false)
+  const [termsOpen, setTermsOpen] = useState(true)
   const [prePopulated, setPrePopulated] = useState(false)
 
   // Fetch full PO for edit pre-population
