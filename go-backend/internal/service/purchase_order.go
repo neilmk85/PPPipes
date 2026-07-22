@@ -172,6 +172,9 @@ func (pos *PurchaseOrderService) Create(data map[string]interface{}) (*models.Pu
 	if notes, ok := data["notes"].(string); ok {
 		order.Notes = &notes
 	}
+	if terms, ok := data["terms"].(string); ok {
+		order.Terms = &terms
+	}
 
 	if expectedDate, ok := data["expectedDate"].(string); ok {
 		if parsedDate, err := time.Parse("2006-01-02", expectedDate); err == nil {
@@ -275,6 +278,9 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 
 	if notes, ok := data["notes"].(string); ok {
 		order.Notes = &notes
+	}
+	if terms, ok := data["terms"].(string); ok {
+		order.Terms = &terms
 	}
 
 	// Create items with received quantities
@@ -467,6 +473,9 @@ func (pos *PurchaseOrderService) Update(id int, data map[string]interface{}) (*m
 	if notes, ok := data["notes"].(string); ok {
 		order.Notes = &notes
 	}
+	if terms, ok := data["terms"].(string); ok {
+		order.Terms = &terms
+	}
 
 	if err := pos.db.Save(order).Error; err != nil {
 		return nil, err
@@ -614,6 +623,9 @@ func (pos *PurchaseOrderService) UpdateDirect(id int, data map[string]interface{
 			order.Notes = &notes
 		} else if _, hasNotes := data["notes"]; hasNotes {
 			order.Notes = nil
+		}
+		if terms, ok := data["terms"].(string); ok {
+			order.Terms = &terms
 		}
 
 		return tx.Save(order).Error

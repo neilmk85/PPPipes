@@ -316,6 +316,19 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
   const [lines, setLines] = useState<POLine[]>([newLine()])
   const [expectedDate, setExpectedDate] = useState('')
   const [notes, setNotes] = useState('')
+  const [terms, setTerms] = useState(`1. Payment: 30% advance along with Purchase Order. 50% against Proforma Invoice before dispatch. Balance 20% after installation and commissioning at site.
+2. Delivery: 10-12 Weeks from the date of receipt of advance payment.
+3. Delivery charges: Extra at actual.
+4. GST: 18% extra as applicable.
+5. Price: Firm and fixed for the above payment terms.
+6. Octroi / Entry Tax: Extra as applicable.
+7. Installation & Commissioning charges: Extra as actual, if required.
+8. Testing at factory: Free of cost.
+9. Warranty: 12 months from the date of commissioning or 18 months from the date of supply, whichever is earlier.
+10. Disputes: Subject to Hyderabad Jurisdiction.
+11. Insurance: In our scope.
+12. Force Majeure: Applicable.`)
+  const [termsOpen, setTermsOpen] = useState(false)
   const [prePopulated, setPrePopulated] = useState(false)
 
   // Fetch full PO for edit pre-population
@@ -330,6 +343,7 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
     setSupplierId(fullEditPo.supplier?.id ?? null)
     setExpectedDate(fullEditPo.expectedDate ?? '')
     setNotes(fullEditPo.notes ?? '')
+    if (fullEditPo.terms) setTerms(fullEditPo.terms)
     if (fullEditPo.items?.length > 0) {
       setLines(fullEditPo.items.map((item: any) => {
         const parts = (item.description ?? '').split('\n')
@@ -390,6 +404,7 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
       supplierId,
       expectedDate: expectedDate || null,
       notes:        notes || null,
+      terms:        terms || null,
       items: validLines.map(l => {
         const desc = [l.productName.trim(), l.description.trim()].filter(Boolean).join('\n')
         return {
@@ -484,6 +499,29 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
               <input type="text" placeholder="Optional remarks…" value={notes} onChange={e => setNotes(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
             </div>
+          </div>
+
+          {/* Terms & Conditions */}
+          <div className="border border-gray-100 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setTermsOpen(o => !o)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 text-left hover:bg-gray-100 transition-colors"
+            >
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Terms &amp; Conditions</p>
+              <span className="text-xs text-gray-400">{termsOpen ? '▲ Hide' : '▼ Edit'}</span>
+            </button>
+            {termsOpen && (
+              <div className="p-4">
+                <textarea
+                  value={terms}
+                  onChange={e => setTerms(e.target.value)}
+                  rows={14}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y"
+                  placeholder="Enter terms and conditions…"
+                />
+              </div>
+            )}
           </div>
 
           {/* Line Items */}
@@ -693,6 +731,13 @@ function ViewPODrawer({ po, onClose, onEdit }: { po: any; onClose: () => void; o
               <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                 <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Notes</p>
                 <p className="text-sm text-amber-900 mt-1">{fullPo.notes}</p>
+              </div>
+            )}
+
+            {fullPo?.terms && (
+              <div className="border border-gray-100 rounded-xl overflow-hidden">
+                <p className="bg-gray-50 px-4 py-2.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">Terms &amp; Conditions</p>
+                <pre className="px-4 py-3 text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{fullPo.terms}</pre>
               </div>
             )}
 
