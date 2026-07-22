@@ -130,12 +130,19 @@ func (pbs *PurchaseBillService) Create(data map[string]interface{}) (*models.Pur
 		subtotal = subtotal.Add(lineSub)
 		taxAmount = taxAmount.Add(lineTax)
 
+		var productID *int
+		if pid, ok := itemMap["productId"].(float64); ok {
+			id := int(pid)
+			productID = &id
+		}
+		desc, _ := itemMap["description"].(string)
 		itemsData = append(itemsData, models.PurchaseBillItem{
-			ProductID: int(itemMap["productId"].(float64)),
-			Quantity:  qty,
-			UnitCost:  cost,
-			TaxRate:   taxRate,
-			LineTotal: lineSub.Add(lineTax),
+			ProductID:   productID,
+			Description: desc,
+			Quantity:    qty,
+			UnitCost:    cost,
+			TaxRate:     taxRate,
+			LineTotal:   lineSub.Add(lineTax),
 		})
 	}
 

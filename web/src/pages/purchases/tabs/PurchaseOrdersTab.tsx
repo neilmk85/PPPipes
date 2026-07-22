@@ -28,24 +28,32 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ─── Line item types ───────────────────────────────────────────────────────────
 let _lid = 1
-function newLine(): POLine {
-  return { _id: _lid++, product: null, qty: '', unitCost: '', taxGroupOverride: null }
+function newLine(isCustom = false): POLine {
+  return { _id: _lid++, isCustom, product: null, description: '', qty: '', unitCost: '', taxRate: '', taxGroupOverride: null }
 }
 interface POLine {
   _id: number
+  isCustom: boolean
   product: any | null
+  description: string
   qty: number | ''
   unitCost: number | ''
+  taxRate: number | ''
   taxGroupOverride: any | null
 }
 function lineCalc(line: POLine) {
   const qty      = parseFloat(String(line.qty)) || 0
   const unitCost = parseFloat(String(line.unitCost)) || 0
-  const tg       = line.taxGroupOverride ?? line.product?.taxGroup
-  const rate     = parseFloat(tg?.totalRate ?? 0)
+  let rate: number
+  if (line.isCustom) {
+    rate = parseFloat(String(line.taxRate)) || 0
+  } else {
+    const tg = line.taxGroupOverride ?? line.product?.taxGroup
+    rate = parseFloat(tg?.totalRate ?? 0)
+  }
   const subtotal = qty * unitCost
   const tax      = subtotal * rate / 100
-  return { qty, unitCost, subtotal, tax, lineTotal: subtotal + tax, rate, tg }
+  return { qty, unitCost, subtotal, tax, lineTotal: subtotal + tax, rate }
 }
 
 // ─── Product Picker ────────────────────────────────────────────────────────────
@@ -320,9 +328,12 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
     if (fullEditPo.items?.length > 0) {
       setLines(fullEditPo.items.map((item: any) => ({
         _id: _lid++,
+        isCustom: !item.product && !!item.description,
         product: item.product,
+        description: item.description ?? '',
         qty: parseFloat(item.orderedQuantity),
         unitCost: parseFloat(item.unitCost),
+        taxRate: parseFloat(item.taxRate),
         taxGroupOverride: null,
       })))
     }
@@ -338,11 +349,18 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
 
   const totals = useMemo(() => {
     let subtotal = 0, tax = 0
-    lines.forEach(l => { if (!l.product) return; const c = lineCalc(l); subtotal += c.subtotal; tax += c.tax })
+    lines.forEach(l => {
+      const hasContent = l.isCustom ? l.description.trim() : l.product
+      if (!hasContent) return
+      const c = lineCalc(l); subtotal += c.subtotal; tax += c.tax
+    })
     return { subtotal, tax, grand: subtotal + tax }
   }, [lines])
 
-  const validLines = lines.filter(l => l.product && (parseFloat(String(l.qty)) || 0) > 0)
+  const validLines = lines.filter(l =>
+    (l.isCustom ? l.description.trim() : l.product) &&
+    (parseFloat(String(l.qty)) || 0) > 0
+  )
 
   const { mutate: submit, isPending: saving } = useMutation({
     mutationFn: (payload: any) =>
@@ -368,6 +386,9 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
       expectedDate: expectedDate || null,
       notes:        notes || null,
       items: validLines.map(l => {
+        if (l.isCustom) {
+          return { description: l.description, qty: parseFloat(String(l.qty)), unitCost: parseFloat(String(l.unitCost)) || 0, taxRate: parseFloat(String(l.taxRate)) || 0 }
+        }
         const tg = l.taxGroupOverride ?? l.product?.taxGroup
         return { productId: l.product.id, qty: parseFloat(String(l.qty)), unitCost: parseFloat(String(l.unitCost)) || 0, taxRate: parseFloat(tg?.totalRate ?? 0) }
       }),
@@ -473,21 +494,30 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-violet-50 to-blue-50 border-y border-violet-100">
-                  <th className="px-3 py-2 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Product</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Product / Description</th>
                   <th className="px-3 py-2 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Qty</th>
                   <th className="px-3 py-2 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Unit Cost</th>
-                  <th className="px-3 py-2 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Tax</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">GST %</th>
                   <th className="px-3 py-2 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Amount</th>
                   <th className="px-2 py-2" />
                 </tr>
               </thead>
               <tbody>
                 {lines.map(line => {
-                  const calc = line.product ? lineCalc(line) : null
+                  const hasContent = line.isCustom ? line.description.trim() : line.product
+                  const calc = hasContent ? lineCalc(line) : null
                   return (
-                    <tr key={line._id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                    <tr key={line._id} className={`border-b border-gray-50 hover:bg-gray-50/50 ${line.isCustom ? 'bg-orange-50/30' : ''}`}>
                       <td className="px-3 py-2">
-                        {line.product ? (
+                        {line.isCustom ? (
+                          <input
+                            type="text"
+                            value={line.description}
+                            onChange={e => updateLine(line._id, { description: e.target.value })}
+                            placeholder="Item description…"
+                            className="w-full border border-orange-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+                          />
+                        ) : line.product ? (
                           <div className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center shrink-0">
                               <Package size={9} className="text-indigo-600" />
@@ -519,7 +549,15 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        {line.product ? (
+                        {line.isCustom ? (
+                          <div className="relative">
+                            <input type="number" min="0" max="100" step="any" value={line.taxRate}
+                              onChange={e => updateLine(line._id, { taxRate: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                              placeholder="0"
+                              className="w-full pr-5 py-1.5 text-right text-xs border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white" />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                          </div>
+                        ) : line.product ? (
                           <TaxGroupPicker value={line.taxGroupOverride ?? line.product?.taxGroup ?? null}
                             onChange={tg => updateLine(line._id, { taxGroupOverride: tg })} />
                         ) : <span className="text-xs text-gray-300 px-2">—</span>}
@@ -544,10 +582,14 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
                 })}
               </tbody>
             </table>
-            <div className="px-4 py-2.5 border-t border-dashed border-gray-100">
-              <button onClick={() => setLines(prev => [...prev, newLine()])}
+            <div className="px-4 py-2.5 border-t border-dashed border-gray-100 flex items-center gap-4">
+              <button onClick={() => setLines(prev => [...prev, newLine(false)])}
                 className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
                 <Plus size={13} /> Add Product
+              </button>
+              <button onClick={() => setLines(prev => [...prev, newLine(true)])}
+                className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-800">
+                <Plus size={13} /> Add Custom Item
               </button>
             </div>
           </div>
@@ -674,8 +716,11 @@ function ViewPODrawer({ po, onClose, onEdit }: { po: any; onClose: () => void; o
                   ) : items.map((item: any, i: number) => (
                     <tr key={item.id ?? i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                       <td className="px-4 py-3">
-                        <p className="text-sm font-semibold text-gray-800">{item.product?.name ?? '—'}</p>
-                        <p className="text-[10px] text-gray-400">{item.product?.sku} · {item.product?.unitOfMeasure}</p>
+                        <p className="text-sm font-semibold text-gray-800">{item.product?.name ?? item.description ?? '—'}</p>
+                        {item.product
+                          ? <p className="text-[10px] text-gray-400">{item.product.sku} · {item.product.unitOfMeasure}</p>
+                          : <p className="text-[10px] text-orange-400">Custom item</p>
+                        }
                       </td>
                       <td className="px-4 py-3 text-right text-sm text-gray-700">{parseFloat(item.orderedQuantity)}</td>
                       <td className="px-4 py-3 text-right text-sm text-gray-700">{fmtCur(item.unitCost)}</td>

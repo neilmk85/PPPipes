@@ -551,10 +551,16 @@ func (pos *PurchaseOrderService) UpdateDirect(id int, data map[string]interface{
 				subtotal = subtotal.Add(lineSub)
 				taxAmount = taxAmount.Add(lineTax)
 
-				productId := int(itemMap["productId"].(float64))
+				var productId *int
+				if pid, ok := itemMap["productId"].(float64); ok {
+					id2 := int(pid)
+					productId = &id2
+				}
+				desc, _ := itemMap["description"].(string)
 				if err := tx.Create(&models.PurchaseOrderItem{
 					PurchaseOrderID:  id,
 					ProductID:        productId,
+					Description:      desc,
 					OrderedQuantity:  qty,
 					ReceivedQuantity: qty,
 					UnitCost:         cost,
@@ -564,12 +570,15 @@ func (pos *PurchaseOrderService) UpdateDirect(id int, data map[string]interface{
 					return err
 				}
 
-				// Re-apply inventory for new items
+				// Re-apply inventory for new items (only if product-linked)
+				if productId == nil {
+					continue
+				}
 				var inv models.Inventory
-				result := tx.Where("product_id = ? AND outlet_id = ?", productId, order.OutletID).First(&inv)
+				result := tx.Where("product_id = ? AND outlet_id = ?", *productId, order.OutletID).First(&inv)
 				if result.Error == gorm.ErrRecordNotFound {
 					if err := tx.Create(&models.Inventory{
-						ProductID:       productId,
+						ProductID:       *productId,
 						OutletID:        order.OutletID,
 						QuantityOnHand:  qty,
 						LastStockUpdate: &now,
