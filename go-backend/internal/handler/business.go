@@ -281,12 +281,39 @@ func (h *BusinessHandler) DeleteSiloFill(w http.ResponseWriter, r *http.Request)
 	util.SendSuccess(w, "Silo fill deleted", nil)
 }
 
+// ResetSilo3 POST /api/business/silo-3-reset
+// Creates a reset record; GetSiloSummary will only count fills/consumption after this point.
+func (h *BusinessHandler) ResetSilo3(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Notes string `json:"notes"`
+	}
+	json.NewDecoder(r.Body).Decode(&body)
+
+	reset := models.SiloReset{SiloNumber: 3, Notes: body.Notes}
+	if err := h.db.Create(&reset).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to reset silo 3")
+		return
+	}
+	util.SendSuccess(w, "Silo 3 reset to zero", reset)
+}
+
 // GetSiloSummary returns per-silo totals (filled MT, consumed MT from production, balance MT).
 // Consumption is auto-derived from material_consumptions:
 //   - Silo 1+2 (Spinning): cement consumed in SPINNING stage entries
 //   - Silo 3 (Coating):    cement consumed in COATING stage entries
+//
+// Silo 3 respects the latest reset: only fills and coating consumption recorded
+// after the reset timestamp are counted.
 func (h *BusinessHandler) GetSiloSummary(w http.ResponseWriter, r *http.Request) {
-	// 1. Filled per silo
+	// 0. Check for latest Silo 3 reset
+	var latestReset models.SiloReset
+	var silo3ResetAt *time.Time
+	if err := h.db.Where("silo_number = 3").Order("created_at DESC").First(&latestReset).Error; err == nil {
+		t := latestReset.CreatedAt
+		silo3ResetAt = &t
+	}
+
+	// 1. Filled per silo (Silo 3 filtered by reset time if applicable)
 	type FillRow struct {
 		SiloNumber int     `json:"siloNumber"`
 		TotalMT    float64 `json:"totalMt"`
@@ -302,10 +329,20 @@ func (h *BusinessHandler) GetSiloSummary(w http.ResponseWriter, r *http.Request)
 		filledMT[f.SiloNumber] = f.TotalMT
 	}
 
+	// Recalculate Silo 3 fills post-reset
+	if silo3ResetAt != nil {
+		var silo3Total float64
+		h.db.Model(&models.SiloFill{}).
+			Select("COALESCE(SUM(quantity_mt), 0)").
+			Where("silo_number = 3 AND created_at > ?", silo3ResetAt).
+			Scan(&silo3Total)
+		filledMT[3] = silo3Total
+	}
+
 	// 2. Cement consumed by stage — quantities may be in kg or MT; normalise to MT
-	cementConsumedMT := func(stageType string) float64 {
+	cementConsumedMT := func(stageType string, afterTime *time.Time) float64 {
 		var total float64
-		h.db.Raw(`
+		query := `
 			SELECT COALESCE(SUM(
 				CASE
 					WHEN UPPER(mc.uom) = 'MT' THEN mc.consumed_qty
@@ -316,13 +353,18 @@ func (h *BusinessHandler) GetSiloSummary(w http.ResponseWriter, r *http.Request)
 			JOIN production_entries pe ON mc.production_entry_id = pe.id
 			JOIN products p            ON mc.material_product_id  = p.id
 			WHERE pe.stage_type = ?
-			  AND LOWER(p.name) LIKE '%cement%'
-		`, stageType).Scan(&total)
+			  AND LOWER(p.name) LIKE '%cement%'`
+		if afterTime != nil {
+			query += " AND pe.created_at > ?"
+			h.db.Raw(query, stageType, afterTime).Scan(&total)
+		} else {
+			h.db.Raw(query, stageType).Scan(&total)
+		}
 		return total
 	}
 
-	spinningConsumed := cementConsumedMT("SPINNING")
-	coatingConsumed  := cementConsumedMT("COATING")
+	spinningConsumed := cementConsumedMT("SPINNING", nil)
+	coatingConsumed  := cementConsumedMT("COATING", silo3ResetAt)
 
 	type SiloStat struct {
 		SiloNumber  int     `json:"siloNumber"`

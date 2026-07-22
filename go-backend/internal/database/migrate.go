@@ -399,6 +399,10 @@ func Migrate(db *gorm.DB) error {
 		slog.Error("[Database] Failed to migrate SiloFill", "error", err)
 		return err
 	}
+	if err := db.AutoMigrate(&models.SiloReset{}); err != nil {
+		slog.Error("[Database] Failed to migrate SiloReset", "error", err)
+		return err
+	}
 	if err := db.AutoMigrate(&models.Labour{}); err != nil {
 		slog.Error("[Database] Failed to migrate Labour", "error", err)
 		return err

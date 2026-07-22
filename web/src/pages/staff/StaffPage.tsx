@@ -129,6 +129,7 @@ export const PERMISSION_GROUPS = [
       { key: 'MANAGE_DIESEL',              label: 'Diesel Maintenance',        desc: 'Record diesel consumption by process' },
       { key: 'MANAGE_MAINTENANCE',         label: 'Maintenance',               desc: 'Record machine maintenance entries' },
       { key: 'MANAGE_SILO',                label: 'Silo / Extraction',         desc: 'Record silo levels and extractions' },
+      { key: 'RESET_SILO_3',              label: 'Reset Silo 3 to Zero',      desc: 'Reset Silo 3 (Coating) balance to zero — destructive action' },
       { key: 'MANAGE_STORE_MATERIAL',      label: 'Store Room Material',       desc: 'Record store room material issues' },
       { key: 'MANAGE_EXTRA_VEHICLES',      label: 'Extra Vehicles',            desc: 'Record hired/external vehicle usage' },
       { key: 'MANAGE_TESTING_LAB',         label: 'Testing Lab',               desc: 'Record quality test results' },

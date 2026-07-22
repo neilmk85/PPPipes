@@ -143,6 +143,9 @@ export const siloFillsApi = {
 
   summary: () =>
     api.get<{ data: SiloSummary }>('/business/silo-summary').then(unwrap<SiloSummary>),
+
+  resetSilo3: (notes?: string) =>
+    api.post('/business/silo-3-reset', { notes: notes ?? '' }),
 }
 
 // ─── Silo (legacy) ────────────────────────────────────────────────────────────

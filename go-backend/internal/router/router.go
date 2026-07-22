@@ -1965,6 +1965,11 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/business/silo-fills", middleware.Chain(businessHandler.CreateSiloFill, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/silo-fills/{id}", middleware.Chain(businessHandler.DeleteSiloFill, middleware.Authenticate(db)))
 	mux.HandleFunc("GET /api/business/silo-summary", middleware.Chain(businessHandler.GetSiloSummary, middleware.Authenticate(db)))
+	mux.HandleFunc("POST /api/business/silo-3-reset", middleware.Chain(
+		businessHandler.ResetSilo3,
+		middleware.Authenticate(db),
+		middleware.RequireRoleOrPermission("RESET_SILO_3", "SUPER_ADMIN", "ADMIN"),
+	))
 
 	// Silos (legacy)
 	mux.HandleFunc("GET /api/business/silos", middleware.Chain(businessHandler.ListSilos, middleware.Authenticate(db)))

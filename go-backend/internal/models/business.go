@@ -22,6 +22,17 @@ type SiloFill struct {
 
 func (SiloFill) TableName() string { return "biz_silo_fills" }
 
+// SiloReset marks a point in time where a silo's running balance is zeroed.
+// Only fills and production consumption AFTER this timestamp are counted.
+type SiloReset struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	SiloNumber int       `gorm:"column:silo_number;not null" json:"siloNumber"`
+	Notes      string    `gorm:"column:notes;type:text" json:"notes"`
+	CreatedAt  time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+}
+
+func (SiloReset) TableName() string { return "biz_silo_resets" }
+
 // ─── Cement Bags ──────────────────────────────────────────────────────────────
 
 type CementBag struct {

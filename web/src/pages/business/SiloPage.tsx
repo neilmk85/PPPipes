@@ -6,8 +6,10 @@ import {
   ArrowLeft, Trash2, RefreshCw,
   Cylinder, TrendingDown, Scale, PackagePlus,
   RotateCw, Paintbrush, AlertTriangle, CheckCircle2,
+  RotateCcw,
 } from 'lucide-react'
 import { siloFillsApi, type SiloFill, type SiloStat } from '@/services/businessApi'
+import { useAuthStore } from '@/store/authStore'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -326,6 +328,23 @@ function FillHistoryTable({ fills, onDelete }: { fills: SiloFill[]; onDelete: (i
 export default function SiloPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { hasPermission } = useAuthStore()
+  const canReset = hasPermission('RESET_SILO_3')
+
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetNotes, setResetNotes] = useState('')
+
+  const resetMut = useMutation({
+    mutationFn: () => siloFillsApi.resetSilo3(resetNotes),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['silo-summary'] })
+      qc.invalidateQueries({ queryKey: ['silo-fills'] })
+      toast.success('Silo 3 balance reset to zero')
+      setResetOpen(false)
+      setResetNotes('')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to reset Silo 3'),
+  })
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ['silo-summary'],
@@ -425,12 +444,74 @@ export default function SiloPage() {
             {[1, 2, 3].map(i => <div key={i} className="bg-white rounded-2xl ring-1 ring-gray-100 h-48 animate-pulse" />)}
           </div>
         ) : summary ? (
-          <div className="grid grid-cols-3 gap-4">
-            {summary.silos.map((s, i) => (
-              <SiloCard key={s.siloNumber} stat={s} accent={siloAccents[i]} stageLabel={stageLabels[i]} StageIcon={stageIcons[i]} />
-            ))}
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-4">
+              {summary.silos.map((s, i) => (
+                <SiloCard key={s.siloNumber} stat={s} accent={siloAccents[i]} stageLabel={stageLabels[i]} StageIcon={stageIcons[i]} />
+              ))}
+            </div>
+            {canReset && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setResetOpen(true)}
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <RotateCcw size={12} />
+                  Reset Silo 3 to Zero
+                </button>
+              </div>
+            )}
           </div>
         ) : null}
+
+        {/* ── Reset Silo 3 modal ── */}
+        {resetOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+              <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100">
+                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <RotateCcw size={18} className="text-red-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-800">Reset Silo 3 to Zero</p>
+                  <p className="text-xs text-gray-500 mt-0.5">This clears the running balance for Silo 3 (Coating). Existing fill records are kept but will no longer count toward the current balance.</p>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-amber-700 font-medium">This action affects Silo 3 balance only. Silos 1 and 2 are unaffected. The reset is permanent and cannot be undone.</p>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Reason / Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={resetNotes}
+                    onChange={e => setResetNotes(e.target.value)}
+                    placeholder="e.g. Physical stock count, end of month reconciliation…"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 transition"
+                  />
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => { setResetOpen(false); setResetNotes('') }}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => resetMut.mutate()}
+                    disabled={resetMut.isPending}
+                    className="flex-1 inline-flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-md shadow-red-200 transition-all"
+                  >
+                    <RotateCcw size={13} />
+                    {resetMut.isPending ? 'Resetting…' : 'Confirm Reset'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Form + History ── */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
