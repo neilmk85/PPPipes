@@ -85,6 +85,7 @@ interface CardDef {
   accent: string
   visual: React.ReactNode
   cta: string
+  disabled?: boolean
 }
 
 const CARDS: CardDef[] = [
@@ -113,6 +114,7 @@ const CARDS: CardDef[] = [
     glow: '0 0 0 1px rgba(29,78,216,0.22), 0 4px 32px rgba(30,58,138,0.12)',
     glowHover: '0 0 0 1px rgba(59,130,246,0.52), 0 12px 64px rgba(29,78,216,0.26), 0 0 120px rgba(30,58,138,0.1)',
     accent: '#93c5fd',
+    disabled: true,
     visual: <SubVisual />,
     cta: 'Enter sub-contractor mode',
   },
@@ -121,10 +123,11 @@ const CARDS: CardDef[] = [
 function RoleCard({ card }: { card: CardDef }) {
   const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
+  const active = hovered && !card.disabled
 
   return (
     <div
-      onClick={() => navigate(card.route)}
+      onClick={() => !card.disabled && navigate(card.route)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -134,10 +137,11 @@ function RoleCard({ card }: { card: CardDef }) {
         background: '#0c1220',
         borderRadius: 16,
         overflow: 'hidden',
-        cursor: 'pointer',
-        boxShadow: hovered ? card.glowHover : card.glow,
-        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
+        cursor: card.disabled ? 'default' : 'pointer',
+        boxShadow: active ? card.glowHover : card.glow,
+        transform: active ? 'translateY(-4px)' : 'translateY(0)',
         transition: 'box-shadow 0.38s cubic-bezier(0.4,0,0.2,1), transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+        opacity: card.disabled ? 0.5 : 1,
       }}
     >
       {/* Top — visual pane */}
