@@ -45,11 +45,12 @@ function VendorModal({ vendor, onClose, onSaved }: { vendor?: any; onClose: () =
     if (!validate()) return
     setLoading(true)
     try {
+      const payload = { ...form, paymentTerms: parseInt(String(form.paymentTerms)) || 0 }
       if (vendor) {
-        await api.put(`/vendors/${vendor.id}`, form)
+        await api.put(`/vendors/${vendor.id}`, payload)
         toast.success('Vendor updated')
       } else {
-        await api.post('/vendors', form)
+        await api.post('/vendors', payload)
         toast.success('Vendor created')
       }
       onSaved()
