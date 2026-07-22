@@ -689,6 +689,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	))
 
 	// ==================== QUOTATIONS ====================
+	mux.HandleFunc("GET /api/quotations/public/{quotationNumber}", quotationHandler.GetPublic)
 	mux.HandleFunc("GET /api/quotations/next-number", middleware.Chain(
 		quotationHandler.PeekNextNumber,
 		middleware.Authenticate(db),

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import QRCode from 'qrcode'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Plus, Search, FileText, X, Loader2, ChevronLeft, ChevronRight,
@@ -154,6 +155,13 @@ function drawPageHeader(doc: jsPDF, logoB64: string, deityB64: string) {
 }
 
 function drawPageFooter(doc: jsPDF, logoB64: string) {
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(6.5)
+  doc.setTextColor(140, 140, 140)
+  doc.text(
+    'This is a computer-generated Quotation issued by P&P Pipe Products Pvt. Ltd. and does not require a physical signature.',
+    PAGE_W / 2, FOOTER_Y - 3, { align: 'center' }
+  )
   doc.setFillColor(210, 235, 248)
   doc.roundedRect(5, FOOTER_Y, PAGE_W - 10, 18, 3, 3, 'F')
   if (logoB64) doc.addImage(logoB64, 'PNG', 7, FOOTER_Y + 4, 10, 10)
@@ -1109,9 +1117,11 @@ async function printQuotationPdfBlue(q: any) {
 }
 
 async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
-  const [logoB64, deityB64] = await Promise.all([
+  const verifyUrl = `https://system.pppipeproducts.com/verify/quotation/${encodeURIComponent(q.quotationNumber ?? '')}`
+  const [logoB64, deityB64, qrDataUrl] = await Promise.all([
     loadImgBase64('/pp-logo.png'),
     loadImgBase64('/pp-deity.jpg'),
+    QRCode.toDataURL(verifyUrl, { width: 128, margin: 1, color: { dark: '#1e497d', light: '#ffffff' } }),
   ])
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -1311,7 +1321,17 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
   const sigY = closingY + closingLines.length * 5.5 + 8
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(20, 20, 20)
-  doc.text('Thanking you,', L, sigY)
+  // QR code — left side
+  const qrSize = 28
+  doc.addImage(qrDataUrl, 'PNG', L, sigY, qrSize, qrSize)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6)
+  doc.setTextColor(100, 100, 100)
+  doc.text('Scan to verify', L + qrSize / 2, sigY + qrSize + 3.5, { align: 'center' })
+
+  // Signatory — right side
+  doc.setTextColor(20, 20, 20)
+  doc.text('Thanking you,', L + qrSize + 6, sigY)
   doc.text('Regards,', R, sigY + 10, { align: 'right' })
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 100, 100)
@@ -1320,6 +1340,7 @@ async function buildQuotationDocOfficial(q: any): Promise<jsPDF> {
   doc.setLineWidth(0.3)
   doc.line(130, sigY + 37, R, sigY + 37)
   doc.setFont('helvetica', 'bold')
+  doc.setTextColor(20, 20, 20)
   doc.text('Authorized Signatory', R, sigY + 43, { align: 'right' })
 
   return doc

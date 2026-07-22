@@ -120,6 +120,18 @@ func (qs *QuotationService) GetByID(id int) (*models.Quotation, error) {
 	return quotation, err
 }
 
+func (qs *QuotationService) GetByQuotationNumber(quotationNumber string) (*models.Quotation, error) {
+	quotation := &models.Quotation{}
+	err := qs.db.Preload("Items").Preload("Items.Product").
+		Preload("Customer").Preload("Outlet").
+		Where("quotation_number = ?", quotationNumber).
+		First(quotation).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, &util.ResourceNotFoundException{Message: fmt.Sprintf("Quotation %s not found", quotationNumber)}
+	}
+	return quotation, err
+}
+
 func (qs *QuotationService) GetAll(outletId int, status *string, page, size int) ([]models.Quotation, int64, error) {
 	query := qs.db.Where("outlet_id = ?", outletId)
 

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore'
 import AppLayout from '@/layouts/AppLayout'
 import LoginPage from '@/pages/auth/LoginPage'
 import POVerifyPage from '@/pages/purchases/POVerifyPage'
+import QuotationVerifyPage from '@/pages/purchases/QuotationVerifyPage'
 import ReportsPage from '@/pages/reports/ReportsPage'
 import SalesReportPage from '@/pages/reports/SalesReportPage'
 import PurchaseReportPage from '@/pages/reports/PurchaseReportPage'
@@ -136,6 +137,7 @@ export default function App() {
         <Routes>
           <Route path="/invoice/:invoiceNumber" element={<InvoiceViewPage />} />
           <Route path="/verify/po/:poNumber" element={<POVerifyPage />} />
+          <Route path="/verify/quotation/:quotationNumber" element={<QuotationVerifyPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />

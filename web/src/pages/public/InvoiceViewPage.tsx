@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Printer, Download, Loader2, AlertCircle } from 'lucide-react'
+import { Printer, Download, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
 import axios from 'axios'
+import QRCode from 'qrcode'
 import { DEFAULT_INVOICE_TEMPLATE, InvoiceTemplateConfig } from '@/pages/settings/SettingsPage'
 
 function fmtDateLocal(d: string | null | undefined) {
@@ -24,12 +25,20 @@ export default function InvoiceViewPage() {
   const [invoice, setInvoice] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [qrDataUrl, setQrDataUrl] = useState('')
 
   useEffect(() => {
     axios.get(`/api/invoices/public/${invoiceNumber}`)
       .then(r => setInvoice(r.data.data))
       .catch(() => setError('Invoice not found or no longer available.'))
       .finally(() => setLoading(false))
+  }, [invoiceNumber])
+
+  useEffect(() => {
+    if (!invoiceNumber) return
+    const url = `https://system.pppipeproducts.com/invoice/${invoiceNumber}`
+    QRCode.toDataURL(url, { width: 96, margin: 1, color: { dark: '#1e497d', light: '#ffffff' } })
+      .then(setQrDataUrl)
   }, [invoiceNumber])
 
   if (loading) return (
@@ -291,6 +300,26 @@ export default function InvoiceViewPage() {
             <p className="text-xs text-gray-500 whitespace-pre-wrap">{tpl.terms}</p>
           </div>
         )}
+
+        {/* ── QR + Verification ── */}
+        <div className="px-8 py-4 border-t border-gray-100 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={16} className="text-green-500 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-green-700">Computer-Generated Invoice</p>
+              <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">
+                This is a computer-generated invoice issued by {outlet.name ?? 'P&P Pipe Products Pvt. Ltd.'}<br />
+                and does not require a physical signature.
+              </p>
+            </div>
+          </div>
+          {qrDataUrl && (
+            <div className="flex flex-col items-center shrink-0">
+              <img src={qrDataUrl} alt="Scan to verify" className="w-16 h-16" />
+              <p className="text-[9px] text-gray-400 mt-0.5">Scan to verify</p>
+            </div>
+          )}
+        </div>
 
         {/* ── Footer ── */}
         <div className="px-8 py-4 border-t border-gray-100 text-center" style={{ background: tpl.primaryColor + '0d' }}>

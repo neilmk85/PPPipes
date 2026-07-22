@@ -80,6 +80,21 @@ func (qh *QuotationHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, "Quotation retrieved", quotation)
 }
 
+// GetPublic GET /api/quotations/public/{quotationNumber} — no auth required
+func (qh *QuotationHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
+	quotationNumber := r.PathValue("quotationNumber")
+	if quotationNumber == "" {
+		util.SendError(w, http.StatusBadRequest, "Quotation number is required")
+		return
+	}
+	quotation, err := qh.service.GetByQuotationNumber(quotationNumber)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Quotation retrieved", quotation)
+}
+
 func (qh *QuotationHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
