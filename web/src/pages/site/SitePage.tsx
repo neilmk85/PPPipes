@@ -141,7 +141,6 @@ function RoleCard({ card }: { card: CardDef }) {
         boxShadow: active ? card.glowHover : card.glow,
         transform: active ? 'translateY(-4px)' : 'translateY(0)',
         transition: 'box-shadow 0.38s cubic-bezier(0.4,0,0.2,1), transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-        opacity: card.disabled ? 0.5 : 1,
       }}
     >
       {/* Top — visual pane */}
