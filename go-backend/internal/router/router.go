@@ -1218,6 +1218,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("DELETE /api/sub-contracts/{id}", middleware.Chain(subContractHandler.Delete, middleware.Authenticate(db)))
 
 	// ==================== PURCHASE ORDERS ====================
+	mux.HandleFunc("GET /api/purchase-orders/public/{poNumber}", purchaseOrderHandler.GetPublic)
 	mux.HandleFunc("GET /api/purchase-orders", middleware.Chain(
 		purchaseOrderHandler.GetAll,
 		middleware.Authenticate(db),

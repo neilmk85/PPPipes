@@ -96,6 +96,23 @@ func (poh *PurchaseOrderHandler) GetByPONumber(w http.ResponseWriter, r *http.Re
 	util.SendSuccess(w, "Purchase order retrieved", order)
 }
 
+// GetPublic GET /api/purchase-orders/public/{poNumber} — no auth required
+func (poh *PurchaseOrderHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
+	poNumber := r.PathValue("poNumber")
+	if poNumber == "" {
+		util.SendError(w, http.StatusBadRequest, "PO number is required")
+		return
+	}
+
+	order, err := poh.service.GetByPONumber(poNumber)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	util.SendSuccess(w, "Purchase order retrieved", order)
+}
+
 // Create POST /api/purchase-orders
 func (poh *PurchaseOrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req map[string]interface{}
