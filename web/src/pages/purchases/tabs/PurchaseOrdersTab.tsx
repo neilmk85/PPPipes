@@ -331,15 +331,18 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
     setExpectedDate(fullEditPo.expectedDate ?? '')
     setNotes(fullEditPo.notes ?? '')
     if (fullEditPo.items?.length > 0) {
-      setLines(fullEditPo.items.map((item: any) => ({
-        _id: _lid++,
-        productName: item.product?.name ?? item.description ?? '',
-        description: item.product ? (item.description ?? '') : '',
-        product: item.product ?? null,
-        qty: parseFloat(item.orderedQuantity),
-        unitCost: parseFloat(item.unitCost),
-        taxRate: parseFloat(item.taxRate),
-      })))
+      setLines(fullEditPo.items.map((item: any) => {
+        const parts = (item.description ?? '').split('\n')
+        return {
+          _id: _lid++,
+          productName: item.product?.name ?? parts[0] ?? '',
+          description: parts.slice(1).join('\n'),
+          product: item.product ?? null,
+          qty: parseFloat(item.orderedQuantity),
+          unitCost: parseFloat(item.unitCost),
+          taxRate: parseFloat(item.taxRate),
+        }
+      }))
     }
     setPrePopulated(true)
   }, [fullEditPo])
@@ -714,11 +717,19 @@ function ViewPODrawer({ po, onClose, onEdit }: { po: any; onClose: () => void; o
                   ) : items.map((item: any, i: number) => (
                     <tr key={item.id ?? i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                       <td className="px-4 py-3">
-                        <p className="text-sm font-semibold text-gray-800">{item.product?.name ?? item.description ?? '—'}</p>
-                        {item.product
-                          ? <p className="text-[10px] text-gray-400">{item.product.sku} · {item.product.unitOfMeasure}</p>
-                          : <p className="text-[10px] text-orange-400">Custom item</p>
-                        }
+                        {(() => {
+                          const parts = (item.description ?? '').split('\n')
+                          const name = item.product?.name ?? parts[0] ?? '—'
+                          const desc = parts.slice(1).join('\n')
+                          return <>
+                            <p className="text-sm font-semibold text-gray-800">{name}</p>
+                            {desc && <p className="text-[11px] text-gray-500 mt-0.5 whitespace-pre-line">{desc}</p>}
+                            {item.product
+                              ? <p className="text-[10px] text-gray-400">{item.product.sku} · {item.product.unitOfMeasure}</p>
+                              : <p className="text-[10px] text-orange-400">Custom item</p>
+                            }
+                          </>
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-right text-sm text-gray-700">{parseFloat(item.orderedQuantity)}</td>
                       <td className="px-4 py-3 text-right text-sm text-gray-700">{fmtCur(item.unitCost)}</td>
