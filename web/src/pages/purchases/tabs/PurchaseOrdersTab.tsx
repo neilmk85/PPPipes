@@ -28,46 +28,39 @@ const STATUS_COLORS: Record<string, string> = {
 
 // ─── Line item types ───────────────────────────────────────────────────────────
 let _lid = 1
-function newLine(isCustom = false): POLine {
-  return { _id: _lid++, isCustom, product: null, description: '', qty: '', unitCost: '', taxRate: '', taxGroupOverride: null }
+function newLine(): POLine {
+  return { _id: _lid++, productName: '', description: '', product: null, qty: '', unitCost: '', taxRate: '' }
 }
 interface POLine {
   _id: number
-  isCustom: boolean
-  product: any | null
-  description: string
+  productName: string   // editable item name (auto-filled when picking from DB)
+  description: string   // separate description / spec notes
+  product: any | null   // DB product ref (for cost pre-fill only)
   qty: number | ''
   unitCost: number | ''
   taxRate: number | ''
-  taxGroupOverride: any | null
 }
 function lineCalc(line: POLine) {
   const qty      = parseFloat(String(line.qty)) || 0
   const unitCost = parseFloat(String(line.unitCost)) || 0
-  let rate: number
-  if (line.isCustom) {
-    rate = parseFloat(String(line.taxRate)) || 0
-  } else {
-    const tg = line.taxGroupOverride ?? line.product?.taxGroup
-    rate = parseFloat(tg?.totalRate ?? 0)
-  }
+  const rate     = parseFloat(String(line.taxRate)) || 0
   const subtotal = qty * unitCost
   const tax      = subtotal * rate / 100
   return { qty, unitCost, subtotal, tax, lineTotal: subtotal + tax, rate }
 }
 
-// ─── Product Picker ────────────────────────────────────────────────────────────
+// ─── Product Picker (compact icon button that opens a search popup) ────────────
 function ProductPicker({ onSelect }: { onSelect: (p: any) => void }) {
   const [q, setQ] = useState('')
   const [dq, setDq] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
 
   useEffect(() => { const t = setTimeout(() => setDq(q), 200); return () => clearTimeout(t) }, [q])
 
-  // Names that are internal inventory states — never purchased from vendors
   const NON_PURCHASABLE_NAMES = ['silo cement', 'loose cement', 'extra cement']
 
   const { data: rawResults = [], isFetching } = useQuery({
@@ -92,19 +85,20 @@ function ProductPicker({ onSelect }: { onSelect: (p: any) => void }) {
   })()
 
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setQ('') } }
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)
   }, [])
 
   function updatePos() {
-    if (inputRef.current) {
-      const r = inputRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 280) })
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: Math.max(r.left - 240, 8), width: 280 })
     }
   }
   useEffect(() => {
     if (!open) return
     updatePos()
+    setTimeout(() => inputRef.current?.focus(), 50)
     window.addEventListener('scroll', updatePos, true)
     window.addEventListener('resize', updatePos)
     return () => { window.removeEventListener('scroll', updatePos, true); window.removeEventListener('resize', updatePos) }
@@ -113,44 +107,54 @@ function ProductPicker({ onSelect }: { onSelect: (p: any) => void }) {
   const showResults = open && q.trim() && (results as any[]).length > 0
   const showEmpty   = open && q.trim() && !isFetching && (results as any[]).length === 0 && dq === q
 
-  const dropdown = pos && (showResults || showEmpty) ? createPortal(
+  const dropdown = open && pos ? createPortal(
     <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}>
       <div className="bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden">
-        {showResults && (results as any[]).slice(0, 10).map((p: any) => (
-          <button key={p.id}
-            onMouseDown={e => { e.preventDefault(); onSelect(p); setQ(''); setOpen(false) }}
-            className="w-full flex items-center gap-3 px-3 py-2 hover:bg-indigo-50 text-left border-b border-gray-50 last:border-0">
-            <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center shrink-0">
-              <Package size={10} className="text-indigo-600" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gray-800 truncate">{p.name}</p>
-              <p className="text-[10px] text-gray-400">{p.sku} · {p.unitOfMeasure}</p>
-            </div>
-            {p.costPrice != null && <span className="text-xs font-bold text-indigo-600 shrink-0">{fmtCur(p.costPrice)}</span>}
-          </button>
-        ))}
-        {showEmpty && (
-          <div className="px-4 py-6 text-center">
-            <Package size={20} className="mx-auto text-gray-300 mb-1" />
-            <p className="text-sm text-gray-400">No products found</p>
+        <div className="px-2 pt-2 pb-1">
+          <div className="relative">
+            <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input ref={inputRef} value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Search product database…"
+              className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            {isFetching && <Loader2 size={11} className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-indigo-400" />}
           </div>
-        )}
+        </div>
+        <div className="max-h-52 overflow-y-auto">
+          {showResults && (results as any[]).slice(0, 10).map((p: any) => (
+            <button key={p.id}
+              onMouseDown={e => { e.preventDefault(); onSelect(p); setQ(''); setOpen(false) }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-indigo-50 text-left border-b border-gray-50 last:border-0">
+              <div className="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center shrink-0">
+                <Package size={9} className="text-indigo-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-gray-800 truncate">{p.name}</p>
+                <p className="text-[10px] text-gray-400">{p.sku} · {p.unitOfMeasure}</p>
+              </div>
+              {p.costPrice != null && <span className="text-[10px] font-bold text-indigo-600 shrink-0">{fmtCur(p.costPrice)}</span>}
+            </button>
+          ))}
+          {showEmpty && (
+            <div className="px-4 py-5 text-center">
+              <Package size={18} className="mx-auto text-gray-300 mb-1" />
+              <p className="text-xs text-gray-400">No products found</p>
+            </div>
+          )}
+          {!q.trim() && (
+            <p className="text-[10px] text-gray-400 text-center py-3">Type to search product database</p>
+          )}
+        </div>
       </div>
     </div>, document.body
   ) : null
 
   return (
-    <div ref={ref} className="relative">
-      <div className="relative">
-        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input ref={inputRef} value={q}
-          onChange={e => { setQ(e.target.value); setOpen(true) }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search product…"
-          className="w-full pl-7 pr-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50" />
-        {isFetching && <Loader2 size={11} className="absolute right-2 top-1/2 -translate-y-1/2 animate-spin text-indigo-400" />}
-      </div>
+    <div ref={ref} className="shrink-0">
+      <button ref={btnRef} onClick={() => setOpen(o => !o)} title="Search product database"
+        className={`p-1.5 rounded-lg border transition-colors ${open ? 'border-indigo-400 bg-indigo-50 text-indigo-600' : 'border-gray-200 text-gray-400 hover:text-indigo-500 hover:border-indigo-300 bg-gray-50'}`}>
+        <Package size={13} />
+      </button>
       {dropdown}
     </div>
   )
@@ -328,13 +332,12 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
     if (fullEditPo.items?.length > 0) {
       setLines(fullEditPo.items.map((item: any) => ({
         _id: _lid++,
-        isCustom: !item.product && !!item.description,
-        product: item.product,
-        description: item.description ?? '',
+        productName: item.product?.name ?? item.description ?? '',
+        description: item.product ? (item.description ?? '') : '',
+        product: item.product ?? null,
         qty: parseFloat(item.orderedQuantity),
         unitCost: parseFloat(item.unitCost),
         taxRate: parseFloat(item.taxRate),
-        taxGroupOverride: null,
       })))
     }
     setPrePopulated(true)
@@ -350,16 +353,14 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
   const totals = useMemo(() => {
     let subtotal = 0, tax = 0
     lines.forEach(l => {
-      const hasContent = l.isCustom ? l.description.trim() : l.product
-      if (!hasContent) return
+      if (!l.productName.trim()) return
       const c = lineCalc(l); subtotal += c.subtotal; tax += c.tax
     })
     return { subtotal, tax, grand: subtotal + tax }
   }, [lines])
 
   const validLines = lines.filter(l =>
-    (l.isCustom ? l.description.trim() : l.product) &&
-    (parseFloat(String(l.qty)) || 0) > 0
+    l.productName.trim() && (parseFloat(String(l.qty)) || 0) > 0
   )
 
   const { mutate: submit, isPending: saving } = useMutation({
@@ -386,11 +387,14 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
       expectedDate: expectedDate || null,
       notes:        notes || null,
       items: validLines.map(l => {
-        if (l.isCustom) {
-          return { description: l.description, qty: parseFloat(String(l.qty)), unitCost: parseFloat(String(l.unitCost)) || 0, taxRate: parseFloat(String(l.taxRate)) || 0 }
+        const desc = [l.productName.trim(), l.description.trim()].filter(Boolean).join('\n')
+        return {
+          ...(l.product ? { productId: l.product.id } : {}),
+          description: desc,
+          qty:      parseFloat(String(l.qty)),
+          unitCost: parseFloat(String(l.unitCost)) || 0,
+          taxRate:  parseFloat(String(l.taxRate))  || 0,
         }
-        const tg = l.taxGroupOverride ?? l.product?.taxGroup
-        return { productId: l.product.id, qty: parseFloat(String(l.qty)), unitCost: parseFloat(String(l.unitCost)) || 0, taxRate: parseFloat(tg?.totalRate ?? 0) }
       }),
     })
   }
@@ -481,66 +485,59 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
           {/* Line Items */}
           <div className="border border-gray-100 rounded-xl overflow-hidden">
             <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Products</p>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Items</p>
             </div>
             <table className="w-full table-fixed">
               <colgroup>
-                <col />{/* Product */}
-                <col style={{ width: '80px' }} />
+                <col />{/* Name + Description */}
+                <col style={{ width: '76px' }} />
                 <col style={{ width: '110px' }} />
-                <col style={{ width: '140px' }} />
+                <col style={{ width: '80px' }} />
                 <col style={{ width: '100px' }} />
                 <col style={{ width: '28px' }} />
               </colgroup>
               <thead>
                 <tr className="bg-gradient-to-r from-violet-50 to-blue-50 border-y border-violet-100">
-                  <th className="px-3 py-2 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Product / Description</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Product Name / Description</th>
                   <th className="px-3 py-2 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Qty</th>
                   <th className="px-3 py-2 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Unit Cost</th>
-                  <th className="px-3 py-2 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">GST %</th>
+                  <th className="px-3 py-2 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">GST %</th>
                   <th className="px-3 py-2 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Amount</th>
                   <th className="px-2 py-2" />
                 </tr>
               </thead>
               <tbody>
                 {lines.map(line => {
-                  const hasContent = line.isCustom ? line.description.trim() : line.product
-                  const calc = hasContent ? lineCalc(line) : null
+                  const calc = line.productName.trim() ? lineCalc(line) : null
                   return (
-                    <tr key={line._id} className={`border-b border-gray-50 hover:bg-gray-50/50 ${line.isCustom ? 'bg-orange-50/30' : ''}`}>
+                    <tr key={line._id} className="border-b border-gray-50 hover:bg-gray-50/50">
                       <td className="px-3 py-2">
-                        {line.isCustom ? (
+                        <div className="space-y-1.5">
+                          {/* Product name row — text input + optional DB picker */}
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={line.productName}
+                              onChange={e => updateLine(line._id, { productName: e.target.value, product: null })}
+                              placeholder="Product / Item name…"
+                              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50"
+                            />
+                            <ProductPicker onSelect={p => updateLine(line._id, {
+                              productName: p.name,
+                              product: p,
+                              unitCost: p.costPrice ?? '',
+                              taxRate: p.taxGroup?.totalRate ?? '',
+                            })} />
+                          </div>
+                          {/* Description row */}
                           <input
                             type="text"
                             value={line.description}
                             onChange={e => updateLine(line._id, { description: e.target.value })}
-                            placeholder="Item description…"
-                            className="w-full border border-orange-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+                            placeholder="Description / specifications…"
+                            className="w-full border border-gray-100 rounded px-2 py-1 text-[11px] text-gray-500 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-200 bg-white"
                           />
-                        ) : line.product ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center shrink-0">
-                                <Package size={9} className="text-indigo-600" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold text-gray-800 truncate">{line.product.name}</p>
-                                <p className="text-[10px] text-gray-400">{line.product.sku}</p>
-                              </div>
-                              <button onClick={() => updateLine(line._id, { product: null, qty: '', unitCost: '', taxGroupOverride: null })}
-                                className="text-gray-300 hover:text-red-400 shrink-0"><X size={11} /></button>
-                            </div>
-                            <input
-                              type="text"
-                              value={line.description}
-                              onChange={e => updateLine(line._id, { description: e.target.value })}
-                              placeholder="Description (optional)…"
-                              className="w-full border border-gray-200 rounded px-2 py-1 text-[11px] text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-300 bg-gray-50"
-                            />
-                          </div>
-                        ) : (
-                          <ProductPicker onSelect={p => updateLine(line._id, { product: p, unitCost: p.costPrice ?? '', taxGroupOverride: null })} />
-                        )}
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         <input type="number" min="0" step="any" value={line.qty}
@@ -558,18 +555,13 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
                         </div>
                       </td>
                       <td className="px-3 py-2">
-                        {line.isCustom ? (
-                          <div className="relative">
-                            <input type="number" min="0" max="100" step="any" value={line.taxRate}
-                              onChange={e => updateLine(line._id, { taxRate: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                              placeholder="0"
-                              className="w-full pr-5 py-1.5 text-right text-xs border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white" />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
-                          </div>
-                        ) : line.product ? (
-                          <TaxGroupPicker value={line.taxGroupOverride ?? line.product?.taxGroup ?? null}
-                            onChange={tg => updateLine(line._id, { taxGroupOverride: tg })} />
-                        ) : <span className="text-xs text-gray-300 px-2">—</span>}
+                        <div className="relative">
+                          <input type="number" min="0" max="100" step="any" value={line.taxRate}
+                            onChange={e => updateLine(line._id, { taxRate: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                            placeholder="0"
+                            className="w-full pr-5 py-1.5 text-right text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-gray-50" />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">%</span>
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-right">
                         {calc && calc.qty > 0 && calc.unitCost > 0 ? (
@@ -591,14 +583,10 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
                 })}
               </tbody>
             </table>
-            <div className="px-4 py-2.5 border-t border-dashed border-gray-100 flex items-center gap-4">
-              <button onClick={() => setLines(prev => [...prev, newLine(false)])}
+            <div className="px-4 py-2.5 border-t border-dashed border-gray-100">
+              <button onClick={() => setLines(prev => [...prev, newLine()])}
                 className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                <Plus size={13} /> Add Product
-              </button>
-              <button onClick={() => setLines(prev => [...prev, newLine(true)])}
-                className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-800">
-                <Plus size={13} /> Add Custom Item
+                <Plus size={13} /> Add Item
               </button>
             </div>
           </div>
