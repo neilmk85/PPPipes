@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { purchaseOrderApi, purchaseBillApi, outletApi, vendorApi, productApi, taxGroupApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
+import { buildPurchaseOrderPdf } from '@/utils/generatePOPdf'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function fmtCur(n: any) {
@@ -750,8 +751,28 @@ function ViewPODrawer({ po, onClose, onEdit }: { po: any; onClose: () => void; o
         {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-3">
           <button onClick={onClose}
-            className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors">
+            className="py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors">
             Close
+          </button>
+          <button
+            onClick={async () => {
+              if (!fullPo) return
+              const doc = await buildPurchaseOrderPdf(fullPo)
+              doc.save(`${fullPo.poNumber ?? 'PO'}.pdf`)
+            }}
+            className="py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors flex items-center gap-1.5">
+            <FileDown size={15} /> Download
+          </button>
+          <button
+            onClick={async () => {
+              if (!fullPo) return
+              const doc = await buildPurchaseOrderPdf(fullPo)
+              const url = URL.createObjectURL(doc.output('blob'))
+              const w = window.open(url)
+              if (w) { w.onload = () => { w.print(); URL.revokeObjectURL(url) } }
+            }}
+            className="py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors flex items-center gap-1.5">
+            <Printer size={15} /> Print
           </button>
           {po.status !== 'CANCELLED' && po.status !== 'RECEIVED' && (
             <button onClick={onEdit}
