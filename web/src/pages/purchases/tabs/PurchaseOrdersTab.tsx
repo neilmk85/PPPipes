@@ -518,16 +518,25 @@ function POFormDrawer({ onClose, outletId: defaultOutletId, editPo }: {
                             className="w-full border border-orange-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
                           />
                         ) : line.product ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center shrink-0">
-                              <Package size={9} className="text-indigo-600" />
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center shrink-0">
+                                <Package size={9} className="text-indigo-600" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-gray-800 truncate">{line.product.name}</p>
+                                <p className="text-[10px] text-gray-400">{line.product.sku}</p>
+                              </div>
+                              <button onClick={() => updateLine(line._id, { product: null, qty: '', unitCost: '', taxGroupOverride: null })}
+                                className="text-gray-300 hover:text-red-400 shrink-0"><X size={11} /></button>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-semibold text-gray-800 truncate">{line.product.name}</p>
-                              <p className="text-[10px] text-gray-400">{line.product.sku}</p>
-                            </div>
-                            <button onClick={() => updateLine(line._id, { product: null, qty: '', unitCost: '', taxGroupOverride: null })}
-                              className="text-gray-300 hover:text-red-400 shrink-0"><X size={11} /></button>
+                            <input
+                              type="text"
+                              value={line.description}
+                              onChange={e => updateLine(line._id, { description: e.target.value })}
+                              placeholder="Description (optional)…"
+                              className="w-full border border-gray-200 rounded px-2 py-1 text-[11px] text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-300 bg-gray-50"
+                            />
                           </div>
                         ) : (
                           <ProductPicker onSelect={p => updateLine(line._id, { product: p, unitCost: p.costPrice ?? '', taxGroupOverride: null })} />
