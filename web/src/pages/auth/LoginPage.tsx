@@ -167,7 +167,7 @@ export default function LoginPage() {
       >
         {/* ── Pipe hero image — floats above the form on the gradient bg ── */}
         <img
-          src="/images/pp_pipe.png"
+          src="/images/p%26p_login_img.png"
           alt="P&P PCCP Pipe"
           className="w-80 pointer-events-none select-none object-contain"
           style={{
