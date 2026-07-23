@@ -133,7 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           Center(
                             child: Image.asset(
                               'assets/images/pp_login_img.png',
-                              width: size.width * 0.82,
+                              width: size.width * 0.41,
                               fit: BoxFit.contain,
                             ),
                           ),
