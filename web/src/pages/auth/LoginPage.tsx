@@ -177,7 +177,7 @@ export default function LoginPage() {
         />
 
         {/* ── Logo row ── */}
-        <div className="flex items-center gap-3 mb-8 w-full">
+        <div className="flex items-center gap-3 mb-4 w-full">
           <img src="/pp-logo.png" alt="P&P Pipe Products" className="w-20 h-14 object-contain shrink-0" />
           <div>
             <h1 className="text-xl font-extrabold text-white tracking-tight leading-tight">
@@ -189,7 +189,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="w-full mb-9" />
+        <div className="w-full mb-2" />
 
         {/* ── Form ── */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 w-full">
