@@ -169,9 +169,9 @@ export default function LoginPage() {
         <img
           src="/images/p%26p_login_img.png"
           alt="P&P PCCP Pipe"
-          className="w-80 pointer-events-none select-none object-contain"
+          className="w-[480px] pointer-events-none select-none object-contain"
           style={{
-            filter: 'drop-shadow(0 16px 40px rgba(0,0,40,0.60)) drop-shadow(0 4px 12px rgba(0,10,80,0.45))',
+            filter: 'drop-shadow(0 20px 48px rgba(0,0,40,0.65)) drop-shadow(0 6px 16px rgba(0,10,80,0.50))',
             transform: 'perspective(900px) rotateY(-5deg) rotateX(3deg)',
           }}
         />
@@ -189,15 +189,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* ── Welcome heading ── */}
-        <div className="w-full">
-          <h2 className="text-[2rem] font-extrabold text-white tracking-tight leading-snug">
-            Welcome back
-          </h2>
-          <p className="text-white/60 text-sm mt-1.5 mb-9">
-            Sign in to your account to continue
-          </p>
-        </div>
+        <div className="w-full mb-9" />
 
         {/* ── Form ── */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 w-full">
