@@ -166,20 +166,10 @@ export default function LoginPage() {
         }}
       >
         {/* ── Pipe hero image — floats above the form on the gradient bg ── */}
-        {/* Mobile image */}
-        <img
-          src="/images/p%26p_login_mobile.png"
-          alt="P&P PCCP Pipe"
-          className="md:hidden w-full pointer-events-none select-none object-contain"
-          style={{
-            filter: 'drop-shadow(0 20px 48px rgba(0,0,40,0.65)) drop-shadow(0 6px 16px rgba(0,10,80,0.50))',
-          }}
-        />
-        {/* Desktop image */}
         <img
           src="/images/p%26p_login_img.png"
           alt="P&P PCCP Pipe"
-          className="hidden md:block w-[480px] pointer-events-none select-none object-contain"
+          className="w-full md:w-[480px] pointer-events-none select-none object-contain"
           style={{
             filter: 'drop-shadow(0 20px 48px rgba(0,0,40,0.65)) drop-shadow(0 6px 16px rgba(0,10,80,0.50))',
             transform: 'perspective(900px) rotateY(-5deg) rotateX(3deg)',
