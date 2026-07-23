@@ -135,6 +135,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               'assets/images/pp_login_img.png',
                               width: size.width * 0.53,
                               fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                              isAntiAlias: true,
                             ),
                           ),
 
