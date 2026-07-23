@@ -143,33 +143,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           // ── Logo + brand ──
                           Row(
                             children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [_violet, _blue],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius:
-                                      BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: _violet.withValues(
-                                          alpha: 0.55),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 6),
-                                    )
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.factory_rounded,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
                               Column(
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
