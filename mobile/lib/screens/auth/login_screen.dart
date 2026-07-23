@@ -127,7 +127,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Spacer(flex: 2),
+                          const Spacer(flex: 1),
+
+                          // ── Pipe hero image ──
+                          Center(
+                            child: Image.asset(
+                              'assets/images/pp_login_img.png',
+                              width: size.width * 0.82,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+
+                          const SizedBox(height: 8),
 
                           // ── Logo + brand ──
                           Row(
@@ -185,28 +196,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ],
                           ),
 
-                          const SizedBox(height: 40),
-
-                          // ── Welcome heading ──
-                          const Text(
-                            'Welcome back',
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Sign in to your account to continue',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white.withValues(alpha: 0.65),
-                            ),
-                          ),
-
-                          const SizedBox(height: 36),
+                          const SizedBox(height: 32),
 
                           // ── Email ──
                           const _GlassLabel('Email'),
