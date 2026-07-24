@@ -262,16 +262,6 @@ class _AppShellState extends ConsumerState<_AppShell> {
       key: appShellKey,
       drawer: _AppDrawer(currentPath: location, auth: auth, ref: ref),
       body: widget.child,
-      bottomNavigationBar: showBottomNav ? NavigationBar(
-        selectedIndex: activeIdx < 0 ? 0 : activeIdx,
-        onDestinationSelected: (i) => context.go(items[i].path),
-        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-        destinations: items.map((item) => NavigationDestination(
-          icon: Icon(item.icon),
-          selectedIcon: Icon(item.activeIcon),
-          label: item.label,
-        )).toList(),
-      ) : null,
     );
   }
 }
