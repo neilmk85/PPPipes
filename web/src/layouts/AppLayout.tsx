@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Package, Users, Settings, LogOut,
-  ChevronLeft, ChevronRight,
-  Building2,
+  Package, Users, BarChart3, Settings, LogOut,
+  Tag, ArrowLeftRight, TrendingUp, ChevronLeft, ChevronRight,
+  Store, FileText, Boxes, ShoppingBag,
+  Building2, PackageCheck, Receipt, CreditCard, FileX,
+  Wallet, RotateCcw, Truck, Trophy, UserCog, LineChart, ArrowRight, Activity,
+  Factory, ClipboardList, PenLine, Settings2, Layers, Cpu, DollarSign, BarChart2,
+  LayoutDashboard, Briefcase, FileBarChart2, ClipboardCheck, BookOpen, PackageSearch, Hash, Wrench, HardHat, ShieldCheck, Trash2,
   MapPinOff, MapPin,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -39,17 +43,126 @@ function isPathActive(current: string, path: string): boolean {
 }
 
 const navEntries: NavEntry[] = [
-  { path: '/products',          icon: <Package size={18} />,  label: 'Products' },
-  { path: '/customers',         icon: <Users size={18} />,    label: 'Customers' },
-  { path: '/purchases/vendors', icon: <Building2 size={18} />, label: 'Vendors' },
-  { path: '/settings',          icon: <Settings size={18} />, label: 'Settings', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { path: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+  { path: '/business',  icon: <Briefcase size={18} />,       label: 'Business' },
+  {
+    key: 'production',
+    icon: <Factory size={18} />,
+    label: 'Production',
+    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'],
+    children: [
+      { path: '/production/orders',       icon: <ClipboardList size={14} />, label: 'Production Orders' },
+      { path: '/production/entry',        icon: <PenLine size={14} />,       label: 'Process Entry' },
+      { path: '/production/entries',      icon: <Layers size={14} />,        label: 'All Entries' },
+      { path: '/business/pdi',            icon: <ClipboardCheck size={14} />, label: 'PDI Records' },
+      { path: '/production/pipe-configs',    icon: <Settings2 size={14} />,    label: 'Pipe Configuration' },
+      { path: '/production/machines',         icon: <Cpu size={14} />,          label: 'Machines' },
+      { path: '/production/overhead-configs', icon: <DollarSign size={14} />,   label: 'Overhead Config' },
+      { path: '/production/reports',                icon: <BarChart2 size={14} />,    label: 'Reports' },
+      { path: '/production/reports/fabrication',    icon: <BarChart2 size={14} />,    label: 'Fabrication Report' },
+      { path: '/production/reports/coating',        icon: <BarChart2 size={14} />,    label: 'Coating Report' },
+      { path: '/production/reports/spinning',       icon: <BarChart2 size={14} />,    label: 'Spinning Report' },
+    ],
+  },
+  {
+    key: 'inventory',
+    icon: <Boxes size={18} />,
+    label: 'Inventory',
+    children: [
+      { path: '/products',             icon: <Package size={14} />,      label: 'Products' },
+      { path: '/inventory',            icon: <Boxes size={14} />,        label: 'Stock' },
+      { path: '/inventory/categories', icon: <Tag size={14} />,          label: 'Categories' },
+    ],
+  },
+  { path: '/business/loading', icon: <Truck size={18} />, label: 'Loading' },
+  {
+    key: 'sales',
+    icon: <Store size={18} />,
+    label: 'Sales',
+    children: [
+      { path: '/sales-orders',              icon: <ShoppingBag size={14} />, label: 'Sales Orders' },
+      { path: '/customers',                 icon: <Users size={14} />,      label: 'Customers' },
+      { path: '/sales/invoices',             icon: <Receipt size={14} />,    label: 'Invoices' },
+      { path: '/sales/quotations',           icon: <FileText size={14} />,   label: 'Quotations' },
+      { path: '/sales/payments-received',   icon: <Wallet size={14} />,     label: 'Receipts' },
+      { path: '/sales/returns',             icon: <RotateCcw size={14} />,  label: 'Sales Return' },
+      { path: '/sales/credit-notes',        icon: <FileX size={14} />,      label: 'Credit Notes' },
+      { path: '/sales/delivery-challans',   icon: <Truck size={14} />,      label: 'Delivery Challans' },
+    ],
+  },
+  {
+    key: 'purchases',
+    icon: <ShoppingBag size={18} />,
+    label: 'Purchases',
+    children: [
+      { path: '/purchases/vendors',         icon: <Building2 size={14} />,    label: 'Vendors' },
+      { path: '/purchases/direct',          icon: <PackageCheck size={14} />, label: 'Direct Purchase' },
+      { path: '/purchases/purchase-orders', icon: <ShoppingBag size={14} />,  label: 'Purchase Orders' },
+      { path: '/purchases/receive',         icon: <PackageCheck size={14} />, label: 'Purchase Received' },
+      { path: '/purchases/bills',           icon: <Receipt size={14} />,      label: 'Bills' },
+      { path: '/purchases/payments',        icon: <CreditCard size={14} />,   label: 'Payments' },
+      { path: '/purchases/vendor-credits',  icon: <FileX size={14} />,        label: 'Vendor Credits' },
+      { path: '/purchases/returns',         icon: <RotateCcw size={14} />,    label: 'Purchase Returns' },
+      { path: '/business/pipe-purchases',   icon: <Package size={14} />,      label: 'Pipe Purchases', highlight: true },
+    ],
+  },
+  {
+    key: 'expenses',
+    icon: <Receipt size={18} />,
+    label: 'Expenses',
+    children: [
+      { path: '/expenses',            icon: <Wallet size={14} />,  label: 'All Expenses' },
+      { path: '/expenses/categories', icon: <Tag size={14} />,     label: 'Categories' },
+    ],
+  },
+  { path: '/transfers', icon: <ArrowLeftRight size={18} />, label: 'Site Stock Transfers' },
+  {
+    key: 'hr',
+    icon: <UserCog size={18} />,
+    label: 'HR',
+    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'],
+    children: [
+      { path: '/staff',      icon: <Users size={14} />,  label: 'Staff',      roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
+    ],
+  },
+  {
+    key: 'reports',
+    icon: <TrendingUp size={18} />,
+    label: 'Reports',
+    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
+    children: [
+      { path: '/reports/daybook',          icon: <BookOpen size={14} />,      label: 'Day Book' },
+      { path: '/reports/stock-statement',  icon: <PackageSearch size={14} />, label: 'Stock Statement' },
+      { path: '/reports',           icon: <BarChart3 size={14} />,   label: 'Overview' },
+      { path: '/reports/sales',     icon: <LineChart size={14} />,   label: 'Sales' },
+      { path: '/reports/purchases', icon: <ShoppingBag size={14} />, label: 'Purchases' },
+      { path: '/reports/inventory', icon: <Boxes size={14} />,       label: 'Inventory' },
+      { path: '/reports/gst',       icon: <FileText size={14} />,    label: 'GST Reports' },
+      { path: '/reports/hsn',         icon: <Hash size={14} />,        label: 'HSN Reports' },
+      { path: '/reports/maintenance', icon: <Wrench size={14} />,      label: 'Maintenance Report' },
+      { path: '/reports/labour',      icon: <HardHat size={14} />,     label: 'Labour Report' },
+      { path: '/reports/vehicles',    icon: <Truck size={14} />,       label: 'Vehicles Report' },
+      { path: '/reports/scrap',       icon: <Trash2 size={14} />,      label: 'Scrap Report' },
+      { path: '/reports/payments',  icon: <CreditCard size={14} />,  label: 'Payments' },
+      { path: '/reports/debtors',   icon: <Users size={14} />,       label: 'Debtors' },
+      { path: '/reports/creditors', icon: <Building2 size={14} />,   label: 'Creditors' },
+      { path: '/reports/transport', icon: <FileBarChart2 size={14} />, label: 'Transport' },
+      { path: '/reports/ledger',    icon: <FileText size={14} />,      label: 'Ledger' },
+      { path: '/reports/tds',       icon: <Receipt size={14} />,       label: 'TDS' },
+    ],
+  },
+  { path: '/activity-logs', icon: <Activity size={18} />, label: 'Activity Logs', roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
+  { path: '/settings', icon: <Settings size={18} />, label: 'Settings', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { path: '/site', icon: <Building2 size={18} />, label: 'Site', highlight: true },
 ]
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const isExpanded = !collapsed || hovered
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    inventory: false, purchases: false, sales: false, hr: false, reports: false, expenses: false, production: false,
+  })
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, hasRole, hasPermission, outletId, setOutOfOffice } = useAuthStore()
