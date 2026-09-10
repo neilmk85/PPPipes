@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:pos_mobile/main.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
+import '../../utils/confirm_discard.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -538,6 +539,7 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
   bool _loading = true;
   bool _saving = false;
   DateTime _date = DateTime.now();
+  bool _isDirty = false;
 
   @override
   void initState() {
@@ -559,7 +561,14 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return PopScope(
+      canPop: !_isDirty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final discard = await confirmDiscard(context);
+        if (discard && context.mounted) Navigator.of(context).pop();
+      },
+      child: Container(
       color: Colors.white,
       child: Padding(
         padding: EdgeInsets.only(
@@ -587,7 +596,7 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
                 items: _categories
                     .map((c) => DropdownMenuItem(value: c, child: Text(c.name)))
                     .toList(),
-                onChanged: (v) => setState(() => _selectedCategory = v),
+                onChanged: (v) => setState(() { _selectedCategory = v; _isDirty = true; }),
               )
             else
               const Text('No categories available'),
@@ -600,6 +609,7 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
                 prefixText: '₹ ',
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() => _isDirty = true),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -609,6 +619,7 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
+              onChanged: (_) => setState(() => _isDirty = true),
             ),
             const SizedBox(height: 12),
             ListTile(
@@ -624,7 +635,7 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
                     firstDate: DateTime(2020),
                     lastDate: DateTime.now(),
                   );
-                  if (picked != null) setState(() => _date = picked);
+                  if (picked != null) setState(() { _date = picked; _isDirty = true; });
                 },
                 child: const Text('Change'),
               ),
@@ -646,10 +657,16 @@ class _AddExpenseSheetState extends State<_AddExpenseSheet> {
           ],
         ),
       ),
+      ),
     );
   }
 
   Future<void> _submit() async {
+    if (_selectedCategory == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please select a category')));
+      return;
+    }
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context)

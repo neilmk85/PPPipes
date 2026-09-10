@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
+import '../../utils/confirm_discard.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
   final Customer customer;
@@ -407,6 +408,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
   late TextEditingController _discountCtrl;
   late String _segment;
   bool _saving = false;
+  bool _isDirty = false;
 
   final _segments = ['REGULAR', 'GOLD', 'PREMIUM', 'VIP'];
 
@@ -432,6 +434,18 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final phone = _phoneCtrl.text.trim();
+    if (phone.isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(phone)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid 10-digit phone number')));
+      return;
+    }
+    final email = _emailCtrl.text.trim();
+    if (email.isNotEmpty && !(email.contains('@') && email.contains('.'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid email address')));
+      return;
+    }
     setState(() => _saving = true);
     try {
       final updated = await ApiService().updateCustomer(widget.customer.id, {
@@ -454,7 +468,14 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return PopScope(
+      canPop: !_isDirty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final discard = await confirmDiscard(context);
+        if (discard && context.mounted) Navigator.of(context).pop();
+      },
+      child: AlertDialog(
       title: const Text('Edit Customer'),
       content: SingleChildScrollView(
         child: Form(
@@ -467,18 +488,21 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                 decoration: const InputDecoration(labelText: 'Name *'),
                 validator: (v) =>
                     v == null || v.isEmpty ? 'Required' : null,
+                onChanged: (_) => setState(() => _isDirty = true),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _phoneCtrl,
                 decoration: const InputDecoration(labelText: 'Phone'),
                 keyboardType: TextInputType.phone,
+                onChanged: (_) => setState(() => _isDirty = true),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _emailCtrl,
                 decoration: const InputDecoration(labelText: 'Email'),
                 keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() => _isDirty = true),
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
@@ -488,7 +512,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                     .map((s) =>
                         DropdownMenuItem(value: s, child: Text(s)))
                     .toList(),
-                onChanged: (v) => setState(() => _segment = v ?? _segment),
+                onChanged: (v) => setState(() { _segment = v ?? _segment; _isDirty = true; }),
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -497,6 +521,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
                     labelText: 'Auto Discount %', suffixText: '%'),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() => _isDirty = true),
               ),
             ],
           ),
@@ -504,7 +529,11 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              if (!_isDirty || await confirmDiscard(context)) {
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
             child: const Text('Cancel')),
         ElevatedButton(
           onPressed: _saving ? null : _save,
@@ -516,6 +545,7 @@ class _EditCustomerDialogState extends State<_EditCustomerDialog> {
               : const Text('Save'),
         ),
       ],
+      ),
     );
   }
 }

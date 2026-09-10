@@ -3,6 +3,8 @@ import { X, Loader2, ChevronDown, Plus, PlusCircle, MapPin } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { customerApi } from '@/services/api'
 import { Customer } from '@/types'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 interface Props {
   customer: Customer | null
@@ -230,6 +232,14 @@ export default function CustomerForm({ customer, onClose, onSaved }: Props) {
   const [dialCode2, setDialCode2] = useState(parsed2.dialCode)
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return }
+    setIsDirty(true)
+  }, [form, siteAddresses])
+  const { isBlocked, confirmLeave, cancelLeave } = useUnsavedChanges(isDirty)
 
   const errors = validate(form, dialCode, dialCode2)
   const hasErrors = Object.keys(errors).length > 0
@@ -241,6 +251,13 @@ export default function CustomerForm({ customer, onClose, onSaved }: Props) {
     e.preventDefault()
     touchAll()
     if (hasErrors) return
+    const invalidPincode = siteAddresses.some(
+      s => s.pincode.trim() !== '' && !/^\d{6}$/.test(s.pincode.trim())
+    )
+    if (invalidPincode) {
+      toast.error('Site address pincode must be a 6-digit number')
+      return
+    }
     setLoading(true)
     try {
       const payload = {
@@ -271,7 +288,7 @@ export default function CustomerForm({ customer, onClose, onSaved }: Props) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-lg font-bold">{customer ? 'Edit Customer' : 'Add Customer'}</h2>
-          <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
+          <button onClick={() => isDirty ? setShowConfirm(true) : onClose()}><X size={20} className="text-gray-400" /></button>
         </div>
         <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -368,7 +385,7 @@ export default function CustomerForm({ customer, onClose, onSaved }: Props) {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
+            <button type="button" onClick={() => isDirty ? setShowConfirm(true) : onClose()}
               className="flex-1 border border-gray-300 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-50">
               Cancel
             </button>
@@ -380,6 +397,8 @@ export default function CustomerForm({ customer, onClose, onSaved }: Props) {
           </div>
         </form>
       </div>
+      <UnsavedChangesDialog open={showConfirm} onConfirm={onClose} onCancel={() => setShowConfirm(false)} />
+      <UnsavedChangesDialog open={isBlocked} onConfirm={confirmLeave} onCancel={cancelLeave} />
     </div>
   )
 }

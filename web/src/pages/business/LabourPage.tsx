@@ -63,6 +63,7 @@ function EntryModal({
     if (!form.date)                                          errs.date           = 'Please select a date'
     if (!form.contractorName.trim())                        errs.contractorName = 'Contractor name is required'
     if (!form.labourCount || Number(form.labourCount) <= 0) errs.labourCount    = 'Number of labours must be greater than 0'
+    if (form.ratePerDay && parseFloat(form.ratePerDay) < 0) errs.ratePerDay     = 'Rate cannot be negative'
     if (Object.keys(errs).length) { setErrors(errs); return }
     onSave({
       date:                form.date,
@@ -145,11 +146,13 @@ function EntryModal({
               <label className={labelCls}>Rate / Day / Labour <span className="normal-case font-normal">(optional)</span></label>
               <input
                 type="text" inputMode="decimal"
+                min="0"
                 value={form.ratePerDay}
                 onChange={e => set('ratePerDay', e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="₹ 0.00"
-                className={inputCls}
+                className={`${inputCls}${errors.ratePerDay ? ' border-red-400 focus:ring-red-400' : ''}`}
               />
+              {errors.ratePerDay && <p className="flex items-center gap-1 mt-1.5 text-xs text-red-500"><AlertTriangle size={11} /> {errors.ratePerDay}</p>}
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/material.dart';
+import '../../utils/confirm_discard.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -545,6 +546,7 @@ class _CementBagSheetState extends State<_CementBagSheet> {
   final _qtyCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   bool _submitting = false;
+  bool _isDirty = false;
   String? _errQty;
 
   bool get _isEdit => widget.initial != null;
@@ -618,7 +620,11 @@ class _CementBagSheetState extends State<_CementBagSheet> {
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
               const Spacer(),
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () async {
+                  if (!_isDirty || await confirmDiscard(context)) {
+                    if (context.mounted) Navigator.pop(context);
+                  }
+                },
                 child: Container(
                   width: 30, height: 30,
                   decoration: BoxDecoration(
@@ -644,7 +650,7 @@ class _CementBagSheetState extends State<_CementBagSheet> {
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                     );
-                    if (d != null) setState(() => _date = d);
+                    if (d != null) setState(() { _date = d; _isDirty = true; });
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -668,7 +674,7 @@ class _CementBagSheetState extends State<_CementBagSheet> {
                   controller: _qtyCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   style: const TextStyle(fontSize: 14),
-                  onChanged: (_) => setState(() => _errQty = null),
+                  onChanged: (_) => setState(() { _errQty = null; _isDirty = true; }),
                   decoration: InputDecoration(
                     hintText: 'No. of bags used',
                     errorText: _errQty,
@@ -685,6 +691,7 @@ class _CementBagSheetState extends State<_CementBagSheet> {
                   controller: _notesCtrl,
                   maxLines: 2,
                   style: const TextStyle(fontSize: 14),
+                  onChanged: (_) => setState(() => _isDirty = true),
                   decoration: InputDecoration(
                     hintText: 'Supplier name, delivery info…',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -1076,6 +1083,7 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
   bool _craneEnabled = false;
   bool _jcbEnabled = false;
   bool _saving = false;
+  bool _isDirty = false;
   DateTime _date = DateTime.now();
 
   final _craneDieselCtrl = TextEditingController();
@@ -1087,8 +1095,26 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
   static const _orange     = Color(0xFF7C3AED);
   static const _deepOrange = Color(0xFF4C1D95);
 
+  late VoidCallback _dirtyListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _dirtyListener = () { if (mounted) setState(() => _isDirty = true); };
+    _craneDieselCtrl.addListener(_dirtyListener);
+    _craneHoursCtrl.addListener(_dirtyListener);
+    _jcbDieselCtrl.addListener(_dirtyListener);
+    _jcbHoursCtrl.addListener(_dirtyListener);
+    _notesCtrl.addListener(_dirtyListener);
+  }
+
   @override
   void dispose() {
+    _craneDieselCtrl.removeListener(_dirtyListener);
+    _craneHoursCtrl.removeListener(_dirtyListener);
+    _jcbDieselCtrl.removeListener(_dirtyListener);
+    _jcbHoursCtrl.removeListener(_dirtyListener);
+    _notesCtrl.removeListener(_dirtyListener);
     _craneDieselCtrl.dispose();
     _craneHoursCtrl.dispose();
     _jcbDieselCtrl.dispose();
@@ -1294,7 +1320,14 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return PopScope(
+      canPop: !_isDirty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final discard = await confirmDiscard(context);
+        if (discard && context.mounted) Navigator.of(context).pop();
+      },
+      child: Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1414,7 +1447,7 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
                     icon: Icons.precision_manufacturing_outlined,
                     enabled: _craneEnabled,
                     onToggle: () =>
-                        setState(() => _craneEnabled = !_craneEnabled),
+                        setState(() { _craneEnabled = !_craneEnabled; _isDirty = true; }),
                     fields: [
                       _iconField(
                         ctrl: _craneDieselCtrl,
@@ -1442,7 +1475,7 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
                     icon: Icons.construction_outlined,
                     enabled: _jcbEnabled,
                     onToggle: () =>
-                        setState(() => _jcbEnabled = !_jcbEnabled),
+                        setState(() { _jcbEnabled = !_jcbEnabled; _isDirty = true; }),
                     fields: [
                       _iconField(
                         ctrl: _jcbDieselCtrl,
@@ -1558,6 +1591,7 @@ class _VehicleAddSheetState extends State<_VehicleAddSheet>
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1806,6 +1840,8 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
   late final List<String> _uoms;
   final _notesCtrl   = TextEditingController();
   bool _saving = false;
+  bool _isDirty = false;
+  late VoidCallback _dirtyListener;
 
   @override
   void initState() {
@@ -1820,10 +1856,15 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
     ];
     _uoms = [e?.silo1Unit ?? 'MT', e?.silo2Unit ?? 'MT', e?.silo3Unit ?? 'MT'];
     if (e?.notes != null) _notesCtrl.text = e!.notes!;
+    _dirtyListener = () { if (mounted) setState(() => _isDirty = true); };
+    for (final c in _amountCtrls) c.addListener(_dirtyListener);
+    _notesCtrl.addListener(_dirtyListener);
   }
 
   @override
   void dispose() {
+    for (final c in _amountCtrls) c.removeListener(_dirtyListener);
+    _notesCtrl.removeListener(_dirtyListener);
     for (final c in _amountCtrls) c.dispose();
     _notesCtrl.dispose();
     super.dispose();
@@ -1844,7 +1885,7 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked != null) setState(() { _date = picked; _isDirty = true; });
   }
 
   Future<void> _save() async {
@@ -1944,7 +1985,11 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () async {
+                    if (!_isDirty || await confirmDiscard(context)) {
+                      if (context.mounted) Navigator.pop(context);
+                    }
+                  },
                 ),
               ]),
             ),
@@ -1963,7 +2008,7 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
                       Row(children: [
                         // checkbox + label
                         GestureDetector(
-                          onTap: () => setState(() => _checked[i] = !_checked[i]),
+                          onTap: () => setState(() { _checked[i] = !_checked[i]; _isDirty = true; }),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Container(
                               width: 22, height: 22,
@@ -2026,7 +2071,7 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
                           _UomToggle(
                             selected: _uoms[i],
                             enabled: enabled,
-                            onChanged: (v) => setState(() => _uoms[i] = v),
+                            onChanged: (v) => setState(() { _uoms[i] = v; _isDirty = true; }),
                           ),
                         ],
                       ]),

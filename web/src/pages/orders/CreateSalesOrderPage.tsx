@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import {
   ArrowLeft, Search, Plus, Minus, ShoppingBag, Loader2,
   ChevronDown, AlertCircle, Package, Info, Pipette, X, CheckCircle2,
@@ -219,6 +221,13 @@ export default function CreateSalesOrderPage() {
   const [termsConditions, setTermsConditions] = useState('')
   const [items, setItems] = useState<LineItem[]>([])
   const [placing, setPlacing] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const soMountedRef = useRef(false)
+  useEffect(() => {
+    if (!soMountedRef.current) { soMountedRef.current = true; return }
+    setIsDirty(true)
+  }, [customer, items, notes, termsConditions, customerPoNumber, paymentTerms, shippingAddress, shippingAmount, advanceAmount])
+  const { isBlocked: soIsBlocked, confirmLeave: soConfirmLeave, cancelLeave: soCancelLeave } = useUnsavedChanges(isDirty)
 
   // Auto-fill shipping from customer primary address when customer is selected/changed
   useEffect(() => {
@@ -763,6 +772,7 @@ export default function CreateSalesOrderPage() {
           </button>
         </div>
       </div>
+      <UnsavedChangesDialog open={soIsBlocked} onConfirm={soConfirmLeave} onCancel={soCancelLeave} />
     </div>
   )
 }

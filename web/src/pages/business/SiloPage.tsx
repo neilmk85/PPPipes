@@ -235,7 +235,13 @@ function FillForm({ onSaved }: { onSaved: () => void }) {
         <button
           type="button"
           disabled={!quantityMt || parseFloat(quantityMt) <= 0 || mut.isPending}
-          onClick={() => mut.mutate()}
+          onClick={() => {
+            if (!(parseFloat(quantityMt) > 0)) {
+              toast.error('Quantity must be greater than 0')
+              return
+            }
+            mut.mutate()
+          }}
           className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-500 hover:from-teal-700 hover:to-emerald-600 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-semibold shadow-md shadow-teal-200 transition-all"
         >
           <PackagePlus size={15} />

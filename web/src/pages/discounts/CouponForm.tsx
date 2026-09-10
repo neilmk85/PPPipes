@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { discountApi } from '@/services/api'
 import { Coupon } from '@/types'
 import DateTimePicker from '@/components/DateTimePicker'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 interface Props {
   coupon?: Coupon | null
@@ -28,9 +30,21 @@ export default function CouponForm({ coupon, onClose, onSaved }: Props) {
     active:            coupon?.active      ?? true,
   })
   const [loading, setLoading] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const cfMountedRef = useRef(false)
+  useEffect(() => {
+    if (!cfMountedRef.current) { cfMountedRef.current = true; return }
+    setIsDirty(true)
+  }, [form])
+  const { isBlocked: cfIsBlocked, confirmLeave: cfConfirmLeave, cancelLeave: cfCancelLeave } = useUnsavedChanges(isDirty)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (form.valueType === 'PERCENTAGE' && form.value > 100) {
+      toast.error('Discount cannot exceed 100%')
+      return
+    }
     setLoading(true)
     try {
       const payload = {
@@ -62,7 +76,7 @@ export default function CouponForm({ coupon, onClose, onSaved }: Props) {
             <h2 className="text-lg font-bold text-gray-900">{isEdit ? 'Edit Coupon' : 'Create Coupon'}</h2>
             {isEdit && <p className="text-xs text-gray-400 mt-0.5 font-mono">{coupon!.code}</p>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+          <button onClick={() => isDirty ? setShowConfirm(true) : onClose()} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
             <X size={18} className="text-gray-400" />
           </button>
         </div>
@@ -217,6 +231,8 @@ export default function CouponForm({ coupon, onClose, onSaved }: Props) {
           </div>
         </form>
       </div>
+      <UnsavedChangesDialog open={showConfirm} onConfirm={onClose} onCancel={() => setShowConfirm(false)} />
+      <UnsavedChangesDialog open={cfIsBlocked} onConfirm={cfConfirmLeave} onCancel={cfCancelLeave} />
     </div>
   )
 }

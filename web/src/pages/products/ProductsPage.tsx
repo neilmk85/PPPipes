@@ -61,7 +61,7 @@ export default function ProductsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['products'],
-    queryFn: () => productApi.getAll({ page: 0, size: 500 }).then(r => r.data.data),
+    queryFn: () => productApi.getAll({ page: 0, size: 2000 }).then(r => r.data.data),
   })
 
   const deleteMut = useMutation({

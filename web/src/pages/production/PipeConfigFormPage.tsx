@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, Controller } from 'react-hook-form'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, Trash2, Save, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { pipeConfigApi, productApi } from '@/services/api'
@@ -39,7 +41,7 @@ export default function PipeConfigFormPage() {
   const [materialRows, setMaterialRows] = useState<Record<string, MaterialRow[]>>({
     FABRICATION: [], SPINNING: [], WINDING: [], COATING: [],
   })
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm({
     defaultValues: {
       name: '',
       diameterMm: '',
@@ -49,6 +51,8 @@ export default function PipeConfigFormPage() {
       active: true,
     },
   })
+
+  const { isBlocked: pcIsBlocked, confirmLeave: pcConfirmLeave, cancelLeave: pcCancelLeave } = useUnsavedChanges(isDirty)
 
   const diamVal = watch('diameterMm')
   const pcVal = watch('pressureClass')
@@ -263,7 +267,7 @@ export default function PipeConfigFormPage() {
               type="number"
               step="0.01"
               min="0.01"
-              {...register('lengthM', { required: 'Required' })}
+              {...register('lengthM', { required: 'Required', min: { value: 0.01, message: 'Length must be greater than 0' } })}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
               placeholder="e.g. 5.25"
             />
@@ -426,6 +430,7 @@ export default function PipeConfigFormPage() {
           </div>
         </div>
       )}
+      <UnsavedChangesDialog open={pcIsBlocked} onConfirm={pcConfirmLeave} onCancel={pcCancelLeave} />
     </div>
   )
 }

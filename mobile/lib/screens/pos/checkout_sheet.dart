@@ -41,6 +41,15 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   Future<void> _placeOrder() async {
     final cart = ref.read(cartProvider);
     if (cart.items.isEmpty) return;
+    if (_paymentMethod == 'CASH') {
+      final tendered = double.tryParse(_amountCtrl.text) ?? 0;
+      if (tendered < _grandTotal) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Cash amount must be at least ₹${_grandTotal.toStringAsFixed(2)}')));
+        return;
+      }
+    }
     setState(() => _processing = true);
     try {
       final auth = ref.read(authProvider).user!;

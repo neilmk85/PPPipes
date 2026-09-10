@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:pos_mobile/main.dart';
 import '../../models/models.dart';
 import '../../services/api_service.dart';
+import '../../utils/confirm_discard.dart';
 import '../../widgets/date_filter_dropdown.dart';
 
 class DirectPurchasesScreen extends StatefulWidget {
@@ -395,6 +396,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
   late final TextEditingController _notesCtrl;
   late final List<_Line> _lines;
   bool _saving = false;
+  bool _isDirty = false;
 
   bool get _isEdit => widget.editing != null;
 
@@ -436,6 +438,16 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
           const SnackBar(content: Text('Please enter vendor name')));
       return;
     }
+    final hasInvalidLine = _lines
+        .where((l) => l.nameCtrl.text.trim().isNotEmpty)
+        .any((l) =>
+            (double.tryParse(l.qtyCtrl.text) ?? 0) <= 0 ||
+            (double.tryParse(l.rateCtrl.text) ?? 0) <= 0);
+    if (hasInvalidLine) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Quantity and rate must be greater than 0 for all items')));
+      return;
+    }
     setState(() => _saving = true);
     try {
       final items = _lines
@@ -471,7 +483,14 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
   @override
   Widget build(BuildContext context) {
     final color = widget.color;
-    return DraggableScrollableSheet(
+    return PopScope(
+      canPop: !_isDirty,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final discard = await confirmDiscard(context);
+        if (discard && context.mounted) Navigator.of(context).pop();
+      },
+      child: DraggableScrollableSheet(
       initialChildSize: 0.85,
       maxChildSize: 0.95,
       minChildSize: 0.5,
@@ -517,7 +536,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
                   const Text('Items', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   TextButton.icon(
-                    onPressed: () => setState(() => _lines.add(_Line())),
+                    onPressed: () => setState(() { _lines.add(_Line()); _isDirty = true; }),
                     icon: Icon(Icons.add, size: 16, color: color),
                     label: Text('Add item', style: TextStyle(color: color, fontSize: 12)),
                   ),
@@ -565,6 +584,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
           ),
         ]),
       ),
+      ),
     );
   }
 
@@ -582,7 +602,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
           Expanded(
             child: TextField(
               controller: line.nameCtrl,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() => _isDirty = true),
               decoration: InputDecoration(
                 hintText: 'Product / item name',
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
@@ -595,7 +615,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
           if (_lines.length > 1) ...[
             const SizedBox(width: 6),
             GestureDetector(
-              onTap: () => setState(() => _lines.removeAt(i)),
+              onTap: () => setState(() { _lines.removeAt(i); _isDirty = true; }),
               child: Icon(Icons.remove_circle_outline, color: Colors.red.shade300, size: 20),
             ),
           ],
@@ -606,7 +626,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
             child: TextField(
               controller: line.qtyCtrl,
               keyboardType: TextInputType.number,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() => _isDirty = true),
               decoration: InputDecoration(
                 hintText: 'Qty',
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
@@ -621,7 +641,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
             child: TextField(
               controller: line.rateCtrl,
               keyboardType: TextInputType.number,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => setState(() => _isDirty = true),
               decoration: InputDecoration(
                 hintText: 'Rate (₹)',
                 hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
@@ -651,6 +671,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
     return TextField(
       controller: ctrl,
       maxLines: maxLines,
+      onChanged: (_) => setState(() => _isDirty = true),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,

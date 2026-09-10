@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom'
 import { profileApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { UnsavedChangesDialog } from '@/components/UnsavedChangesDialog'
 
 const ROLE_COLORS: Record<string, string> = {
   SUPER_ADMIN: 'bg-orange-100 text-orange-700 border-orange-200',
@@ -41,6 +43,9 @@ export default function ProfilePage() {
 
   const [form, setForm] = useState({ name: '', phone: '' })
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
+  const [isDirty, setIsDirty] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const { isBlocked: ppIsBlocked, confirmLeave: ppConfirmLeave, cancelLeave: ppCancelLeave } = useUnsavedChanges(isDirty && editing)
 
   const initials = profile?.name
     ? profile.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
@@ -59,11 +64,21 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Name is required'); return }
+    const ph = form.phone.trim()
+    if (ph) {
+      const validIndian = /^[6-9]\d{9}$/.test(ph)
+      const validGeneric = /^\d{6,15}$/.test(ph)
+      if (!validIndian && !validGeneric) {
+        toast.error('Enter a valid phone number (10 digits for Indian numbers)')
+        return
+      }
+    }
     setSaving(true)
     try {
       const res = await profileApi.update(form)
       setProfile(res.data.data)
       setEditing(false)
+      setIsDirty(false)
       toast.success('Profile updated')
     } catch (e: any) {
       toast.error(e.response?.data?.message ?? 'Failed to update profile')
@@ -71,8 +86,17 @@ export default function ProfilePage() {
   }
 
   const handleCancel = () => {
+    if (isDirty) { setShowConfirm(true); return }
     setForm({ name: profile?.name ?? '', phone: profile?.phone ?? '' })
     setEditing(false)
+    setIsDirty(false)
+  }
+
+  const doCancel = () => {
+    setForm({ name: profile?.name ?? '', phone: profile?.phone ?? '' })
+    setEditing(false)
+    setIsDirty(false)
+    setShowConfirm(false)
   }
 
   const handlePasswordChange = async () => {
@@ -195,7 +219,7 @@ export default function ProfilePage() {
                     <label className="block text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-1.5">Full Name</label>
                     <input
                       value={form.name}
-                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setIsDirty(true) }}
                       className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                       placeholder="Enter full name"
                     />
@@ -204,7 +228,7 @@ export default function ProfilePage() {
                     <label className="block text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-1.5">Phone Number</label>
                     <input
                       value={form.phone}
-                      onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                      onChange={e => { setForm(f => ({ ...f, phone: e.target.value })); setIsDirty(true) }}
                       className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                       placeholder="Enter phone number"
                     />
@@ -281,6 +305,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+      <UnsavedChangesDialog open={showConfirm} onConfirm={doCancel} onCancel={() => setShowConfirm(false)} />
+      <UnsavedChangesDialog open={ppIsBlocked} onConfirm={ppConfirmLeave} onCancel={ppCancelLeave} />
     </div>
   )
 }
