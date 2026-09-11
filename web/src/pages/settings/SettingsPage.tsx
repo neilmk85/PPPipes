@@ -823,7 +823,7 @@ function RolesSettings() {
           </div>
         ) : (
           <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
-            {(allStaff as any[]).map((u: any) => (
+            {(allStaff as any[]).filter((u: any) => !u.roles?.includes('SUPER_ADMIN')).map((u: any) => (
               <div key={u.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
                   {(u.name || u.email || '?')[0].toUpperCase()}
