@@ -1286,6 +1286,7 @@ const CARD_PERMISSION_BUSINESS = [
   { key: 'CONVERT_SO_TO_PO',  label: 'Convert SO to PO',    category: 'Sales' },
   { key: 'loading-invoice',   label: 'Loading + Invoice',   category: 'Logistics' },
   { key: 'print-invoices',    label: 'Print Invoices',       category: 'Logistics' },
+  { key: 'delivery-challan',  label: 'Delivery Challan',     category: 'Logistics' },
 ]
 
 const CARD_PERMISSION_PCCP = [
