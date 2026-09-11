@@ -31,6 +31,7 @@ type Product struct {
 	ReorderLevel       int              `gorm:"column:reorder_level;default:10" json:"reorderLevel"`
 	ImageURL           *string          `gorm:"column:image_url" json:"imageUrl"`
 	Active             bool             `gorm:"column:is_active;default:true" json:"active"`
+	Purchasable        bool             `gorm:"column:is_purchasable;default:true" json:"purchasable"`
 	Featured           bool             `gorm:"column:is_featured;default:false" json:"featured"`
 	CreatedAt          time.Time        `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt          time.Time        `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`

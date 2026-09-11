@@ -66,7 +66,7 @@ function ProductPicker({ onSelect }: { onSelect: (p: any) => void }) {
 
   const { data: rawResults = [], isFetching } = useQuery({
     queryKey: ['product-search-po', dq],
-    queryFn: () => dq.trim() ? productApi.search(dq.trim()).then(r => r.data.data ?? []) : Promise.resolve([]),
+    queryFn: () => dq.trim() ? productApi.search(dq.trim(), { purchasable: true }).then(r => r.data.data ?? []) : Promise.resolve([]),
     enabled: dq.trim().length > 0,
   })
 

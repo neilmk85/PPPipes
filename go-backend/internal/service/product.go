@@ -72,14 +72,19 @@ func (ps *ProductService) GetByID(id int) (product *models.Product, err error) {
 	return product, err
 }
 
-// Search returns products matching query on name, sku, or barcode
-func (ps *ProductService) Search(query string, outletId *int) (products []models.Product, err error) {
+// Search returns products matching query on name, sku, or barcode.
+// If purchasableOnly is true, only products with is_purchasable=1 are returned.
+func (ps *ProductService) Search(query string, outletId *int, purchasableOnly bool) (products []models.Product, err error) {
 	q := ps.db.Where("is_active = ? AND (name LIKE ? OR sku LIKE ? OR barcode LIKE ?)",
 		true, "%"+query+"%", "%"+query+"%", "%"+query+"%").
 		Preload("Category").
 		Preload("TaxGroup").
 		Preload("Variants").
 		Limit(30)
+
+	if purchasableOnly {
+		q = q.Where("is_purchasable = ?", true)
+	}
 
 	err = q.Find(&products).Error
 	return products, err

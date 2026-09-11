@@ -94,7 +94,9 @@ func (ph *ProductHandler) Search(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	products, err := ph.service.Search(q, outletIdPtr)
+	purchasableOnly := r.URL.Query().Get("purchasable") == "true"
+
+	products, err := ph.service.Search(q, outletIdPtr, purchasableOnly)
 	if err != nil {
 		handleError(w, err)
 		return
