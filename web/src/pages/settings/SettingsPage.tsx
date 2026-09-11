@@ -989,7 +989,7 @@ function CreateUserModal({ roles, onClose, onDone }: { roles: any[]; onClose: ()
   const [phone, setPhone]           = useState('')
   const [password, setPassword]     = useState('')
   const [selectedRole, setSelectedRole] = useState(roles[0]?.name ?? '')
-  const [showPw, setShowPw]         = useState(false)
+  const [showPw, setShowPw]         = useState(true)
   const [errors, setErrors]         = useState<Record<string, string>>({})
 
   const mutation = useMutation({
@@ -1124,7 +1124,7 @@ function EditUserModal({ user, roles, onClose, onDone }: { user: any; roles: any
   const [phone, setPhone]           = useState(user.phone ?? '')
   const [password, setPassword]     = useState('')
   const [selectedRole, setSelectedRole] = useState(user.roles?.[0] ?? '')
-  const [showPw, setShowPw]         = useState(false)
+  const [showPw, setShowPw]         = useState(true)
   const [errors, setErrors]         = useState<Record<string, string>>({})
 
   const mutation = useMutation({
