@@ -260,20 +260,22 @@ func (s *UserService) GetByOutlet(outletID int) ([]UserResponse, error) {
 
 // Create creates a new user
 func (s *UserService) Create(req *CreateUserRequest) (*UserResponse, error) {
-	// Check if email already exists
-	var existingUser models.User
-	err := s.db.Where("email = ?", req.Email).First(&existingUser).Error
-	if err == nil {
-		return nil, &util.BusinessException{
-			StatusCode: 400,
-			Message:    fmt.Sprintf("Email already in use: %s", req.Email),
+	// Check if email already exists (only when email is provided)
+	if req.Email != "" {
+		var existingUser models.User
+		err := s.db.Where("email = ?", req.Email).First(&existingUser).Error
+		if err == nil {
+			return nil, &util.BusinessException{
+				StatusCode: 400,
+				Message:    fmt.Sprintf("Email already in use: %s", req.Email),
+			}
 		}
-	}
-	if err != gorm.ErrRecordNotFound {
-		slog.Error("[UserService] Failed to check email uniqueness", "error", err)
-		return nil, &util.BusinessException{
-			StatusCode: 500,
-			Message:    "Internal server error",
+		if err != gorm.ErrRecordNotFound {
+			slog.Error("[UserService] Failed to check email uniqueness", "error", err)
+			return nil, &util.BusinessException{
+				StatusCode: 500,
+				Message:    "Internal server error",
+			}
 		}
 	}
 
