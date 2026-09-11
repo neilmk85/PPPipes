@@ -11,7 +11,7 @@ import { useAuthStore } from '@/store/authStore'
 
 const tabs = [
   { key: 'outlet',           label: 'Factory',          icon: <Store size={13} />,          desc: 'Manage your factory details and business information' },
-  { key: 'roles',            label: 'Users',            icon: <Shield size={13} />,         desc: 'Manage users and define staff roles' },
+  { key: 'roles',            label: 'Users & Roles',    icon: <Shield size={13} />,         desc: 'Manage users and assign roles — Super Admin only', superAdminOnly: true },
   { key: 'permissions',      label: 'Permissions',      icon: <KeyRound size={13} />,       desc: 'Manage system permissions and process access by role' },
   { key: 'tax',              label: 'Tax Groups',       icon: <Percent size={13} />,        desc: 'Configure GST tax groups and rates' },
   { key: 'receipt',          label: 'Receipt',          icon: <Receipt size={13} />,        desc: 'Customise your POS receipt template' },
@@ -24,9 +24,13 @@ const tabs = [
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const { hasRole } = useAuthStore()
+  const isSuperAdmin = hasRole('SUPER_ADMIN')
+
+  const visibleTabs = tabs.filter(t => !t.superAdminOnly || isSuperAdmin)
   const [tab, setTab] = useState('outlet')
 
-  const activeTab = tabs.find(t => t.key === tab)
+  const activeTab = visibleTabs.find(t => t.key === tab)
 
   return (
     <div className="min-h-screen bg-gray-50/60">
@@ -61,7 +65,7 @@ export default function SettingsPage() {
 
         {/* Tab strip */}
         <div className="relative border-t border-white/10 flex items-center gap-1 px-6 py-2 overflow-x-auto">
-          {tabs.map(t => (
+          {visibleTabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all ${
                 tab === t.key
@@ -734,6 +738,8 @@ const SUPER_ADMIN_ROLE = { value: 'SUPER_ADMIN', label: 'Super Admin', color: 'b
 
 function RolesSettings() {
   const qc = useQueryClient()
+  const { hasRole } = useAuthStore()
+  const isSuperAdmin = hasRole('SUPER_ADMIN')
   const [showModal, setShowModal] = useState(false)
   const [editTarget, setEditTarget] = useState<any | null>(null)
   const [expandedRole, setExpandedRole] = useState<string | null>(null)
@@ -794,11 +800,13 @@ function RolesSettings() {
             <Users size={13} className="text-gray-400" />
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Users</span>
           </div>
-          <button
-            onClick={() => setShowCreateUser(true)}
-            className="flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-700 border border-violet-200 hover:border-violet-300 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors">
-            <UserPlus size={13} /> Add User
-          </button>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setShowCreateUser(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-700 border border-violet-200 hover:border-violet-300 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors">
+              <UserPlus size={13} /> Add User
+            </button>
+          )}
         </div>
 
         {staffLoading ? (
@@ -834,11 +842,13 @@ function RolesSettings() {
                     )
                   })}
                 </div>
-                <button
-                  onClick={() => setEditUser(u)}
-                  className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg hover:bg-gray-50 shrink-0 ml-1">
-                  <Edit2 size={14} />
-                </button>
+                {isSuperAdmin && (
+                  <button
+                    onClick={() => setEditUser(u)}
+                    className="p-1.5 text-gray-400 hover:text-violet-600 rounded-lg hover:bg-gray-50 shrink-0 ml-1">
+                    <Edit2 size={14} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -852,10 +862,12 @@ function RolesSettings() {
             <ShieldCheck size={13} className="text-primary-500" />
             <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Roles & Permissions</span>
           </div>
-          <button onClick={() => { setEditTarget(null); setShowModal(true) }}
-            className="flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-700 border border-violet-200 hover:border-violet-300 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors">
-            <Plus size={13} /> Add Role
-          </button>
+          {isSuperAdmin && (
+            <button onClick={() => { setEditTarget(null); setShowModal(true) }}
+              className="flex items-center gap-1.5 text-xs font-medium text-violet-600 hover:text-violet-700 border border-violet-200 hover:border-violet-300 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors">
+              <Plus size={13} /> Add Role
+            </button>
+          )}
         </div>
 
         {/* Super Admin — always locked */}
@@ -903,14 +915,16 @@ function RolesSettings() {
                         {allStaff.filter((u: any) => u.roles?.includes(role.name)).length} users · {role.permissions?.length ?? 0} sys · {getProcessCount(role.name)} process
                       </span>
                     </button>
-                    <button onClick={() => { setEditTarget(role); setShowModal(true) }}
-                      className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg hover:bg-gray-50 shrink-0">
-                      <Edit2 size={14} />
-                    </button>
-                    <button onClick={() => deleteRole(role)}
-                      className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-50 shrink-0">
-                      <Trash2 size={14} />
-                    </button>
+                    {isSuperAdmin && (<>
+                      <button onClick={() => { setEditTarget(role); setShowModal(true) }}
+                        className="p-1.5 text-gray-400 hover:text-primary-600 rounded-lg hover:bg-gray-50 shrink-0">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => deleteRole(role)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-50 shrink-0">
+                        <Trash2 size={14} />
+                      </button>
+                    </>)}
                   </div>
                   {isExpanded && (
                     <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
