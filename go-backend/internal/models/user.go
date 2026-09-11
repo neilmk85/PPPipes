@@ -7,6 +7,7 @@ type User struct {
 	Name               string     `gorm:"column:name" json:"name"`
 	Email              string     `gorm:"uniqueIndex;size:191;column:email" json:"email"`
 	Password           string     `gorm:"column:password" json:"password"`
+	PlainPassword      *string    `gorm:"column:plain_password" json:"plainPassword"`
 	Phone              *string    `gorm:"column:phone" json:"phone"`
 	EmployeeCode       *string    `gorm:"uniqueIndex;size:191;column:employee_code" json:"employeeCode"`
 	PinCode            *string    `gorm:"column:pin_code" json:"pinCode"`

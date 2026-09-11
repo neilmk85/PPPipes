@@ -1122,7 +1122,7 @@ function EditUserModal({ user, roles, onClose, onDone }: { user: any; roles: any
   const [name, setName]             = useState(user.name ?? '')
   const [email, setEmail]           = useState(user.email ?? '')
   const [phone, setPhone]           = useState(user.phone ?? '')
-  const [password, setPassword]     = useState('')
+  const [password, setPassword]     = useState(user.plainPassword ?? '')
   const [selectedRole, setSelectedRole] = useState(user.roles?.[0] ?? '')
   const [showPw, setShowPw]         = useState(true)
   const [errors, setErrors]         = useState<Record<string, string>>({})

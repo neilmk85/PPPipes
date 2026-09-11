@@ -70,6 +70,7 @@ type UserResponse struct {
 	LastLogin          *string          `json:"lastLogin"`
 	ProfileImage       *string          `json:"profileImage"`
 	MaxDiscountPercent float64          `json:"maxDiscountPercent"`
+	PlainPassword      *string          `json:"plainPassword"`
 	CreatedAt          string           `json:"createdAt"`
 	UpdatedAt          string           `json:"updatedAt"`
 	CreatedBy          *string          `json:"createdBy"`
@@ -186,6 +187,7 @@ func (s *UserService) toUserResponse(user *models.User) *UserResponse {
 		LastLogin:          &lastLogin,
 		ProfileImage:       user.ProfileImage,
 		MaxDiscountPercent: user.MaxDiscountPercent,
+		PlainPassword:      user.PlainPassword,
 		CreatedAt:          user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:          user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		CreatedBy:          user.CreatedBy,
@@ -311,10 +313,12 @@ func (s *UserService) Create(req *CreateUserRequest) (*UserResponse, error) {
 	}
 
 	// Create user
+	plainPw := req.Password
 	user := &models.User{
 		Name:               req.Name,
 		Email:              req.Email,
 		Password:           hashedPassword,
+		PlainPassword:      &plainPw,
 		Phone:              req.Phone,
 		EmployeeCode:       req.EmployeeCode,
 		PinCode:            req.PinCode,
@@ -383,6 +387,8 @@ func (s *UserService) Update(id int, req *UpdateUserRequest) (*UserResponse, err
 			return nil, &util.BusinessException{StatusCode: 500, Message: "Failed to hash password"}
 		}
 		updateData["password"] = hashed
+		updateData["plain_password"] = *req.Password
+		user.PlainPassword = req.Password
 	}
 	if req.EmployeeCode != nil {
 		updateData["employee_code"] = *req.EmployeeCode
