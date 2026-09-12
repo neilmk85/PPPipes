@@ -12,7 +12,6 @@ import { DateRangePicker } from '@/components/DateRangePicker'
 
 const STATUS_CFG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
   DRAFT:               { label: 'Draft',          bg: 'bg-gray-100',  text: 'text-gray-600',   dot: 'bg-gray-400'   },
-  CONFIRMED:           { label: 'Confirmed',       bg: 'bg-blue-50',   text: 'text-blue-700',   dot: 'bg-blue-500'   },
   IN_PRODUCTION:       { label: 'In Production',   bg: 'bg-amber-50',  text: 'text-amber-700',  dot: 'bg-amber-500'  },
   PROCESSING:          { label: 'Processing',      bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-400' },
   PARTIALLY_DELIVERED: { label: 'Part. Delivered', bg: 'bg-purple-50', text: 'text-purple-700', dot: 'bg-purple-500' },
@@ -60,7 +59,6 @@ export default function SalesOrdersPage() {
   })
   const total: number = data?.data?.totalElements ?? allOrders.length
   const inProduction = allOrders.filter((o: any) => o.status === 'IN_PRODUCTION').length
-  const confirmed    = allOrders.filter((o: any) => o.status === 'CONFIRMED').length
   const delivered    = allOrders.filter((o: any) => ['DELIVERED','INVOICED'].includes(o.status)).length
   const totalPipes   = allOrders.reduce((sum: number, o: any) =>
     sum + (o.items ?? []).filter((i: any) => i.pipeConfigId).reduce((s: number, i: any) => s + Number(i.quantity), 0), 0)
@@ -102,10 +100,9 @@ export default function SalesOrdersPage() {
         </div>
 
         {/* Stat strip */}
-        <div className="relative border-t border-white/10 grid grid-cols-6 divide-x divide-white/10">
+        <div className="relative border-t border-white/10 grid grid-cols-5 divide-x divide-white/10">
           {[
             { label: 'Total Orders',   value: total,                          sub: 'all time'             },
-            { label: 'Confirmed',      value: confirmed,                      sub: 'awaiting production'  },
             { label: 'In Production',  value: inProduction,                   sub: 'currently active',    warn: inProduction > 0 },
             { label: 'Delivered',      value: delivered,                      sub: 'completed & invoiced' },
             { label: 'Total Pipes',    value: totalPipes.toLocaleString(),    sub: 'across all orders',   highlight: true },
@@ -143,7 +140,7 @@ export default function SalesOrdersPage() {
                 {search && <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"><X size={13} /></button>}
               </div>
               <div className="flex gap-1.5">
-                {['ALL','DRAFT','CONFIRMED','IN_PRODUCTION','DELIVERED','CANCELLED'].map(s => (
+                {['ALL','DRAFT','IN_PRODUCTION','DELIVERED','CANCELLED'].map(s => (
                   <button key={s} onClick={() => setStatus(s)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${status === s ? 'bg-white text-violet-700 shadow-sm' : 'bg-white/15 text-white border border-white/20 hover:bg-white/25'}`}>
                     {s === 'ALL' ? 'All' : (STATUS_CFG[s]?.label ?? s)}

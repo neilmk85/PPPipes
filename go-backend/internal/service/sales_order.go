@@ -400,30 +400,6 @@ func (sos *SalesOrderService) Update(id int, req SalesOrderUpdateRequest) (*mode
 	return sos.GetByID(so.ID)
 }
 
-// Confirm transitions a DRAFT sales order to CONFIRMED status
-func (sos *SalesOrderService) Confirm(id int) (*models.SalesOrder, error) {
-	so := &models.SalesOrder{}
-	if err := sos.db.First(so, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, &util.ResourceNotFoundException{Message: fmt.Sprintf("Sales Order with ID %d not found", id)}
-		}
-		return nil, err
-	}
-
-	if so.Status != models.SalesOrderStatusDraft {
-		return nil, &util.BusinessException{
-			StatusCode: 400,
-			Message:    fmt.Sprintf("Only DRAFT sales orders can be confirmed (current status: %s)", so.Status),
-		}
-	}
-
-	if err := sos.db.Model(so).Update("status", models.SalesOrderStatusConfirmed).Error; err != nil {
-		return nil, err
-	}
-
-	return sos.GetByID(so.ID)
-}
-
 // GetByID with PipeConfig preloaded on items
 func (sos *SalesOrderService) GetByIDWithPipeConfig(id int) (*models.SalesOrder, error) {
 	so := &models.SalesOrder{}
@@ -502,8 +478,7 @@ func (sos *SalesOrderService) ConvertItemToPO(soItemID int, outletID int) (*mode
 	}
 
 	// Auto-update SO status to IN_PRODUCTION if not already
-	if item.SalesOrder.Status == models.SalesOrderStatusConfirmed ||
-		item.SalesOrder.Status == models.SalesOrderStatusDraft {
+	if item.SalesOrder.Status == models.SalesOrderStatusDraft {
 		sos.db.Model(&models.SalesOrder{}).Where("id = ?", item.SalesOrderID).
 			Update("status", models.SalesOrderStatusInProduction)
 	}

@@ -111,7 +111,6 @@ function RecordPaymentModal({ salesOrderId, soNumber, balance, onClose }: {
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string; border: string }> = {
   DRAFT:               { label: 'Draft',             color: 'text-gray-600',   bg: 'bg-gray-100',    border: 'border-gray-200'   },
-  CONFIRMED:           { label: 'Confirmed',          color: 'text-blue-700',   bg: 'bg-blue-50',     border: 'border-blue-200'   },
   IN_PRODUCTION:       { label: 'In Production',      color: 'text-amber-700',  bg: 'bg-amber-50',    border: 'border-amber-200'  },
   PROCESSING:          { label: 'Processing',         color: 'text-orange-700', bg: 'bg-orange-50',   border: 'border-orange-200' },
   PARTIALLY_DELIVERED: { label: 'Partially Delivered',color: 'text-purple-700', bg: 'bg-purple-50',   border: 'border-purple-200' },
@@ -426,7 +425,7 @@ export default function SalesOrderDetailPage() {
                     Convert All ({pendingCnt})
                   </button>
                 )}
-                {(so.status === 'DRAFT' || so.status === 'CONFIRMED') && (
+                {so.status === 'DRAFT' && (
                   <button onClick={() => navigate(`/sales-orders/${id}/edit`)}
                     className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold rounded-lg transition-all">
                     <Edit2 size={13} /> Edit

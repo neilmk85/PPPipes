@@ -480,9 +480,6 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 		if total := label(req, resp, "totalAmount"); total != "" {
 			base += " — ₹" + total
 		}
-		if strings.Contains(path, "/confirm") {
-			return "UPDATED", "SALES_ORDERS", "Confirmed sales order: " + num
-		}
 		if strings.Contains(path, "/cancel") {
 			return "UPDATED", "SALES_ORDERS", "Cancelled sales order: " + num
 		}

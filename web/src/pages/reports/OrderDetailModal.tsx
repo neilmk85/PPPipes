@@ -10,7 +10,6 @@ const STATUS_COLORS: Record<string, string> = {
   REFUNDED:           'bg-orange-50 text-orange-600 border-orange-200',
   PARTIALLY_REFUNDED: 'bg-orange-50 text-orange-500 border-orange-200',
   HELD:               'bg-gray-100 text-gray-500 border-gray-200',
-  CONFIRMED:          'bg-blue-50 text-blue-600 border-blue-200',
 }
 
 // Card section header gradient — matches orders-table-header-gradient.html

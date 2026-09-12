@@ -28,7 +28,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const SO_STATUS_COLORS: Record<string, string> = {
   DRAFT:     'bg-gray-100 text-gray-600',
-  CONFIRMED: 'bg-blue-50 text-blue-700',
   DELIVERED: 'bg-green-50 text-green-700',
   CANCELLED: 'bg-red-50 text-red-600',
 }

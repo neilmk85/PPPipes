@@ -767,7 +767,6 @@ export const salesOrderApi = {
   getAll: (params?: any) => api.get<ApiResponse<any>>('/sales-orders', { params }),
   getById: (id: number) => api.get<ApiResponse<any>>(`/sales-orders/${id}`),
   update: (id: number, data: any) => api.put<ApiResponse<any>>(`/sales-orders/${id}`, data),
-  confirm: (id: number) => api.patch<ApiResponse<any>>(`/sales-orders/${id}/confirm`),
   deliver: (id: number, data: any) => api.patch<ApiResponse<any>>(`/sales-orders/${id}/deliver`, data),
   generateInvoice: (id: number, data?: any) => api.post<ApiResponse<any>>(`/sales-orders/${id}/invoice`, data ?? {}),
   cancel: (id: number) => api.patch<ApiResponse<any>>(`/sales-orders/${id}/cancel`),

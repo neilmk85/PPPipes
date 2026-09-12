@@ -208,24 +208,6 @@ func (soh *SalesOrderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, "Sales Order updated", so)
 }
 
-// Confirm transitions a DRAFT sales order to CONFIRMED status
-func (soh *SalesOrderHandler) Confirm(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		util.SendError(w, http.StatusBadRequest, "Invalid ID")
-		return
-	}
-
-	so, err := soh.service.Confirm(id)
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	util.SendSuccess(w, "Sales Order confirmed", so)
-}
-
 // RecordPayment records a customer payment against a sales order
 func (soh *SalesOrderHandler) RecordPayment(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")

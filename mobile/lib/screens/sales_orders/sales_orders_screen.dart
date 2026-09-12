@@ -76,8 +76,6 @@ class _SalesOrdersScreenState extends State<SalesOrdersScreen> {
     switch (_activeTab) {
       case 'pending':
         list = list.where((o) => o.status == 'PENDING').toList();
-      case 'confirmed':
-        list = list.where((o) => o.status == 'CONFIRMED').toList();
       case 'done':
         list = list.where((o) => o.status == 'DELIVERED' || o.status == 'CANCELLED').toList();
     }
@@ -92,7 +90,6 @@ class _SalesOrdersScreenState extends State<SalesOrdersScreen> {
   }
 
   int get _pendingCount   => _orders.where((o) => o.status == 'PENDING').length;
-  int get _confirmedCount => _orders.where((o) => o.status == 'CONFIRMED').length;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +152,6 @@ class _SalesOrdersScreenState extends State<SalesOrdersScreen> {
                               child: Row(children: [
                                 _hStat('${_orders.length}', 'Orders'),
                                 _hStat('$_pendingCount',    'Pending'),
-                                _hStat('$_confirmedCount',  'Confirmed'),
                                 _hStat(fmt.format(totalAmt), 'Value'),
                               ]),
                             ),
@@ -336,11 +332,10 @@ class _SalesOrdersScreenState extends State<SalesOrdersScreen> {
     return Row(
       key: const ValueKey('sonav'),
       children: [
-        _navItem(icon: Icons.search,              label: 'Search',    tab: 'search'),
-        _navItem(icon: Icons.list_outlined,        label: 'All',       tab: 'all'),
-        _navItem(icon: Icons.hourglass_empty,      label: 'Pending',   tab: 'pending'),
-        _navItem(icon: Icons.check_circle_outline, label: 'Confirmed', tab: 'confirmed'),
-        _navItem(icon: Icons.done_all_outlined,    label: 'Done',      tab: 'done'),
+        _navItem(icon: Icons.search,           label: 'Search',  tab: 'search'),
+        _navItem(icon: Icons.list_outlined,    label: 'All',     tab: 'all'),
+        _navItem(icon: Icons.hourglass_empty,  label: 'Pending', tab: 'pending'),
+        _navItem(icon: Icons.done_all_outlined,label: 'Done',    tab: 'done'),
       ],
     );
   }
@@ -414,7 +409,6 @@ class _SalesOrderCard extends StatelessWidget {
 
   static const _statusColors = {
     'PENDING':    Color(0xFFFF9800),
-    'CONFIRMED':  Color(0xFF2196F3),
     'DELIVERED':  Color(0xFF4CAF50),
     'CANCELLED':  Color(0xFF9E9E9E),
     'PROCESSING': Color(0xFF9C27B0),
@@ -514,7 +508,6 @@ class _SODetailSheet extends StatelessWidget {
 
   static const _statusColors = {
     'PENDING':   Color(0xFFFF9800),
-    'CONFIRMED': Color(0xFF2196F3),
     'DELIVERED': Color(0xFF4CAF50),
     'CANCELLED': Color(0xFF9E9E9E),
   };
@@ -592,26 +585,13 @@ class _SODetailSheet extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              if (order.status == 'PENDING')
-                Row(children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _doAction(context, 'cancel'),
-                      icon: const Icon(Icons.cancel_outlined),
-                      label: const Text('Cancel'),
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _doAction(context, 'confirm'),
-                      icon: const Icon(Icons.check_circle_outline),
-                      label: const Text('Confirm'),
-                      style: FilledButton.styleFrom(backgroundColor: _color),
-                    ),
-                  ),
-                ]),
+              if (order.status == 'PENDING' || order.status == 'DRAFT')
+                OutlinedButton.icon(
+                  onPressed: () => _doAction(context, 'cancel'),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Cancel'),
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                ),
             ],
           ),
         ),
@@ -622,11 +602,7 @@ class _SODetailSheet extends StatelessWidget {
   Future<void> _doAction(BuildContext context, String action) async {
     Navigator.pop(context);
     try {
-      if (action == 'confirm') {
-        await ApiService().confirmSalesOrder(order.id);
-      } else {
-        await ApiService().cancelSalesOrder(order.id);
-      }
+      await ApiService().cancelSalesOrder(order.id);
       onStatusChanged();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

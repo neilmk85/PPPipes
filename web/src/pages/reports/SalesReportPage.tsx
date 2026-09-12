@@ -26,7 +26,6 @@ const STATUS_COLORS: Record<string, string> = {
   REFUNDED:           'bg-orange-50 text-orange-600',
   PARTIALLY_REFUNDED: 'bg-orange-50 text-orange-500',
   HELD:               'bg-gray-100 text-gray-500',
-  CONFIRMED:          'bg-blue-50 text-blue-600',
 }
 
 type Tab = 'summary' | 'transactions' | 'by-category' | 'by-product' | 'by-customer' | 'returns' | 'outstanding'

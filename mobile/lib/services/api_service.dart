@@ -272,11 +272,6 @@ class ApiService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> confirmSalesOrder(int id) async {
-    final res = await _dio.patch('/sales-orders/$id/confirm');
-    return res.data['data'] as Map<String, dynamic>;
-  }
-
   Future<Map<String, dynamic>> cancelSalesOrder(int id) async {
     final res = await _dio.patch('/sales-orders/$id/cancel');
     return res.data['data'] as Map<String, dynamic>;

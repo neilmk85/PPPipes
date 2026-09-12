@@ -259,7 +259,6 @@ type SalesOrderStatus string
 
 const (
 	SalesOrderStatusDraft              SalesOrderStatus = "DRAFT"
-	SalesOrderStatusConfirmed          SalesOrderStatus = "CONFIRMED"
 	SalesOrderStatusInProduction       SalesOrderStatus = "IN_PRODUCTION"
 	SalesOrderStatusProcessing         SalesOrderStatus = "PROCESSING"
 	SalesOrderStatusPartiallyDelivered SalesOrderStatus = "PARTIALLY_DELIVERED"
