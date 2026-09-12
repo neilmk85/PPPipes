@@ -129,7 +129,7 @@ const navEntries: NavEntry[] = [
     key: 'reports',
     icon: <TrendingUp size={18} />,
     label: 'Reports',
-    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT'],
+    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'ACCOUNTS_MANAGER'],
     children: [
       { path: '/reports/daybook',          icon: <BookOpen size={14} />,      label: 'Day Book' },
       { path: '/reports/stock-statement',  icon: <PackageSearch size={14} />, label: 'Stock Statement' },
