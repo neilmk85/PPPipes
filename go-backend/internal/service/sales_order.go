@@ -121,6 +121,23 @@ func (sos *SalesOrderService) GetByID(id int) (*models.SalesOrder, error) {
 	return so, nil
 }
 
+// Delete deletes a sales order only if none of its items have been converted to a Production Order
+func (sos *SalesOrderService) Delete(id int) error {
+	so := &models.SalesOrder{}
+	if err := sos.db.Preload("Items").First(so, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &util.ResourceNotFoundException{Message: fmt.Sprintf("Sales Order with ID %d not found", id)}
+		}
+		return err
+	}
+	for _, item := range so.Items {
+		if item.ProductionOrderID != nil {
+			return &util.BusinessException{Message: "Cannot delete: one or more items have already been converted to a Production Order"}
+		}
+	}
+	return sos.db.Delete(so).Error
+}
+
 // Create creates a new sales order with items
 func (sos *SalesOrderService) Create(req SalesOrderCreateRequest) (*models.SalesOrder, error) {
 	if req.CustomerID == 0 {

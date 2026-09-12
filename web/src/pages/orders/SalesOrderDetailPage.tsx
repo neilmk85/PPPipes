@@ -5,7 +5,7 @@ import {
   ArrowLeft, FileText, CheckCircle2, Truck, XCircle,
   Factory, User, Calendar, MapPin, Edit2, Loader2,
   ChevronRight, Package, Zap, AlertCircle, Clock, X,
-  IndianRupee, Plus,
+  IndianRupee, Plus, Trash2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -188,6 +188,23 @@ export default function SalesOrderDetailPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [confirm, setConfirm] = useState<{ type: 'item'; itemId: number; name: string } | { type: 'all' } | null>(null)
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await salesOrderApi.delete(Number(id))
+      toast.success('Sales order deleted')
+      navigate('/sales-orders')
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? 'Failed to delete sales order')
+    } finally {
+      setDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
   const { data: so, isLoading } = useQuery({
     queryKey: ['sales-order', id],
     queryFn: () => salesOrderApi.getById(Number(id)).then(r => r.data.data),
@@ -275,11 +292,48 @@ export default function SalesOrderDetailPage() {
             </p>
           </div>
         </div>
-        <button onClick={() => setShowPaymentModal(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm shadow-sm transition-all">
-          <Plus size={15} /> Record Payment
-        </button>
+        <div className="flex items-center gap-2">
+          {convertedCnt === 0 && (
+            <button onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-2 bg-white border border-red-200 hover:bg-red-50 text-red-600 px-4 py-2 rounded-xl font-semibold text-sm shadow-sm transition-all">
+              <Trash2 size={15} /> Delete
+            </button>
+          )}
+          <button onClick={() => setShowPaymentModal(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white px-4 py-2 rounded-xl font-semibold text-sm shadow-sm transition-all">
+            <Plus size={15} /> Record Payment
+          </button>
+        </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">Delete Sales Order?</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{so.soNumber}</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">This will permanently delete the sales order. This action cannot be undone.</p>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setShowDeleteConfirm(false)} disabled={deleting}
+                className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
+                Cancel
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2">
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-5">
 

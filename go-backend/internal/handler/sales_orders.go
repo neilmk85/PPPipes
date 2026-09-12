@@ -18,6 +18,21 @@ func NewSalesOrderHandler(sos *service.SalesOrderService) *SalesOrderHandler {
 	return &SalesOrderHandler{service: sos}
 }
 
+// Delete deletes a sales order if it has not been converted to any Production Order
+func (soh *SalesOrderHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid sales order ID")
+		return
+	}
+	if err := soh.service.Delete(id); err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Sales order deleted", nil)
+}
+
 // GetAll retrieves paginated sales orders with optional filters
 func (soh *SalesOrderHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	outletIDStr := r.URL.Query().Get("outletId")

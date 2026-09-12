@@ -1454,6 +1454,11 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		middleware.Authenticate(db),
 		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
 	))
+	mux.HandleFunc("DELETE /api/sales-orders/{id}", middleware.Chain(
+		salesOrderHandler.Delete,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
+	))
 	mux.HandleFunc("PUT /api/sales-orders/{id}", middleware.Chain(
 		salesOrderHandler.Update,
 		middleware.Authenticate(db),
