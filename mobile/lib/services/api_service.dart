@@ -277,6 +277,11 @@ class ApiService {
     return res.data['data'] as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> convertSalesOrderAllToPO(int id) async {
+    final res = await _dio.post('/sales-orders/$id/convert-all');
+    return res.data['data'] as Map<String, dynamic>;
+  }
+
   // ---- Purchase Orders ----
   Future<List<dynamic>> getPurchaseOrders({int page = 0, int size = 20, String? from, String? to}) async {
     final params = <String, dynamic>{'page': page, 'size': size, 'isDirect': 'false'};
