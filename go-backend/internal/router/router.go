@@ -1452,17 +1452,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/sales-orders", middleware.Chain(
 		salesOrderHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/sales-orders/{id}", middleware.Chain(
 		salesOrderHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
 	))
 	mux.HandleFunc("PATCH /api/sales-orders/{id}/confirm", middleware.Chain(
 		salesOrderHandler.Confirm,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/sales-orders/{id}/convert-all", middleware.Chain(
 		salesOrderHandler.ConvertAllToPOs,
