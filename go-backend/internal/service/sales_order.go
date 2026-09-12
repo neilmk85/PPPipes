@@ -135,7 +135,15 @@ func (sos *SalesOrderService) Delete(id int) error {
 			return &util.BusinessException{Message: "Cannot delete: one or more items have already been converted to a Production Order"}
 		}
 	}
-	return sos.db.Delete(so).Error
+	return sos.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("sales_order_id = ?", id).Delete(&models.SalesOrderPayment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("sales_order_id = ?", id).Delete(&models.SalesOrderItem{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(so).Error
+	})
 }
 
 // Create creates a new sales order with items
