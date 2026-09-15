@@ -43,29 +43,88 @@ func (is *InventoryService) GetByProductAllOutlets(productId int) (inventories [
 	return inventories, err
 }
 
-// GetByOutlet returns paginated inventory list for an outlet, optionally filtered by product item_type
-func (is *InventoryService) GetByOutlet(outletId int, itemType string, page, size int) (inventories []models.Inventory, total int64, err error) {
-	query := is.db.Model(&models.Inventory{}).Where("inventory.outlet_id = ?", outletId)
+// GetByOutlet returns paginated inventory list for an outlet, optionally filtered by product item_type.
+// For FINISHED_PIPE, all active products are returned (with 0 on-hand when no inventory row exists).
+func (is *InventoryService) GetByOutlet(outletId int, itemType string, page, size int) ([]models.Inventory, int64, error) {
+	if itemType == "FINISHED_PIPE" {
+		return is.getByOutletAllProducts(outletId, itemType, page, size)
+	}
 
+	query := is.db.Model(&models.Inventory{}).Where("inventory.outlet_id = ?", outletId)
 	if itemType != "" {
 		query = query.
 			Joins("JOIN products ON products.id = inventory.product_id").
 			Where("products.item_type = ?", itemType)
 	}
 
+	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	offset := page * size
-	err = query.
+	var inventories []models.Inventory
+	err := query.
 		Preload("Product").
 		Preload("Variant").
-		Offset(offset).
+		Offset(page * size).
 		Limit(size).
 		Find(&inventories).Error
 
 	return inventories, total, err
+}
+
+// getByOutletAllProducts queries all active products of the given itemType, merging with
+// existing inventory rows so products without a row still appear with zero on-hand.
+func (is *InventoryService) getByOutletAllProducts(outletId int, itemType string, page, size int) ([]models.Inventory, int64, error) {
+	var total int64
+	if err := is.db.Model(&models.Product{}).
+		Where("item_type = ? AND is_active = true", itemType).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var products []models.Product
+	if err := is.db.Where("item_type = ? AND is_active = true", itemType).
+		Order("name").
+		Offset(page * size).Limit(size).
+		Find(&products).Error; err != nil {
+		return nil, 0, err
+	}
+	if len(products) == 0 {
+		return nil, total, nil
+	}
+
+	productIDs := make([]int, len(products))
+	for i, p := range products {
+		productIDs[i] = p.ID
+	}
+
+	var existing []models.Inventory
+	if err := is.db.Where("product_id IN ? AND outlet_id = ?", productIDs, outletId).
+		Find(&existing).Error; err != nil {
+		return nil, 0, err
+	}
+	invMap := make(map[int]models.Inventory, len(existing))
+	for _, inv := range existing {
+		invMap[inv.ProductID] = inv
+	}
+
+	result := make([]models.Inventory, len(products))
+	for i := range products {
+		p := products[i]
+		if inv, ok := invMap[p.ID]; ok {
+			inv.Product = &p
+			result[i] = inv
+		} else {
+			result[i] = models.Inventory{
+				ProductID:      p.ID,
+				OutletID:       outletId,
+				QuantityOnHand: decimal.Zero,
+				Product:        &p,
+			}
+		}
+	}
+	return result, total, nil
 }
 
 // GetLowStock returns inventory items where quantity is below reorder level
