@@ -221,6 +221,8 @@ export const inventoryApi = {
     api.put<ApiResponse<any>>(`/inventory/transfers/${id}/receive`, data),
   getTransfers: (outletId: number, params?: any) =>
     api.get<ApiResponse<any>>('/inventory/transfers', { params: { outletId, ...params } }),
+  getStageWise: (params?: { fromDate?: string; toDate?: string; outletId?: number }) =>
+    api.get<ApiResponse<any>>('/inventory/stage-wise', { params }),
 }
 
 // Orders

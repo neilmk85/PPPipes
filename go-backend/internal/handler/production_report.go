@@ -92,3 +92,14 @@ func (h *ProductionReportHandler) ContractorCosts(w http.ResponseWriter, r *http
 	}
 	util.SendSuccess(w, "Contractor costs retrieved", rows)
 }
+
+// GET /api/inventory/stage-wise
+func (h *ProductionReportHandler) StageWiseInventory(w http.ResponseWriter, r *http.Request) {
+	from, to, outletID := parseReportFilters(r)
+	rows, err := h.service.GetStageWiseInventory(from, to, outletID)
+	if err != nil {
+		util.SendError(w, 500, err.Error())
+		return
+	}
+	util.SendSuccess(w, "Stage-wise inventory", rows)
+}

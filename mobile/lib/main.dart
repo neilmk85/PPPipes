@@ -298,7 +298,60 @@ class _AppDrawerState extends State<_AppDrawer> {
     final currentPath = widget.currentPath;
     final auth        = widget.auth;
     final roles = auth?.user?.roles as List<String>? ?? [];
-    final isAdmin = roles.contains('SUPER_ADMIN') || roles.contains('ADMIN');
+    final perms = auth?.user?.permissions ?? [];
+    final isSuperAdmin = roles.contains('SUPER_ADMIN');
+
+    // Helper: SUPER_ADMIN sees everything; others only see what their role grants
+    bool can(String permission) => isSuperAdmin || perms.contains(permission);
+
+    // Build section items dynamically — only include what the user can access
+    final commerceItems = <Widget>[
+      if (can('VIEW_SALES_ORDERS'))
+        _navItem(context, '/sales-orders', Icons.shopping_cart_outlined, Icons.shopping_cart, 'Sales Orders'),
+      if (can('VIEW_PURCHASES') || can('MANAGE_PURCHASES') || can('DIRECT_PURCHASE'))
+        _purchasesExpander(context, currentPath),
+      if (_purchasesExpanded && can('MANAGE_PURCHASES'))
+        _subNavItem(context, '/purchases', Icons.assignment_outlined, 'PO', currentPath),
+      if (_purchasesExpanded && can('DIRECT_PURCHASE'))
+        _subNavItem(context, '/purchases/direct', Icons.receipt_long_outlined, 'Direct Purchases', currentPath),
+      if (can('VIEW_INVOICES'))
+        _navItem(context, '/invoices', Icons.description_outlined, Icons.description, 'Invoices'),
+      if (can('VIEW_VENDORS'))
+        _navItem(context, '/vendors', Icons.business_outlined, Icons.business, 'Vendors'),
+      if (can('VIEW_CUSTOMERS'))
+        _navItem(context, '/customers', Icons.people_outline, Icons.people, 'Customers'),
+      if (can('VIEW_ORDERS'))
+        _navItem(context, '/orders', Icons.receipt_long_outlined, Icons.receipt_long, 'Orders'),
+    ];
+
+    final operationsItems = <Widget>[
+      if (can('VIEW_PRODUCTION_ORDERS'))
+        _navItem(context, '/production', Icons.precision_manufacturing_outlined, Icons.precision_manufacturing, 'Production'),
+      if (can('VIEW_EXPENSES'))
+        _navItem(context, '/expenses', Icons.payments_outlined, Icons.payments, 'Expenses'),
+      if (can('VIEW_SHIFTS'))
+        _navItem(context, '/shifts', Icons.access_time_outlined, Icons.access_time_filled, 'Shifts'),
+      if (can('VIEW_PRODUCTS'))
+        _navItem(context, '/products', Icons.inventory_2_outlined, Icons.inventory_2, 'Products'),
+      if (can('VIEW_INVENTORY'))
+        _navItem(context, '/inventory', Icons.warehouse_outlined, Icons.warehouse, 'Inventory'),
+      if (can('VIEW_BUSINESS'))
+        _navItem(context, '/business', Icons.business_center_outlined, Icons.business_center, 'Business Hub'),
+      if (can('MANAGE_LOADING'))
+        _navItem(context, '/business/loading', Icons.local_shipping_outlined, Icons.local_shipping, 'Loading'),
+    ];
+
+    final analyticsItems = <Widget>[
+      if (can('VIEW_REPORTS'))
+        _navItem(context, '/reports', Icons.bar_chart_outlined, Icons.bar_chart, 'Reports'),
+    ];
+
+    final accountItems = <Widget>[
+      if (can('MANAGE_SETTINGS'))
+        _navItem(context, '/settings', Icons.settings_outlined, Icons.settings, 'Settings'),
+      if (can('MANAGE_STAFF'))
+        _navItem(context, '/staff', Icons.people_outline, Icons.people, 'Staff'),
+    ];
 
     return Drawer(
       width: 285,
@@ -318,45 +371,36 @@ class _AppDrawerState extends State<_AppDrawer> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                   children: [
-                    // ── HOME ─────────────────────────────────────────
+                    // ── HOME (always visible) ─────────────────────────
                     _sectionLabel('HOME'),
                     _navItem(context, '/dashboard', Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
-                    _navItem(context, '/business',  Icons.business_center_outlined, Icons.business_center, 'Business'),
 
-                    if (isAdmin) ...[
-                      // ── COMMERCE ───────────────────────────────────
+                    // ── COMMERCE ───────────────────────────────────────
+                    if (commerceItems.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       _sectionLabel('COMMERCE'),
-                      _navItem(context, '/sales-orders', Icons.shopping_cart_outlined,     Icons.shopping_cart,     'Sales Orders'),
-                      // ── Purchases expandable ───────────────────────────
-                      _purchasesExpander(context, currentPath),
-                      if (_purchasesExpanded) ...[
-                        _subNavItem(context, '/purchases',         Icons.assignment_outlined,      'PO',                currentPath),
-                        _subNavItem(context, '/purchases/direct',  Icons.receipt_long_outlined,    'Direct Purchases',  currentPath),
-                      ],
-                      _navItem(context, '/invoices',     Icons.description_outlined,       Icons.description,       'Invoices'),
-                      _navItem(context, '/vendors',      Icons.business_outlined,          Icons.business,          'Vendors'),
-                      _navItem(context, '/customers',    Icons.people_outline,             Icons.people,            'Customers'),
-                      _navItem(context, '/orders',       Icons.receipt_long_outlined,      Icons.receipt_long,      'Orders'),
+                      ...commerceItems,
+                    ],
 
-                      // ── OPERATIONS ─────────────────────────────────
+                    // ── OPERATIONS ─────────────────────────────────────
+                    if (operationsItems.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       _sectionLabel('OPERATIONS'),
-                      _navItem(context, '/production', Icons.precision_manufacturing_outlined, Icons.precision_manufacturing, 'Production'),
-                      _navItem(context, '/expenses',   Icons.payments_outlined,                Icons.payments,                'Expenses'),
-                      _navItem(context, '/shifts',     Icons.access_time_outlined,             Icons.access_time_filled,      'Shifts'),
-                      _navItem(context, '/products',   Icons.inventory_2_outlined,             Icons.inventory_2,             'Products'),
-                      _navItem(context, '/inventory',  Icons.warehouse_outlined,               Icons.warehouse,               'Inventory'),
+                      ...operationsItems,
+                    ],
 
-                      // ── ANALYTICS ──────────────────────────────────
+                    // ── ANALYTICS ──────────────────────────────────────
+                    if (analyticsItems.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       _sectionLabel('ANALYTICS'),
-                      _navItem(context, '/reports', Icons.bar_chart_outlined, Icons.bar_chart, 'Reports'),
+                      ...analyticsItems,
+                    ],
 
-                      // ── ACCOUNT ────────────────────────────────────
+                    // ── ACCOUNT ────────────────────────────────────────
+                    if (accountItems.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       _sectionLabel('ACCOUNT'),
-                      _navItem(context, '/settings', Icons.settings_outlined, Icons.settings, 'Settings'),
+                      ...accountItems,
                     ],
                   ],
                 ),

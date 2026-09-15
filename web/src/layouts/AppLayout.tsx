@@ -19,7 +19,7 @@ interface NavItem {
   path: string
   icon: React.ReactNode
   label: string
-  roles?: string[]
+  permission?: string
   highlight?: boolean
   disabled?: boolean
 }
@@ -28,7 +28,7 @@ interface NavGroup {
   key: string
   icon: React.ReactNode
   label: string
-  roles?: string[]
+  permission?: string
   children: NavItem[]
 }
 
@@ -44,115 +44,120 @@ function isPathActive(current: string, path: string): boolean {
 
 const navEntries: NavEntry[] = [
   { path: '/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
-  { path: '/business',  icon: <Briefcase size={18} />,       label: 'Business' },
+  { path: '/business',  icon: <Briefcase size={18} />,       label: 'Business',  permission: 'VIEW_BUSINESS' },
   {
     key: 'production',
     icon: <Factory size={18} />,
     label: 'Production',
-    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'],
+    permission: 'VIEW_PRODUCTION_ORDERS',
     children: [
-      { path: '/production/orders',       icon: <ClipboardList size={14} />, label: 'Production Orders' },
-      { path: '/production/entry',        icon: <PenLine size={14} />,       label: 'Process Entry' },
-      { path: '/production/entries',      icon: <Layers size={14} />,        label: 'All Entries' },
-      { path: '/business/pdi',            icon: <ClipboardCheck size={14} />, label: 'PDI Records' },
-      { path: '/production/pipe-configs',    icon: <Settings2 size={14} />,    label: 'Pipe Configuration' },
-      { path: '/production/machines',         icon: <Cpu size={14} />,          label: 'Machines' },
-      { path: '/production/overhead-configs', icon: <DollarSign size={14} />,   label: 'Overhead Config' },
-      { path: '/production/reports',                icon: <BarChart2 size={14} />,    label: 'Reports' },
-      { path: '/production/reports/fabrication',    icon: <BarChart2 size={14} />,    label: 'Fabrication Report' },
-      { path: '/production/reports/coating',        icon: <BarChart2 size={14} />,    label: 'Coating Report' },
-      { path: '/production/reports/spinning',       icon: <BarChart2 size={14} />,    label: 'Spinning Report' },
+      { path: '/production/orders',               icon: <ClipboardList size={14} />, label: 'Production Orders',   permission: 'VIEW_PRODUCTION_ORDERS' },
+      { path: '/production/entry',                icon: <PenLine size={14} />,       label: 'Process Entry',        permission: 'MANAGE_PRODUCTION_ENTRIES' },
+      { path: '/production/entries',              icon: <Layers size={14} />,        label: 'All Entries',          permission: 'VIEW_PRODUCTION_ENTRIES' },
+      { path: '/business/pdi',                    icon: <ClipboardCheck size={14} />, label: 'PDI Records',         permission: 'MANAGE_PDI' },
+      { path: '/production/pipe-configs',         icon: <Settings2 size={14} />,    label: 'Pipe Configuration',   permission: 'VIEW_PIPE_CONFIGS' },
+      { path: '/production/machines',             icon: <Cpu size={14} />,           label: 'Machines',             permission: 'VIEW_MACHINES' },
+      { path: '/production/overhead-configs',     icon: <DollarSign size={14} />,   label: 'Overhead Config',      permission: 'MANAGE_OVERHEAD_CONFIGS' },
+      { path: '/production/reports',              icon: <BarChart2 size={14} />,     label: 'Reports',              permission: 'VIEW_PRODUCTION_REPORTS' },
+      { path: '/production/reports/fabrication',  icon: <BarChart2 size={14} />,     label: 'Fabrication Report',   permission: 'VIEW_PRODUCTION_REPORTS' },
+      { path: '/production/reports/coating',      icon: <BarChart2 size={14} />,     label: 'Coating Report',       permission: 'VIEW_PRODUCTION_REPORTS' },
+      { path: '/production/reports/spinning',     icon: <BarChart2 size={14} />,     label: 'Spinning Report',      permission: 'VIEW_PRODUCTION_REPORTS' },
     ],
   },
   {
     key: 'inventory',
     icon: <Boxes size={18} />,
     label: 'Inventory',
+    permission: 'VIEW_INVENTORY',
     children: [
-      { path: '/products',             icon: <Package size={14} />,      label: 'Products' },
-      { path: '/inventory',            icon: <Boxes size={14} />,        label: 'Stock' },
-      { path: '/inventory/categories', icon: <Tag size={14} />,          label: 'Categories' },
+      { path: '/products',               icon: <Package size={14} />,      label: 'Products',             permission: 'VIEW_PRODUCTS' },
+      { path: '/inventory',              icon: <Boxes size={14} />,        label: 'Stock',                permission: 'VIEW_INVENTORY' },
+      { path: '/inventory/stage-wise',   icon: <Layers size={14} />,       label: 'Stage Wise Inventory', permission: 'VIEW_INVENTORY' },
+      { path: '/inventory/categories',   icon: <Tag size={14} />,          label: 'Categories',           permission: 'VIEW_CATEGORIES' },
     ],
   },
-  { path: '/business/loading', icon: <Truck size={18} />, label: 'Loading' },
+  { path: '/business/loading', icon: <Truck size={18} />, label: 'Loading', permission: 'MANAGE_LOADING' },
   {
     key: 'sales',
     icon: <Store size={18} />,
     label: 'Sales',
+    permission: 'VIEW_SALES_ORDERS',
     children: [
-      { path: '/sales-orders',              icon: <ShoppingBag size={14} />, label: 'Sales Orders' },
-      { path: '/customers',                 icon: <Users size={14} />,      label: 'Customers' },
-      { path: '/sales/invoices',             icon: <Receipt size={14} />,    label: 'Invoices' },
-      { path: '/sales/quotations',           icon: <FileText size={14} />,   label: 'Quotations' },
-      { path: '/sales/payments-received',   icon: <Wallet size={14} />,     label: 'Receipts' },
-      { path: '/sales/returns',             icon: <RotateCcw size={14} />,  label: 'Sales Return' },
-      { path: '/sales/credit-notes',        icon: <FileX size={14} />,      label: 'Credit Notes' },
-      { path: '/sales/delivery-challans',   icon: <Truck size={14} />,      label: 'Delivery Challans' },
+      { path: '/sales-orders',                icon: <ShoppingBag size={14} />, label: 'Sales Orders',       permission: 'VIEW_SALES_ORDERS' },
+      { path: '/customers',                   icon: <Users size={14} />,       label: 'Customers',           permission: 'VIEW_CUSTOMERS' },
+      { path: '/sales/invoices',              icon: <Receipt size={14} />,     label: 'Invoices',            permission: 'VIEW_INVOICES' },
+      { path: '/sales/quotations',            icon: <FileText size={14} />,    label: 'Quotations',          permission: 'VIEW_QUOTATIONS' },
+      { path: '/sales/payments-received',     icon: <Wallet size={14} />,      label: 'Receipts',            permission: 'VIEW_PAYMENTS' },
+      { path: '/sales/returns',               icon: <RotateCcw size={14} />,   label: 'Sales Return',        permission: 'VIEW_RETURNS' },
+      { path: '/sales/credit-notes',          icon: <FileX size={14} />,       label: 'Credit Notes',        permission: 'VIEW_CREDIT_NOTES' },
+      { path: '/sales/delivery-challans',     icon: <Truck size={14} />,       label: 'Delivery Challans',   permission: 'VIEW_DELIVERY_CHALLANS' },
     ],
   },
   {
     key: 'purchases',
     icon: <ShoppingBag size={18} />,
     label: 'Purchases',
+    permission: 'VIEW_PURCHASES',
     children: [
-      { path: '/purchases/vendors',         icon: <Building2 size={14} />,    label: 'Vendors' },
-      { path: '/purchases/direct',          icon: <PackageCheck size={14} />, label: 'Direct Purchase' },
-      { path: '/purchases/purchase-orders', icon: <ShoppingBag size={14} />,  label: 'Purchase Orders' },
-      { path: '/purchases/receive',         icon: <PackageCheck size={14} />, label: 'Purchase Received' },
-      { path: '/purchases/bills',           icon: <Receipt size={14} />,      label: 'Bills' },
-      { path: '/purchases/payments',        icon: <CreditCard size={14} />,   label: 'Payments' },
-      { path: '/purchases/vendor-credits',  icon: <FileX size={14} />,        label: 'Vendor Credits' },
-      { path: '/purchases/returns',         icon: <RotateCcw size={14} />,    label: 'Purchase Returns' },
-      { path: '/business/pipe-purchases',   icon: <Package size={14} />,      label: 'Pipe Purchases', highlight: true },
+      { path: '/purchases/vendors',           icon: <Building2 size={14} />,    label: 'Vendors',             permission: 'VIEW_VENDORS' },
+      { path: '/purchases/direct',            icon: <PackageCheck size={14} />, label: 'Direct Purchase',     permission: 'DIRECT_PURCHASE' },
+      { path: '/purchases/purchase-orders',   icon: <ShoppingBag size={14} />,  label: 'Purchase Orders',     permission: 'MANAGE_PURCHASES' },
+      { path: '/purchases/receive',           icon: <PackageCheck size={14} />, label: 'Purchase Received',   permission: 'MANAGE_PURCHASES' },
+      { path: '/purchases/bills',             icon: <Receipt size={14} />,      label: 'Bills',               permission: 'VIEW_PURCHASES' },
+      { path: '/purchases/payments',          icon: <CreditCard size={14} />,   label: 'Payments',            permission: 'MANAGE_PAYMENTS' },
+      { path: '/purchases/vendor-credits',    icon: <FileX size={14} />,        label: 'Vendor Credits',      permission: 'VIEW_VENDOR_CREDITS' },
+      { path: '/purchases/returns',           icon: <RotateCcw size={14} />,    label: 'Purchase Returns',    permission: 'VIEW_PURCHASE_RETURNS' },
+      { path: '/business/pipe-purchases',     icon: <Package size={14} />,      label: 'Pipe Purchases',      permission: 'BULK_PURCHASE', highlight: true },
     ],
   },
   {
     key: 'expenses',
     icon: <Receipt size={18} />,
     label: 'Expenses',
+    permission: 'VIEW_EXPENSES',
     children: [
-      { path: '/expenses',            icon: <Wallet size={14} />,  label: 'All Expenses' },
-      { path: '/expenses/categories', icon: <Tag size={14} />,     label: 'Categories' },
+      { path: '/expenses',            icon: <Wallet size={14} />,  label: 'All Expenses',  permission: 'VIEW_EXPENSES' },
+      { path: '/expenses/categories', icon: <Tag size={14} />,     label: 'Categories',    permission: 'VIEW_EXPENSE_CATEGORIES' },
     ],
   },
-  { path: '/transfers', icon: <ArrowLeftRight size={18} />, label: 'Site Stock Transfers' },
+  { path: '/transfers', icon: <ArrowLeftRight size={18} />, label: 'Site Stock Transfers', permission: 'VIEW_TRANSFERS' },
   {
     key: 'hr',
     icon: <UserCog size={18} />,
     label: 'HR',
-    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'],
+    permission: 'MANAGE_STAFF',
     children: [
-      { path: '/staff',      icon: <Users size={14} />,  label: 'Staff',      roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
+      { path: '/staff', icon: <Users size={14} />, label: 'Staff', permission: 'MANAGE_STAFF' },
     ],
   },
   {
     key: 'reports',
     icon: <TrendingUp size={18} />,
     label: 'Reports',
-    roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'ACCOUNTANT', 'ACCOUNTS_MANAGER'],
+    permission: 'VIEW_REPORTS',
     children: [
-      { path: '/reports/daybook',          icon: <BookOpen size={14} />,      label: 'Day Book' },
-      { path: '/reports/stock-statement',  icon: <PackageSearch size={14} />, label: 'Stock Statement' },
-      { path: '/reports',           icon: <BarChart3 size={14} />,   label: 'Overview' },
-      { path: '/reports/sales',     icon: <LineChart size={14} />,   label: 'Sales' },
-      { path: '/reports/purchases', icon: <ShoppingBag size={14} />, label: 'Purchases' },
-      { path: '/reports/inventory', icon: <Boxes size={14} />,       label: 'Inventory' },
-      { path: '/reports/gst',       icon: <FileText size={14} />,    label: 'GST Reports' },
-      { path: '/reports/hsn',         icon: <Hash size={14} />,        label: 'HSN Reports' },
-      { path: '/reports/maintenance', icon: <Wrench size={14} />,      label: 'Maintenance Report' },
-      { path: '/reports/labour',      icon: <HardHat size={14} />,     label: 'Labour Report' },
-      { path: '/reports/vehicles',    icon: <Truck size={14} />,       label: 'Vehicles Report' },
-      { path: '/reports/scrap',       icon: <Trash2 size={14} />,      label: 'Scrap Report' },
-      { path: '/reports/payments',  icon: <CreditCard size={14} />,  label: 'Payments' },
-      { path: '/reports/debtors',   icon: <Users size={14} />,       label: 'Debtors' },
-      { path: '/reports/creditors', icon: <Building2 size={14} />,   label: 'Creditors' },
-      { path: '/reports/transport', icon: <FileBarChart2 size={14} />, label: 'Transport' },
-      { path: '/reports/ledger',    icon: <FileText size={14} />,      label: 'Ledger' },
-      { path: '/reports/tds',       icon: <Receipt size={14} />,       label: 'TDS' },
+      { path: '/reports/daybook',           icon: <BookOpen size={14} />,       label: 'Day Book',            permission: 'VIEW_DAYBOOK_REPORT' },
+      { path: '/reports/stock-statement',   icon: <PackageSearch size={14} />,  label: 'Stock Statement',     permission: 'VIEW_INVENTORY_REPORT' },
+      { path: '/reports',                   icon: <BarChart3 size={14} />,      label: 'Overview',            permission: 'VIEW_REPORTS' },
+      { path: '/reports/sales',             icon: <LineChart size={14} />,      label: 'Sales',               permission: 'VIEW_SALES_REPORT' },
+      { path: '/reports/purchases',         icon: <ShoppingBag size={14} />,    label: 'Purchases',           permission: 'VIEW_PURCHASE_REPORT' },
+      { path: '/reports/inventory',         icon: <Boxes size={14} />,          label: 'Inventory',           permission: 'VIEW_INVENTORY_REPORT' },
+      { path: '/reports/gst',               icon: <FileText size={14} />,       label: 'GST Reports',         permission: 'VIEW_GST_REPORT' },
+      { path: '/reports/hsn',               icon: <Hash size={14} />,           label: 'HSN Reports',         permission: 'VIEW_GST_REPORT' },
+      { path: '/reports/maintenance',       icon: <Wrench size={14} />,         label: 'Maintenance Report',  permission: 'VIEW_REPORTS' },
+      { path: '/reports/labour',            icon: <HardHat size={14} />,        label: 'Labour Report',       permission: 'VIEW_REPORTS' },
+      { path: '/reports/vehicles',          icon: <Truck size={14} />,          label: 'Vehicles Report',     permission: 'VIEW_TRANSPORT_REPORT' },
+      { path: '/reports/scrap',             icon: <Trash2 size={14} />,         label: 'Scrap Report',        permission: 'VIEW_REPORTS' },
+      { path: '/reports/payments',          icon: <CreditCard size={14} />,     label: 'Payments',            permission: 'VIEW_PAYMENT_REPORT' },
+      { path: '/reports/debtors',           icon: <Users size={14} />,          label: 'Debtors',             permission: 'VIEW_DEBTORS_REPORT' },
+      { path: '/reports/creditors',         icon: <Building2 size={14} />,      label: 'Creditors',           permission: 'VIEW_CREDITORS_REPORT' },
+      { path: '/reports/transport',         icon: <FileBarChart2 size={14} />,  label: 'Transport',           permission: 'VIEW_TRANSPORT_REPORT' },
+      { path: '/reports/ledger',            icon: <FileText size={14} />,       label: 'Ledger',              permission: 'VIEW_LEDGER_REPORT' },
+      { path: '/reports/tds',               icon: <Receipt size={14} />,        label: 'TDS',                 permission: 'VIEW_GST_REPORT' },
     ],
   },
-  { path: '/activity-logs', icon: <Activity size={18} />, label: 'Activity Logs', roles: ['ADMIN', 'SUPER_ADMIN', 'MANAGER'] },
-  { path: '/settings', icon: <Settings size={18} />, label: 'Settings', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { path: '/activity-logs', icon: <Activity size={18} />, label: 'Activity Logs', permission: 'VIEW_ACTIVITY_LOGS' },
+  { path: '/settings',      icon: <Settings size={18} />, label: 'Settings',      permission: 'MANAGE_SETTINGS' },
   { path: '/site', icon: <Building2 size={18} />, label: 'Site', highlight: true },
 ]
 
@@ -210,7 +215,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   })
 
   const toggleGroup = (key: string) => setOpenGroups(g => ({ ...g, [key]: !g[key] }))
-  const isVisible = (roles?: string[]) => !roles || roles.some(r => hasRole(r))
+  const isVisible = (permission?: string) => !permission || hasPermission(permission)
 
   const renderItem = (item: NavItem, indent = false) => {
     if (item.disabled) {
@@ -288,7 +293,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const renderGroup = (group: NavGroup) => {
-    if (!isVisible(group.roles)) return null
+    if (!isVisible(group.permission)) return null
     const isActive = group.children.some(c => isPathActive(location.pathname, c.path))
     const isOpen = openGroups[group.key]
 
@@ -320,7 +325,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {isExpanded && isOpen && (
           <div className="mt-0.5 ml-[17px] pl-3 border-l-2 border-violet-100 mb-1">
             {group.children.map(child => {
-              if (!isVisible(child.roles)) return null
+              if (!isVisible(child.permission)) return null
               return renderItem(child, true)
             })}
           </div>
@@ -364,7 +369,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 py-2 overflow-y-auto">
           {navEntries.map(entry => {
             if (isGroup(entry)) return renderGroup(entry)
-            if (!isVisible(entry.roles)) return null
+            if (!isVisible((entry as NavItem).permission)) return null
             return renderItem(entry)
           })}
         </nav>

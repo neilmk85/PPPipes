@@ -386,3 +386,51 @@ func (s *ProductionReportService) GetSpinningCostReport(fromDate, toDate string,
 	err := s.db.Raw(query, args...).Scan(&rows).Error
 	return rows, err
 }
+
+// ── Stage-Wise Inventory ──────────────────────────────────────────────────────
+// Returns pipes_completed per pipe config per stage, aggregated across all POs.
+
+type StageWiseInventoryRow struct {
+	PipeConfigID  int    `gorm:"column:pipe_config_id"  json:"pipeConfigId"`
+	PipeConfig    string `gorm:"column:pipe_config"     json:"pipeConfig"`
+	DiameterMM    int    `gorm:"column:diameter_mm"     json:"diameterMm"`
+	PressureClass string `gorm:"column:pressure_class"  json:"pressureClass"`
+	StageType     string `gorm:"column:stage_type"      json:"stageType"`
+	PipesCompleted int   `gorm:"column:pipes_completed" json:"pipesCompleted"`
+}
+
+func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string, outletID *int) ([]StageWiseInventoryRow, error) {
+	query := `
+		SELECT
+			pc.id   AS pipe_config_id,
+			pc.name AS pipe_config,
+			pc.diameter_mm,
+			pc.pressure_class,
+			pe.stage_type,
+			SUM(pe.pipes_completed) AS pipes_completed
+		FROM production_entries pe
+		JOIN production_orders po ON po.id = pe.production_order_id
+		JOIN pipe_configs pc      ON pc.id = pe.pipe_config_id
+		WHERE pc.is_active = true`
+
+	args := []interface{}{}
+	if fromDate != "" {
+		query += " AND pe.entry_date >= ?"
+		args = append(args, fromDate)
+	}
+	if toDate != "" {
+		query += " AND pe.entry_date <= ?"
+		args = append(args, toDate)
+	}
+	if outletID != nil {
+		query += " AND po.outlet_id = ?"
+		args = append(args, *outletID)
+	}
+	query += `
+		GROUP BY pc.id, pc.name, pc.diameter_mm, pc.pressure_class, pe.stage_type
+		ORDER BY pc.diameter_mm, pc.pressure_class, pe.stage_type`
+
+	var rows []StageWiseInventoryRow
+	err := s.db.Raw(query, args...).Scan(&rows).Error
+	return rows, err
+}

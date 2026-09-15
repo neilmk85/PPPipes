@@ -1890,6 +1890,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	productionReportService := service.NewProductionReportService(db)
 	productionReportHandler := handler.NewProductionReportHandler(productionReportService)
 
+	mux.HandleFunc("GET /api/inventory/stage-wise", middleware.Chain(
+		productionReportHandler.StageWiseInventory,
+		middleware.Authenticate(db),
+	))
 	mux.HandleFunc("GET /api/production/reports/stage-summary", middleware.Chain(
 		productionReportHandler.StageSummary,
 		middleware.Authenticate(db),
