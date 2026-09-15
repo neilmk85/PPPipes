@@ -44,48 +44,26 @@ func (is *InventoryService) GetByProductAllOutlets(productId int) (inventories [
 }
 
 // GetByOutlet returns paginated inventory list for an outlet, optionally filtered by product item_type.
-// For FINISHED_PIPE, all active products are returned (with 0 on-hand when no inventory row exists).
+// All active products are always returned (with 0 on-hand when no inventory row exists yet).
 func (is *InventoryService) GetByOutlet(outletId int, itemType string, page, size int) ([]models.Inventory, int64, error) {
-	if itemType == "FINISHED_PIPE" {
-		return is.getByOutletAllProducts(outletId, itemType, page, size)
-	}
-
-	query := is.db.Model(&models.Inventory{}).Where("inventory.outlet_id = ?", outletId)
-	if itemType != "" {
-		query = query.
-			Joins("JOIN products ON products.id = inventory.product_id").
-			Where("products.item_type = ?", itemType)
-	}
-
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	var inventories []models.Inventory
-	err := query.
-		Preload("Product").
-		Preload("Variant").
-		Offset(page * size).
-		Limit(size).
-		Find(&inventories).Error
-
-	return inventories, total, err
+	return is.getByOutletAllProducts(outletId, itemType, page, size)
 }
 
-// getByOutletAllProducts queries all active products of the given itemType, merging with
+// getByOutletAllProducts queries all active products (optionally by itemType), merging with
 // existing inventory rows so products without a row still appear with zero on-hand.
 func (is *InventoryService) getByOutletAllProducts(outletId int, itemType string, page, size int) ([]models.Inventory, int64, error) {
+	productQuery := is.db.Model(&models.Product{}).Where("is_active = true")
+	if itemType != "" {
+		productQuery = productQuery.Where("item_type = ?", itemType)
+	}
+
 	var total int64
-	if err := is.db.Model(&models.Product{}).
-		Where("item_type = ? AND is_active = true", itemType).
-		Count(&total).Error; err != nil {
+	if err := productQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	var products []models.Product
-	if err := is.db.Where("item_type = ? AND is_active = true", itemType).
-		Order("name").
+	if err := productQuery.Order("name").
 		Offset(page * size).Limit(size).
 		Find(&products).Error; err != nil {
 		return nil, 0, err
