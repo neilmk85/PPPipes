@@ -132,13 +132,19 @@ func (s *ProductionEntryService) GetPriorStageCompleted(productionOrderID int, s
 
 	priorStage := models.StageSequence[idx-1]
 
-	// Sum all PipesCompleted for the prior stage
+	// Sum all PipesCompleted for the prior stage — include opening-balance entries
+	// (production_order_id IS NULL) that share the same pipe_config as this order.
 	var result struct {
 		Total    int
 		LastDate *time.Time
 	}
 	s.db.Model(&models.ProductionEntry{}).
-		Where("production_order_id = ? AND stage_type = ?", productionOrderID, priorStage).
+		Where(`stage_type = ? AND (
+			production_order_id = ? OR
+			(production_order_id IS NULL AND pipe_config_id = (
+				SELECT pipe_config_id FROM production_orders WHERE id = ? LIMIT 1
+			))
+		)`, priorStage, productionOrderID, productionOrderID).
 		Select("COALESCE(SUM(pipes_completed), 0) as total, MAX(entry_date) as last_date").
 		Scan(&result)
 

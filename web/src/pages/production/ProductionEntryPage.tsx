@@ -297,7 +297,6 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
               className="inline-flex items-center gap-1.5 bg-violet-50 border border-violet-200 text-violet-800 text-xs font-medium px-2.5 py-1.5 rounded-lg"
             >
               <span className="font-semibold">{o.pipeConfigName ?? `Config #${o.pipeConfigId}`}</span>
-              <span className="text-violet-400">{o.poNumber}</span>
               <button
                 type="button"
                 onClick={() => onRemove(o.id)}
@@ -366,8 +365,12 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
                       {Math.max(0, o.plannedQty - o.finishedPipes)} due
                     </span>
                   </div>
-                  <span className={`text-xs font-mono shrink-0 ${isSelected ? 'text-violet-600 font-semibold' : 'text-gray-400'}`}>
-                    {o.poNumber}
+                  <span className={`text-[10px] font-semibold shrink-0 px-1.5 py-0.5 rounded-full border ${
+                    o.finishedPipes > 0
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      : 'bg-gray-50 text-gray-400 border-gray-100'
+                  }`}>
+                    {o.finishedPipes} done
                   </span>
                 </button>
               )
@@ -825,7 +828,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
             Processed
             <span className="normal-case font-normal ml-1 text-gray-300">
-              max {priorCompleted > 0 ? Math.min(dueQty, priorCompleted) : dueQty}
+              max {priorStageData ? priorCompleted : dueQty}
             </span>
             {limitingMat && stageMaterials.length > 0 && limitingMat.maxPipes < 9999 && (
               <span className={`ml-1.5 font-semibold ${limitingMat.maxPipes === 0 ? 'text-red-400' : 'text-amber-500'}`}>
@@ -840,11 +843,11 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
           </label>
           <input
             type="number" min="0"
-            max={priorCompleted > 0 ? Math.min(dueQty, priorCompleted) : dueQty}
+            max={priorStageData ? priorCompleted : dueQty}
             value={data.pipesProcessed}
             onChange={e => {
               const raw = Number(e.target.value)
-              const maxAllowed = priorCompleted > 0 ? Math.min(dueQty, priorCompleted) : dueQty
+              const maxAllowed = priorStageData ? priorCompleted : dueQty
               const capped = maxAllowed > 0 ? Math.min(raw, maxAllowed) : raw
               const val = e.target.value === '' ? '' : String(capped)
               onChange({ ...data, pipesProcessed: val, pipesCompleted: val })
@@ -875,7 +878,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
             onChange={e => {
               if (e.target.value === '') { onChange({ ...data, pipesCompleted: '' }); return }
               const maxProcessed = Number(data.pipesProcessed) || 0
-              const maxAllowed   = priorCompleted > 0 ? Math.min(maxProcessed, priorCompleted, dueQty) : Math.min(maxProcessed, dueQty)
+              const maxAllowed   = priorStageData ? Math.min(maxProcessed, priorCompleted) : Math.min(maxProcessed, dueQty)
               const val = String(Math.min(Number(e.target.value), maxAllowed || Number(e.target.value)))
               onChange({ ...data, pipesCompleted: val })
             }}

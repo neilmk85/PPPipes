@@ -156,7 +156,9 @@ func (s *ProductionOrderService) GetStageOverview() ([]StageOverviewRow, error) 
 		LEFT JOIN production_orders po
 			ON  po.pipe_config_id = pc.id
 			AND po.status NOT IN ('CANCELLED', 'COMPLETED')
-		LEFT JOIN production_entries pe ON pe.production_order_id = po.id
+		LEFT JOIN production_entries pe
+			ON  (pe.production_order_id = po.id)
+			OR  (pe.production_order_id IS NULL AND pe.pipe_config_id = pc.id)
 		GROUP BY pc.id, pc.name, pc.diameter_mm, pc.pressure_class, plans.total_planned
 		ORDER BY pc.name ASC
 	`).Scan(&rows).Error
@@ -315,8 +317,7 @@ func (s *ProductionOrderService) GetIntermediateStock(fromDate, toDate string) (
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_1'      THEN pe.pipes_completed ELSE 0 END), 0) AS curing1,
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2'      THEN pe.pipes_completed ELSE 0 END), 0) AS curing2,
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0) AS final_testing`).
-		Joins("LEFT JOIN production_orders po ON po.pipe_config_id = pc.id").
-		Joins("LEFT JOIN production_entries pe ON pe.production_order_id = po.id")
+		Joins("LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id")
 
 	if fromDate != "" {
 		q = q.Where("pe.entry_date >= ?", fromDate)
