@@ -346,7 +346,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onMouseLeave={() => setHovered(false)}
         className={`fixed left-0 top-0 h-full z-50 ${
           isExpanded ? 'w-[220px]' : 'w-[64px]'
-        } bg-white flex flex-col transition-all duration-200 ease-in-out border-r border-violet-100 shadow-[6px_0_30px_-4px_rgba(109,40,217,0.15),2px_0_10px_-2px_rgba(148,163,184,0.12)]`}
+        } backdrop-blur-xl bg-white/80 flex flex-col transition-all duration-200 ease-in-out border-r border-violet-100/60 shadow-[6px_0_30px_-4px_rgba(109,40,217,0.15),2px_0_10px_-2px_rgba(148,163,184,0.12)]`}
       >
         {/* Logo */}
         <div className={`flex items-center px-3 pt-4 pb-3 border-b border-gray-100 ${isExpanded ? 'justify-between' : 'justify-center'}`}>
