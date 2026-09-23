@@ -224,12 +224,19 @@ export default function InventoryPage() {
     else if (tab === 'finished_pipe')  source = finishedPipes  ?? []
     else if (tab === 'store_material') source = storeMaterials ?? []
     else                               source = lowStock        ?? []
-    if (!search.trim()) return source
+    const sortByStock = (arr: any[]) => [...arr].sort((a, b) => {
+      const aQty = Number(a.quantityOnHand ?? 0)
+      const bQty = Number(b.quantityOnHand ?? 0)
+      if ((aQty > 0) !== (bQty > 0)) return aQty > 0 ? -1 : 1
+      return 0
+    })
+    if (!search.trim()) return tab === 'finished_pipe' ? sortByStock(source) : source
     const q = search.toLowerCase()
-    return source.filter((inv: any) =>
+    const result = source.filter((inv: any) =>
       inv.product?.name?.toLowerCase().includes(q) ||
       inv.product?.sku?.toLowerCase().includes(q)
     )
+    return tab === 'finished_pipe' ? sortByStock(result) : result
   }, [tab, allInventory, rawMaterials, finishedPipes, storeMaterials, lowStock, search])
 
   const totalPages   = Math.ceil(filtered.length / pageSize)
