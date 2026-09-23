@@ -230,13 +230,14 @@ export default function InventoryPage() {
       if ((aQty > 0) !== (bQty > 0)) return aQty > 0 ? -1 : 1
       return 0
     })
-    if (!search.trim()) return tab === 'finished_pipe' ? sortByStock(source) : source
+    const shouldSort = tab === 'finished_pipe' || tab === 'raw_material' || tab === 'store_material'
+    if (!search.trim()) return shouldSort ? sortByStock(source) : source
     const q = search.toLowerCase()
     const result = source.filter((inv: any) =>
       inv.product?.name?.toLowerCase().includes(q) ||
       inv.product?.sku?.toLowerCase().includes(q)
     )
-    return tab === 'finished_pipe' ? sortByStock(result) : result
+    return shouldSort ? sortByStock(result) : result
   }, [tab, allInventory, rawMaterials, finishedPipes, storeMaterials, lowStock, search])
 
   const totalPages   = Math.ceil(filtered.length / pageSize)
