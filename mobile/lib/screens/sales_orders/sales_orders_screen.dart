@@ -470,18 +470,24 @@ class _SalesOrderCard extends StatelessWidget {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(order.soNumber,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                              color: Color(0xFF374151),
+                              fontFamily: 'monospace',
+                            )),
                         if (order.customerName != null)
                           Text(order.customerName!,
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF374151), fontWeight: FontWeight.w500)),
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF111827), fontWeight: FontWeight.w600)),
                         if (order.createdAt.isNotEmpty)
                           Text(_fmtDate(order.createdAt),
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade400)),
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
                       ]),
                     ),
                     Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                       Text(fmt.format(order.totalAmount),
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF111827))),
                       const SizedBox(height: 5),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -544,7 +550,7 @@ class _SODetailSheet extends StatelessWidget {
     final fmt   = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
     final color = _statusColors[order.status] ?? const Color(0xFF6B7280);
     final label = _statusLabels[order.status] ?? order.status;
-    final canConvert = order.status == 'DRAFT' || order.status == 'IN_PRODUCTION';
+    final canConvert = order.status == 'DRAFT';
     final canCancel  = order.status == 'DRAFT' || order.status == 'PENDING';
 
     return DraggableScrollableSheet(
@@ -629,13 +635,13 @@ class _SODetailSheet extends StatelessWidget {
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                 Text(item.productName,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF111827))),
                                 Text('${item.quantity} × ${fmt.format(item.unitPrice)}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
                               ]),
                             ),
                             Text(fmt.format(item.total),
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF111827))),
                           ]),
                         );
                       },
@@ -653,9 +659,9 @@ class _SODetailSheet extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    const Text('Total', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF111827))),
                     Text(fmt.format(order.totalAmount),
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF111827))),
                   ],
                 ),
                 const SizedBox(height: 12),

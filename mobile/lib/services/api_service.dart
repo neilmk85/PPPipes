@@ -15,7 +15,9 @@ class ApiService {
   factory ApiService() => _instance;
 
   late final Dio _dio;
-  final _storage = const FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   ApiService._internal() {
     _dio = Dio(BaseOptions(

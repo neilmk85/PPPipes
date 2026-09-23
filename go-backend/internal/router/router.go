@@ -216,17 +216,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/users", middleware.Chain(
 		usersHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/users/{id}", middleware.Chain(
 		usersHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("DELETE /api/users/{id}", middleware.Chain(
 		handleNotImplemented,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/users/{id}/change-password", middleware.Chain(
 		usersHandler.ChangePassword,
@@ -235,12 +235,12 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/users/{id}/deactivate", middleware.Chain(
 		usersHandler.ToggleActive,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/users/{id}/activate", middleware.Chain(
 		usersHandler.ToggleActive,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	mux.HandleFunc("PATCH /api/users/me/out-of-office", middleware.Chain(
@@ -252,22 +252,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("GET /api/card-permissions/{id}", middleware.Chain(
 		usersHandler.GetCardPermissions,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/card-permissions/{id}", middleware.Chain(
 		usersHandler.UpdateCardPermissions,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("GET /api/card-permissions/role/{roleName}", middleware.Chain(
 		usersHandler.GetRoleCardPermissions,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/card-permissions/role/{roleName}", middleware.Chain(
 		usersHandler.UpdateRoleCardPermissions,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// Staff endpoints (alias for users)
@@ -282,17 +282,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/staff", middleware.Chain(
 		usersHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/staff/{id}", middleware.Chain(
 		usersHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("DELETE /api/staff/{id}", middleware.Chain(
 		handleNotImplemented,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_STAFF", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== OUTLETS ====================
@@ -364,52 +364,52 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/products", middleware.Chain(
 		productHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/products/{id}", middleware.Chain(
 		productHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PATCH /api/products/{id}/toggle-active", middleware.Chain(
 		productHandler.ToggleActive,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/products/{id}", middleware.Chain(
 		productHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/products/bulk-import", middleware.Chain(
 		handleNotImplemented,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/products/{id}/images", middleware.Chain(
 		productHandler.UploadImage,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/products/{id}/images/{imageId}", middleware.Chain(
 		productHandler.DeleteImage,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/products/{id}/variants", middleware.Chain(
 		productHandler.CreateVariant,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/products/{id}/variants/{variantId}", middleware.Chain(
 		productHandler.UpdateVariant,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/products/{id}/variants/{variantId}", middleware.Chain(
 		productHandler.DeleteVariant,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRODUCTS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 
 	// ==================== CATEGORIES ====================
@@ -432,22 +432,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/categories", middleware.Chain(
 		categoryHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_CATEGORIES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/categories/{id}", middleware.Chain(
 		categoryHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_CATEGORIES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PATCH /api/categories/{id}/toggle-active", middleware.Chain(
 		categoryHandler.ToggleActive,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_CATEGORIES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("DELETE /api/categories/{id}", middleware.Chain(
 		categoryHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_CATEGORIES", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== TAX GROUPS ====================
@@ -462,17 +462,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/tax-groups", middleware.Chain(
 		taxGroupHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("PUT /api/tax-groups/{id}", middleware.Chain(
 		taxGroupHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("DELETE /api/tax-groups/{id}", middleware.Chain(
 		taxGroupHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== INVENTORY ====================
@@ -495,17 +495,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PUT /api/inventory/transfers/{id}/approve", middleware.Chain(
 		inventoryHandler.ApproveTransfer,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_TRANSFERS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/inventory/transfers/{id}/ship", middleware.Chain(
 		inventoryHandler.ShipTransfer,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_TRANSFERS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/inventory/transfers/{id}/receive", middleware.Chain(
 		inventoryHandler.ReceiveTransfer,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_TRANSFERS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("GET /api/inventory", middleware.Chain(
 		inventoryHandler.GetByOutlet,
@@ -526,17 +526,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PATCH /api/inventory/reorder-level", middleware.Chain(
 		inventoryHandler.UpdateReorderLevel,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_INVENTORY", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/inventory/adjustments", middleware.Chain(
 		inventoryHandler.AdjustStock,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_INVENTORY", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/inventory/transfers", middleware.Chain(
 		inventoryHandler.CreateTransfer,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_TRANSFERS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("GET /api/inventory/export", middleware.Chain(
 		handleNotImplemented,
@@ -587,7 +587,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/customers/import", middleware.Chain(
 		customerHandler.ImportCSV,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("IMPORT_CUSTOMERS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("GET /api/customers/export/csv", middleware.Chain(
 		customerHandler.ExportCSV,
@@ -614,22 +614,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/orders", middleware.Chain(
 		orderHandler.Checkout,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
+		middleware.RequireRoleOrPermission("PROCESS_SALES", "SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
 	))
 	mux.HandleFunc("POST /api/orders/{id}/return", middleware.Chain(
 		orderHandler.ProcessReturn,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
+		middleware.RequireRoleOrPermission("PROCESS_RETURNS", "SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
 	))
 	mux.HandleFunc("POST /api/orders/{id}/hold", middleware.Chain(
 		orderHandler.HoldOrder,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
+		middleware.RequireRoleOrPermission("PROCESS_SALES", "SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
 	))
 	mux.HandleFunc("POST /api/orders/{id}/cancel", middleware.Chain(
 		orderHandler.CancelOrder,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
+		middleware.RequireRoleOrPermission("PROCESS_SALES", "SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
 	))
 
 	// ==================== INVOICES ====================
@@ -654,7 +654,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PUT /api/invoices/{id}", middleware.Chain(
 		invoiceHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_INVOICES", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("PATCH /api/invoices/{id}/status", middleware.Chain(
 		invoiceHandler.UpdateStatus,
@@ -664,28 +664,28 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/invoices/{id}/payment", middleware.Chain(
 		invoiceHandler.RecordPayment,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_PAYMENTS", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("POST /api/invoices/{id}/send", middleware.Chain(
 		invoiceHandler.SendEmail,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_INVOICES", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("DELETE /api/invoices/{id}", middleware.Chain(
 		invoiceHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_INVOICES", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	mux.HandleFunc("GET /api/invoices/print-queue", middleware.Chain(
 		invoiceHandler.GetPrintQueue,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_INVOICES", "SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("PATCH /api/invoices/{id}/mark-printed", middleware.Chain(
 		invoiceHandler.MarkPrinted,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_INVOICES", "SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTANT"),
 	))
 
 	// ==================== QUOTATIONS ====================
@@ -705,22 +705,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/quotations", middleware.Chain(
 		quotationHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_QUOTATIONS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/quotations/{id}", middleware.Chain(
 		quotationHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_QUOTATIONS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PATCH /api/quotations/{id}/status", middleware.Chain(
 		quotationHandler.UpdateStatus,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_QUOTATIONS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/quotations/{id}", middleware.Chain(
 		quotationHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_QUOTATIONS", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== CREDIT NOTES ====================
@@ -739,17 +739,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/credit-notes", middleware.Chain(
 		creditNoteHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_CREDIT_NOTES", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("POST /api/credit-notes/{id}/apply", middleware.Chain(
 		creditNoteHandler.Apply,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_CREDIT_NOTES", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("POST /api/credit-notes/{id}/cancel", middleware.Chain(
 		creditNoteHandler.Cancel,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_CREDIT_NOTES", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 
 	// ==================== DISCOUNTS & COUPONS ====================
@@ -764,32 +764,32 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/discounts", middleware.Chain(
 		discountHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_DISCOUNTS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/discounts/{id}", middleware.Chain(
 		discountHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_DISCOUNTS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/discounts/{id}", middleware.Chain(
 		discountHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_DISCOUNTS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/discounts/coupons", middleware.Chain(
 		discountHandler.CreateCoupon,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_DISCOUNTS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/discounts/coupons/{id}", middleware.Chain(
 		discountHandler.UpdateCoupon,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_DISCOUNTS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/discounts/coupons/{id}", middleware.Chain(
 		discountHandler.DeleteCoupon,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_DISCOUNTS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/discounts/coupons/{code}/validate", middleware.Chain(
 		discountHandler.ValidateCoupon,
@@ -808,12 +808,12 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/shifts/open", middleware.Chain(
 		shiftHandler.Open,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_SHIFTS", "SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/shifts/{id}/close", middleware.Chain(
 		shiftHandler.Close,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_SHIFTS", "SUPER_ADMIN", "ADMIN", "CASHIER", "MANAGER"),
 	))
 
 	// ==================== PRICE LISTS ====================
@@ -828,22 +828,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/price-lists", middleware.Chain(
 		priceListHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRICE_LISTS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/price-lists/{id}", middleware.Chain(
 		priceListHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRICE_LISTS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PATCH /api/price-lists/{id}/toggle-active", middleware.Chain(
 		priceListHandler.ToggleActive,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PRICE_LISTS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/price-lists/{id}", middleware.Chain(
 		priceListHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_PRICE_LISTS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("GET /api/price-lists/resolve", middleware.Chain(
 		priceListHandler.ResolvePrice,
@@ -862,22 +862,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/vendors", middleware.Chain(
 		vendorHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_VENDORS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/vendors/{id}", middleware.Chain(
 		vendorHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_VENDORS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/vendors/{id}", middleware.Chain(
 		vendorHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_VENDORS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/vendors/import", middleware.Chain(
 		vendorHandler.ImportCSV,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_VENDORS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("GET /api/vendors/import/template", middleware.Chain(
 		vendorHandler.GetImportTemplate,
@@ -1227,7 +1227,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/purchase-orders/direct", middleware.Chain(
 		purchaseOrderHandler.CreateDirect,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("DIRECT_PURCHASE", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/purchase-orders/direct/{id}", middleware.Chain(
 		purchaseOrderHandler.UpdateDirect,
@@ -1239,22 +1239,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/purchase-orders", middleware.Chain(
 		purchaseOrderHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASES", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/purchase-orders/{id}", middleware.Chain(
 		purchaseOrderHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASES", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("PATCH /api/purchase-orders/{id}/status", middleware.Chain(
 		purchaseOrderHandler.UpdateStatus,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASES", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/purchase-orders/{id}", middleware.Chain(
 		purchaseOrderHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASES", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== PURCHASE BILLS ====================
@@ -1273,22 +1273,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/purchase-bills", middleware.Chain(
 		purchaseBillHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASES", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/purchase-bills/from-po", middleware.Chain(
 		purchaseBillHandler.CreateFromPO,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASES", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/purchase-bills/{id}/payment", middleware.Chain(
 		purchaseBillHandler.RecordPayment,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
+		middleware.RequireRoleOrPermission("MANAGE_PAYMENTS", "SUPER_ADMIN", "ADMIN", "ACCOUNTANT"),
 	))
 	mux.HandleFunc("DELETE /api/purchase-bills/{id}", middleware.Chain(
 		purchaseBillHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASES", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== PURCHASE RETURNS ====================
@@ -1312,14 +1312,14 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/purchase-returns", middleware.Chain(
 		purchaseReturnHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_PURCHASE_RETURNS", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 
 	// ==================== BULK PURCHASES ====================
 	mux.HandleFunc("POST /api/bulk-purchases", middleware.Chain(
 		bulkPurchaseHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("BULK_PURCHASE", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("GET /api/bulk-purchases/stats", middleware.Chain(
 		bulkPurchaseHandler.GetStats,
@@ -1336,12 +1336,12 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PATCH /api/bulk-purchases/{id}/conversion-status", middleware.Chain(
 		bulkPurchaseHandler.UpdateConversionStatus,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_CONVERSION", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/bulk-purchases/{id}/convert", middleware.Chain(
 		bulkPurchaseHandler.Convert,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_CONVERSION", "SUPER_ADMIN", "ADMIN", "INVENTORY_MANAGER"),
 	))
 	mux.HandleFunc("GET /api/bulk-purchases/{id}/conversions", middleware.Chain(
 		bulkPurchaseHandler.GetConversions,
@@ -1360,7 +1360,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/expenses/generate-recurring", middleware.Chain(
 		expenseHandler.GenerateRecurring,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("GET /api/expenses", middleware.Chain(
 		expenseHandler.GetAll,
@@ -1369,22 +1369,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/expenses", middleware.Chain(
 		expenseHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSES", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/expenses/{id}", middleware.Chain(
 		expenseHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSES", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PATCH /api/expenses/{id}/status", middleware.Chain(
 		expenseHandler.UpdateStatus,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSES", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/expenses/{id}", middleware.Chain(
 		expenseHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("GET /api/expense-categories", middleware.Chain(
 		expenseCategoryHandler.GetAll,
@@ -1393,17 +1393,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/expense-categories", middleware.Chain(
 		expenseCategoryHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSE_CATEGORIES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/expense-categories/{id}", middleware.Chain(
 		expenseCategoryHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSE_CATEGORIES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("DELETE /api/expense-categories/{id}", middleware.Chain(
 		expenseCategoryHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_EXPENSE_CATEGORIES", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== INCENTIVES & LOYALTY ====================
@@ -1422,22 +1422,22 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/incentives/recalculate", middleware.Chain(
 		incentiveHandler.Recalculate,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_INCENTIVES", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("POST /api/incentives", middleware.Chain(
 		incentiveHandler.CreateRule,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_INCENTIVES", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/incentives/{id}", middleware.Chain(
 		incentiveHandler.UpdateRule,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_INCENTIVES", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/incentives/{id}", middleware.Chain(
 		incentiveHandler.DeleteRule,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_INCENTIVES", "SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== SALES ORDERS ====================
@@ -1452,17 +1452,17 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/sales-orders", middleware.Chain(
 		salesOrderHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_SALES_ORDERS", "SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
 	))
 	mux.HandleFunc("DELETE /api/sales-orders/{id}", middleware.Chain(
 		salesOrderHandler.Delete,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_SALES_ORDERS", "SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
 	))
 	mux.HandleFunc("PUT /api/sales-orders/{id}", middleware.Chain(
 		salesOrderHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_SALES_ORDERS", "SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
 	))
 	mux.HandleFunc("POST /api/sales-orders/{id}/convert-all", middleware.Chain(
 		salesOrderHandler.ConvertAllToPOs,
@@ -1477,7 +1477,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/sales-orders/{id}/payments", middleware.Chain(
 		salesOrderHandler.RecordPayment,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER"),
+		middleware.RequireRoleOrPermission("MANAGE_PAYMENTS", "SUPER_ADMIN", "ADMIN", "MANAGER", "CASHIER"),
 	))
 	mux.HandleFunc("GET /api/sales-orders/{id}/payments", middleware.Chain(
 		salesOrderHandler.GetPaymentsForOrder,
@@ -1510,12 +1510,12 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/roles", middleware.Chain(
 		customRoleHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_ROLES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/roles/{id}", middleware.Chain(
 		customRoleHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_ROLES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("DELETE /api/roles/{id}", middleware.Chain(
 		customRoleHandler.Delete,
@@ -1535,12 +1535,12 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("POST /api/custom-roles", middleware.Chain(
 		customRoleHandler.Create,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_ROLES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/custom-roles/{id}", middleware.Chain(
 		customRoleHandler.Update,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_ROLES", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("DELETE /api/custom-roles/{id}", middleware.Chain(
 		customRoleHandler.Delete,
@@ -1552,37 +1552,37 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("GET /api/integrations/channels", middleware.Chain(
 		integrationHandler.GetChannels,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/integrations/channels", middleware.Chain(
 		integrationHandler.UpdateChannels,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("GET /api/integrations/templates", middleware.Chain(
 		integrationHandler.GetTemplates,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("PUT /api/integrations/templates", middleware.Chain(
 		integrationHandler.UpdateTemplates,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/integrations/test", middleware.Chain(
 		integrationHandler.TestChannel,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN"),
 	))
 	mux.HandleFunc("POST /api/integrations/send/invoice-email", middleware.Chain(
 		integrationHandler.SendInvoiceEmail,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 	mux.HandleFunc("POST /api/integrations/send/quotation-email", middleware.Chain(
 		integrationHandler.SendQuotationEmail,
 		middleware.Authenticate(db),
-		middleware.RequireRole("SUPER_ADMIN", "ADMIN", "MANAGER"),
+		middleware.RequireRoleOrPermission("MANAGE_SETTINGS", "SUPER_ADMIN", "ADMIN", "MANAGER"),
 	))
 
 	// ==================== REPORTS ====================

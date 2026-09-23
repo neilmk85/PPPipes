@@ -446,7 +446,7 @@ export default function DashboardPage() {
       />
 
       {/* ── Row 1: MS Flat + Reorder Alerts ──────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-2 gap-6 items-stretch">
 
         {/* MS Flat */}
         <div id="section-msflat" className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] overflow-hidden ring-1 ring-gray-100 scroll-mt-6">

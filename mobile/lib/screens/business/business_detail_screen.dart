@@ -16330,8 +16330,13 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
       final priorFutures = filtered.map((o) {
         final oid = o['id'] as int;
         return _api.getPriorStageInfo(oid, widget.stageType).then((info) {
-          final completed = (info['pipesCompleted'] as num?)?.toInt() ?? 0;
-          _priorCompleted[oid] = completed;
+          // Only store if a prior stage actually exists (stageType non-null).
+          // For FABRICATION (first stage) the backend returns null — skip storing
+          // so _priorCompleted[oid] stays absent and falls back to plannedQty.
+          if (info['stageType'] != null) {
+            final completed = (info['pipesCompleted'] as num?)?.toInt() ?? 0;
+            _priorCompleted[oid] = completed;
+          }
         });
       }).toList();
       await Future.wait(priorFutures);

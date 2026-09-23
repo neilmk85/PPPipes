@@ -335,8 +335,7 @@ class _AppDrawerState extends State<_AppDrawer> {
         _navItem(context, '/products', Icons.inventory_2_outlined, Icons.inventory_2, 'Products'),
       if (can('VIEW_INVENTORY'))
         _navItem(context, '/inventory', Icons.warehouse_outlined, Icons.warehouse, 'Inventory'),
-      if (can('VIEW_BUSINESS'))
-        _navItem(context, '/business', Icons.business_center_outlined, Icons.business_center, 'Business Hub'),
+      _navItem(context, '/business', Icons.business_center_outlined, Icons.business_center, 'Business Hub'),
       if (can('MANAGE_LOADING'))
         _navItem(context, '/business/loading', Icons.local_shipping_outlined, Icons.local_shipping, 'Loading'),
     ];

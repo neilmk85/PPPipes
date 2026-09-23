@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Store, Users, Receipt, Percent, Plus, Pencil, Trash2, X, Loader2, Shield, Lock, Check, AlertCircle, ShieldCheck, Edit2, Building2, Phone, Mail, MapPin, FileText, Hash, MessageSquare, MessageCircle, Eye, EyeOff, Zap, Send, LayoutTemplate, Palette, Image, AlignLeft, Type, Baseline, KeyRound, Settings as SettingsIcon, ArrowLeft, IndianRupee, Save, Wrench, CheckSquare, Square, UserPlus, FlaskConical } from 'lucide-react'
-import PermissionsSettings from './PermissionsSettings'
+import { Store, Users, Receipt, Percent, Plus, Pencil, Trash2, X, Loader2, Shield, Lock, Check, AlertCircle, ShieldCheck, Edit2, Building2, Phone, Mail, MapPin, FileText, Hash, MessageSquare, MessageCircle, Eye, EyeOff, Zap, Send, LayoutTemplate, Palette, Image, AlignLeft, Type, Baseline, Settings as SettingsIcon, ArrowLeft, IndianRupee, Save, Wrench, CheckSquare, Square, UserPlus, FlaskConical } from 'lucide-react'
 import FormulasSettings from './FormulasSettings'
 import { tdsApi } from '@/services/api'
 import toast from 'react-hot-toast'
@@ -12,7 +11,6 @@ import { useAuthStore } from '@/store/authStore'
 const tabs = [
   { key: 'outlet',           label: 'Factory',          icon: <Store size={13} />,          desc: 'Manage your factory details and business information' },
   { key: 'roles',            label: 'Users & Roles',    icon: <Shield size={13} />,         desc: 'Manage users and assign roles — Super Admin only', superAdminOnly: true },
-  { key: 'permissions',      label: 'Permissions',      icon: <KeyRound size={13} />,       desc: 'Manage system permissions and process access by role' },
   { key: 'tax',              label: 'Tax Groups',       icon: <Percent size={13} />,        desc: 'Configure GST tax groups and rates' },
   { key: 'receipt',          label: 'Receipt',          icon: <Receipt size={13} />,        desc: 'Customise your POS receipt template' },
   { key: 'invoice',          label: 'Templates',        icon: <LayoutTemplate size={13} />, desc: 'Manage notification and document templates' },
@@ -82,7 +80,6 @@ export default function SettingsPage() {
       <div className="p-6">
         {tab === 'outlet'           && <OutletSettings />}
         {tab === 'roles'            && <RolesSettings />}
-        {tab === 'permissions'      && <PermissionsTab />}
         {tab === 'tax'              && <TaxSettings />}
         {tab === 'receipt'          && <ReceiptSettings />}
         {tab === 'invoice'          && <TemplatesSettings />}
@@ -91,36 +88,6 @@ export default function SettingsPage() {
         {tab === 'tds'              && <TDSSectionsSettings />}
         {tab === 'formulas'         && <FormulasSettings />}
       </div>
-    </div>
-  )
-}
-
-function PermissionsTab() {
-  const [subTab, setSubTab] = useState<'system' | 'card'>('system')
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-5 p-1 bg-gray-100 rounded-xl w-fit">
-        <button
-          onClick={() => setSubTab('system')}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
-            subTab === 'system'
-              ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}>
-          System Permissions
-        </button>
-        <button
-          onClick={() => setSubTab('card')}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
-            subTab === 'card'
-              ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}>
-          Process Permissions
-        </button>
-      </div>
-      {subTab === 'system' && <PermissionsSettings />}
-      {subTab === 'card'   && <CardPermissionsSettings />}
     </div>
   )
 }
@@ -295,14 +262,35 @@ function OutletSettings() {
 
 const PERMISSION_GROUPS = [
   {
-    group: 'Point of Sale',
+    group: 'Production & Operations',
+    icon: '🏭',
+    items: [
+      { key: 'VIEW_PRODUCTION_ORDERS', label: 'View Production',    desc: 'Browse production orders and pipeline' },
+      { key: 'VIEW_BUSINESS',          label: 'View Business Hub',  desc: 'Access the business hub screen' },
+      { key: 'VIEW_EXPENSES',          label: 'View Expenses',      desc: 'Browse expense records' },
+      { key: 'MANAGE_LOADING',         label: 'Manage Loading',     desc: 'Manage pipe loading and dispatch' },
+    ],
+  },
+  {
+    group: 'Commerce',
+    icon: '🧾',
+    items: [
+      { key: 'VIEW_SALES_ORDERS',  label: 'View Sales Orders',  desc: 'Browse sales orders' },
+      { key: 'VIEW_INVOICES',      label: 'View Invoices',      desc: 'Browse invoices' },
+      { key: 'VIEW_VENDORS',       label: 'View Vendors',       desc: 'Browse vendor records' },
+      { key: 'MANAGE_VENDORS',     label: 'Manage Vendors',     desc: 'Add and edit vendors' },
+      { key: 'VIEW_ORDERS',        label: 'View Orders',        desc: 'Browse order history' },
+      { key: 'MANAGE_ORDERS',      label: 'Manage Orders',      desc: 'Modify or cancel orders' },
+      { key: 'VIEW_PAYMENTS',      label: 'View Payments',      desc: 'View payment records' },
+    ],
+  },
+  {
+    group: 'Purchases',
     icon: '🛒',
     items: [
-      { key: 'POS_ACCESS',        label: 'POS Access',         desc: 'Open and use the POS screen' },
-      { key: 'PROCESS_SALES',     label: 'Process Sales',      desc: 'Complete sales transactions' },
-      { key: 'PROCESS_RETURNS',   label: 'Process Returns',    desc: 'Accept returns and issue refunds' },
-      { key: 'APPLY_DISCOUNTS',   label: 'Apply Discounts',    desc: 'Apply item and bill discounts' },
-      { key: 'OPEN_PRICE',        label: 'Open Price Edit',    desc: 'Modify item price at time of sale' },
+      { key: 'VIEW_PURCHASES',    label: 'View Purchases',     desc: 'Browse purchase orders and bills' },
+      { key: 'MANAGE_PURCHASES',  label: 'Manage Purchases',   desc: 'Create and manage purchase orders' },
+      { key: 'DIRECT_PURCHASE',   label: 'Direct Purchase',    desc: 'Create direct purchases without PO' },
     ],
   },
   {
@@ -324,27 +312,10 @@ const PERMISSION_GROUPS = [
     ],
   },
   {
-    group: 'Sales',
-    icon: '🧾',
-    items: [
-      { key: 'VIEW_ORDERS',       label: 'View Orders',        desc: 'Browse order history' },
-      { key: 'MANAGE_ORDERS',     label: 'Manage Orders',      desc: 'Modify or cancel orders' },
-      { key: 'VIEW_PAYMENTS',     label: 'View Payments',      desc: 'View payment records' },
-    ],
-  },
-  {
-    group: 'Purchases',
-    icon: '🛒',
-    items: [
-      { key: 'VIEW_PURCHASES',    label: 'View Purchases',     desc: 'Browse purchase orders and bills' },
-      { key: 'MANAGE_PURCHASES',  label: 'Manage Purchases',   desc: 'Create and manage purchase orders' },
-    ],
-  },
-  {
     group: 'Reports',
     icon: '📊',
     items: [
-      { key: 'VIEW_REPORTS',      label: 'View Reports',       desc: 'Access sales and analytics reports' },
+      { key: 'VIEW_REPORTS',      label: 'View Reports',       desc: 'Access reports and analytics' },
       { key: 'VIEW_SHIFTS',       label: 'View Shifts',        desc: 'See shift summaries' },
       { key: 'MANAGE_SHIFTS',     label: 'Manage Shifts',      desc: 'Open and close shifts' },
     ],
@@ -356,6 +327,17 @@ const PERMISSION_GROUPS = [
       { key: 'MANAGE_STAFF',      label: 'Manage Staff',       desc: 'Add and edit staff accounts' },
       { key: 'MANAGE_DISCOUNTS',  label: 'Manage Discounts',   desc: 'Create and edit discounts' },
       { key: 'MANAGE_SETTINGS',   label: 'Manage Settings',    desc: 'Change system settings' },
+    ],
+  },
+  {
+    group: 'Point of Sale',
+    icon: '🏪',
+    items: [
+      { key: 'POS_ACCESS',        label: 'POS Access',         desc: 'Open and use the POS screen' },
+      { key: 'PROCESS_SALES',     label: 'Process Sales',      desc: 'Complete sales transactions' },
+      { key: 'PROCESS_RETURNS',   label: 'Process Returns',    desc: 'Accept returns and issue refunds' },
+      { key: 'APPLY_DISCOUNTS',   label: 'Apply Discounts',    desc: 'Apply item and bill discounts' },
+      { key: 'OPEN_PRICE',        label: 'Open Price Edit',    desc: 'Modify item price at time of sale' },
     ],
   },
 ]
@@ -1307,230 +1289,6 @@ const CARD_PERMISSION_PCCP = [
 
 const CARD_CATEGORIES = ['Production', 'Quality', 'Operations', 'Materials', 'Logistics', 'HR', 'Sales']
 
-function CardPermissionsSettings() {
-  const qc = useQueryClient()
-  const [selectedRole, setSelectedRole] = useState<string | null>(null)
-  const [business, setBusiness] = useState<string[]>([])
-  const [pccp, setPccp]         = useState<string[]>([])
-  const [dirty, setDirty]       = useState(false)
-
-  const { data: customRolesData } = useQuery({
-    queryKey: ['custom-roles'],
-    queryFn: () => rolesApi.getAll().then(r => r.data.data as any[]),
-  })
-
-  // Combined list: built-in roles (except SUPER_ADMIN) + custom roles
-  const allRoles = [
-    ...BUILT_IN_ROLES.filter(r => r.value !== 'SUPER_ADMIN').map(r => ({
-      id: r.value, displayName: r.label, description: 'Built-in role', isBuiltIn: true, color: r.color,
-    })),
-    ...(customRolesData ?? []).map((r: any) => ({
-      id: r.name, displayName: r.displayName || r.name, description: r.description, isBuiltIn: false, color: null,
-    })),
-  ]
-
-  const { isLoading: loadingPerms, data: permsData } = useQuery({
-    queryKey: ['role-card-permissions', selectedRole],
-    queryFn: () => roleCardPermissionsApi.get(selectedRole!).then(r => r.data.data),
-    enabled: selectedRole !== null,
-  })
-
-  useEffect(() => {
-    setBusiness([])
-    setPccp([])
-    setDirty(false)
-  }, [selectedRole])
-
-  useEffect(() => {
-    if (permsData) {
-      setBusiness((permsData as any).business ?? [])
-      setPccp((permsData as any).pccp ?? [])
-      setDirty(false)
-    }
-  }, [permsData])
-
-  const saveMutation = useMutation({
-    mutationFn: () => roleCardPermissionsApi.update(selectedRole!, { business, pccp, reports: [] }),
-    onSuccess: () => {
-      toast.success('Card permissions saved')
-      qc.invalidateQueries({ queryKey: ['role-card-permissions', selectedRole] })
-      setDirty(false)
-    },
-    onError: () => toast.error('Failed to save'),
-  })
-
-  const toggle = (list: string[], set: (v: string[]) => void, key: string) => {
-    set(list.includes(key) ? list.filter(k => k !== key) : [...list, key])
-    setDirty(true)
-  }
-
-  const selectedRoleObj = allRoles.find(r => r.id === selectedRole)
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Process Permissions</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Control which Business and PCCP processes each role can access on mobile</p>
-        </div>
-      </div>
-
-      <div className="flex gap-5">
-        {/* Role list */}
-        <div className="w-56 shrink-0">
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
-              {allRoles.map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => setSelectedRole(r.id)}
-                  className={`w-full text-left px-4 py-3 transition-colors ${selectedRole === r.id ? 'bg-slate-900 text-white' : 'hover:bg-gray-50 text-gray-700'}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">{r.displayName}</span>
-                    {r.isBuiltIn && (
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${selectedRole === r.id ? 'bg-white/20 text-white/80' : (r.color ?? 'bg-gray-100 text-gray-500')}`}>
-                        Built-in
-                      </span>
-                    )}
-                  </div>
-                  {r.description && !r.isBuiltIn && (
-                    <div className={`text-xs mt-0.5 truncate ${selectedRole === r.id ? 'text-white/50' : 'text-gray-400'}`}>{r.description}</div>
-                  )}
-                </button>
-              ))}
-              {allRoles.length === 0 && <div className="px-4 py-6 text-center text-xs text-gray-400">No roles found</div>}
-            </div>
-          </div>
-        </div>
-
-        {/* Permissions */}
-        <div className="flex-1 min-w-0">
-          {loadingPerms ? (
-            <div className="flex items-center justify-center h-48 bg-white rounded-xl border border-gray-200">
-              <Loader2 size={20} className="animate-spin text-gray-400" />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  {selectedRole ? (
-                    <>
-                      <p className="text-sm font-bold text-gray-900">{selectedRoleObj?.displayName || selectedRole}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{business.length} business · {pccp.length} PCCP enabled</p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-500">Select a role on the left to configure its access</p>
-                  )}
-                </div>
-                {selectedRole && (
-                  <button
-                    onClick={() => saveMutation.mutate()}
-                    disabled={!dirty || saveMutation.isPending}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${dirty ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                  >
-                    <Save size={14} />
-                    {saveMutation.isPending ? 'Saving…' : 'Save'}
-                  </button>
-                )}
-              </div>
-
-              {/* Business Cards */}
-              <div className={`bg-white rounded-xl border border-gray-200 ${!selectedRole ? 'opacity-60' : ''}`}>
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                  <div>
-                    <span className="text-sm font-bold text-gray-800">Business Cards</span>
-                    <span className="ml-2 text-xs text-gray-400">{selectedRole ? `${business.length}/` : ''}{CARD_PERMISSION_BUSINESS.length}</span>
-                  </div>
-                  {selectedRole && (
-                    <div className="flex gap-2 text-xs">
-                      <button onClick={() => { setBusiness(CARD_PERMISSION_BUSINESS.map(c => c.key)); setDirty(true) }} className="text-blue-600 hover:underline font-medium">Select All</button>
-                      <span className="text-gray-300">·</span>
-                      <button onClick={() => { setBusiness([]); setDirty(true) }} className="text-gray-400 hover:underline">Clear</button>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 space-y-4">
-                  {CARD_CATEGORIES.map(cat => {
-                    const cards = CARD_PERMISSION_BUSINESS.filter(c => c.category === cat)
-                    if (!cards.length) return null
-                    return (
-                      <div key={cat}>
-                        <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-2">{cat}</p>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {cards.map(card => {
-                            const checked = selectedRole ? business.includes(card.key) : false
-                            return (
-                              <button
-                                key={card.key}
-                                disabled={!selectedRole}
-                                onClick={() => selectedRole && toggle(business, setBusiness, card.key)}
-                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs ${
-                                  !selectedRole ? 'border-gray-200 text-gray-700 cursor-default' :
-                                  checked ? 'border-blue-400 bg-blue-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                                }`}
-                              >
-                                {checked
-                                  ? <CheckSquare size={13} className="shrink-0 text-blue-500" />
-                                  : <Square size={13} className="shrink-0 text-gray-300" />}
-                                <span className="font-medium truncate">{card.label}</span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* PCCP Stages */}
-              <div className={`bg-white rounded-xl border border-gray-200 ${!selectedRole ? 'opacity-60' : ''}`}>
-                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                  <div>
-                    <span className="text-sm font-bold text-gray-800">PCCP Stages</span>
-                    <span className="ml-2 text-xs text-gray-400">{selectedRole ? `${pccp.length}/` : ''}{CARD_PERMISSION_PCCP.length}</span>
-                  </div>
-                  {selectedRole && (
-                    <div className="flex gap-2 text-xs">
-                      <button onClick={() => { setPccp(CARD_PERMISSION_PCCP.map(s => s.key)); setDirty(true) }} className="text-blue-600 hover:underline font-medium">Select All</button>
-                      <span className="text-gray-300">·</span>
-                      <button onClick={() => { setPccp([]); setDirty(true) }} className="text-gray-400 hover:underline">Clear</button>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {CARD_PERMISSION_PCCP.map(stage => {
-                      const checked = selectedRole ? pccp.includes(stage.key) : false
-                      return (
-                        <button
-                          key={stage.key}
-                          disabled={!selectedRole}
-                          onClick={() => selectedRole && toggle(pccp, setPccp, stage.key)}
-                          className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all text-xs ${
-                            !selectedRole ? 'border-gray-200 text-gray-400 cursor-default' :
-                            checked ? 'border-violet-400 bg-violet-50 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                          }`}
-                        >
-                          {checked
-                            ? <CheckSquare size={13} className="shrink-0 text-violet-500" />
-                            : <Square size={13} className="shrink-0 text-gray-300" />}
-                          <span className="font-medium truncate">{stage.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ─── Tax Group Form Modal ───────────────────────────────────────────────────
 

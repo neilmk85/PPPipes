@@ -101,12 +101,12 @@ func Authenticate(db *gorm.DB) func(http.Handler) http.Handler {
 			// Load permissions from custom role (if any role name matches a custom_role record)
 			var permissions []string
 			for _, roleName := range roleNames {
-				var customRolePerms *string
+				var customRolePerms string
 				if err := db.Table("custom_roles").
 					Where("name = ? AND is_active = true", roleName).
-					Pluck("permissions", &customRolePerms).Error; err == nil && customRolePerms != nil && *customRolePerms != "" {
+					Pluck("permissions", &customRolePerms).Error; err == nil && customRolePerms != "" {
 					var perms []string
-					if jsonErr := json.Unmarshal([]byte(*customRolePerms), &perms); jsonErr == nil {
+					if jsonErr := json.Unmarshal([]byte(customRolePerms), &perms); jsonErr == nil {
 						permissions = perms
 					}
 					break

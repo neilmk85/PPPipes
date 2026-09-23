@@ -38,8 +38,9 @@ export default function AdjustStockModal({ inventory, onClose, onSaved }: Props)
   const currentReorder = inventory.reorderLevel ?? product?.reorderLevel ?? 10
 
   const [tab,      setTab]      = useState<'stock' | 'reorder'>('stock')
+  const [mode,     setMode]     = useState<'adjust' | 'set'>('set')
   const [quantity, setQuantity] = useState('')
-  const [reason,   setReason]   = useState('CORRECTION')
+  const [reason,   setReason]   = useState('AUDIT')
   const [notes,    setNotes]    = useState('')
   const [reorder,  setReorder]  = useState(String(currentReorder))
   const [loading,  setLoading]  = useState(false)
@@ -47,6 +48,8 @@ export default function AdjustStockModal({ inventory, onClose, onSaved }: Props)
   // Derived weight equivalent for display
   const qtyNum      = parseFloat(quantity) || 0
   const reorderNum  = parseFloat(reorder)  || 0
+  // In "set" mode the user enters the absolute physical count; we compute delta before sending
+  const effectiveDelta = mode === 'set' ? qtyNum - currentQty : qtyNum
 
   function weightLabel(n: number) {
     if (hasPurchaseConv) return `${fmtN(n / pFactor)} ${purchaseUom} / ${fmtN(n)} ${baseUom}`
