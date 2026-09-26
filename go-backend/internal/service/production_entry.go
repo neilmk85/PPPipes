@@ -357,10 +357,10 @@ func (s *ProductionEntryService) createConsumptions(
 		return nil
 	}
 
-	// Auto-calculate from pipe config formula
+	// Auto-calculate from pipe config formula — deduplicate by material per stage
 	var materials []models.PipeConfigMaterial
 	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).
-		Find(&materials)
+		Group("material_product_id").Find(&materials)
 
 	qty := decimal.NewFromInt(int64(entry.PipesCompleted))
 	for _, mat := range materials {
@@ -396,8 +396,15 @@ func (s *ProductionEntryService) createConsumptions(
 			// Non-fatal: material product may not exist in this DB instance
 			continue
 		}
-		// Deduct from inventory
-		s.deductInventory(tx, mat.MaterialProductID, order.OutletID, consumedQty)
+		// Deduct from inventory — convert to inventory base UOM if formula uses a different UOM
+		deductQty := consumedQty
+		var prod models.Product
+		if tx.First(&prod, mat.MaterialProductID).Error == nil {
+			if prod.UnitOfMeasure != mat.UOM && prod.SaleUOM != nil && *prod.SaleUOM == mat.UOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
+				deductQty = consumedQty.Div(prod.SaleFactor)
+			}
+		}
+		s.deductInventory(tx, mat.MaterialProductID, order.OutletID, deductQty)
 	}
 	return nil
 }
@@ -428,7 +435,8 @@ func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.P
 
 	// Auto-calculated consumptions from pipe config formula
 	var materials []models.PipeConfigMaterial
-	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).Find(&materials)
+	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).
+		Group("material_product_id").Find(&materials)
 
 	qty := decimal.NewFromInt(int64(entry.PipesCompleted))
 	var shortfalls []string
@@ -442,14 +450,20 @@ func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.P
 		if err := tx.Where("product_id = ? AND outlet_id = ?", mat.MaterialProductID, order.OutletID).First(&inv).Error; err != nil {
 			continue // no inventory record — allow through (deductInventory handles this)
 		}
-		if inv.QuantityOnHand.LessThan(consumedQty) {
-			var prod models.Product
-			name := fmt.Sprintf("product #%d", mat.MaterialProductID)
-			if tx.First(&prod, mat.MaterialProductID).Error == nil {
-				name = prod.Name
-			}
+		var prod models.Product
+		name := fmt.Sprintf("product #%d", mat.MaterialProductID)
+		tx.First(&prod, mat.MaterialProductID)
+		if prod.Name != "" {
+			name = prod.Name
+		}
+		// Convert inventory QOH to formula UOM if they differ (e.g. brass → kg via sale_factor)
+		effectiveQOH := inv.QuantityOnHand
+		if prod.UnitOfMeasure != mat.UOM && prod.SaleUOM != nil && *prod.SaleUOM == mat.UOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
+			effectiveQOH = inv.QuantityOnHand.Mul(prod.SaleFactor)
+		}
+		if effectiveQOH.LessThan(consumedQty) {
 			shortfalls = append(shortfalls, fmt.Sprintf("%s (available: %.2f %s, required: %.2f %s)",
-				name, inv.QuantityOnHand.InexactFloat64(), mat.UOM, consumedQty.InexactFloat64(), mat.UOM))
+				name, effectiveQOH.InexactFloat64(), mat.UOM, consumedQty.InexactFloat64(), mat.UOM))
 		}
 	}
 	if len(shortfalls) > 0 {
