@@ -1046,6 +1046,40 @@ func (h *BusinessHandler) DeletePDI(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, "Entry deleted", nil)
 }
 
+// GetPDIBalance returns per-pipe-name PDI balance: total PDI quantity minus total loaded quantity.
+// This is what is available for loading.
+func (h *BusinessHandler) GetPDIBalance(w http.ResponseWriter, r *http.Request) {
+	type BalanceRow struct {
+		PipeName  string `json:"pipeName"`
+		PDITotal  int    `json:"pdiTotal"`
+		Loaded    int    `json:"loaded"`
+		Available int    `json:"available"`
+	}
+	var rows []BalanceRow
+	err := h.db.Raw(`
+		SELECT
+			p.pipe_name,
+			COALESCE(SUM(p.quantity), 0)                                        AS pdi_total,
+			COALESCE((
+				SELECT SUM(lr.quantity) FROM biz_loading_records lr
+				WHERE lr.pipe_name = p.pipe_name
+			), 0)                                                               AS loaded,
+			GREATEST(0, COALESCE(SUM(p.quantity), 0) - COALESCE((
+				SELECT SUM(lr.quantity) FROM biz_loading_records lr
+				WHERE lr.pipe_name = p.pipe_name
+			), 0))                                                              AS available
+		FROM biz_pdis p
+		GROUP BY p.pipe_name
+		HAVING available > 0
+		ORDER BY p.pipe_name
+	`).Scan(&rows).Error
+	if err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to fetch PDI balance")
+		return
+	}
+	util.SendSuccess(w, "PDI balance retrieved", rows)
+}
+
 // ─── Loading Records ──────────────────────────────────────────────────────────
 
 func (h *BusinessHandler) ListLoadingRecords(w http.ResponseWriter, r *http.Request) {
@@ -1081,6 +1115,20 @@ func (h *BusinessHandler) CreateLoadingRecord(w http.ResponseWriter, r *http.Req
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+
+	// Check PDI balance: only pipes cleared through PDI can be loaded
+	var pdiBalance int
+	h.db.Raw(`
+		SELECT GREATEST(0,
+			COALESCE((SELECT SUM(quantity) FROM biz_pdis WHERE pipe_name = ?), 0) -
+			COALESCE((SELECT SUM(quantity) FROM biz_loading_records WHERE pipe_name = ?), 0)
+		)`, row.PipeName, row.PipeName).Scan(&pdiBalance)
+	if row.Quantity > pdiBalance {
+		util.SendError(w, http.StatusBadRequest,
+			fmt.Sprintf("Only %d pipes of %s are available in PDI for loading", pdiBalance, row.PipeName))
+		return
+	}
+
 	if row.DeliveryChallanNo == "" {
 		dcNo, err := util.GenerateDCNumber(h.db)
 		if err == nil {

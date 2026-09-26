@@ -359,7 +359,7 @@ function EntryModal({ initial, onSave, onClose, pipeOptions, loadingPipes, third
   const [thirdParty, setThirdParty] = useState(initial?.thirdParty ?? '')
   // single-pipe fields (edit mode only)
   const [pipeName,   setPipeName]   = useState(initial?.pipeName   ?? '')
-  const [quantity,   setQuantity]   = useState(initial?.quantity   ?? '')
+  const [quantity,   setQuantity]   = useState(initial?.quantity != null ? String(initial.quantity) : '')
   // multi-pipe rows (add mode)
   const [pipeRows,   setPipeRows]   = useState<PipeRow[]>([newRow()])
   const [checks,     setChecks]     = useState<CheckMap>(initial ? {
@@ -641,17 +641,13 @@ export default function PDIPage() {
   const { data: pipeOptions = [], isLoading: loadingPipes } = useQuery({
     queryKey: ['final-testing-pipes-for-pdi'],
     queryFn: async () => {
-      const res  = await productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 500 })
-      const list: any[] = res.data.data?.content ?? res.data.data ?? []
-      // group by pipe name and sum pipesCompleted
-      const map = new Map<string, number>()
-      for (const e of list) {
-        const name = e.pipeConfig?.name ?? e.pipeName ?? `Config #${e.pipeConfigId}`
-        map.set(name, (map.get(name) ?? 0) + (e.pipesCompleted ?? 0))
-      }
-      return Array.from(map.entries())
-        .map(([pipeName, available]) => ({ pipeName, available }))
-        .sort((a, b) => a.pipeName.localeCompare(b.pipeName))
+      // Use stage-wise inventory so available = Final Testing completed − already in PDI
+      const res = await import('@/services/api').then(m => m.inventoryApi.getStageWise({}))
+      const rows: any[] = res.data.data ?? []
+      return rows
+        .filter((r: any) => r.stageType === 'FINAL_TESTING' && r.pipesCompleted > 0)
+        .map((r: any) => ({ pipeName: r.pipeConfig, available: r.pipesCompleted }))
+        .sort((a: any, b: any) => a.pipeName.localeCompare(b.pipeName))
     },
     staleTime: 2 * 60 * 1000,
   })
@@ -663,14 +659,14 @@ export default function PDIPage() {
   , [entries])
 
   const totalQty = useMemo(() =>
-    filtered.reduce((s, e) => s + (parseFloat(e.quantity) || 0), 0),
+    filtered.reduce((s, e) => s + (Number(e.quantity) || 0), 0),
     [filtered]
   )
 
   const handleAdd = async (dataArr: PDIFormData[]) => {
     try {
       const created = await Promise.all(
-        dataArr.map(data => { const { checks, ...rest } = data; return pdisApi.create({ ...rest, ...checks }) })
+        dataArr.map(data => { const { checks, ...rest } = data; return pdisApi.create({ ...rest, ...checks, quantity: Number(rest.quantity) || 0 }) })
       )
       setEntries(prev => [...created.reverse(), ...prev])
       setShowAdd(false)
@@ -681,7 +677,7 @@ export default function PDIPage() {
     try {
       const data = dataArr[0]
       const { checks, ...rest } = data
-      const updated = await pdisApi.update(editing!.id, { ...rest, ...checks })
+      const updated = await pdisApi.update(editing!.id, { ...rest, ...checks, quantity: Number(rest.quantity) || 0 })
       setEntries(prev => prev.map(e => e.id === editing!.id ? updated : e))
       setEditing(null)
       toast.success('Entry updated')
@@ -804,7 +800,7 @@ export default function PDIPage() {
                       </td>
 
                       <td className="px-4 py-3.5 text-right">
-                        <span className="text-sm font-bold text-emerald-700 tabular-nums">{parseFloat(entry.quantity).toLocaleString('en-IN')}</span>
+                        <span className="text-sm font-bold text-emerald-700 tabular-nums">{Number(entry.quantity).toLocaleString('en-IN')}</span>
                       </td>
 
                       <td className="px-4 py-3.5 text-center"><CheckBadge passed={entry.finishing}     /></td>

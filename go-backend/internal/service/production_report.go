@@ -462,6 +462,78 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 		ORDER BY pc.diameter_mm, pc.pressure_class, curr.stage_type`
 
 	var rows []StageWiseInventoryRow
-	err := s.db.Raw(query, argsDouble...).Scan(&rows).Error
-	return rows, err
+	if err := s.db.Raw(query, argsDouble...).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	// Adjust FINAL_TESTING rows: deduct pipes that have already entered PDI
+	// and append PDI as a virtual stage (PDI total − loaded total).
+	type pdiAgg struct {
+		PipeName string
+		PDITotal int
+		Loaded   int
+	}
+	var pdiRows []pdiAgg
+	s.db.Raw(`
+		SELECT
+			p.pipe_name,
+			COALESCE(SUM(p.quantity), 0)                                     AS pdi_total,
+			COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0) AS loaded
+		FROM biz_pdis p
+		GROUP BY p.pipe_name
+	`).Scan(&pdiRows)
+
+	pdiTotalMap  := map[string]int{}
+	pdiLoadedMap := map[string]int{}
+	for _, pr := range pdiRows {
+		pdiTotalMap[pr.PipeName]  = pr.PDITotal
+		pdiLoadedMap[pr.PipeName] = pr.Loaded
+	}
+
+	// Deduct PDI quantity from FINAL_TESTING rows
+	for i, row := range rows {
+		if row.StageType == "FINAL_TESTING" {
+			pdiTotal := pdiTotalMap[row.PipeConfig]
+			if pdiTotal > 0 {
+				rows[i].PipesCompleted = max(0, row.PipesCompleted-pdiTotal)
+			}
+		}
+	}
+
+	// Append PDI virtual stage rows
+	for pipeName, pdiTotal := range pdiTotalMap {
+		avail := max(0, pdiTotal-pdiLoadedMap[pipeName])
+		if avail == 0 {
+			continue
+		}
+		// Find pipe_config_id and metadata from existing rows
+		pipeConfigID := 0
+		diameterMM   := 0
+		pressureClass := ""
+		for _, row := range rows {
+			if row.PipeConfig == pipeName {
+				pipeConfigID  = row.PipeConfigID
+				diameterMM    = row.DiameterMM
+				pressureClass = row.PressureClass
+				break
+			}
+		}
+		rows = append(rows, StageWiseInventoryRow{
+			PipeConfigID:   pipeConfigID,
+			PipeConfig:     pipeName,
+			DiameterMM:     diameterMM,
+			PressureClass:  pressureClass,
+			StageType:      "PDI",
+			PipesCompleted: avail,
+		})
+	}
+
+	return rows, nil
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

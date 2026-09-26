@@ -389,7 +389,7 @@ export interface PDIEntry {
   date:          string
   thirdParty:    string
   pipeName:      string
-  quantity:      string
+  quantity:      number
   finishing:     boolean
   colour:        boolean
   numbering:     boolean
@@ -401,10 +401,20 @@ export interface PDIEntry {
   updatedAt:     string
 }
 
+export interface PDIBalanceRow {
+  pipeName:  string
+  pdiTotal:  number
+  loaded:    number
+  available: number
+}
+
 export const pdisApi = {
   list: (from?: string, to?: string) =>
     api.get<{ data: PDIEntry[] }>('/business/pdis', { params: buildParams(from, to) })
       .then(unwrap<PDIEntry[]>),
+
+  balance: () =>
+    api.get<{ data: PDIBalanceRow[] }>('/business/pdi-balance').then(unwrap<PDIBalanceRow[]>),
 
   create: (data: Omit<PDIEntry, 'id' | 'createdAt' | 'updatedAt'>) =>
     api.post<{ data: PDIEntry }>('/business/pdis', data).then(unwrap<PDIEntry>),

@@ -2037,6 +2037,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 
 	// PDI
 	mux.HandleFunc("GET /api/business/pdis", middleware.Chain(businessHandler.ListPDIs, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/business/pdi-balance", middleware.Chain(businessHandler.GetPDIBalance, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/pdis", middleware.Chain(businessHandler.CreatePDI, middleware.Authenticate(db)))
 	mux.HandleFunc("PUT /api/business/pdis/{id}", middleware.Chain(businessHandler.UpdatePDI, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/pdis/{id}", middleware.Chain(businessHandler.DeletePDI, middleware.Authenticate(db)))

@@ -231,7 +231,7 @@ type PDI struct {
 	Date          DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
 	ThirdParty    string    `gorm:"column:third_party" json:"thirdParty"`
 	PipeName      string    `gorm:"column:pipe_name" json:"pipeName"`
-	Quantity      string    `gorm:"column:quantity" json:"quantity"`
+	Quantity      int       `gorm:"column:quantity;default:0" json:"quantity"`
 	Finishing     bool      `gorm:"column:finishing;default:false" json:"finishing"`
 	Colour        bool      `gorm:"column:colour;default:false" json:"colour"`
 	Numbering     bool      `gorm:"column:numbering;default:false" json:"numbering"`

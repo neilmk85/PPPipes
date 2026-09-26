@@ -12,6 +12,7 @@ import {
   Receipt, Building2, Send,
 } from 'lucide-react'
 import { productionEntryApi, vendorApi, salesOrderApi, customerApi, loadingRecordApi, invoiceApi, pipeConfigApi, inventoryApi, taxGroupApi } from '@/services/api'
+import { pdisApi } from '@/services/businessApi'
 import { useAuthStore } from '@/store/authStore'
 import { format, subDays, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -1506,20 +1507,18 @@ export default function LoadingPage() {
   const totalFinal     = filtered.reduce((s, r) => s + r.finalTesting, 0)
 
   // ── Vendor + site address data ───────────────────────────────────
-  const { data: finishedPipeInventory = [] } = useQuery({
-    queryKey: ['finished-pipe-inventory', outletId],
-    queryFn: () => inventoryApi.getAllByOutlet(outletId, 'FINISHED_PIPE', 0, 500)
-      .then(r => r.data.data?.content ?? r.data.data ?? []),
-    staleTime: 60_000,
+  const { data: pdiBalance = [] } = useQuery({
+    queryKey: ['pdi-balance'],
+    queryFn: () => pdisApi.balance(),
+    staleTime: 30_000,
   })
   const inventoryQtyMap = useMemo(() => {
     const map = new Map<string, number>()
-    ;(finishedPipeInventory as any[]).forEach((inv: any) => {
-      const name = inv.product?.name ?? inv.productName ?? ''
-      if (name) map.set(name, Number(inv.quantityOnHand ?? 0))
+    pdiBalance.forEach(row => {
+      if (row.pipeName) map.set(row.pipeName, row.available)
     })
     return map
-  }, [finishedPipeInventory])
+  }, [pdiBalance])
 
   const { data: pipeConfigsRaw = [] } = useQuery({
     queryKey: ['pipe-configs-loading'],

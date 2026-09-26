@@ -391,6 +391,8 @@ func Migrate(db *gorm.DB) error {
 		slog.Error("[Database] Failed to migrate PDI", "error", err)
 		return err
 	}
+	// Ensure quantity is INT (was VARCHAR in older deployments)
+	db.Exec("ALTER TABLE biz_pdis MODIFY COLUMN quantity INT NOT NULL DEFAULT 0")
 	if err := db.AutoMigrate(&models.LoadingRecord{}); err != nil {
 		slog.Error("[Database] Failed to migrate LoadingRecord", "error", err)
 		return err
