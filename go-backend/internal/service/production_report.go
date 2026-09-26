@@ -400,37 +400,68 @@ type StageWiseInventoryRow struct {
 }
 
 func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string, outletID *int) ([]StageWiseInventoryRow, error) {
+	// Build per-filter clause shared by both subqueries
+	filterClause := ""
+	args := []interface{}{}
+	if fromDate != "" {
+		filterClause += " AND pe.entry_date >= ?"
+		args = append(args, fromDate)
+	}
+	if toDate != "" {
+		filterClause += " AND pe.entry_date <= ?"
+		args = append(args, toDate)
+	}
+	if outletID != nil {
+		filterClause += " AND po.outlet_id = ?"
+		args = append(args, *outletID)
+	}
+
+	// To show pipes currently sitting at each stage we need:
+	//   stock = SUM(pipes_completed at this stage) - SUM(pipes_processed at the NEXT stage)
+	// because pipes_processed at stage N+1 means they were pulled out of stage N.
+	argsDouble := append(args, args...) // same args applied to both subqueries
 	query := `
 		SELECT
 			pc.id   AS pipe_config_id,
 			pc.name AS pipe_config,
 			pc.diameter_mm,
 			pc.pressure_class,
-			pe.stage_type,
-			SUM(pe.pipes_completed) AS pipes_completed
-		FROM production_entries pe
-		JOIN production_orders po ON po.id = pe.production_order_id
-		JOIN pipe_configs pc      ON pc.id = pe.pipe_config_id
-		WHERE pc.is_active = true`
-
-	args := []interface{}{}
-	if fromDate != "" {
-		query += " AND pe.entry_date >= ?"
-		args = append(args, fromDate)
-	}
-	if toDate != "" {
-		query += " AND pe.entry_date <= ?"
-		args = append(args, toDate)
-	}
-	if outletID != nil {
-		query += " AND po.outlet_id = ?"
-		args = append(args, *outletID)
-	}
-	query += `
-		GROUP BY pc.id, pc.name, pc.diameter_mm, pc.pressure_class, pe.stage_type
-		ORDER BY pc.diameter_mm, pc.pressure_class, pe.stage_type`
+			curr.stage_type,
+			GREATEST(0, curr.completed - COALESCE(nxt.processed, 0)) AS pipes_completed
+		FROM (
+			SELECT pe.pipe_config_id, pe.stage_type, SUM(pe.pipes_completed) AS completed
+			FROM production_entries pe
+			JOIN production_orders po ON po.id = pe.production_order_id
+			WHERE 1=1` + filterClause + `
+			GROUP BY pe.pipe_config_id, pe.stage_type
+		) curr
+		LEFT JOIN (
+			SELECT pe.pipe_config_id, pe.stage_type, SUM(pe.pipes_processed) AS processed
+			FROM production_entries pe
+			JOIN production_orders po ON po.id = pe.production_order_id
+			WHERE 1=1` + filterClause + `
+			GROUP BY pe.pipe_config_id, pe.stage_type
+		) nxt ON nxt.pipe_config_id = curr.pipe_config_id
+			AND nxt.stage_type = CASE curr.stage_type
+				WHEN 'FABRICATION'         THEN 'FABRICATION_TESTING'
+				WHEN 'FABRICATION_TESTING' THEN 'MOULDING'
+				WHEN 'MOULDING'            THEN 'SPINNING'
+				WHEN 'SPINNING'            THEN 'DEMOULDING'
+				WHEN 'DEMOULDING'          THEN 'CURING_1'
+				WHEN 'CURING_1'            THEN 'WINDING'
+				WHEN 'WINDING'             THEN 'COATING'
+				WHEN 'COATING'             THEN 'WINDING_2'
+				WHEN 'WINDING_2'           THEN 'COATING_2'
+				WHEN 'COATING_2'           THEN 'CURING_2'
+				WHEN 'CURING_2'            THEN 'FINAL_TESTING'
+				ELSE NULL
+			END
+		JOIN pipe_configs pc ON pc.id = curr.pipe_config_id
+		WHERE pc.is_active = true
+		HAVING GREATEST(0, curr.completed - COALESCE(nxt.processed, 0)) > 0
+		ORDER BY pc.diameter_mm, pc.pressure_class, curr.stage_type`
 
 	var rows []StageWiseInventoryRow
-	err := s.db.Raw(query, args...).Scan(&rows).Error
+	err := s.db.Raw(query, argsDouble...).Scan(&rows).Error
 	return rows, err
 }
