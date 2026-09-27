@@ -358,9 +358,16 @@ func (s *ProductionEntryService) createConsumptions(
 	}
 
 	// Auto-calculate from pipe config formula — deduplicate by material per stage
+	var allMatsC []models.PipeConfigMaterial
+	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).Find(&allMatsC)
+	seenC := map[int]bool{}
 	var materials []models.PipeConfigMaterial
-	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).
-		Group("material_product_id").Find(&materials)
+	for _, m := range allMatsC {
+		if !seenC[m.MaterialProductID] {
+			seenC[m.MaterialProductID] = true
+			materials = append(materials, m)
+		}
+	}
 
 	qty := decimal.NewFromInt(int64(entry.PipesCompleted))
 	for _, mat := range materials {
@@ -434,9 +441,17 @@ func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.P
 	}
 
 	// Auto-calculated consumptions from pipe config formula
+	var allMaterials []models.PipeConfigMaterial
+	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).Find(&allMaterials)
+	// Deduplicate by material_product_id (keep first occurrence)
+	seen := map[int]bool{}
 	var materials []models.PipeConfigMaterial
-	tx.Where("pipe_config_id = ? AND stage_type = ?", entry.PipeConfigID, entry.StageType).
-		Group("material_product_id").Find(&materials)
+	for _, m := range allMaterials {
+		if !seen[m.MaterialProductID] {
+			seen[m.MaterialProductID] = true
+			materials = append(materials, m)
+		}
+	}
 
 	qty := decimal.NewFromInt(int64(entry.PipesCompleted))
 	var shortfalls []string
