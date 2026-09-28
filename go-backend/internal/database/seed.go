@@ -294,10 +294,9 @@ func seedRawMaterials(db *gorm.DB) error {
 		{"CRUSHED SAND", "kg"},
 		{"PLASTER SAND", "kg"},
 		{"DUST", "kg"},
-		// Cement (production-only — not purchasable)
+		// Cement
 		{"Silo CEMENT", "kg"},
 		{"EXTRA CEMENT", "kg"},
-		// Purchasable cement products
 		{"Cement", "MT"},
 		{"Cement Bags", "nos"},
 		// Other
