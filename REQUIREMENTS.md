@@ -692,6 +692,37 @@ Previously, pipes processed on the second Winding (WINDING_2) and second Coating
 
 ---
 
+## REQ-029 · Production Material Mapping — Silo Cement & Extra Cement Fix
+**Status:** Implemented
+
+### Problem
+Spinning and Coating entries were failing with "insufficient raw material stock" because pipe config material formulas were mapped to incorrect product IDs that had 0 stock.
+
+### Changes Made
+
+#### DB — Silo CEMENT mapping (all pipe configs)
+- `pipe_config_materials`: all SPINNING rows using "Silo CEMENT" (id=8, 0 kg) → updated to **"Silo CEMENT (CORE)"** (id=189, 20,145 kg available)
+- `pipe_config_materials`: all COATING rows using "Silo CEMENT" (id=8, 0 kg) → updated to **"Silo CEMENT (COATING)"** (id=193, 33,400 kg available)
+- Affected: 1,048 SPINNING rows + 1,048 COATING rows across all pipe configs
+
+#### DB — Extra Cement mapping (all pipe configs)
+- `products` (Cement Bags, id=221): set `sale_uom = 'kg'`, `sale_factor = 50` (1 bag = 50 kg)
+- `pipe_config_materials`: all SPINNING and COATING rows using "EXTRA CEMENT" (id=190, 0 kg) → updated to **"Cement Bags"** (id=221, 237 bags = 11,850 kg available)
+- Backend already converts bag qty → kg for both stock check and deduction via `sale_factor`
+
+#### Mobile — Inventory dual display
+- `mobile/lib/models/models.dart`: added `saleFactor` and `saleUom` fields to `Product` model
+- `mobile/lib/screens/inventory/inventory_screen.dart`: `_StockBadge` widget updated — products with a `sale_factor` now show both **nos (floor, whole number)** and **kg equivalent** (nos × sale_factor)
+- Example: Cement Bags shows "237 nos / 11,850 kg"
+
+#### Mobile — Fabrication prior stage fix
+- `mobile/lib/screens/business/business_detail_screen.dart`: `_priorCompleted[oid]` is no longer stored when backend returns null `stageType` (i.e. FABRICATION — first stage, no prior stage). Falls back to `plannedQty` as the ceiling instead of treating 0 as "no pipes available from prior stage"
+
+### Outstanding
+- **CHEMICAL** (id=191) still has 0 stock — stock needs to be added manually via Inventory screen before Spinning entries that consume Chemical will succeed
+
+---
+
 ## REQ-013 · Out of Office
 **Status:** Pending
 

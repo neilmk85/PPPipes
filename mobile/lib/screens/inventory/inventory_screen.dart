@@ -334,7 +334,9 @@ class _LowStockTab extends ConsumerWidget {
                           ),
                           _StockBadge(
                               qty: inv.quantityOnHand,
-                              reorder: inv.reorderLevel.toDouble()),
+                              reorder: inv.reorderLevel.toDouble(),
+                              saleFactor: inv.product.saleFactor,
+                              saleUom: inv.product.saleUom),
                         ],
                       ),
                     ),
@@ -734,24 +736,40 @@ class _CrossOutletTabState extends State<_CrossOutletTab> {
 class _StockBadge extends StatelessWidget {
   final double qty;
   final double reorder;
-  const _StockBadge({required this.qty, required this.reorder});
+  final double? saleFactor;
+  final String? saleUom;
+  const _StockBadge({required this.qty, required this.reorder, this.saleFactor, this.saleUom});
 
   @override
   Widget build(BuildContext context) {
     final isLow = qty <= reorder;
+    final color = isLow ? Colors.red : Colors.green;
+    final hasDual = saleFactor != null && saleFactor! > 0 && saleUom != null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: isLow ? Colors.red.shade100 : Colors.green.shade100,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        qty.toStringAsFixed(0),
-        style: TextStyle(
-          color: isLow ? Colors.red : Colors.green,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      child: hasDual
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${qty.floor()} nos',
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                Text(
+                  '${(qty * saleFactor!).toStringAsFixed(0)} $saleUom',
+                  style: TextStyle(color: color, fontSize: 11),
+                ),
+              ],
+            )
+          : Text(
+              qty.toStringAsFixed(0),
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
     );
   }
 }

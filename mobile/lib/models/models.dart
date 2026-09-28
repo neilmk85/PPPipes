@@ -95,6 +95,8 @@ class Product {
   final int reorderLevel;
   final bool trackInventory;
   final List<ProductVariant> variants;
+  final double? saleFactor;
+  final String? saleUom;
 
   const Product({
     required this.id,
@@ -114,6 +116,8 @@ class Product {
     required this.reorderLevel,
     required this.trackInventory,
     this.variants = const [],
+    this.saleFactor,
+    this.saleUom,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
@@ -137,6 +141,8 @@ class Product {
                 ?.map((e) => ProductVariant.fromJson(e))
                 .toList() ??
             [],
+        saleFactor: p.dOrNull(json['saleFactor']),
+        saleUom: json['saleUom'],
       );
 }
 

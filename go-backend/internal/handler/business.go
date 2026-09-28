@@ -49,6 +49,16 @@ func applyDateRange(q *gorm.DB, r *http.Request) *gorm.DB {
 
 // ─── Cement Bags ──────────────────────────────────────────────────────────────
 
+const cementBagsProductID = 221
+
+// adjustCementBagInventory adds delta (negative = deduct) to the Cement Bags inventory.
+func adjustCementBagInventory(tx *gorm.DB, delta float64) {
+	tx.Exec(
+		"UPDATE inventory SET quantity_on_hand = quantity_on_hand + ?, last_stock_update = NOW() WHERE product_id = ?",
+		delta, cementBagsProductID,
+	)
+}
+
 func (h *BusinessHandler) ListCementBags(w http.ResponseWriter, r *http.Request) {
 	var rows []models.CementBag
 	q := applyDateRange(h.db.Order("date DESC, id DESC"), r)
@@ -65,7 +75,13 @@ func (h *BusinessHandler) CreateCementBag(w http.ResponseWriter, r *http.Request
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if err := h.db.Create(&row).Error; err != nil {
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		adjustCementBagInventory(tx, -row.Quantity)
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to create cement bag entry")
 		return
 	}
@@ -78,21 +94,29 @@ func (h *BusinessHandler) UpdateCementBag(w http.ResponseWriter, r *http.Request
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	var row models.CementBag
-	if err := h.db.First(&row, id).Error; err != nil {
+	var old models.CementBag
+	if err := h.db.First(&old, id).Error; err != nil {
 		util.SendError(w, http.StatusNotFound, "Entry not found")
 		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
+	oldQty := old.Quantity
+	if err := json.NewDecoder(r.Body).Decode(&old); err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	row.ID = id
-	if err := h.db.Save(&row).Error; err != nil {
+	old.ID = id
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&old).Error; err != nil {
+			return err
+		}
+		// restore old qty then deduct new qty (net = new - old)
+		adjustCementBagInventory(tx, oldQty-old.Quantity)
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
 		return
 	}
-	util.SendSuccess(w, "Entry updated", row)
+	util.SendSuccess(w, "Entry updated", old)
 }
 
 func (h *BusinessHandler) DeleteCementBag(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +125,18 @@ func (h *BusinessHandler) DeleteCementBag(w http.ResponseWriter, r *http.Request
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	if err := h.db.Delete(&models.CementBag{}, id).Error; err != nil {
+	var row models.CementBag
+	if err := h.db.First(&row, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.CementBag{}, id).Error; err != nil {
+			return err
+		}
+		adjustCementBagInventory(tx, row.Quantity)
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
 	}

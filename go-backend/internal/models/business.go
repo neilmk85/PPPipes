@@ -38,7 +38,7 @@ func (SiloReset) TableName() string { return "biz_silo_resets" }
 type CementBag struct {
 	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Date      DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
-	Quantity  int       `gorm:"column:quantity;not null" json:"quantity"`
+	Quantity  float64   `gorm:"column:quantity;not null" json:"quantity"`
 	Notes     string    `gorm:"column:notes;type:text" json:"notes"`
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
