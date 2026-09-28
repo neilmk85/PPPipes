@@ -720,7 +720,7 @@ Spinning and Coating entries were failing with "insufficient raw material stock"
 
 ### Outstanding
 - **CHEMICAL** (id=191) still has 0 stock — stock needs to be added manually via Inventory screen before Spinning entries that consume Chemical will succeed
-- **CHEMICAL UOM mismatch** — inventory is tracked in `litre` but the pipe formula specifies `kg`. The UOM conversion code (which uses `sale_uom` + `sale_factor`) will not apply until the product is configured with `sale_uom = 'kg'` and a `sale_factor` matching the density (e.g. 1.0 if 1 litre ≈ 1 kg). Either update the product's sale_uom/sale_factor via the Inventory → product edit screen, or change the formula UOM to `litre` across all pipe configs.
+- **CHEMICAL UOM** — resolved: product `unit_of_measure` changed from `litre` to `kg` (product id=191) to match pipe formula. Stock still needs to be added manually via Inventory screen.
 
 ---
 
