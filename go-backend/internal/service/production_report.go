@@ -471,17 +471,23 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 	type pdiAgg struct {
 		PipeName string
 		PDITotal int
+		Loaded   int
 	}
 	var pdiRows []pdiAgg
 	s.db.Raw(`
-		SELECT pipe_name, COALESCE(SUM(quantity), 0) AS pdi_total
-		FROM biz_pdis
-		GROUP BY pipe_name
+		SELECT
+			p.pipe_name,
+			COALESCE(SUM(p.quantity), 0) AS pdi_total,
+			COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0) AS loaded
+		FROM biz_pdis p
+		GROUP BY p.pipe_name
 	`).Scan(&pdiRows)
 
 	pdiTotalMap := map[string]int{}
+	pdiAvailMap := map[string]int{}
 	for _, pr := range pdiRows {
 		pdiTotalMap[pr.PipeName] = pr.PDITotal
+		pdiAvailMap[pr.PipeName] = max(0, pr.PDITotal-pr.Loaded)
 	}
 
 	// Deduct PDI quantity from FINAL_TESTING rows
@@ -494,15 +500,14 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 		}
 	}
 
-	// Append PDI virtual stage rows
-	for pipeName, pdiTotal := range pdiTotalMap {
-		avail := pdiTotal
+	// Append PDI virtual stage rows (showing only pipes not yet loaded)
+	for pipeName, avail := range pdiAvailMap {
 		if avail == 0 {
 			continue
 		}
 		// Find pipe_config_id and metadata from existing rows
-		pipeConfigID := 0
-		diameterMM   := 0
+		pipeConfigID  := 0
+		diameterMM    := 0
 		pressureClass := ""
 		for _, row := range rows {
 			if row.PipeConfig == pipeName {
