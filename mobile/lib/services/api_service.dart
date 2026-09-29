@@ -65,7 +65,7 @@ class ApiService {
 
   Future<AuthResponse> getMe() async {
     final res = await _dio.get('/users/me');
-    final data = res.data['data'] as Map<String, dynamic>;
+    final data = Map<String, dynamic>.from(res.data['data'] as Map);
     final token = await _storage.read(key: 'accessToken') ?? '';
     final refresh = await _storage.read(key: 'refreshToken') ?? '';
     return AuthResponse(
@@ -119,7 +119,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getProductsPaged({int page = 0, int size = 30}) async {
     final res = await _dio.get('/products', queryParameters: {'page': page, 'size': size});
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> adjustStock(Map<String, dynamic> data) async {
@@ -202,7 +202,7 @@ class ApiService {
   Future<Map<String, dynamic>> getOrdersMeta(int outletId, {int page = 0, int size = 20}) async {
     final res = await _dio.get('/orders',
         queryParameters: {'outletId': outletId, 'page': page, 'size': size});
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   /// Safely extracts a List from a paginated or plain response.
@@ -230,7 +230,7 @@ class ApiService {
   // ---- Coupons ----
   Future<Map<String, dynamic>> validateCoupon(String code, double cartTotal) async {
     final res = await _dio.get('/discounts/coupons/validate', queryParameters: {'code': code, 'cartTotal': cartTotal});
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   // ---- Credit Notes ----
@@ -242,7 +242,7 @@ class ApiService {
   // ---- Reports ----
   Future<Map<String, dynamic>> getSalesSummary(int outletId, String from, String to) async {
     final res = await _dio.get('/reports/sales-summary', queryParameters: {'outletId': outletId, 'from': from, 'to': to});
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<List<dynamic>> getTopProducts(int outletId, String from, String to) async {
@@ -266,22 +266,22 @@ class ApiService {
 
   Future<Map<String, dynamic>> getSalesOrderDetail(int id) async {
     final res = await _dio.get('/sales-orders/$id');
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> createSalesOrder(Map<String, dynamic> data) async {
     final res = await _dio.post('/sales-orders', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> cancelSalesOrder(int id) async {
     final res = await _dio.patch('/sales-orders/$id/cancel');
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> convertSalesOrderAllToPO(int id) async {
     final res = await _dio.post('/sales-orders/$id/convert-all');
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   // ---- Purchase Orders ----
@@ -309,17 +309,17 @@ class ApiService {
 
   Future<Map<String, dynamic>> createDirectPurchase(Map<String, dynamic> data) async {
     final res = await _dio.post('/purchase-orders/direct', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateDirectPurchase(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/purchase-orders/direct/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updatePOStatus(int id, String status) async {
     final res = await _dio.patch('/purchase-orders/$id/status', data: {'status': status});
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   // ---- Expenses ----
@@ -333,7 +333,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> createExpense(Map<String, dynamic> data) async {
     final res = await _dio.post('/expenses', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<List<dynamic>> getExpenseCategories() async {
@@ -354,12 +354,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> getInvoiceDetail(int id) async {
     final res = await _dio.get('/invoices/$id');
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> getPurchaseBillDetail(int id) async {
     final res = await _dio.get('/purchase-bills/$id');
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<String> getInvoiceNextNumber() async {
@@ -369,7 +369,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> createInvoice(Map<String, dynamic> data) async {
     final res = await _dio.post('/invoices', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> updateInvoiceStatus(int id, String status) async {
@@ -384,12 +384,12 @@ class ApiService {
   // ---- Shifts ----
   Future<Map<String, dynamic>> openShift(Map<String, dynamic> data) async {
     final res = await _dio.post('/shifts/open', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> closeShift(int shiftId, Map<String, dynamic> data) async {
     final res = await _dio.put('/shifts/$shiftId/close', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>?> getCurrentShift(int cashierId) async {
@@ -422,7 +422,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> createProductionEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/production/entries', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> getInventoryForProduct(int productId, int outletId) async {
@@ -454,7 +454,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getVendorDetail(int id) async {
     final res = await _dio.get('/vendors/$id');
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   // ---- Business Operations ----
@@ -471,12 +471,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createCementBag(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/cement-bags', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateCementBag(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/cement-bags/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteCementBag(int id) async {
@@ -496,12 +496,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createMaintenanceEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/maintenance', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateMaintenanceEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/maintenance/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteMaintenanceEntry(int id) async {
@@ -521,12 +521,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createStoreRoomMaterial(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/store-room-materials', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateStoreRoomMaterial(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/store-room-materials/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteStoreRoomMaterial(int id) async {
@@ -554,12 +554,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createCuttingEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/cuttings', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateCuttingEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/cuttings/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteCuttingEntry(int id) async {
@@ -579,12 +579,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createDieselEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/diesel-maintenance', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateDieselEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/diesel-maintenance/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteDieselEntry(int id) async {
@@ -601,7 +601,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> createVehicleEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/vehicles', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<List<dynamic>> getExtraVehicles({int size = 500, String? fromDate, String? toDate}) async {
@@ -617,12 +617,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createExtraVehicle(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/extra-vehicles', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateExtraVehicle(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/extra-vehicles/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteExtraVehicle(int id) async {
@@ -643,12 +643,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createConversion(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/conversions', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateConversion(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/conversions/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteConversion(int id) async {
@@ -668,12 +668,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createLabourEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/labour', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateLabourEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/labour/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteLabourEntry(int id) async {
@@ -693,12 +693,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createTestingLabEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/testing-labs', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateTestingLabEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/testing-labs/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteTestingLabEntry(int id) async {
@@ -716,7 +716,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> getPipeConfig(int id) async {
     final res = await _dio.get('/production/pipe-configs/$id');
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<List<dynamic>> getSiloEntries({int page = 0, int size = 20}) async {
@@ -729,12 +729,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createSiloEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/silo-extractions', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateSiloEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/silo-extractions/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   // ---- PDI ----
@@ -751,12 +751,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createPdiEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/pdis', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updatePdiEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/pdis/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deletePdiEntry(int id) async {
@@ -801,12 +801,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createLoadingRecord(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/loading-records', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateLoadingRecord(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/loading-records/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> uploadChallanPhoto(int id, List<int> bytes, String filename) async {
@@ -917,12 +917,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createDiscardEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/discards', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateDiscardEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/discards/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteDiscardEntry(int id) async {
@@ -931,12 +931,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> getGstr1(String from, String to, int outletId) async {
     final res = await _dio.get('/gst/gstr1', queryParameters: {'from': from, 'to': to, 'outletId': outletId});
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> getGstr3b(String from, String to, int outletId) async {
     final res = await _dio.get('/gst/gstr3b', queryParameters: {'from': from, 'to': to, 'outletId': outletId});
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<List<dynamic>> getHsnSummary(String from, String to, int outletId) async {
@@ -960,12 +960,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> createExtraFabEntry(Map<String, dynamic> data) async {
     final res = await _dio.post('/business/extra-fab', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateExtraFabEntry(int id, Map<String, dynamic> data) async {
     final res = await _dio.put('/business/extra-fab/$id', data: data);
-    return res.data['data'] as Map<String, dynamic>;
+    return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<void> deleteExtraFabEntry(int id) async {
