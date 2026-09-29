@@ -7834,12 +7834,11 @@ class _LabourCard extends StatelessWidget {
     final notes = entry['notes']?.toString() ?? '';
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade100),
-      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.10),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
