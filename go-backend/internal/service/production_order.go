@@ -226,6 +226,7 @@ type IntermediateStock struct {
 	Curing1       int    `json:"curing1"`
 	Curing2       int    `json:"curing2"`
 	FinalTesting  int    `json:"finalTesting"`
+	PDI           int    `json:"pdi"`
 	Total         int    `json:"total"`
 }
 
@@ -245,6 +246,7 @@ type AllStagesStock struct {
 	Winding            int    `json:"winding"`
 	Coating            int    `json:"coating"`
 	FinalTesting       int    `json:"finalTesting"`
+	PDI                int    `json:"pdi"`
 	Total              int    `json:"total"`
 }
 
@@ -288,13 +290,32 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 		return nil, err
 	}
 
+	// Fetch PDI totals per pipe name (PDI balance = total PDI - total loaded)
+	type pdiRow struct {
+		PipeName string
+		PDI      int
+	}
+	var pdiRows []pdiRow
+	s.db.Raw(`
+		SELECT p.pipe_name,
+			GREATEST(0, COALESCE(SUM(p.quantity), 0) -
+				COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0)
+			) AS pdi
+		FROM biz_pdis p GROUP BY p.pipe_name
+	`).Scan(&pdiRows)
+	pdiMap := map[string]int{}
+	for _, pr := range pdiRows {
+		pdiMap[pr.PipeName] = pr.PDI
+	}
+
 	// Compute totals and drop rows where every stage is zero (pipe configs with
 	// no entries at all). Filtering in Go avoids HAVING alias issues in MySQL.
 	result := rows[:0]
 	for _, r := range rows {
+		r.PDI = pdiMap[r.PipeName]
 		r.Total = r.Fabrication + r.FabricationTesting + r.Moulding +
 			r.Spinning + r.Demoulding + r.Curing1 + r.Curing2 +
-			r.Winding + r.Coating + r.FinalTesting
+			r.Winding + r.Coating + r.FinalTesting + r.PDI
 		if r.Total > 0 {
 			result = append(result, r)
 		}
@@ -333,9 +354,28 @@ func (s *ProductionOrderService) GetIntermediateStock(fromDate, toDate string) (
 	if err != nil {
 		return nil, err
 	}
+	// Fetch PDI balances per pipe name
+	type pdiRow2 struct {
+		PipeName string
+		PDI      int
+	}
+	var pdiRows2 []pdiRow2
+	s.db.Raw(`
+		SELECT p.pipe_name,
+			GREATEST(0, COALESCE(SUM(p.quantity), 0) -
+				COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0)
+			) AS pdi
+		FROM biz_pdis p GROUP BY p.pipe_name
+	`).Scan(&pdiRows2)
+	pdiMap2 := map[string]int{}
+	for _, pr := range pdiRows2 {
+		pdiMap2[pr.PipeName] = pr.PDI
+	}
+
 	result := rows[:0]
 	for _, r := range rows {
-		r.Total = r.Curing1 + r.Curing2 + r.FinalTesting
+		r.PDI = pdiMap2[r.PipeName]
+		r.Total = r.Curing1 + r.Curing2 + r.FinalTesting + r.PDI
 		if r.Total > 0 {
 			result = append(result, r)
 		}

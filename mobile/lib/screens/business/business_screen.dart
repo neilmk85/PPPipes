@@ -304,11 +304,17 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                     final stage = visibleStages[i];
                     return _PccpStageTile(
                       stage: stage,
-                      onTap: () => ctx.push('/business/pccp/stage', extra: {
-                        'stageType': stage.stageType,
-                        'name': stage.label,
-                        'colorValue': stage.color.value,
-                      }),
+                      onTap: () {
+                        if (stage.stageType == 'PDI') {
+                          ctx.push('/business/pdi');
+                        } else {
+                          ctx.push('/business/pccp/stage', extra: {
+                            'stageType': stage.stageType,
+                            'name': stage.label,
+                            'colorValue': stage.color.value,
+                          });
+                        }
+                      },
                     );
                   },
                   childCount: visibleStages.length,

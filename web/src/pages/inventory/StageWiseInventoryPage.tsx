@@ -17,6 +17,7 @@ const STAGES = [
   { key: 'COATING_2',           label: 'Coating 2' },
   { key: 'CURING_2',            label: 'Curing 2' },
   { key: 'FINAL_TESTING',       label: 'Final Testing' },
+  { key: 'PDI',                 label: 'PDI' },
 ]
 
 // ── Date helpers ──────────────────────────────────────────────────────────────

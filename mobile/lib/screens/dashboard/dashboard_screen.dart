@@ -364,6 +364,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int get _grandCuring1      => _intermediateStock.fold(0, (s, r) => s + p.i(r['curing1']));
   int get _grandCuring2      => _intermediateStock.fold(0, (s, r) => s + p.i(r['curing2']));
   int get _grandFinalTesting => _intermediateStock.fold(0, (s, r) => s + p.i(r['finalTesting']));
+  int get _grandPDI          => _intermediateStock.fold(0, (s, r) => s + p.i(r['pdi']));
   int get _grandTotal        => _intermediateStock.fold(0, (s, r) => s + p.i(r['total']));
   int get _allStagesTotal    => _allStagesStock.fold(0, (s, r) => s + p.i(r['total']));
   @override
@@ -867,6 +868,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ('Curing 1',   TextAlign.center),
               ('Curing 2',   TextAlign.center),
               ('Final Test', TextAlign.center),
+              ('PDI',        TextAlign.center),
               ('Total',      TextAlign.center),
             ]),
             _hdiv(),
@@ -880,6 +882,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 final c1  = p.i(row['curing1']);
                 final c2  = p.i(row['curing2']);
                 final ft  = p.i(row['finalTesting']);
+                final pdi = p.i(row['pdi']);
                 final tot = p.i(row['total']);
                 return Column(children: [
                   _DRow([
@@ -890,6 +893,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         c2 > 0 ? const Color(0xFF0369A1) : Colors.grey.shade300),
                     (ft > 0 ? ft.toString() : '—', TextAlign.center,
                         ft > 0 ? const Color(0xFF059669) : Colors.grey.shade300),
+                    (pdi > 0 ? pdi.toString() : '—', TextAlign.center,
+                        pdi > 0 ? const Color(0xFF9333EA) : Colors.grey.shade300),
                     (tot.toString(), TextAlign.center, const Color(0xFF1E293B)),
                   ]),
                   _div(),
@@ -901,6 +906,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   (_grandCuring1 > 0 ? _grandCuring1.toString() : '—', TextAlign.center, null),
                   (_grandCuring2 > 0 ? _grandCuring2.toString() : '—', TextAlign.center, null),
                   (_grandFinalTesting > 0 ? _grandFinalTesting.toString() : '—', TextAlign.center, null),
+                  (_grandPDI > 0 ? _grandPDI.toString() : '—', TextAlign.center, null),
                   (_grandTotal.toString(), TextAlign.center, null),
                 ], footer: true),
             ],
@@ -923,12 +929,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     ('winding',            'Wind'),
     ('coating',            'Coat'),
     ('finalTesting',       'Final'),
+    ('pdi',                'PDI'),
   ];
 
   static const _stageCols = [
     Color(0xFF475569), Color(0xFF7C3AED), Color(0xFFDB2777), Color(0xFFE11D48),
     Color(0xFFEA580C), Color(0xFF0891B2), Color(0xFF0284C7), Color(0xFF4338CA),
-    Color(0xFF0D9488), Color(0xFF059669),
+    Color(0xFF0D9488), Color(0xFF059669), Color(0xFF9333EA),
   ];
 
   Widget _buildAllStages() {

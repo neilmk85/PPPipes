@@ -458,7 +458,7 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 			END
 		JOIN pipe_configs pc ON pc.id = curr.pipe_config_id
 		WHERE pc.is_active = true
-		HAVING GREATEST(0, curr.completed - COALESCE(nxt.processed, 0)) > 0
+		HAVING pipes_completed > 0
 		ORDER BY pc.diameter_mm, pc.pressure_class, curr.stage_type`
 
 	var rows []StageWiseInventoryRow
@@ -471,23 +471,17 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 	type pdiAgg struct {
 		PipeName string
 		PDITotal int
-		Loaded   int
 	}
 	var pdiRows []pdiAgg
 	s.db.Raw(`
-		SELECT
-			p.pipe_name,
-			COALESCE(SUM(p.quantity), 0)                                     AS pdi_total,
-			COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0) AS loaded
-		FROM biz_pdis p
-		GROUP BY p.pipe_name
+		SELECT pipe_name, COALESCE(SUM(quantity), 0) AS pdi_total
+		FROM biz_pdis
+		GROUP BY pipe_name
 	`).Scan(&pdiRows)
 
-	pdiTotalMap  := map[string]int{}
-	pdiLoadedMap := map[string]int{}
+	pdiTotalMap := map[string]int{}
 	for _, pr := range pdiRows {
-		pdiTotalMap[pr.PipeName]  = pr.PDITotal
-		pdiLoadedMap[pr.PipeName] = pr.Loaded
+		pdiTotalMap[pr.PipeName] = pr.PDITotal
 	}
 
 	// Deduct PDI quantity from FINAL_TESTING rows
@@ -502,7 +496,7 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 
 	// Append PDI virtual stage rows
 	for pipeName, pdiTotal := range pdiTotalMap {
-		avail := max(0, pdiTotal-pdiLoadedMap[pipeName])
+		avail := pdiTotal
 		if avail == 0 {
 			continue
 		}
