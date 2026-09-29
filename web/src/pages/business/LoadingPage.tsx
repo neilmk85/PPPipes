@@ -1522,7 +1522,7 @@ export default function LoadingPage() {
 
   const { data: pipeConfigsRaw = [] } = useQuery({
     queryKey: ['pipe-configs-loading'],
-    queryFn: () => pipeConfigApi.getAll({ active: true, size: 500 }).then(r => r.data.data?.content ?? r.data.data ?? []),
+    queryFn: () => pipeConfigApi.getAll({ active: true, size: 2000 }).then(r => r.data.data?.content ?? r.data.data ?? []),
     staleTime: 5 * 60 * 1000,
   })
   const pipeConfigs: { id: number; name: string; diameterMm: number; pressureClass: string; lengthM: number }[] = pipeConfigsRaw as any[]
