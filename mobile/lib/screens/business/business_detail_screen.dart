@@ -6243,29 +6243,30 @@ class _PdiScreenState extends State<PdiScreen> {
     // Fetch independently so one failure doesn't wipe the others
     final results = await Future.wait([
       _safeFetch(ApiService().getPdiEntries(from: _fmt(_from), to: _fmt(_to)), 'PDI-range'),
-      _safeFetch(ApiService().getProductionEntries(stageType: 'FINAL_TESTING', size: 500), 'FINAL_TESTING'),
+      ApiService().getFinishedPipeInventory(1),
       _safeFetch(ApiService().getPdiEntries(size: 2000), 'PDI-all'),
       _safeFetch(ApiService().getProductionEntries(stageType: 'CURING_2', from: c2From, to: c2To, size: 500), 'CURING_2'),
     ]);
 
-    final entries    = results[0];
-    final ftEntries  = results[1];
-    final allEntries = results[2];
-    final c2Entries  = results[3];
+    final entries         = results[0] as List;
+    final finishedInv     = results[1] as List;
+    final allEntries      = results[2] as List;
+    final c2Entries       = results[3] as List;
 
-    // Group final testing by pipe name and sum pipesCompleted
-    final ftMap = <String, int>{};
-    for (final e in ftEntries.cast<Map<String, dynamic>>()) {
-      final name = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
-      ftMap[name] = (ftMap[name] ?? 0) + ((e['pipesCompleted'] as num?)?.toInt() ?? 0);
+    // Build available map from finished pipe inventory
+    final invMap = <String, int>{};
+    for (final e in finishedInv.cast<Map<String, dynamic>>()) {
+      final name = (e['product']?['name'] ?? e['productName'] ?? '').toString();
+      final qty  = (double.tryParse(e['quantityOnHand']?.toString() ?? '0') ?? 0).toInt();
+      if (name.isNotEmpty) invMap[name] = qty;
     }
-    // Subtract already-PDI'd quantities so "avail" = final testing total - already in PDI
+    // Subtract already-PDI'd quantities so "avail" = inventory - already in PDI
     final pdiMap = <String, int>{};
     for (final e in allEntries.cast<Map<String, dynamic>>()) {
       final name = (e['pipeName'] ?? '').toString();
       if (name.isNotEmpty) pdiMap[name] = (pdiMap[name] ?? 0) + ((e['quantity'] as num?)?.toInt() ?? 0);
     }
-    final map = {for (final k in ftMap.keys) k: (ftMap[k]! - (pdiMap[k] ?? 0)).clamp(0, ftMap[k]!)};
+    final map = {for (final k in invMap.keys) k: (invMap[k]! - (pdiMap[k] ?? 0)).clamp(0, invMap[k]!)};
     final pipeOpts = map.entries.where((e) => e.value > 0).map((e) => <String, dynamic>{'pipeName': e.key, 'available': e.value}).toList()
       ..sort((a, b) => (a['pipeName'] as String).compareTo(b['pipeName'] as String));
 

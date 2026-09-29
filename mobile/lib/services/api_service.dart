@@ -841,6 +841,15 @@ class ApiService {
     return [];
   }
 
+  Future<List<dynamic>> getFinishedPipeInventory(int outletId, {int size = 2000}) async {
+    final res = await _dio.get('/inventory/outlet/$outletId',
+        queryParameters: {'itemType': 'FINISHED_PIPE', 'page': 0, 'size': size});
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
   // ---- Production Stock (dashboard) ----
   Future<List<dynamic>> getIntermediateStock({String? fromDate, String? toDate}) async {
     final params = <String, dynamic>{};
