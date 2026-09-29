@@ -405,7 +405,7 @@ class _DirectPurchaseSheetState extends State<_DirectPurchaseSheet> {
     super.initState();
     final po = widget.editing;
     _vendorCtrl = TextEditingController(text: po?.vendorName ?? '');
-    _notesCtrl  = TextEditingController();
+    _notesCtrl  = TextEditingController(text: po?.notes ?? '');
     if (po != null && po.items.isNotEmpty) {
       _lines = po.items.map((item) {
         final l = _Line();

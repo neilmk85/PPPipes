@@ -477,13 +477,17 @@ class PurchaseOrderItem {
     required this.total,
   });
 
-  factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) => PurchaseOrderItem(
-        id: p.iOrNull(json['id']),
-        productName: json['productName'] ?? json['product']?['name'] ?? '',
-        quantity: p.d(json['quantity']),
-        unitPrice: p.d(json['unitPrice']),
-        total: p.dOrNull(json['total']) ?? p.d(json['quantity']) * p.d(json['unitPrice']),
-      );
+  factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) {
+    final qty = p.dOrNull(json['quantity']) ?? p.dOrNull(json['orderedQuantity']) ?? p.dOrNull(json['receivedQuantity']) ?? 0.0;
+    final price = p.dOrNull(json['unitPrice']) ?? p.dOrNull(json['unitCost']) ?? 0.0;
+    return PurchaseOrderItem(
+      id: p.iOrNull(json['id']),
+      productName: json['productName'] ?? json['product']?['name'] ?? '',
+      quantity: qty,
+      unitPrice: price,
+      total: p.dOrNull(json['lineTotal']) ?? p.dOrNull(json['total']) ?? qty * price,
+    );
+  }
 }
 
 class PurchaseOrder {
@@ -494,6 +498,7 @@ class PurchaseOrder {
   final int? vendorId;
   final double totalAmount;
   final String createdAt;
+  final String? notes;
   final List<PurchaseOrderItem> items;
 
   const PurchaseOrder({
@@ -504,6 +509,7 @@ class PurchaseOrder {
     this.vendorId,
     required this.totalAmount,
     required this.createdAt,
+    this.notes,
     this.items = const [],
   });
 
@@ -511,10 +517,11 @@ class PurchaseOrder {
         id: p.i(json['id']),
         poNumber: json['poNumber'] ?? '',
         status: json['status'] ?? 'DRAFT',
-        vendorName: json['vendor']?['name'] ?? json['vendorName'],
-        vendorId: p.iOrNull(json['vendorId'] ?? json['vendor']?['id']),
+        vendorName: json['vendor']?['name'] ?? json['supplier']?['name'] ?? json['vendorName'],
+        vendorId: p.iOrNull(json['vendorId'] ?? json['vendor']?['id'] ?? json['supplierId']),
         totalAmount: p.d(json['totalAmount']),
         createdAt: json['createdAt'] ?? '',
+        notes: json['notes'],
         items: (json['items'] as List<dynamic>? ?? [])
             .map((e) => PurchaseOrderItem.fromJson(e))
             .toList(),
