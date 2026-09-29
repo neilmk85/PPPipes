@@ -6494,6 +6494,12 @@ class _PdiScreenState extends State<PdiScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openAdd,
+        backgroundColor: _violet,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
