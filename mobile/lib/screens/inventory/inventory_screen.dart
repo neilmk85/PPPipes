@@ -12,6 +12,12 @@ final _lowStockProvider = FutureProvider<List<Inventory>>((ref) async {
   return ApiService().getLowStock(outletId);
 });
 
+final _allInventoryProvider = FutureProvider<List<dynamic>>((ref) async {
+  final outletId = ref.watch(authProvider).user?.outletId;
+  if (outletId == null) return [];
+  return ApiService().getInventoryByOutlet(outletId, size: 2000);
+});
+
 class InventoryScreen extends ConsumerStatefulWidget {
   const InventoryScreen({super.key});
 
@@ -19,33 +25,36 @@ class InventoryScreen extends ConsumerStatefulWidget {
   ConsumerState<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryScreenState extends ConsumerState<InventoryScreen> {
+class _InventoryScreenState extends ConsumerState<InventoryScreen>
+    with SingleTickerProviderStateMixin {
   static const _color = Color(0xFF4F46E5);
   static const _colorDark = Color(0xFF3730A3);
 
-  String _tab = 'lowstock';
+  // bottom nav: 'inventory' | 'adjust' | 'outlets'
+  String _tab = 'inventory';
+  late final TabController _tabCtrl; // 4 sub-tabs for inventory
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final lowStockAsync = ref.watch(_lowStockProvider);
     final lowStockCount = lowStockAsync.valueOrNull?.length ?? 0;
 
-    String viewLabel;
-    switch (_tab) {
-      case 'adjust':
-        viewLabel = 'Adjust';
-        break;
-      case 'outlets':
-        viewLabel = 'Outlets';
-        break;
-      default:
-        viewLabel = 'Low Stock';
-    }
-
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
-      body: CustomScrollView(
-        slivers: [
+      body: NestedScrollView(
+        headerSliverBuilder: (context, _) => [
           SliverAppBar(
             pinned: true,
             expandedHeight: 106,
@@ -76,7 +85,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: () => ref.invalidate(_lowStockProvider),
+                onPressed: () {
+                  ref.invalidate(_lowStockProvider);
+                  ref.invalidate(_allInventoryProvider);
+                },
                 color: Colors.white,
               ),
             ],
@@ -111,7 +123,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                         child: Row(
                           children: [
                             _hStat('$lowStockCount', 'Low Stock'),
-                            _hStat(viewLabel, 'View'),
+                            _hStat(_tab == 'adjust' ? 'Adjust' : _tab == 'outlets' ? 'Outlets' : 'Stock', 'View'),
                           ],
                         ),
                       ),
@@ -121,10 +133,31 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               ),
             ),
           ),
-          SliverFillRemaining(
-            child: _buildTabContent(),
-          ),
+          if (_tab == 'inventory')
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _TabBarDelegate(
+                TabBar(
+                  controller: _tabCtrl,
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  labelColor: _color,
+                  unselectedLabelColor: Colors.grey.shade600,
+                  indicatorColor: _color,
+                  indicatorWeight: 2.5,
+                  labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  unselectedLabelStyle: const TextStyle(fontSize: 12),
+                  tabs: const [
+                    Tab(text: 'Raw Material'),
+                    Tab(text: 'Finished Pipe'),
+                    Tab(text: 'Store Material'),
+                    Tab(text: 'Low Stock'),
+                  ],
+                ),
+              ),
+            ),
         ],
+        body: _buildTabContent(),
       ),
       bottomNavigationBar: _buildFloatingNav(),
     );
@@ -137,7 +170,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       case 'outlets':
         return const _CrossOutletTab();
       default:
-        return const _LowStockTab();
+        return TabBarView(
+          controller: _tabCtrl,
+          children: const [
+            _InventoryCategoryTab(itemType: 'RAW_MATERIAL'),
+            _InventoryCategoryTab(itemType: 'FINISHED_PIPE'),
+            _InventoryCategoryTab(itemType: 'STORE_MATERIAL'),
+            _LowStockTab(),
+          ],
+        );
     }
   }
 
@@ -173,9 +214,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 child: Row(
                   children: [
                     _navItem(
-                        icon: Icons.warning_amber_outlined,
-                        label: 'Low Stock',
-                        tab: 'lowstock'),
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Inventory',
+                        tab: 'inventory'),
                     _navItem(
                         icon: Icons.tune_outlined,
                         label: 'Adjust',
@@ -259,6 +300,203 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           ],
         ),
       );
+}
+
+// ─── TabBar persistent header delegate ───────────────────────────────────────
+
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  const _TabBarDelegate(this.tabBar);
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(color: Colors.white, child: tabBar);
+  }
+
+  @override
+  bool shouldRebuild(_TabBarDelegate old) => false;
+}
+
+// ─── Inventory Category Tab ───────────────────────────────────────────────────
+
+class _InventoryCategoryTab extends ConsumerStatefulWidget {
+  final String itemType;
+  const _InventoryCategoryTab({required this.itemType});
+
+  @override
+  ConsumerState<_InventoryCategoryTab> createState() => _InventoryCategoryTabState();
+}
+
+class _InventoryCategoryTabState extends ConsumerState<_InventoryCategoryTab>
+    with AutomaticKeepAliveClientMixin {
+  final _searchCtrl = TextEditingController();
+  String _search = '';
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final async = ref.watch(_allInventoryProvider);
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (all) {
+        // Filter by itemType
+        var items = all.where((inv) {
+          final type = (inv['product']?['itemType'] ?? '') as String;
+          return type == widget.itemType;
+        }).toList();
+
+        // Search filter
+        if (_search.isNotEmpty) {
+          final q = _search.toLowerCase();
+          items = items.where((inv) {
+            final name = ((inv['product']?['name'] ?? '') as String).toLowerCase();
+            return name.contains(q);
+          }).toList();
+        }
+
+        // Sort: stock > 0 first, then by name
+        items.sort((a, b) {
+          final qA = double.tryParse(a['quantityOnHand']?.toString() ?? '0') ?? 0;
+          final qB = double.tryParse(b['quantityOnHand']?.toString() ?? '0') ?? 0;
+          if (qA > 0 && qB <= 0) return -1;
+          if (qA <= 0 && qB > 0) return 1;
+          final nA = (a['product']?['name'] ?? '') as String;
+          final nB = (b['product']?['name'] ?? '') as String;
+          return nA.compareTo(nB);
+        });
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: 'Search...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _search.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () { _searchCtrl.clear(); setState(() => _search = ''); })
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  isDense: true,
+                ),
+                onChanged: (v) => setState(() => _search = v),
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? const Center(child: Text('No items found'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      itemCount: items.length,
+                      itemBuilder: (ctx, i) {
+                        final inv = items[i];
+                        final product = inv['product'] as Map? ?? {};
+                        final name = (product['name'] ?? '') as String;
+                        final uom = (product['unitOfMeasure'] ?? 'pcs') as String;
+                        final qty = double.tryParse(inv['quantityOnHand']?.toString() ?? '0') ?? 0;
+                        final reorder = (inv['reorderLevel'] as num?)?.toDouble() ?? 0;
+                        final isLow = qty <= reorder;
+                        final hasStock = qty > 0;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: isLow
+                                        ? Colors.orange.withValues(alpha: 0.12)
+                                        : const Color(0xFF4F46E5).withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    isLow ? Icons.warning_amber_outlined : Icons.inventory_2_outlined,
+                                    color: isLow ? Colors.orange : const Color(0xFF4F46E5),
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(name,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600, fontSize: 13)),
+                                      Text('Reorder at: $reorder $uom',
+                                          style: TextStyle(
+                                              fontSize: 11, color: Colors.grey.shade500)),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: !hasStock
+                                        ? Colors.red.shade100
+                                        : isLow
+                                            ? Colors.orange.shade100
+                                            : Colors.green.shade100,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${qty.toStringAsFixed(0)} $uom',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: !hasStock
+                                          ? Colors.red.shade700
+                                          : isLow
+                                              ? Colors.orange.shade700
+                                              : Colors.green.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 // ─── Low Stock Tab ───────────────────────────────────────────────────────────
