@@ -1507,22 +1507,18 @@ export default function LoadingPage() {
   const totalFinal     = filtered.reduce((s, r) => s + r.finalTesting, 0)
 
   // ── Vendor + site address data ───────────────────────────────────
-  const { data: finishedPipeInventory = [] } = useQuery({
-    queryKey: ['finished-pipe-inventory-loading', outletId],
-    queryFn: () => inventoryApi.getAllByOutlet(outletId, 'FINISHED_PIPE', 0, 2000).then((r: any) => {
-      const d = r.data.data; return Array.isArray(d) ? d : (d?.content ?? [])
-    }),
+  const { data: pdiBalance = [] } = useQuery({
+    queryKey: ['pdi-balance'],
+    queryFn: () => pdisApi.balance(),
     staleTime: 30_000,
   })
   const inventoryQtyMap = useMemo(() => {
     const map: Map<string, number> = new Map()
-    ;(finishedPipeInventory as any[]).forEach(row => {
-      const name = row.product?.name ?? row.productName ?? ''
-      const qty = parseFloat(row.quantityOnHand ?? row.quantity ?? 0)
-      if (name) map.set(name, qty)
+    ;(pdiBalance ?? []).forEach(row => {
+      if (row.pipeName) map.set(row.pipeName, row.available)
     })
     return map
-  }, [finishedPipeInventory])
+  }, [pdiBalance])
 
   const { data: pipeConfigsRaw = [] } = useQuery({
     queryKey: ['pipe-configs-loading'],
