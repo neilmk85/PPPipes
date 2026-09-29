@@ -7124,34 +7124,97 @@ class _PdiSheetState extends State<_PdiSheet> {
 
 // ── Pipe dropdown for PDI ─────────────────────────────────────────────────────
 
-class _PipeDrop extends StatelessWidget {
+class _PipeDrop extends StatefulWidget {
   final String value;
   final List<Map<String, dynamic>> options;
   final ValueChanged<String> onChanged;
   const _PipeDrop({required this.value, required this.options, required this.onChanged});
 
   @override
+  State<_PipeDrop> createState() => _PipeDropState();
+}
+
+class _PipeDropState extends State<_PipeDrop> {
+  final _ctrl   = TextEditingController();
+  final _focus  = FocusNode();
+  bool  _open   = false;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.text = widget.value;
+    _focus.addListener(() { if (!_focus.hasFocus) setState(() => _open = false); });
+  }
+
+  @override
+  void didUpdateWidget(_PipeDrop old) {
+    super.didUpdateWidget(old);
+    if (widget.value != old.value && widget.value != _ctrl.text) {
+      _ctrl.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); _focus.dispose(); super.dispose(); }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_query.isEmpty) return widget.options;
+    final q = _query.toLowerCase();
+    return widget.options.where((o) => (o['pipeName'] as String).toLowerCase().contains(q)).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(10)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value.isEmpty ? null : value,
-          hint: const Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Select pipe…', style: TextStyle(fontSize: 13, color: Colors.grey))),
-          isExpanded: true,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          borderRadius: BorderRadius.circular(10),
-          items: options.map((o) => DropdownMenuItem<String>(
-            value: o['pipeName'] as String,
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Flexible(child: Text(o['pipeName'] as String, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
-              Text('${o['available']} avail.', style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600)),
-            ]),
-          )).toList(),
-          onChanged: (v) { if (v != null) onChanged(v); },
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      TextField(
+        controller: _ctrl,
+        focusNode: _focus,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: 'Search pipe…',
+          hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+          suffixIcon: widget.value.isNotEmpty
+              ? IconButton(icon: const Icon(Icons.close, size: 16), onPressed: () { _ctrl.clear(); setState(() { _query = ''; }); widget.onChanged(''); })
+              : const Icon(Icons.arrow_drop_down, color: Colors.grey),
         ),
+        onChanged: (v) => setState(() { _query = v; _open = true; }),
+        onTap: () => setState(() => _open = true),
       ),
-    );
+      if (_open && _filtered.isNotEmpty)
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          constraints: const BoxConstraints(maxHeight: 200),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6, offset: const Offset(0, 2))],
+          ),
+          child: ListView(shrinkWrap: true, padding: EdgeInsets.zero, children: _filtered.map((o) {
+            final name = o['pipeName'] as String;
+            final avail = o['available'] as int;
+            return InkWell(
+              onTap: () {
+                _ctrl.text = name;
+                setState(() { _query = ''; _open = false; });
+                _focus.unfocus();
+                widget.onChanged(name);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Flexible(child: Text(name, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+                  Text('$avail avail.', style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            );
+          }).toList()),
+        ),
+    ]);
   }
 }
 
