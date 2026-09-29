@@ -6781,8 +6781,9 @@ class _PdiSheetState extends State<_PdiSheet> {
   String _pipeName = '';
   final _qtyCtrl   = TextEditingController();
 
-  // Add mode — multi-pipe rows [{pipeName, qty}]
-  List<Map<String, dynamic>> _pipeRows = [{'pipeName': '', 'qty': ''}];
+  // Add mode — pipe names list + dedicated qty controllers (avoids initialValue capture bugs)
+  List<String> _pipeNames = [''];
+  List<TextEditingController> _qtyCtrls = [TextEditingController()];
 
   // Inspection checks
   Map<String, bool> _checks = {for (final c in _pdiChecks) c.$1: false};
@@ -6805,7 +6806,28 @@ class _PdiSheetState extends State<_PdiSheet> {
   }
 
   @override
-  void dispose() { _notesCtrl.dispose(); _qtyCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _notesCtrl.dispose();
+    _qtyCtrl.dispose();
+    for (final c in _qtyCtrls) c.dispose();
+    super.dispose();
+  }
+
+  void _addPipeRow() {
+    setState(() {
+      _pipeNames.add('');
+      _qtyCtrls.add(TextEditingController());
+    });
+  }
+
+  void _removePipeRow(int i) {
+    if (_pipeNames.length <= 1) return;
+    _qtyCtrls[i].dispose();
+    setState(() {
+      _pipeNames.removeAt(i);
+      _qtyCtrls.removeAt(i);
+    });
+  }
 
   int _availableFor(String pipeName) {
     final opt = widget.pipeOptions.firstWhere(
@@ -6815,7 +6837,16 @@ class _PdiSheetState extends State<_PdiSheet> {
 
   void _showError(String msg) {
     setState(() => _error = msg);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700));
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Error', style: TextStyle(color: Colors.red)),
+          content: Text(msg),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
+    }
   }
 
   Future<void> _submit() async {
@@ -6829,15 +6860,13 @@ class _PdiSheetState extends State<_PdiSheet> {
         _showError('Qty exceeds available ($avail) for $_pipeName'); return;
       }
     } else {
-      if (_pipeRows.any((r) => (r['pipeName'] as String).isEmpty || (r['qty'] as String).isEmpty)) {
-        _showError('All pipes must have a name and quantity'); return;
-      }
-      for (final r in _pipeRows) {
-        final name   = r['pipeName'] as String;
-        final avail  = _availableFor(name);
-        final entered = int.tryParse(r['qty'] as String) ?? 0;
+      for (int i = 0; i < _pipeNames.length; i++) {
+        if (_pipeNames[i].isEmpty) { _showError('Select a pipe for row ${i + 1}'); return; }
+        if (_qtyCtrls[i].text.trim().isEmpty) { _showError('Enter quantity for row ${i + 1}'); return; }
+        final avail  = _availableFor(_pipeNames[i]);
+        final entered = int.tryParse(_qtyCtrls[i].text.trim()) ?? 0;
         if (avail > 0 && entered > avail) {
-          _showError('Qty $entered exceeds available ($avail) for $name'); return;
+          _showError('Qty $entered exceeds available ($avail) for ${_pipeNames[i]}'); return;
         }
       }
     }
@@ -6851,13 +6880,25 @@ class _PdiSheetState extends State<_PdiSheet> {
       };
       final rows = _isEdit
           ? [{ ...base, 'pipeName': _pipeName, 'quantity': int.tryParse(_qtyCtrl.text.trim()) ?? 0 }]
-          : _pipeRows.map((r) => { ...base, 'pipeName': r['pipeName'], 'quantity': int.tryParse(r['qty'] as String) ?? 0 }).toList();
+          : List.generate(_pipeNames.length, (i) => {
+              ...base,
+              'pipeName': _pipeNames[i],
+              'quantity': int.tryParse(_qtyCtrls[i].text.trim()) ?? 0,
+            });
       await widget.onSave(rows);
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      final msg = e.toString().contains('data') ? 'Failed to save. Please try again.' : e.toString();
-      setState(() { _saving = false; _error = msg; });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700));
+      setState(() { _saving = false; _error = e.toString(); });
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Save Failed'),
+            content: Text(e.toString()),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          ),
+        );
+      }
     }
   }
 
@@ -6965,39 +7006,35 @@ class _PdiSheetState extends State<_PdiSheet> {
               ]),
             ] else ...[
               // Multi-pipe rows
-              ..._pipeRows.asMap().entries.map((entry) {
-                final i   = entry.key;
-                final row = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${i + 1}', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 8),
-                    Expanded(child: _PipeDrop(
-                      value: row['pipeName'] as String,
-                      options: widget.pipeOptions,
-                      onChanged: (v) => setState(() => _pipeRows[i] = {...row, 'pipeName': v}),
-                    )),
-                    const SizedBox(width: 8),
-                    SizedBox(width: 70, child: TextFormField(
-                      initialValue: row['qty'] as String,
-                      keyboardType: TextInputType.number,
-                      onChanged: (v) => setState(() => _pipeRows[i] = {...row, 'qty': v}),
-                      decoration: const InputDecoration(labelText: 'Qty', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12)),
-                    )),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      onPressed: _pipeRows.length > 1 ? () => setState(() => _pipeRows.removeAt(i)) : null,
-                      color: Colors.red.shade300,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ]),
-                );
-              }),
+              ...List.generate(_pipeNames.length, (i) => Padding(
+                key: ValueKey(i),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${i + 1}', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _PipeDrop(
+                    value: _pipeNames[i],
+                    options: widget.pipeOptions,
+                    onChanged: (v) => setState(() => _pipeNames[i] = v),
+                  )),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 70, child: TextField(
+                    controller: _qtyCtrls[i],
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Qty', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12)),
+                  )),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16),
+                    onPressed: _pipeNames.length > 1 ? () => _removePipeRow(i) : null,
+                    color: Colors.red.shade300,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                  ),
+                ]),
+              )),
               TextButton.icon(
-                onPressed: () => setState(() => _pipeRows.add({'pipeName': '', 'qty': ''})),
+                onPressed: _addPipeRow,
                 icon: const Icon(Icons.add_circle_outline, size: 16),
                 label: const Text('Add Pipe'),
                 style: TextButton.styleFrom(foregroundColor: const Color(0xFF7C3AED)),
@@ -7071,7 +7108,7 @@ class _PdiSheetState extends State<_PdiSheet> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check_circle_outline, color: Colors.white),
-                  label: Text(_saving ? 'Saving…' : _isEdit ? 'Save Changes' : _pipeRows.length > 1 ? 'Add ${_pipeRows.length} Entries' : 'Add Entry',
+                  label: Text(_saving ? 'Saving…' : _isEdit ? 'Save Changes' : _pipeNames.length > 1 ? 'Add ${_pipeNames.length} Entries' : 'Add Entry',
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
                 ),
               ),
