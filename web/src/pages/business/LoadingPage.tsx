@@ -1552,24 +1552,32 @@ export default function LoadingPage() {
     (customerData ?? []).map((c: any) => c.name ?? c.companyName ?? '').filter(Boolean).sort(),
   [customerData])
 
-  // Build customer→addresses map and expose filtered siteOptions
+  // Build customer→site addresses map from customer.site_addresses (delivery sites)
   const { customerAddressMap, siteOptions } = useMemo(() => {
     const byCustomer = new Map<string, string[]>()
     const seen = new Set<string>()
     const all: string[] = []
-    ;(salesOrderData ?? []).forEach((so: any) => {
-      const parts = [so.shippingAddress, so.shippingCity, so.shippingState].filter(Boolean)
-      if (!parts.length) return
-      const full = parts.join(', ')
-      if (!seen.has(full)) { seen.add(full); all.push(full) }
-      const custName = (so.customer?.name ?? so.customerName ?? '').trim().toLowerCase()
-      if (custName) {
-        if (!byCustomer.has(custName)) byCustomer.set(custName, [])
-        if (!byCustomer.get(custName)!.includes(full)) byCustomer.get(custName)!.push(full)
-      }
+    ;(customerData ?? []).forEach((c: any) => {
+      const custName = (c.name ?? c.companyName ?? '').trim().toLowerCase()
+      let sites: any[] = []
+      try {
+        sites = typeof c.siteAddresses === 'string'
+          ? JSON.parse(c.siteAddresses)
+          : (c.siteAddresses ?? [])
+      } catch { sites = [] }
+      sites.forEach((s: any) => {
+        const parts = [s.label, s.address, s.city, s.state, s.pincode].filter(Boolean)
+        if (!parts.length) return
+        const full = parts.join(', ')
+        if (!seen.has(full)) { seen.add(full); all.push(full) }
+        if (custName) {
+          if (!byCustomer.has(custName)) byCustomer.set(custName, [])
+          if (!byCustomer.get(custName)!.includes(full)) byCustomer.get(custName)!.push(full)
+        }
+      })
     })
     return { customerAddressMap: byCustomer, siteOptions: all }
-  }, [salesOrderData])
+  }, [customerData])
 
   // ── Curing Days modal state ──────────────────────────────────────
   const [showCuringModal,    setShowCuringModal]    = useState(false)
