@@ -6850,6 +6850,7 @@ class _PdiSheetState extends State<_PdiSheet> {
   }
 
   Future<void> _submit() async {
+    debugPrint('[PDI_SUBMIT] called, thirdParty="$_thirdParty", pipes=${_pipeNames.length}, qty=${_qtyCtrls.isNotEmpty ? _qtyCtrls[0].text : "N/A"}');
     if (_thirdParty.trim().isEmpty) { _showError('Third party name is required'); return; }
     if (_isEdit) {
       if (_pipeName.isEmpty) { _showError('Pipe name is required'); return; }
