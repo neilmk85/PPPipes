@@ -1513,8 +1513,8 @@ export default function LoadingPage() {
     staleTime: 30_000,
   })
   const inventoryQtyMap = useMemo(() => {
-    const map = new Map<string, number>()
-    pdiBalance.forEach(row => {
+    const map: Map<string, number> = new Map()
+    ;(pdiBalance ?? []).forEach(row => {
       if (row.pipeName) map.set(row.pipeName, row.available)
     })
     return map

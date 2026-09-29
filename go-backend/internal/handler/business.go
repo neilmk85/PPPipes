@@ -1090,7 +1090,7 @@ func (h *BusinessHandler) GetPDIBalance(w http.ResponseWriter, r *http.Request) 
 		Loaded    int    `json:"loaded"`
 		Available int    `json:"available"`
 	}
-	var rows []BalanceRow
+	rows := []BalanceRow{}
 	err := h.db.Raw(`
 		SELECT
 			p.pipe_name,
