@@ -6254,12 +6254,19 @@ class _PdiScreenState extends State<PdiScreen> {
     final c2Entries  = results[3];
 
     // Group final testing by pipe name and sum pipesCompleted
-    final map = <String, int>{};
+    final ftMap = <String, int>{};
     for (final e in ftEntries.cast<Map<String, dynamic>>()) {
       final name = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
-      map[name] = (map[name] ?? 0) + ((e['pipesCompleted'] as num?)?.toInt() ?? 0);
+      ftMap[name] = (ftMap[name] ?? 0) + ((e['pipesCompleted'] as num?)?.toInt() ?? 0);
     }
-    final pipeOpts = map.entries.map((e) => {'pipeName': e.key, 'available': e.value}).toList()
+    // Subtract already-PDI'd quantities so "avail" = final testing total - already in PDI
+    final pdiMap = <String, int>{};
+    for (final e in allEntries.cast<Map<String, dynamic>>()) {
+      final name = (e['pipeName'] ?? '').toString();
+      if (name.isNotEmpty) pdiMap[name] = (pdiMap[name] ?? 0) + ((e['quantity'] as num?)?.toInt() ?? 0);
+    }
+    final map = {for (final k in ftMap.keys) k: (ftMap[k]! - (pdiMap[k] ?? 0)).clamp(0, ftMap[k]!)};
+    final pipeOpts = map.entries.where((e) => e.value > 0).map((e) => {'pipeName': e.key, 'available': e.value}).toList()
       ..sort((a, b) => (a['pipeName'] as String).compareTo(b['pipeName'] as String));
 
     // Unique third party names from ALL historical PDI entries
@@ -6806,26 +6813,31 @@ class _PdiSheetState extends State<_PdiSheet> {
     return (opt['available'] as int?) ?? 0;
   }
 
+  void _showError(String msg) {
+    setState(() => _error = msg);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700));
+  }
+
   Future<void> _submit() async {
-    if (_thirdParty.trim().isEmpty) { setState(() => _error = 'Third party name is required'); return; }
+    if (_thirdParty.trim().isEmpty) { _showError('Third party name is required'); return; }
     if (_isEdit) {
-      if (_pipeName.isEmpty) { setState(() => _error = 'Pipe name is required'); return; }
-      if (_qtyCtrl.text.isEmpty) { setState(() => _error = 'Quantity is required'); return; }
+      if (_pipeName.isEmpty) { _showError('Pipe name is required'); return; }
+      if (_qtyCtrl.text.isEmpty) { _showError('Quantity is required'); return; }
       final avail = _availableFor(_pipeName);
       final entered = int.tryParse(_qtyCtrl.text) ?? 0;
       if (avail > 0 && entered > avail) {
-        setState(() => _error = 'Qty exceeds available ($avail) for $_pipeName'); return;
+        _showError('Qty exceeds available ($avail) for $_pipeName'); return;
       }
     } else {
       if (_pipeRows.any((r) => (r['pipeName'] as String).isEmpty || (r['qty'] as String).isEmpty)) {
-        setState(() => _error = 'All pipes must have a name and quantity'); return;
+        _showError('All pipes must have a name and quantity'); return;
       }
       for (final r in _pipeRows) {
         final name   = r['pipeName'] as String;
         final avail  = _availableFor(name);
         final entered = int.tryParse(r['qty'] as String) ?? 0;
         if (avail > 0 && entered > avail) {
-          setState(() => _error = 'Qty $entered exceeds available ($avail) for $name'); return;
+          _showError('Qty $entered exceeds available ($avail) for $name'); return;
         }
       }
     }
@@ -6838,12 +6850,14 @@ class _PdiSheetState extends State<_PdiSheet> {
         ..._checks,
       };
       final rows = _isEdit
-          ? [{ ...base, 'pipeName': _pipeName, 'quantity': _qtyCtrl.text.trim() }]
-          : _pipeRows.map((r) => { ...base, 'pipeName': r['pipeName'], 'quantity': r['qty'] }).toList();
+          ? [{ ...base, 'pipeName': _pipeName, 'quantity': int.tryParse(_qtyCtrl.text.trim()) ?? 0 }]
+          : _pipeRows.map((r) => { ...base, 'pipeName': r['pipeName'], 'quantity': int.tryParse(r['qty'] as String) ?? 0 }).toList();
       await widget.onSave(rows);
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() { _saving = false; _error = e.toString(); });
+      final msg = e.toString().contains('data') ? 'Failed to save. Please try again.' : e.toString();
+      setState(() { _saving = false; _error = msg; });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700));
     }
   }
 
