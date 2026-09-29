@@ -21,7 +21,7 @@ type CheckKey = typeof CHECKS[number]['key']
 type CheckMap = Record<CheckKey, boolean>
 
 function emptyChecks(): CheckMap {
-  return Object.fromEntries(CHECKS.map(c => [c.key, false])) as CheckMap
+  return Object.fromEntries(CHECKS.map(c => [c.key, true])) as CheckMap
 }
 
 // ─── Local form data type ─────────────────────────────────────────────────────

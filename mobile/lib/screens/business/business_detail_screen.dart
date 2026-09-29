@@ -6787,7 +6787,7 @@ class _PdiSheetState extends State<_PdiSheet> {
   List<TextEditingController> _qtyCtrls = [TextEditingController()];
 
   // Inspection checks
-  Map<String, bool> _checks = {for (final c in _pdiChecks) c.$1: false};
+  Map<String, bool> _checks = {for (final c in _pdiChecks) c.$1: true};
 
   bool _saving = false;
   String? _error;
