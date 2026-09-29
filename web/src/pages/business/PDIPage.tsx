@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { ClipboardCheck, Plus, Pencil, Trash2, X, Loader2, AlertTriangle, ArrowLeft, CheckCircle2, MinusCircle, Calendar, ChevronDown, PlusCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { pdisApi, type PDIEntry } from '@/services/businessApi'
-import { productionEntryApi } from '@/services/api'
+import { productionEntryApi, inventoryApi } from '@/services/api'
+import { useAuthStore } from '@/store/authStore'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CHECKS = [
@@ -621,6 +622,7 @@ function CheckBadge({ passed }: { passed: boolean }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PDIPage() {
   const navigate = useNavigate()
+  const outletId = useAuthStore(s => s.outletId ?? 1)
   const [entries, setEntries]   = useState<PDIEntry[]>([])
   const [showAdd, setShowAdd]   = useState(false)
   const [editing, setEditing]   = useState<PDIEntry | null>(null)
@@ -639,14 +641,17 @@ export default function PDIPage() {
   }, [fromDate, toDate])
 
   const { data: pipeOptions = [], isLoading: loadingPipes } = useQuery({
-    queryKey: ['final-testing-pipes-for-pdi'],
+    queryKey: ['final-testing-pipes-for-pdi', outletId],
     queryFn: async () => {
-      // Use stage-wise inventory so available = Final Testing completed − already in PDI
-      const res = await import('@/services/api').then(m => m.inventoryApi.getStageWise({}))
-      const rows: any[] = res.data.data ?? []
+      const res = await inventoryApi.getAllByOutlet(outletId, 'FINISHED_PIPE', 0, 2000)
+      const rows: any[] = res.data.data?.content ?? res.data.data ?? []
       return rows
-        .filter((r: any) => r.stageType === 'FINAL_TESTING' && r.pipesCompleted > 0)
-        .map((r: any) => ({ pipeName: r.pipeConfig, available: r.pipesCompleted }))
+        .filter((r: any) => parseFloat(r.quantityOnHand ?? 0) > 0)
+        .map((r: any) => ({
+          pipeName: r.product?.name ?? r.productName ?? '',
+          available: Math.floor(parseFloat(r.quantityOnHand ?? 0)),
+        }))
+        .filter((r: any) => r.pipeName)
         .sort((a: any, b: any) => a.pipeName.localeCompare(b.pipeName))
     },
     staleTime: 2 * 60 * 1000,
