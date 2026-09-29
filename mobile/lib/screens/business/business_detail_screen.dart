@@ -6266,7 +6266,7 @@ class _PdiScreenState extends State<PdiScreen> {
       if (name.isNotEmpty) pdiMap[name] = (pdiMap[name] ?? 0) + ((e['quantity'] as num?)?.toInt() ?? 0);
     }
     final map = {for (final k in ftMap.keys) k: (ftMap[k]! - (pdiMap[k] ?? 0)).clamp(0, ftMap[k]!)};
-    final pipeOpts = map.entries.where((e) => e.value > 0).map((e) => {'pipeName': e.key, 'available': e.value}).toList()
+    final pipeOpts = map.entries.where((e) => e.value > 0).map((e) => <String, dynamic>{'pipeName': e.key, 'available': e.value}).toList()
       ..sort((a, b) => (a['pipeName'] as String).compareTo(b['pipeName'] as String));
 
     // Unique third party names from ALL historical PDI entries
@@ -6831,7 +6831,7 @@ class _PdiSheetState extends State<_PdiSheet> {
 
   int _availableFor(String pipeName) {
     final opt = widget.pipeOptions.firstWhere(
-      (o) => o['pipeName'] == pipeName, orElse: () => {});
+      (o) => o['pipeName'] == pipeName, orElse: () => <String, dynamic>{});
     return (opt['available'] as int?) ?? 0;
   }
 
