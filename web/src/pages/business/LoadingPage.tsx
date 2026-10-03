@@ -2233,7 +2233,7 @@ export default function LoadingPage() {
                             <Autocomplete
                               value={pe.pipeName}
                               onChange={v => updatePipeEntry(pe.id, { pipeName: v })}
-                              options={pipeConfigs.map(pc => pc.name).filter(n => (inventoryQtyMap.get(n) ?? 0) > 0)}
+                              options={[...inventoryQtyMap.keys()].filter(n => (inventoryQtyMap.get(n) ?? 0) > 0).sort()}
                               placeholder="Search pipe type…"
                               renderOption={opt => {
                                 const qty = inventoryQtyMap.get(opt) ?? 0

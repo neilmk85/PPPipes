@@ -24,7 +24,7 @@ func NewProductService(db *gorm.DB) *ProductService {
 }
 
 // GetAll returns paginated list of products with optional filtering
-func (ps *ProductService) GetAll(page, size int, outletId *int, categoryId *int, search string, active *bool) (products []models.Product, total int64, err error) {
+func (ps *ProductService) GetAll(page, size int, outletId *int, categoryId *int, search string, active *bool, itemType string) (products []models.Product, total int64, err error) {
 	query := ps.db
 
 	if search != "" {
@@ -38,6 +38,10 @@ func (ps *ProductService) GetAll(page, size int, outletId *int, categoryId *int,
 
 	if active != nil {
 		query = query.Where("is_active = ?", *active)
+	}
+
+	if itemType != "" {
+		query = query.Where("item_type = ?", itemType)
 	}
 
 	if err := query.Model(&models.Product{}).Count(&total).Error; err != nil {

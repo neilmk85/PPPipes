@@ -45,6 +45,7 @@ func (ph *ProductHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	search := r.URL.Query().Get("search")
+	itemType := r.URL.Query().Get("itemType")
 
 	active := r.URL.Query().Get("active")
 	var activePtr *bool
@@ -53,7 +54,7 @@ func (ph *ProductHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		activePtr = &a
 	}
 
-	products, total, err := ph.service.GetAll(page, size, outletIdPtr, categoryIdPtr, search, activePtr)
+	products, total, err := ph.service.GetAll(page, size, outletIdPtr, categoryIdPtr, search, activePtr, itemType)
 	if err != nil {
 		handleError(w, err)
 		return

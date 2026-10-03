@@ -820,6 +820,12 @@ class ApiService {
     await _dio.delete('/business/loading-records/$id/challan-photo');
   }
 
+  Future<Map<String, int>> getPdiBalance() async {
+    final res = await _dio.get('/business/pdi-balance');
+    final list = res.data['data'] as List? ?? [];
+    return { for (final r in list) (r['pipeName'] as String): (r['available'] as num).toInt() };
+  }
+
   Future<List<dynamic>> getDieselMaintenance({String? date}) async {
     final params = <String, dynamic>{'size': 500};
     if (date != null) params['date'] = date;

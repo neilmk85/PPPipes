@@ -2210,6 +2210,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
   List<String> _customerNames  = [];
   List<String> _allAddresses   = [];
   Map<String, List<String>> _customerAddressMap = {};
+  Map<String, int> _pdiBalance = {};
   bool _showHistory = true;
   bool _showSearch  = false;
   String _recSearch = '';
@@ -2279,9 +2280,11 @@ class _LoadingScreenState extends State<LoadingScreen> {
     } catch (_) {}
 
     List vendors = [], salesOrders = [], customers = [];
+    Map<String, int> pdiBalance = {};
     try { vendors     = await ApiService().getVendors(size: 500); }     catch (_) {}
     try { salesOrders = await ApiService().getSalesOrders(size: 500); } catch (_) {}
     try { customers   = await ApiService().getAllCustomers(size: 500); } catch (_) {}
+    try { pdiBalance  = await ApiService().getPdiBalance(); }           catch (_) {}
 
     final today   = DateTime.now();
     final day5Str = _fmt(today.subtract(const Duration(days: 5)));
@@ -2349,6 +2352,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
           .where((s) => s.isNotEmpty).toList()..sort();
       _allAddresses      = allAddrs;
       _customerAddressMap = custAddrMap;
+      _pdiBalance        = pdiBalance;
       _loadingData       = false;
     });
   }
@@ -2361,6 +2365,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
       builder: (_) => _LoadPipesSheet(
         accentColor: _color,
         rows: _rows,
+        pdiBalance: _pdiBalance,
         vendorNames: _vendorNames,
         customerNames: _customerNames,
         allAddresses: _allAddresses,
@@ -3365,6 +3370,7 @@ class _StatStrip extends StatelessWidget {
 class _LoadPipesSheet extends StatefulWidget {
   final Color accentColor;
   final List<_ReadinessRow> rows;
+  final Map<String, int> pdiBalance;
   final List<String> vendorNames;
   final List<String> customerNames;
   final List<String> allAddresses;
@@ -3373,6 +3379,7 @@ class _LoadPipesSheet extends StatefulWidget {
   const _LoadPipesSheet({
     required this.accentColor,
     required this.rows,
+    required this.pdiBalance,
     required this.vendorNames,
     required this.customerNames,
     required this.allAddresses,
@@ -3407,11 +3414,14 @@ class _LoadPipesSheetState extends State<_LoadPipesSheet> {
     super.dispose();
   }
 
-  List<_ReadinessRow> get _availableRows => widget.rows.where((r) => r.finalTesting > 0).toList();
-  int get _maxQty => _availableRows
-      .firstWhere((r) => r.pipeName == _pipeName,
-          orElse: () => const _ReadinessRow(pipeName: '', day5: 0, day6: 0, day7plus: 0, finalTesting: 0))
-      .finalTesting;
+  // PDI balance is the source of truth for what can be loaded
+  Map<String, int> get _effectiveBalance {
+    if (widget.pdiBalance.isNotEmpty) return widget.pdiBalance;
+    // fallback: build from readiness rows if PDI balance unavailable
+    return { for (final r in widget.rows.where((r) => r.finalTesting > 0)) r.pipeName: r.finalTesting };
+  }
+  List<String> get _availablePipeNames => (_effectiveBalance.keys.toList()..sort());
+  int get _maxQty => _effectiveBalance[_pipeName] ?? 0;
 
   List<String> get _filteredAddresses {
     final sel = _customerName.trim().toLowerCase();
@@ -3518,11 +3528,11 @@ class _LoadPipesSheetState extends State<_LoadPipesSheet> {
                   isExpanded: true,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   borderRadius: BorderRadius.circular(10),
-                  items: _availableRows.map((r) => DropdownMenuItem(
-                    value: r.pipeName,
+                  items: _availablePipeNames.map((name) => DropdownMenuItem(
+                    value: name,
                     child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text(r.pipeName, style: const TextStyle(fontSize: 14)),
-                      Text('${r.finalTesting} avail.', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
+                      Expanded(child: Text(name, style: const TextStyle(fontSize: 14), overflow: TextOverflow.ellipsis)),
+                      Text('${_effectiveBalance[name]} avail.', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600)),
                     ]),
                   )).toList(),
                   onChanged: (v) => setState(() { _pipeName = v ?? ''; _qty = 0; }),

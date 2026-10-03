@@ -329,7 +329,7 @@ export default function CuttingPage() {
   const { data: sheets = [], isLoading: loadingSheets } = useQuery({
     queryKey: ['sheets-for-cutting'],
     queryFn: async () => {
-      const res  = await productApi.getAll({ itemType: 'RAW_MATERIAL', size: 200 })
+      const res  = await productApi.getAll({ itemType: 'RAW_MATERIAL', size: 2000 })
       const list = res.data.data?.content ?? res.data.data ?? []
       return (list as any[])
         .map((p: any) => p.name as string)
