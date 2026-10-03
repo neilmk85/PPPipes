@@ -10677,7 +10677,7 @@ class _CuttingScreenState extends State<CuttingScreen> {
 
   Future<void> _loadSheets() async {
     try {
-      final raw = await ApiService().getProductsRaw(size: 200, itemType: 'RAW_MATERIAL');
+      final raw = await ApiService().getProductsRaw(size: 2000, itemType: 'RAW_MATERIAL');
       final names = raw
           .map((p) => p['name']?.toString() ?? '')
           .where((n) => _sheetRe.hasMatch(n))
