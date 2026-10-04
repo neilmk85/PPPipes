@@ -536,44 +536,27 @@ func (h *BusinessHandler) ListSiloExtractions(w http.ResponseWriter, r *http.Req
 	util.SendSuccess(w, "Silo extractions retrieved", rows)
 }
 
-// syncSiloInventory reads the latest silo extraction and sets Silo CEMENT and
-// Silo CEMENT (COATING) inventory to match the physical readings.
-func (h *BusinessHandler) syncSiloInventory() {
-	var latest models.SiloExtraction
-	if h.db.Order("date DESC, id DESC").First(&latest).Error != nil {
+// adjustSiloInventory adds deltaKg to the named silo product's inventory (outlet 1).
+func (h *BusinessHandler) adjustSiloInventory(productName string, deltaKg float64) {
+	var prod models.Product
+	if h.db.Where("name = ?", productName).First(&prod).Error != nil {
 		return
 	}
-	type siloSync struct {
-		productName string
-		valueMT     string
+	var inv models.Inventory
+	if h.db.Where("product_id = ? AND outlet_id = ?", prod.ID, 1).First(&inv).Error != nil {
+		inv = models.Inventory{ProductID: prod.ID, OutletID: 1}
+		h.db.Create(&inv)
 	}
-	syncs := []siloSync{
-		{"Silo CEMENT", latest.Silo1Value},         // S1 (spinning)
-		{"Silo CEMENT (COATING)", latest.Silo3Value}, // S3 (coating)
-	}
-	// S2 also goes to Silo CEMENT — add S2 if non-empty
-	s2, _ := strconv.ParseFloat(latest.Silo2Value, 64)
-	s1, _ := strconv.ParseFloat(latest.Silo1Value, 64)
-	combinedSpinningKg := (s1 + s2) * 1000
-	for i, s := range syncs {
-		var kg float64
-		if i == 0 {
-			kg = combinedSpinningKg
-		} else {
-			v, _ := strconv.ParseFloat(s.valueMT, 64)
-			kg = v * 1000
-		}
-		var prod models.Product
-		if h.db.Where("name = ?", s.productName).First(&prod).Error != nil {
-			continue
-		}
-		var inv models.Inventory
-		if h.db.Where("product_id = ? AND outlet_id = ?", prod.ID, 1).First(&inv).Error != nil {
-			inv = models.Inventory{ProductID: prod.ID, OutletID: 1}
-			h.db.Create(&inv)
-		}
-		h.db.Model(&inv).UpdateColumn("quantity_on_hand", kg)
-	}
+	h.db.Model(&inv).UpdateColumn("quantity_on_hand",
+		gorm.Expr("quantity_on_hand + ?", deltaKg))
+}
+
+// siloExtractionKg returns spinning kg and coating kg from a silo extraction row.
+func siloExtractionKg(row models.SiloExtraction) (spinning float64, coating float64) {
+	s1, _ := strconv.ParseFloat(row.Silo1Value, 64)
+	s2, _ := strconv.ParseFloat(row.Silo2Value, 64)
+	s3, _ := strconv.ParseFloat(row.Silo3Value, 64)
+	return (s1 + s2) * 1000, s3 * 1000
 }
 
 func (h *BusinessHandler) CreateSiloExtraction(w http.ResponseWriter, r *http.Request) {
@@ -586,11 +569,42 @@ func (h *BusinessHandler) CreateSiloExtraction(w http.ResponseWriter, r *http.Re
 		util.SendError(w, http.StatusInternalServerError, "Failed to create silo extraction entry")
 		return
 	}
-	h.syncSiloInventory()
+	spinning, coating := siloExtractionKg(row)
+	h.adjustSiloInventory("Silo CEMENT", spinning)
+	h.adjustSiloInventory("Silo CEMENT (COATING)", coating)
 	util.SendSuccess(w, "Silo extraction entry created", row)
 }
 
 func (h *BusinessHandler) UpdateSiloExtraction(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+	var old models.SiloExtraction
+	if err := h.db.First(&old, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	var row models.SiloExtraction
+	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	row.ID = id
+	if err := h.db.Save(&row).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
+		return
+	}
+	// Reverse old, apply new
+	oldSpinning, oldCoating := siloExtractionKg(old)
+	newSpinning, newCoating := siloExtractionKg(row)
+	h.adjustSiloInventory("Silo CEMENT", newSpinning-oldSpinning)
+	h.adjustSiloInventory("Silo CEMENT (COATING)", newCoating-oldCoating)
+	util.SendSuccess(w, "Entry updated", row)
+}
+
+func (h *BusinessHandler) DeleteSiloExtraction(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r)
 	if err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
@@ -601,30 +615,13 @@ func (h *BusinessHandler) UpdateSiloExtraction(w http.ResponseWriter, r *http.Re
 		util.SendError(w, http.StatusNotFound, "Entry not found")
 		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
-		util.SendError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-	row.ID = id
-	if err := h.db.Save(&row).Error; err != nil {
-		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
-		return
-	}
-	h.syncSiloInventory()
-	util.SendSuccess(w, "Entry updated", row)
-}
-
-func (h *BusinessHandler) DeleteSiloExtraction(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		util.SendError(w, http.StatusBadRequest, "Invalid id")
-		return
-	}
 	if err := h.db.Delete(&models.SiloExtraction{}, id).Error; err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
 	}
-	h.syncSiloInventory()
+	spinning, coating := siloExtractionKg(row)
+	h.adjustSiloInventory("Silo CEMENT", -spinning)
+	h.adjustSiloInventory("Silo CEMENT (COATING)", -coating)
 	util.SendSuccess(w, "Entry deleted", nil)
 }
 
