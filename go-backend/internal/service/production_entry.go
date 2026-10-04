@@ -17,8 +17,7 @@ var virtualMaterial = map[string]struct {
 	sourceName string
 	factor     decimal.Decimal
 }{
-	"EXTRA CEMENT":        {"Cement Bags", decimal.NewFromFloat(50)}, // formula kg ÷ 50 = bags deducted
-	"Silo CEMENT (CORE)": {"Silo CEMENT", decimal.NewFromFloat(1)},  // same S1+S2 silos, 1:1
+	"EXTRA CEMENT": {"Cement Bags", decimal.NewFromFloat(50)}, // formula kg ÷ 50 = bags deducted
 }
 
 // resolveVirtualMaterial returns the physical productID and adjusted qty for a formula material.

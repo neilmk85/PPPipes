@@ -570,7 +570,7 @@ func (h *BusinessHandler) CreateSiloExtraction(w http.ResponseWriter, r *http.Re
 		return
 	}
 	spinning, coating := siloExtractionKg(row)
-	h.adjustSiloInventory("Silo CEMENT", spinning)
+	h.adjustSiloInventory("Silo CEMENT (CORE)", spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", coating)
 	util.SendSuccess(w, "Silo extraction entry created", row)
 }
@@ -599,7 +599,7 @@ func (h *BusinessHandler) UpdateSiloExtraction(w http.ResponseWriter, r *http.Re
 	// Reverse old, apply new
 	oldSpinning, oldCoating := siloExtractionKg(old)
 	newSpinning, newCoating := siloExtractionKg(row)
-	h.adjustSiloInventory("Silo CEMENT", newSpinning-oldSpinning)
+	h.adjustSiloInventory("Silo CEMENT (CORE)", newSpinning-oldSpinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", newCoating-oldCoating)
 	util.SendSuccess(w, "Entry updated", row)
 }
@@ -620,7 +620,7 @@ func (h *BusinessHandler) DeleteSiloExtraction(w http.ResponseWriter, r *http.Re
 		return
 	}
 	spinning, coating := siloExtractionKg(row)
-	h.adjustSiloInventory("Silo CEMENT", -spinning)
+	h.adjustSiloInventory("Silo CEMENT (CORE)", -spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", -coating)
 	util.SendSuccess(w, "Entry deleted", nil)
 }
