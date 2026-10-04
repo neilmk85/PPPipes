@@ -902,14 +902,39 @@ func (h *BusinessHandler) ListCuttings(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, "Cuttings retrieved", rows)
 }
 
-// adjustCuttingInventory changes fromSheet by -delta and toSheet by +delta (outlet 1).
-// Silently skips products that don't exist in inventory.
+// sheetWeightKg maps pipe diameter (mm) to kg per sheet for 1.6mm thick steel.
+var sheetWeightKg = map[int]float64{
+	350: 21.12, 400: 23.61, 450: 26.09, 500: 28.58, 600: 34.05,
+	700: 39.02, 800: 44.49, 900: 50.45, 1000: 55.92, 1100: 61.39,
+	1200: 66.86, 1300: 71.83, 1400: 77.30, 1500: 82.77, 1600: 88.24,
+	1700: 93.71, 1800: 99.18, 1900: 104.64, 2000: 110.11, 2100: 115.58,
+	2200: 121.05,
+}
+
+// sheetKg returns the kg for qty sheets of the named product (e.g. "1.6MM SHEET 1800").
+// Falls back to qty if the diameter is unknown.
+func sheetKg(productName string, qty float64) float64 {
+	// extract trailing integer diameter, e.g. "1.6MM SHEET 1800" → 1800
+	parts := strings.Fields(productName)
+	if len(parts) > 0 {
+		if dia, err := strconv.Atoi(parts[len(parts)-1]); err == nil {
+			if w, ok := sheetWeightKg[dia]; ok {
+				return qty * w
+			}
+		}
+	}
+	return qty
+}
+
+// adjustCuttingInventory decreases fromSheet and increases toSheet by the correct kg (outlet 1).
+// delta is the sheet count (positive for create, negative to reverse).
 func (h *BusinessHandler) adjustCuttingInventory(fromSheet, toSheet string, delta float64) {
 	outletID := 1
 	for _, pair := range []struct {
-		name  string
-		sign  float64
+		name string
+		sign float64
 	}{{fromSheet, -1}, {toSheet, +1}} {
+		kgDelta := sheetKg(pair.name, delta) * pair.sign
 		var prod models.Product
 		if h.db.Where("name = ?", pair.name).First(&prod).Error != nil {
 			continue
@@ -917,12 +942,11 @@ func (h *BusinessHandler) adjustCuttingInventory(fromSheet, toSheet string, delt
 		var inv models.Inventory
 		err := h.db.Where("product_id = ? AND outlet_id = ?", prod.ID, outletID).First(&inv).Error
 		if err != nil {
-			// create inventory record at 0 then apply
 			inv = models.Inventory{ProductID: prod.ID, OutletID: outletID}
 			h.db.Create(&inv)
 		}
 		h.db.Model(&inv).UpdateColumn("quantity_on_hand",
-			gorm.Expr("quantity_on_hand + ?", pair.sign*delta))
+			gorm.Expr("quantity_on_hand + ?", kgDelta))
 	}
 }
 
