@@ -11,6 +11,35 @@ import (
 	"gorm.io/gorm"
 )
 
+// virtualMaterial maps a formula product name to its physical source product name
+// and the factor to convert formula units → inventory units (e.g. kg ÷ 50 = bags).
+var virtualMaterial = map[string]struct {
+	sourceName string
+	factor     decimal.Decimal
+}{
+	"EXTRA CEMENT": {"Cement Bags", decimal.NewFromFloat(50)}, // formula kg ÷ 50 = bags deducted
+}
+
+// resolveVirtualMaterial returns the physical productID and adjusted qty for a formula material.
+// If the material is virtual (e.g. EXTRA CEMENT), it redirects to the source product.
+// Returns original productID and qty unchanged if not virtual.
+func resolveVirtualMaterial(tx *gorm.DB, productID int, qty decimal.Decimal) (int, decimal.Decimal) {
+	var prod models.Product
+	if tx.First(&prod, productID).Error != nil {
+		return productID, qty
+	}
+	v, ok := virtualMaterial[prod.Name]
+	if !ok {
+		return productID, qty
+	}
+	var src models.Product
+	if tx.Where("name = ?", v.sourceName).First(&src).Error != nil {
+		return productID, qty
+	}
+	// qty is in formula units (kg); convert to source units (bags = qty / factor)
+	return src.ID, qty.Div(v.factor)
+}
+
 type ProductionEntryService struct {
 	db              *gorm.DB
 	costSheetService *CostSheetService
@@ -403,15 +432,18 @@ func (s *ProductionEntryService) createConsumptions(
 			// Non-fatal: material product may not exist in this DB instance
 			continue
 		}
-		// Deduct from inventory — convert to inventory base UOM if formula uses a different UOM
-		deductQty := consumedQty
-		var prod models.Product
-		if tx.First(&prod, mat.MaterialProductID).Error == nil {
-			if prod.UnitOfMeasure != mat.UOM && prod.SaleUOM != nil && *prod.SaleUOM == mat.UOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
-				deductQty = consumedQty.Div(prod.SaleFactor)
+		// Resolve virtual materials (e.g. EXTRA CEMENT → Cement Bags) then deduct
+		deductProductID, deductQty := resolveVirtualMaterial(tx, mat.MaterialProductID, consumedQty)
+		// Also convert UOM if inventory unit differs from formula unit (e.g. brass nos → kg)
+		if deductProductID == mat.MaterialProductID {
+			var prod models.Product
+			if tx.First(&prod, mat.MaterialProductID).Error == nil {
+				if prod.UnitOfMeasure != mat.UOM && prod.SaleUOM != nil && *prod.SaleUOM == mat.UOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
+					deductQty = consumedQty.Div(prod.SaleFactor)
+				}
 			}
 		}
-		s.deductInventory(tx, mat.MaterialProductID, order.OutletID, deductQty)
+		s.deductInventory(tx, deductProductID, order.OutletID, deductQty)
 	}
 	return nil
 }
@@ -461,8 +493,10 @@ func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.P
 			factor := decimal.NewFromInt(1).Add(mat.ScrapPercent.Div(decimal.NewFromInt(100)))
 			consumedQty = consumedQty.Mul(factor)
 		}
+		// Resolve virtual materials (e.g. EXTRA CEMENT → Cement Bags)
+		checkProductID, checkQty := resolveVirtualMaterial(tx, mat.MaterialProductID, consumedQty)
 		var inv models.Inventory
-		if err := tx.Where("product_id = ? AND outlet_id = ?", mat.MaterialProductID, order.OutletID).First(&inv).Error; err != nil {
+		if err := tx.Where("product_id = ? AND outlet_id = ?", checkProductID, order.OutletID).First(&inv).Error; err != nil {
 			continue // no inventory record — allow through (deductInventory handles this)
 		}
 		var prod models.Product
@@ -471,12 +505,15 @@ func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.P
 		if prod.Name != "" {
 			name = prod.Name
 		}
-		// Convert inventory QOH to formula UOM if they differ (e.g. brass → kg via sale_factor)
+		var checkProd models.Product
+		tx.First(&checkProd, checkProductID)
+		// Convert inventory QOH to check units if they differ (e.g. brass → kg via sale_factor)
 		effectiveQOH := inv.QuantityOnHand
-		if prod.UnitOfMeasure != mat.UOM && prod.SaleUOM != nil && *prod.SaleUOM == mat.UOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
-			effectiveQOH = inv.QuantityOnHand.Mul(prod.SaleFactor)
+		if checkProd.UnitOfMeasure != "" && checkProd.SaleUOM != nil && checkProd.UnitOfMeasure != *checkProd.SaleUOM && checkProd.SaleFactor.GreaterThan(decimal.Zero) {
+			effectiveQOH = inv.QuantityOnHand.Mul(checkProd.SaleFactor)
+			checkQty = consumedQty // compare in formula units (kg) when using sale_factor expansion
 		}
-		if effectiveQOH.LessThan(consumedQty) {
+		if effectiveQOH.LessThan(checkQty) {
 			shortfalls = append(shortfalls, fmt.Sprintf("%s (available: %.2f %s, required: %.2f %s)",
 				name, effectiveQOH.InexactFloat64(), mat.UOM, consumedQty.InexactFloat64(), mat.UOM))
 		}
@@ -495,16 +532,7 @@ func (s *ProductionEntryService) deductInventory(tx *gorm.DB, productID, outletI
 	if err := tx.Where("product_id = ? AND outlet_id = ?", productID, outletID).First(&inv).Error; err != nil {
 		return // inventory record doesn't exist yet — non-blocking
 	}
-	// If the formula UOM (e.g. kg) differs from the inventory UOM (e.g. nos),
-	// convert qty back to inventory units using sale_factor (e.g. kg ÷ 50 = bags).
-	deductQty := qty
-	var prod models.Product
-	if tx.First(&prod, productID).Error == nil {
-		if prod.SaleUOM != nil && prod.UnitOfMeasure != *prod.SaleUOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
-			deductQty = qty.Div(prod.SaleFactor)
-		}
-	}
-	newQOH := inv.QuantityOnHand.Sub(deductQty)
+	newQOH := inv.QuantityOnHand.Sub(qty)
 	now := time.Now()
 	tx.Model(&inv).Updates(map[string]interface{}{
 		"quantity_on_hand":  newQOH,
