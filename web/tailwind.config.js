@@ -10,6 +10,7 @@ export default {
         'slide-in-right': 'slide-in-right 0.25s ease-out',
       },
       fontFamily: {
+        sans: ['Google Sans Flex', 'Google Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
         inter: ['Inter', 'sans-serif'],
       },
       colors: {
