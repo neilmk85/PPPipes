@@ -902,6 +902,30 @@ func (h *BusinessHandler) ListCuttings(w http.ResponseWriter, r *http.Request) {
 	util.SendSuccess(w, "Cuttings retrieved", rows)
 }
 
+// adjustCuttingInventory changes fromSheet by -delta and toSheet by +delta (outlet 1).
+// Silently skips products that don't exist in inventory.
+func (h *BusinessHandler) adjustCuttingInventory(fromSheet, toSheet string, delta float64) {
+	outletID := 1
+	for _, pair := range []struct {
+		name  string
+		sign  float64
+	}{{fromSheet, -1}, {toSheet, +1}} {
+		var prod models.Product
+		if h.db.Where("name = ?", pair.name).First(&prod).Error != nil {
+			continue
+		}
+		var inv models.Inventory
+		err := h.db.Where("product_id = ? AND outlet_id = ?", prod.ID, outletID).First(&inv).Error
+		if err != nil {
+			// create inventory record at 0 then apply
+			inv = models.Inventory{ProductID: prod.ID, OutletID: outletID}
+			h.db.Create(&inv)
+		}
+		h.db.Model(&inv).UpdateColumn("quantity_on_hand",
+			gorm.Expr("quantity_on_hand + ?", pair.sign*delta))
+	}
+}
+
 func (h *BusinessHandler) CreateCutting(w http.ResponseWriter, r *http.Request) {
 	var row models.BizCutting
 	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
@@ -920,10 +944,38 @@ func (h *BusinessHandler) CreateCutting(w http.ResponseWriter, r *http.Request) 
 		util.SendError(w, http.StatusInternalServerError, "Failed to create cutting entry")
 		return
 	}
+	h.adjustCuttingInventory(row.FromSheet, row.ToSheet, float64(row.Quantity))
 	util.SendSuccess(w, "Cutting entry created", row)
 }
 
 func (h *BusinessHandler) UpdateCutting(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid id")
+		return
+	}
+	var old models.BizCutting
+	if err := h.db.First(&old, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	var row models.BizCutting
+	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	row.ID = id
+	if err := h.db.Save(&row).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
+		return
+	}
+	// Reverse old adjustment, apply new
+	h.adjustCuttingInventory(old.FromSheet, old.ToSheet, -float64(old.Quantity))
+	h.adjustCuttingInventory(row.FromSheet, row.ToSheet, float64(row.Quantity))
+	util.SendSuccess(w, "Entry updated", row)
+}
+
+func (h *BusinessHandler) DeleteCutting(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r)
 	if err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
@@ -934,28 +986,12 @@ func (h *BusinessHandler) UpdateCutting(w http.ResponseWriter, r *http.Request) 
 		util.SendError(w, http.StatusNotFound, "Entry not found")
 		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
-		util.SendError(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-	row.ID = id
-	if err := h.db.Save(&row).Error; err != nil {
-		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
-		return
-	}
-	util.SendSuccess(w, "Entry updated", row)
-}
-
-func (h *BusinessHandler) DeleteCutting(w http.ResponseWriter, r *http.Request) {
-	id, err := parseID(r)
-	if err != nil {
-		util.SendError(w, http.StatusBadRequest, "Invalid id")
-		return
-	}
 	if err := h.db.Delete(&models.BizCutting{}, id).Error; err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
 	}
+	// Reverse inventory
+	h.adjustCuttingInventory(row.FromSheet, row.ToSheet, -float64(row.Quantity))
 	util.SendSuccess(w, "Entry deleted", nil)
 }
 
