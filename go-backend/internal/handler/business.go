@@ -536,6 +536,46 @@ func (h *BusinessHandler) ListSiloExtractions(w http.ResponseWriter, r *http.Req
 	util.SendSuccess(w, "Silo extractions retrieved", rows)
 }
 
+// syncSiloInventory reads the latest silo extraction and sets Silo CEMENT and
+// Silo CEMENT (COATING) inventory to match the physical readings.
+func (h *BusinessHandler) syncSiloInventory() {
+	var latest models.SiloExtraction
+	if h.db.Order("date DESC, id DESC").First(&latest).Error != nil {
+		return
+	}
+	type siloSync struct {
+		productName string
+		valueMT     string
+	}
+	syncs := []siloSync{
+		{"Silo CEMENT", latest.Silo1Value},         // S1 (spinning)
+		{"Silo CEMENT (COATING)", latest.Silo3Value}, // S3 (coating)
+	}
+	// S2 also goes to Silo CEMENT — add S2 if non-empty
+	s2, _ := strconv.ParseFloat(latest.Silo2Value, 64)
+	s1, _ := strconv.ParseFloat(latest.Silo1Value, 64)
+	combinedSpinningKg := (s1 + s2) * 1000
+	for i, s := range syncs {
+		var kg float64
+		if i == 0 {
+			kg = combinedSpinningKg
+		} else {
+			v, _ := strconv.ParseFloat(s.valueMT, 64)
+			kg = v * 1000
+		}
+		var prod models.Product
+		if h.db.Where("name = ?", s.productName).First(&prod).Error != nil {
+			continue
+		}
+		var inv models.Inventory
+		if h.db.Where("product_id = ? AND outlet_id = ?", prod.ID, 1).First(&inv).Error != nil {
+			inv = models.Inventory{ProductID: prod.ID, OutletID: 1}
+			h.db.Create(&inv)
+		}
+		h.db.Model(&inv).UpdateColumn("quantity_on_hand", kg)
+	}
+}
+
 func (h *BusinessHandler) CreateSiloExtraction(w http.ResponseWriter, r *http.Request) {
 	var row models.SiloExtraction
 	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
@@ -546,6 +586,7 @@ func (h *BusinessHandler) CreateSiloExtraction(w http.ResponseWriter, r *http.Re
 		util.SendError(w, http.StatusInternalServerError, "Failed to create silo extraction entry")
 		return
 	}
+	h.syncSiloInventory()
 	util.SendSuccess(w, "Silo extraction entry created", row)
 }
 
@@ -569,6 +610,7 @@ func (h *BusinessHandler) UpdateSiloExtraction(w http.ResponseWriter, r *http.Re
 		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
 		return
 	}
+	h.syncSiloInventory()
 	util.SendSuccess(w, "Entry updated", row)
 }
 
@@ -582,6 +624,7 @@ func (h *BusinessHandler) DeleteSiloExtraction(w http.ResponseWriter, r *http.Re
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
 	}
+	h.syncSiloInventory()
 	util.SendSuccess(w, "Entry deleted", nil)
 }
 
