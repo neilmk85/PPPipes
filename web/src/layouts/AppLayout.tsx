@@ -267,8 +267,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         key={item.path}
         to={item.path}
         title={!isExpanded ? item.label : undefined}
-        className={`group relative flex items-center gap-3 rounded-lg transition-all duration-150 ${
-          indent ? 'px-2.5 py-1.5 mb-0.5' : 'px-3 py-3 mx-2 mb-1'
+        className={`group relative flex items-center gap-3 rounded-lg mb-0.5 transition-all duration-150 ${
+          indent ? 'px-2.5 py-1.5' : 'px-3 py-2.5 mx-2'
         } ${
           active
             ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-sm shadow-violet-200'
