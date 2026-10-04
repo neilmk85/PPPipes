@@ -495,7 +495,16 @@ func (s *ProductionEntryService) deductInventory(tx *gorm.DB, productID, outletI
 	if err := tx.Where("product_id = ? AND outlet_id = ?", productID, outletID).First(&inv).Error; err != nil {
 		return // inventory record doesn't exist yet — non-blocking
 	}
-	newQOH := inv.QuantityOnHand.Sub(qty)
+	// If the formula UOM (e.g. kg) differs from the inventory UOM (e.g. nos),
+	// convert qty back to inventory units using sale_factor (e.g. kg ÷ 50 = bags).
+	deductQty := qty
+	var prod models.Product
+	if tx.First(&prod, productID).Error == nil {
+		if prod.SaleUOM != nil && prod.UnitOfMeasure != *prod.SaleUOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
+			deductQty = qty.Div(prod.SaleFactor)
+		}
+	}
+	newQOH := inv.QuantityOnHand.Sub(deductQty)
 	now := time.Now()
 	tx.Model(&inv).Updates(map[string]interface{}{
 		"quantity_on_hand":  newQOH,
