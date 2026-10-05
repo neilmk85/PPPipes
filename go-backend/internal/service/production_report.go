@@ -417,9 +417,13 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 	}
 
 	// To show pipes currently sitting at each stage we need:
-	//   stock = SUM(pipes_completed at this stage) - SUM(pipes_processed at the NEXT stage)
-	// because pipes_processed at stage N+1 means they were pulled out of stage N.
-	argsDouble := append(args, args...) // same args applied to both subqueries
+	//   stock = SUM(pipes_completed at this stage) - SUM(pipes_processed at all downstream stages)
+	// Non-linear routing:
+	//   CURING_1  is drained by both WINDING and WINDING_2
+	//   COATING   is drained by CURING_2 (direct path)
+	//   COATING_2 is drained by CURING_2 (secondary path)
+	// The nxt subquery maps each entry to the source stage it drains, then aggregates.
+	argsDouble := append(append(args, args...), args...) // args applied to curr, nxt primary, nxt union-all
 	query := `
 		SELECT
 			pc.id   AS pipe_config_id,
@@ -436,26 +440,35 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 			GROUP BY pe.pipe_config_id, pe.stage_type
 		) curr
 		LEFT JOIN (
-			SELECT pe.pipe_config_id, pe.stage_type, SUM(pe.pipes_processed) AS processed
-			FROM production_entries pe
-			JOIN production_orders po ON po.id = pe.production_order_id
-			WHERE 1=1` + filterClause + `
-			GROUP BY pe.pipe_config_id, pe.stage_type
-		) nxt ON nxt.pipe_config_id = curr.pipe_config_id
-			AND nxt.stage_type = CASE curr.stage_type
-				WHEN 'FABRICATION'         THEN 'FABRICATION_TESTING'
-				WHEN 'FABRICATION_TESTING' THEN 'MOULDING'
-				WHEN 'MOULDING'            THEN 'SPINNING'
-				WHEN 'SPINNING'            THEN 'DEMOULDING'
-				WHEN 'DEMOULDING'          THEN 'CURING_1'
-				WHEN 'CURING_1'            THEN 'WINDING'
-				WHEN 'WINDING'             THEN 'COATING'
-				WHEN 'COATING'             THEN 'CURING_2'
-				WHEN 'WINDING_2'           THEN 'COATING_2'
-				WHEN 'COATING_2'           THEN 'CURING_2'
-				WHEN 'CURING_2'            THEN 'FINAL_TESTING'
-				ELSE NULL
-			END
+			SELECT pipe_config_id, drains_from, SUM(pipes_processed) AS processed
+			FROM (
+				SELECT pe.pipe_config_id, pe.pipes_processed,
+					CASE pe.stage_type
+						WHEN 'FABRICATION_TESTING' THEN 'FABRICATION'
+						WHEN 'MOULDING'            THEN 'FABRICATION_TESTING'
+						WHEN 'SPINNING'            THEN 'MOULDING'
+						WHEN 'DEMOULDING'          THEN 'SPINNING'
+						WHEN 'CURING_1'            THEN 'DEMOULDING'
+						WHEN 'WINDING'             THEN 'CURING_1'
+						WHEN 'WINDING_2'           THEN 'CURING_1'
+						WHEN 'COATING'             THEN 'WINDING'
+						WHEN 'COATING_2'           THEN 'WINDING_2'
+						WHEN 'CURING_2'            THEN 'COATING'
+						WHEN 'FINAL_TESTING'       THEN 'CURING_2'
+						ELSE NULL
+					END AS drains_from
+				FROM production_entries pe
+				JOIN production_orders po ON po.id = pe.production_order_id
+				WHERE 1=1` + filterClause + `
+				UNION ALL
+				SELECT pe.pipe_config_id, pe.pipes_processed, 'COATING_2' AS drains_from
+				FROM production_entries pe
+				JOIN production_orders po ON po.id = pe.production_order_id
+				WHERE pe.stage_type = 'CURING_2'` + filterClause + `
+			) mapped
+			WHERE drains_from IS NOT NULL
+			GROUP BY pipe_config_id, drains_from
+		) nxt ON nxt.pipe_config_id = curr.pipe_config_id AND nxt.drains_from = curr.stage_type
 		JOIN pipe_configs pc ON pc.id = curr.pipe_config_id
 		WHERE pc.is_active = true
 		HAVING pipes_completed > 0

@@ -15915,8 +15915,8 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
 
   String _fmt(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
-  String get _curingStageType => widget.stageType == 'COATING' ? 'CURING_1' : 'CURING_2';
-  String get _curingLabel     => widget.stageType == 'COATING' ? 'Curing 1' : 'Curing 2';
+  String get _curingStageType => 'CURING_2';
+  String get _curingLabel     => 'Curing 2';
 
   Future<void> _load() async {
     setState(() => _loading = true);

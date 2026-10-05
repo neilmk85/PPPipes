@@ -269,9 +269,11 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'SPINNING'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS spinning,
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'DEMOULDING'          THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS demoulding,
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_1'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS curing1,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS curing2,
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'WINDING'             THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS winding,
+			COALESCE(SUM(CASE WHEN pe.stage_type = 'WINDING_2'           THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS winding2,
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING'             THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS coating,
+			COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING_2'           THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS coating2,
+			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS curing2,
 			COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING'       THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS final_testing`).
 		Joins("LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id")
 
