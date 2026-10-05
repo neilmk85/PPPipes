@@ -161,10 +161,14 @@ func (s *ProductionEntryService) GetPriorStageCompleted(productionOrderID int, s
 
 	priorStage := models.StageSequence[idx-1]
 
-	// For CURING_2, pipes may arrive from either COATING or COATING_2,
-	// so count completed pipes from both stages.
+	// Some stages have non-linear prior-stage sources in the actual factory flow:
+	//   WINDING_2  ← CURING_1 (not WINDING)
+	//   CURING_2   ← COATING or COATING_2
 	priorStages := []models.ProdStageType{priorStage}
-	if stage == models.StageCuring2 {
+	switch stage {
+	case models.StageWinding2:
+		priorStages = []models.ProdStageType{models.StageCuring1}
+	case models.StageCuring2:
 		priorStages = []models.ProdStageType{models.StageCoating, models.StageCoating2}
 	}
 
