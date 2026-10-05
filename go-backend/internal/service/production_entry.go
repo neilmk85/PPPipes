@@ -380,8 +380,17 @@ func (s *ProductionEntryService) createConsumptions(
 			if err := tx.Create(consumption).Error; err != nil {
 				return err
 			}
-			// Deduct from inventory (non-blocking: warn only)
-			s.deductInventory(tx, c.MaterialProductID, order.OutletID, c.ConsumedQty)
+			// Resolve virtual + convert units before deducting
+			deductProductID, deductQty := resolveVirtualMaterial(tx, c.MaterialProductID, c.ConsumedQty)
+			if deductProductID == c.MaterialProductID {
+				var prod models.Product
+				if tx.First(&prod, c.MaterialProductID).Error == nil {
+					if prod.SaleUOM != nil && prod.UnitOfMeasure != *prod.SaleUOM && prod.SaleFactor.GreaterThan(decimal.Zero) {
+						deductQty = c.ConsumedQty.Div(prod.SaleFactor)
+					}
+				}
+			}
+			s.deductInventory(tx, deductProductID, order.OutletID, deductQty)
 		}
 		return nil
 	}
@@ -452,11 +461,20 @@ func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.P
 	// If caller provided explicit consumptions, check each one
 	if len(req.Consumptions) > 0 {
 		for _, c := range req.Consumptions {
+			checkProductID, checkQty := resolveVirtualMaterial(tx, c.MaterialProductID, c.ConsumedQty)
 			var inv models.Inventory
-			if err := tx.Where("product_id = ? AND outlet_id = ?", c.MaterialProductID, order.OutletID).First(&inv).Error; err != nil {
+			if err := tx.Where("product_id = ? AND outlet_id = ?", checkProductID, order.OutletID).First(&inv).Error; err != nil {
 				continue // no record — will be caught later, allow through
 			}
-			if inv.QuantityOnHand.LessThan(c.ConsumedQty) {
+			// Convert inventory QOH to formula units if product is stored in a different unit (e.g. brass → kg)
+			var checkProd models.Product
+			effectiveQOH := inv.QuantityOnHand
+			if tx.First(&checkProd, checkProductID).Error == nil {
+				if checkProd.SaleUOM != nil && checkProd.UnitOfMeasure != *checkProd.SaleUOM && checkProd.SaleFactor.GreaterThan(decimal.Zero) {
+					effectiveQOH = inv.QuantityOnHand.Mul(checkProd.SaleFactor)
+				}
+			}
+			if effectiveQOH.LessThan(checkQty) {
 				var prod models.Product
 				name := fmt.Sprintf("product #%d", c.MaterialProductID)
 				if tx.First(&prod, c.MaterialProductID).Error == nil {
@@ -465,7 +483,7 @@ func (s *ProductionEntryService) checkMaterialStock(tx *gorm.DB, entry *models.P
 				return &util.BusinessException{
 					StatusCode: 400,
 					Message: fmt.Sprintf("insufficient stock for %s: available %.2f, required %.2f",
-						name, inv.QuantityOnHand.InexactFloat64(), c.ConsumedQty.InexactFloat64()),
+						name, effectiveQOH.InexactFloat64(), checkQty.InexactFloat64()),
 				}
 			}
 		}
