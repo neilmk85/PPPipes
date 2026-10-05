@@ -242,9 +242,11 @@ type AllStagesStock struct {
 	Spinning           int    `json:"spinning"`
 	Demoulding         int    `json:"demoulding"`
 	Curing1            int    `json:"curing1"`
-	Curing2            int    `json:"curing2"`
 	Winding            int    `json:"winding"`
+	Winding2           int    `json:"winding2"`
 	Coating            int    `json:"coating"`
+	Coating2           int    `json:"coating2"`
+	Curing2            int    `json:"curing2"`
 	FinalTesting       int    `json:"finalTesting"`
 	PDI                int    `json:"pdi"`
 	Total              int    `json:"total"`
@@ -316,8 +318,8 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 	for _, r := range rows {
 		r.PDI = pdiMap[r.PipeName]
 		r.Total = r.Fabrication + r.FabricationTesting + r.Moulding +
-			r.Spinning + r.Demoulding + r.Curing1 + r.Curing2 +
-			r.Winding + r.Coating + r.FinalTesting + r.PDI
+			r.Spinning + r.Demoulding + r.Curing1 + r.Winding + r.Winding2 +
+			r.Coating + r.Coating2 + r.Curing2 + r.FinalTesting + r.PDI
 		if r.Total > 0 {
 			result = append(result, r)
 		}
