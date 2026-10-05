@@ -450,7 +450,7 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 				WHEN 'DEMOULDING'          THEN 'CURING_1'
 				WHEN 'CURING_1'            THEN 'WINDING'
 				WHEN 'WINDING'             THEN 'COATING'
-				WHEN 'COATING'             THEN 'WINDING_2'
+				WHEN 'COATING'             THEN 'CURING_2'
 				WHEN 'WINDING_2'           THEN 'COATING_2'
 				WHEN 'COATING_2'           THEN 'CURING_2'
 				WHEN 'CURING_2'            THEN 'FINAL_TESTING'
