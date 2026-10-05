@@ -255,7 +255,7 @@ function ChallanBody({ record }: { record: any }) {
           <div><span style={{ fontWeight: 700 }}>CH. NO - </span><span>{record.customerPoNo || ''}</span></div>
           <div><span style={{ fontWeight: 700 }}>DATE - </span><span>{dmy(record.date)}</span></div>
         </div>
-        <div style={{ marginBottom: '4px' }}><span style={{ fontWeight: 700 }}>NAME - </span><span>{record.vendor || ''}</span></div>
+        <div style={{ marginBottom: '4px' }}><span style={{ fontWeight: 700 }}>NAME - </span><span>{record.customerName || ''}</span></div>
         <div style={{ marginBottom: '14px' }}><span style={{ fontWeight: 700 }}>ADDRESS - </span><span>{record.siteAddress || ''}</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <div style={{ border: '1.5px solid #000', padding: '3px 14px', fontSize: '15px', fontWeight: 700, minWidth: '36px', textAlign: 'center' }}>{qty}</div>
