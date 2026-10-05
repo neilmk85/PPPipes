@@ -16365,7 +16365,6 @@ class _OrderEntry {
   final TextEditingController completedCtrl = TextEditingController();
   final TextEditingController notesCtrl = TextEditingController();
   String? processedError;
-  String? processedWarning;
   String? bedType; // SPINNING stage only
   _OrderEntry(this.order);
   void dispose() {
@@ -16607,25 +16606,16 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                 TextSelection.collapsed(offset: text.length);
           }
           // Inline validation: warn if exceeds prior-stage capacity
-          // remaining==0 (no prior stage data) → soft warning only, don't block save
-          // remaining>0 and processed>remaining → hard error, blocks save
           final String? err;
-          final String? warn;
           if (remaining == 0 && processed > 0) {
-            err = null;
-            warn = 'No Curing 1 recorded yet for this order';
+            err = 'No pipes available from prior stage';
           } else if (remaining > 0 && processed > remaining) {
             err = 'Exceeds available from prior stage ($remaining)';
-            warn = null;
           } else {
             err = null;
-            warn = null;
           }
           if (entry.processedError != err) {
             setState(() => entry.processedError = err);
-          }
-          if (entry.processedWarning != warn) {
-            setState(() => entry.processedWarning = warn);
           }
         });
       }
@@ -17216,14 +17206,6 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                         ),
                                       ),
                                     ]),
-                                    if (entry.processedWarning != null)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Text(
-                                          entry.processedWarning!,
-                                          style: TextStyle(fontSize: 11, color: Colors.orange[700]),
-                                        ),
-                                      ),
                                     // Rejected display (computed)
                                     Builder(builder: (ctx) {
                                       final proc = int.tryParse(entry.processedCtrl.text) ?? 0;
