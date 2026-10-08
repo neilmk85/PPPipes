@@ -435,7 +435,6 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 		FROM (
 			SELECT pe.pipe_config_id, pe.stage_type, SUM(pe.pipes_completed) AS completed
 			FROM production_entries pe
-			JOIN production_orders po ON po.id = pe.production_order_id
 			WHERE 1=1` + filterClause + `
 			GROUP BY pe.pipe_config_id, pe.stage_type
 		) curr
@@ -458,12 +457,10 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 						ELSE NULL
 					END AS drains_from
 				FROM production_entries pe
-				JOIN production_orders po ON po.id = pe.production_order_id
 				WHERE 1=1` + filterClause + `
 				UNION ALL
 				SELECT pe.pipe_config_id, pe.pipes_processed, 'COATING_2' AS drains_from
 				FROM production_entries pe
-				JOIN production_orders po ON po.id = pe.production_order_id
 				WHERE pe.stage_type = 'CURING_2'` + filterClause + `
 			) mapped
 			WHERE drains_from IS NOT NULL
