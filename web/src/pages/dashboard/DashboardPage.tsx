@@ -839,10 +839,10 @@ export default function DashboardPage() {
         <CardHeader
           icon={<GitBranch size={18} className="text-violet-400" />}
           accent="bg-white/10"
-          title="All Production Stages"
+          title="Inventory at all Production Stages"
           subtitle={hasDateFilter
             ? `${fromDate || '…'} → ${toDate || '…'} · ${(allStagesStock as any[]).length || ALL_STAGES_DUMMY.length} pipe type${((allStagesStock as any[]).length || ALL_STAGES_DUMMY.length) !== 1 ? 's' : ''}`
-            : `${(allStagesStock as any[]).length || ALL_STAGES_DUMMY.length} pipe types across all stages`}
+            : `${(allStagesStock as any[]).length || ALL_STAGES_DUMMY.length} pipe types with pipes in production`}
           right={(
             <div>
               <p className="text-xs text-blue-100">Grand Total</p>

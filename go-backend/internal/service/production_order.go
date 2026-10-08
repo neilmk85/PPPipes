@@ -252,45 +252,86 @@ type AllStagesStock struct {
 	Total              int    `json:"total"`
 }
 
-// GetAllStagesStock returns, per pipe config, how many pipes completed each
-// production stage. Optionally filtered by entry_date range (YYYY-MM-DD strings).
+// GetAllStagesStock returns, per pipe config, how many pipes are currently
+// sitting at each production stage (WIP). Optionally filtered by entry_date range.
 func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]AllStagesStock, error) {
-	var rows []AllStagesStock
-	// Join directly via pe.pipe_config_id (the entry's own FK) to avoid
-	// missing rows when a production_order's pipe_config_id diverges from the entry.
-	q := s.db.
-		Table("pipe_configs pc").
-		Select(`
-			pc.id  AS pipe_config_id,
+	filterClause := ""
+	args := []interface{}{}
+	if fromDate != "" {
+		filterClause += " AND pe.entry_date >= ?"
+		args = append(args, fromDate)
+	}
+	if toDate != "" {
+		filterClause += " AND pe.entry_date <= ?"
+		args = append(args, toDate)
+	}
+
+	// WIP per stage = completed at this stage − processed at downstream stage(s).
+	// Non-linear routing:
+	//   CURING_1  drained by WINDING + WINDING_2
+	//   COATING   drained by CURING_2
+	//   COATING_2 drained by CURING_2 (same CURING_2 pool)
+	query := `
+		SELECT
+			pc.id   AS pipe_config_id,
 			pc.name AS pipe_name,
 			pc.diameter_mm,
 			pc.pressure_class,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'FABRICATION'         THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS fabrication,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'FABRICATION_TESTING' THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS fabrication_testing,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'MOULDING'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS moulding,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'SPINNING'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS spinning,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'DEMOULDING'          THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS demoulding,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_1'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS curing1,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'WINDING'             THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS winding,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'WINDING_2'           THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS winding2,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING'             THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS coating,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING_2'           THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS coating2,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2'            THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS curing2,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING'       THEN GREATEST(pe.pipes_processed, pe.pipes_completed) ELSE 0 END), 0) AS final_testing`).
-		Joins("LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id")
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FABRICATION'         THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FABRICATION_TESTING' THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS fabrication,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FABRICATION_TESTING' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'MOULDING'            THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS fabrication_testing,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'MOULDING'   THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'SPINNING'   THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS moulding,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'SPINNING'   THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'DEMOULDING' THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS spinning,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'DEMOULDING' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_1'   THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS demoulding,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_1' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type IN ('WINDING','WINDING_2') THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS curing1,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'WINDING' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING' THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS winding,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'WINDING_2'  THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING_2'  THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS winding2,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2' THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS coating,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'COATING_2' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2'  THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS coating2,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2'      THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING'  THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS curing2,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0)
+			) AS final_testing
+		FROM pipe_configs pc
+		LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id
+		WHERE 1=1` + filterClause + `
+		GROUP BY pc.id, pc.name, pc.diameter_mm, pc.pressure_class
+		ORDER BY pc.name ASC`
 
-	if fromDate != "" {
-		q = q.Where("pe.entry_date >= ?", fromDate)
-	}
-	if toDate != "" {
-		q = q.Where("pe.entry_date <= ?", toDate)
-	}
-
-	err := q.
-		Group("pc.id, pc.name, pc.diameter_mm, pc.pressure_class").
-		Order("pc.name ASC").
-		Scan(&rows).Error
-	if err != nil {
+	var rows []AllStagesStock
+	if err := s.db.Raw(query, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
