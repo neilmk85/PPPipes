@@ -368,35 +368,45 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 	return result, nil
 }
 
-// GetIntermediateStock returns, per pipe config, how many pipes are currently
-// sitting at CURING_1, CURING_2, and FINAL_TESTING stages.
+// GetIntermediateStock returns, per pipe config, WIP pipes at CURING_1, CURING_2, and FINAL_TESTING.
 // Optionally filtered by entry_date range (YYYY-MM-DD strings).
 func (s *ProductionOrderService) GetIntermediateStock(fromDate, toDate string) ([]IntermediateStock, error) {
-	var rows []IntermediateStock
-	q := s.db.
-		Table("pipe_configs pc").
-		Select(`
-			pc.id  AS pipe_config_id,
+	filterClause := ""
+	args := []interface{}{}
+	if fromDate != "" {
+		filterClause += " AND pe.entry_date >= ?"
+		args = append(args, fromDate)
+	}
+	if toDate != "" {
+		filterClause += " AND pe.entry_date <= ?"
+		args = append(args, toDate)
+	}
+
+	query := `
+		SELECT
+			pc.id   AS pipe_config_id,
 			pc.name AS pipe_name,
 			pc.diameter_mm,
 			pc.pressure_class,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_1'      THEN pe.pipes_completed ELSE 0 END), 0) AS curing1,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2'      THEN pe.pipes_completed ELSE 0 END), 0) AS curing2,
-			COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0) AS final_testing`).
-		Joins("LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id")
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_1' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type IN ('WINDING','WINDING_2') THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS curing1,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'CURING_2' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_processed ELSE 0 END), 0)
+			) AS curing2,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0)
+			) AS final_testing
+		FROM pipe_configs pc
+		LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id
+		WHERE 1=1` + filterClause + `
+		GROUP BY pc.id, pc.name, pc.diameter_mm, pc.pressure_class
+		ORDER BY pc.name ASC`
 
-	if fromDate != "" {
-		q = q.Where("pe.entry_date >= ?", fromDate)
-	}
-	if toDate != "" {
-		q = q.Where("pe.entry_date <= ?", toDate)
-	}
-
-	err := q.
-		Group("pc.id, pc.name, pc.diameter_mm, pc.pressure_class").
-		Order("pc.name ASC").
-		Scan(&rows).Error
-	if err != nil {
+	var rows []IntermediateStock
+	if err := s.db.Raw(query, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	// Fetch PDI balances per pipe name
