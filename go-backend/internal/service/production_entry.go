@@ -195,6 +195,45 @@ func (s *ProductionEntryService) GetPriorStageCompleted(productionOrderID int, s
 	}, nil
 }
 
+// GetStageWipForConfig returns how many pipes of the given config are currently
+// available at the prior stage (i.e. can be moved into `stage` right now).
+// Formula: SUM(pipes_completed at prior stage) − SUM(pipes_processed at this stage)
+func (s *ProductionEntryService) GetStageWipForConfig(pipeConfigID int, stage models.ProdStageType) (int, models.ProdStageType, error) {
+	idx := models.StageIndex(stage)
+	if idx <= 0 {
+		return 0, "", nil
+	}
+
+	priorStage := models.StageSequence[idx-1]
+	priorStages := []models.ProdStageType{priorStage}
+	switch stage {
+	case models.StageWinding2:
+		priorStages = []models.ProdStageType{models.StageCuring1}
+		priorStage = models.StageCuring1
+	case models.StageCuring2:
+		priorStages = []models.ProdStageType{models.StageCoating, models.StageCoating2}
+		priorStage = models.StageCoating
+	}
+
+	var priorCompleted int
+	s.db.Model(&models.ProductionEntry{}).
+		Where("stage_type IN ? AND pipe_config_id = ?", priorStages, pipeConfigID).
+		Select("COALESCE(SUM(pipes_completed), 0)").
+		Scan(&priorCompleted)
+
+	var currentProcessed int
+	s.db.Model(&models.ProductionEntry{}).
+		Where("stage_type = ? AND pipe_config_id = ?", string(stage), pipeConfigID).
+		Select("COALESCE(SUM(pipes_processed), 0)").
+		Scan(&currentProcessed)
+
+	available := priorCompleted - currentProcessed
+	if available < 0 {
+		available = 0
+	}
+	return available, priorStage, nil
+}
+
 // ── Mutation methods ──────────────────────────────────────────────────────────
 
 func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID int, createdBy string) (*models.ProductionEntry, error) {
@@ -204,52 +243,77 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 		return nil, &util.BusinessException{StatusCode: 400, Message: "invalid stageType"}
 	}
 
-	// 2. Load the production order and pipe config
+	// 2. Load order (if PO-linked) or resolve pipe config directly (PO-free entry)
 	var order models.ProductionOrder
-	if err := s.db.Preload("PipeConfig").First(&order, req.ProductionOrderID).Error; err != nil {
-		return nil, &util.BusinessException{StatusCode: 400, Message: "production order not found"}
-	}
-	if order.Status == models.ProdOrderCancelled || order.Status == models.ProdOrderCompleted {
-		return nil, &util.BusinessException{StatusCode: 400, Message: "cannot add entries to a completed or cancelled order"}
-	}
+	var entryPipeConfigID *int
 
-	// 2a. Spinning stage: assign pipe config to the order if not yet set
-	stageIdx := models.StageIndex(stage)
-	spinningIdx := models.StageIndex(models.StageSpinning)
-	if stage == models.StageSpinning && order.PipeConfigID == nil {
+	if req.ProductionOrderID != 0 {
+		// PO-linked path (existing behaviour)
+		if err := s.db.Preload("PipeConfig").First(&order, req.ProductionOrderID).Error; err != nil {
+			return nil, &util.BusinessException{StatusCode: 400, Message: "production order not found"}
+		}
+		if order.Status == models.ProdOrderCancelled || order.Status == models.ProdOrderCompleted {
+			return nil, &util.BusinessException{StatusCode: 400, Message: "cannot add entries to a completed or cancelled order"}
+		}
+
+		stageIdx := models.StageIndex(stage)
+		spinningIdx := models.StageIndex(models.StageSpinning)
+		if stage == models.StageSpinning && order.PipeConfigID == nil {
+			if req.PipeConfigID == nil {
+				return nil, &util.BusinessException{StatusCode: 400, Message: "pipeConfigId is required at SPINNING stage to assign pressure class"}
+			}
+			var pc models.PipeConfig
+			if err := s.db.First(&pc, *req.PipeConfigID).Error; err != nil {
+				return nil, &util.BusinessException{StatusCode: 400, Message: "pipeConfigId not found"}
+			}
+			if pc.DiameterMM != order.DiameterMm {
+				return nil, &util.BusinessException{StatusCode: 400, Message: fmt.Sprintf("pipe config diameter (%dmm) does not match order diameter (%dmm)", pc.DiameterMM, order.DiameterMm)}
+			}
+			if err := s.db.Model(&order).Updates(map[string]interface{}{"pipe_config_id": *req.PipeConfigID}).Error; err != nil {
+				return nil, err
+			}
+			order.PipeConfigID = req.PipeConfigID
+			order.PipeConfig = &pc
+		}
+		if stageIdx > spinningIdx && order.PipeConfigID == nil {
+			return nil, &util.BusinessException{StatusCode: 400, Message: "pipe config (pressure class) must be assigned at SPINNING before proceeding to this stage"}
+		}
+
+		// Prior-stage constraint (per-PO)
+		priorInfo, err := s.GetPriorStageCompleted(req.ProductionOrderID, stage)
+		if err != nil {
+			return nil, err
+		}
+		if priorInfo != nil && req.PipesProcessed > priorInfo.PipesCompleted {
+			return nil, &util.BusinessException{
+				StatusCode: 400,
+				Message: fmt.Sprintf("pipesProcessed (%d) exceeds prior stage (%s) completed (%d)",
+					req.PipesProcessed, priorInfo.StageType, priorInfo.PipesCompleted),
+			}
+		}
+		entryPipeConfigID = order.PipeConfigID
+	} else {
+		// PO-free path: pipe config is required
 		if req.PipeConfigID == nil {
-			return nil, &util.BusinessException{StatusCode: 400, Message: "pipeConfigId is required at SPINNING stage to assign pressure class"}
+			return nil, &util.BusinessException{StatusCode: 400, Message: "pipeConfigId is required when no production order is specified"}
 		}
 		var pc models.PipeConfig
 		if err := s.db.First(&pc, *req.PipeConfigID).Error; err != nil {
 			return nil, &util.BusinessException{StatusCode: 400, Message: "pipeConfigId not found"}
 		}
-		if pc.DiameterMM != order.DiameterMm {
-			return nil, &util.BusinessException{StatusCode: 400, Message: fmt.Sprintf("pipe config diameter (%dmm) does not match order diameter (%dmm)", pc.DiameterMM, order.DiameterMm)}
-		}
-		// Lock in the pipe config on the order
-		if err := s.db.Model(&order).Updates(map[string]interface{}{"pipe_config_id": *req.PipeConfigID}).Error; err != nil {
+		entryPipeConfigID = req.PipeConfigID
+
+		// Prior-stage constraint (aggregate WIP for this pipe config)
+		available, priorStage, err := s.GetStageWipForConfig(*req.PipeConfigID, stage)
+		if err != nil {
 			return nil, err
 		}
-		order.PipeConfigID = req.PipeConfigID
-		order.PipeConfig = &pc
-	}
-
-	// 2b. Post-spinning stages require a pipe config to be set on the order
-	if stageIdx > spinningIdx && order.PipeConfigID == nil {
-		return nil, &util.BusinessException{StatusCode: 400, Message: "pipe config (pressure class) must be assigned at SPINNING before proceeding to this stage"}
-	}
-
-	// 3. Prior-stage constraint
-	priorInfo, err := s.GetPriorStageCompleted(req.ProductionOrderID, stage)
-	if err != nil {
-		return nil, err
-	}
-	if priorInfo != nil && req.PipesProcessed > priorInfo.PipesCompleted {
-		return nil, &util.BusinessException{
-			StatusCode: 400,
-			Message: fmt.Sprintf("pipesProcessed (%d) exceeds prior stage (%s) completed (%d)",
-				req.PipesProcessed, priorInfo.StageType, priorInfo.PipesCompleted),
+		if priorStage != "" && req.PipesProcessed > available {
+			return nil, &util.BusinessException{
+				StatusCode: 400,
+				Message: fmt.Sprintf("pipesProcessed (%d) exceeds available at %s (%d)",
+					req.PipesProcessed, priorStage, available),
+			}
 		}
 	}
 
@@ -262,7 +326,6 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 	}
 
 	// 5. BedType validation
-	// SPINNING: required. All other stages: not allowed.
 	var bedTypePtr *models.BedType
 	if stage == models.StageSpinning {
 		if req.BedType == nil || *req.BedType == "" {
@@ -296,31 +359,38 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 		shiftNamePtr = &sn
 	}
 
-	entry := &models.ProductionEntry{
-		ProductionOrderID: req.ProductionOrderID,
-		PipeConfigID:      order.PipeConfigID, // nil for pre-spinning entries
-		StageType:         stage,
-		PipesProcessed:    req.PipesProcessed,
-		PipesCompleted:    req.PipesCompleted,
-		PipesRejected:     rejected,
-		EntryDate:         entryDate,
-		Notes:             req.Notes,
-		BedType:           bedTypePtr,
-		MachineID:         req.MachineID,
-		ShiftName:         shiftNamePtr,
-		OperatorUserID:    req.OperatorUserID,
-		CreatedByUserID:   &userID,
-		CreatedBy:         &createdBy,
-		UpdatedBy:         &createdBy,
+	var productionOrderIDPtr *int
+	if req.ProductionOrderID != 0 {
+		productionOrderIDPtr = &req.ProductionOrderID
 	}
 
-	err = s.db.Transaction(func(tx *gorm.DB) error {
+	entry := &models.ProductionEntry{
+		StageType:       stage,
+		PipeConfigID:    entryPipeConfigID,
+		PipesProcessed:  req.PipesProcessed,
+		PipesCompleted:  req.PipesCompleted,
+		PipesRejected:   rejected,
+		EntryDate:       entryDate,
+		Notes:           req.Notes,
+		BedType:         bedTypePtr,
+		MachineID:       req.MachineID,
+		ShiftName:       shiftNamePtr,
+		OperatorUserID:  req.OperatorUserID,
+		CreatedByUserID: &userID,
+		CreatedBy:       &createdBy,
+		UpdatedBy:       &createdBy,
+	}
+	if productionOrderIDPtr != nil {
+		entry.ProductionOrderID = *productionOrderIDPtr
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(entry).Error; err != nil {
 			return err
 		}
 
 		// 9. Auto-create material consumptions for SPINNING / WINDING / COATING
-		if models.MaterialStages[stage] && req.PipesCompleted > 0 {
+		if models.MaterialStages[stage] && req.PipesCompleted > 0 && req.ProductionOrderID != 0 {
 			if err := s.checkMaterialStock(tx, entry, req, order); err != nil {
 				return err
 			}
@@ -329,8 +399,8 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 			}
 		}
 
-		// 10. Auto-advance order status to IN_PROGRESS
-		if order.Status == models.ProdOrderDraft || order.Status == models.ProdOrderPlanned {
+		// 10. Auto-advance order status to IN_PROGRESS (PO-linked only)
+		if req.ProductionOrderID != 0 && (order.Status == models.ProdOrderDraft || order.Status == models.ProdOrderPlanned) {
 			tx.Model(&models.ProductionOrder{}).Where("id = ?", order.ID).
 				Updates(map[string]interface{}{
 					"status":            models.ProdOrderInProgress,
@@ -351,10 +421,12 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 		return nil, err
 	}
 
-	// 11. Trigger async cost sheet computation
-	go func() {
-		_, _ = s.costSheetService.ComputeForOrder(req.ProductionOrderID)
-	}()
+	// 11. Trigger async cost sheet computation (PO-linked only)
+	if req.ProductionOrderID != 0 {
+		go func() {
+			_, _ = s.costSheetService.ComputeForOrder(req.ProductionOrderID)
+		}()
+	}
 
 	return s.GetByID(entry.ID)
 }

@@ -1929,6 +1929,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		productionEntryHandler.GetPriorStageCompleted,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("GET /api/production/entries/stage-wip", middleware.Chain(
+		productionEntryHandler.GetStageWip,
+		middleware.Authenticate(db),
+	))
 	mux.HandleFunc("GET /api/production/entries", middleware.Chain(
 		productionEntryHandler.GetAll,
 		middleware.Authenticate(db),

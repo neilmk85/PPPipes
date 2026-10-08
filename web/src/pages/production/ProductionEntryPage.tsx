@@ -254,14 +254,15 @@ function ProductionStageTable({ selectedStage }: { selectedStage: string }) {
 
 // ── Multi-select Order Combobox ───────────────────────────────────────────────
 
-interface MultiOrderComboboxProps {
-  orders: any[]
+interface PipeConfigComboboxProps {
+  configs: any[]
   selectedIds: number[]
   onToggle: (id: number) => void
   onRemove: (id: number) => void
+  stage: string
 }
 
-function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOrderComboboxProps) {
+function PipeConfigCombobox({ configs, selectedIds, onToggle, onRemove, stage }: PipeConfigComboboxProps) {
   const [query, setQuery] = useState('')
   const [open, setOpen]   = useState(false)
   const ref               = useRef<HTMLDivElement>(null)
@@ -275,33 +276,40 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
     return () => document.removeEventListener('mousedown', handle)
   }, [])
 
-  const filtered = orders.filter(o => {
-    if (!query) return true
-    const q = query.toLowerCase()
-    return (
-      o.poNumber?.toLowerCase().includes(q) ||
-      (o.pipeConfigName ?? '').toLowerCase().includes(q)
-    )
+  // Fetch WIP at prior stage for all configs so we can show availability
+  const wipQueries = useQueries({
+    queries: configs.map(c => ({
+      queryKey: ['stage-wip', c.id, stage],
+      queryFn: () => productionEntryApi.getStageWip(c.id, stage).then(r => r.data.data),
+      enabled: Boolean(c.id) && Boolean(stage),
+    }))
+  })
+  const wipMap: Record<number, number> = {}
+  configs.forEach((c, i) => {
+    wipMap[c.id] = wipQueries[i].data?.available ?? 0
   })
 
-  const selectedOrders = selectedIds.map(id => orders.find(o => o.id === id)).filter(Boolean)
+  const isFirstStage = ['FABRICATION'].includes(stage)
+
+  const filtered = configs.filter(c => {
+    if (!query) return true
+    const q = query.toLowerCase()
+    return c.name?.toLowerCase().includes(q)
+  })
+
+  const selectedConfigs = selectedIds.map(id => configs.find(c => c.id === id)).filter(Boolean)
 
   return (
     <div className="space-y-2" ref={ref}>
-      {/* Selected chips */}
-      {selectedOrders.length > 0 && (
+      {selectedConfigs.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {selectedOrders.map(o => (
+          {selectedConfigs.map(c => (
             <span
-              key={o.id}
+              key={c.id}
               className="inline-flex items-center gap-1.5 bg-violet-50 border border-violet-200 text-violet-800 text-xs font-medium px-2.5 py-1.5 rounded-lg"
             >
-              <span className="font-semibold">{o.pipeConfigName ?? `Config #${o.pipeConfigId}`}</span>
-              <button
-                type="button"
-                onClick={() => onRemove(o.id)}
-                className="ml-0.5 text-violet-400 hover:text-violet-700"
-              >
+              <span className="font-semibold">{c.name}</span>
+              <button type="button" onClick={() => onRemove(c.id)} className="ml-0.5 text-violet-400 hover:text-violet-700">
                 <X size={12} />
               </button>
             </span>
@@ -309,7 +317,6 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
         </div>
       )}
 
-      {/* Search input */}
       <div className={`flex items-center border rounded-lg px-3 py-2 gap-2 bg-white transition-all ${
         open ? 'border-violet-500 ring-2 ring-violet-200' : 'border-gray-300 hover:border-gray-400'
       }`}>
@@ -318,7 +325,7 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
           ref={inputRef}
           type="text"
           className="flex-1 text-sm outline-none bg-transparent placeholder:text-gray-400"
-          placeholder={selectedIds.length ? 'Add another pipe…' : 'Search by pipe name or PO number…'}
+          placeholder={selectedIds.length ? 'Add another pipe type…' : 'Search pipe type…'}
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
@@ -330,19 +337,20 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
         )}
       </div>
 
-      {/* Dropdown */}
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
           {filtered.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-gray-400">No orders match "{query}"</div>
+            <div className="px-4 py-3 text-sm text-gray-400">No pipe types match "{query}"</div>
           ) : (
-            filtered.map(o => {
-              const isSelected = selectedIds.includes(o.id)
+            filtered.map(c => {
+              const isSelected = selectedIds.includes(c.id)
+              const avail = wipMap[c.id] ?? 0
+              const hasAvail = isFirstStage || avail > 0
               return (
                 <button
-                  key={o.id}
+                  key={c.id}
                   type="button"
-                  onClick={() => { onToggle(o.id); setQuery(''); inputRef.current?.focus() }}
+                  onClick={() => { onToggle(c.id); setQuery(''); inputRef.current?.focus() }}
                   className={`w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 transition-colors ${
                     isSelected ? 'bg-violet-50' : 'hover:bg-gray-50'
                   }`}
@@ -353,25 +361,20 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
                     }`}>
                       {isSelected && <CheckCircle2 size={10} className="text-white" />}
                     </div>
-                    <span className="text-sm font-medium text-gray-900 truncate">
-                      {o.pipeConfigName ?? `Config #${o.pipeConfigId}`}
-                    </span>
-                    {o.diameterMm > 0 && (
-                      <span className="text-xs text-gray-400 shrink-0">
-                        {o.diameterMm}mm · {o.pressureClass} · {o.lengthM ?? 5.25}m
-                      </span>
+                    <span className="text-sm font-medium text-gray-900 truncate">{c.name}</span>
+                    {c.diameterMm > 0 && (
+                      <span className="text-xs text-gray-400 shrink-0">{c.diameterMm}mm · {c.pressureClass}</span>
                     )}
-                    <span className="shrink-0 text-[10px] font-semibold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-100">
-                      {Math.max(0, o.plannedQty - o.finishedPipes)} due
-                    </span>
                   </div>
-                  <span className={`text-[10px] font-semibold shrink-0 px-1.5 py-0.5 rounded-full border ${
-                    o.finishedPipes > 0
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                      : 'bg-gray-50 text-gray-400 border-gray-100'
-                  }`}>
-                    {o.finishedPipes} done
-                  </span>
+                  {!isFirstStage && (
+                    <span className={`text-[10px] font-semibold shrink-0 px-1.5 py-0.5 rounded-full border ${
+                      hasAvail
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                        : 'bg-gray-50 text-gray-400 border-gray-100'
+                    }`}>
+                      {avail} available
+                    </span>
+                  )}
                 </button>
               )
             })
@@ -385,16 +388,15 @@ function MultiOrderCombobox({ orders, selectedIds, onToggle, onRemove }: MultiOr
 // ── Per-order Entry Card ──────────────────────────────────────────────────────
 
 interface OrderEntryCardProps {
-  order: any
+  pipeConfig: any  // { id, name, diameterMm, pressureClass }
   stage: string
   data: OrderEntryData
   onChange: (data: OrderEntryData) => void
   onRemove: () => void
-  // ready=false means data is still loading — parent must block submit
-  onStockUpdate: (orderId: number, issues: StockIssue[], ready: boolean) => void
+  onStockUpdate: (configId: number, issues: StockIssue[], ready: boolean) => void
   index: number
   totalOrders: number
-  showValidation: boolean   // true after first Save attempt — reveals inline errors
+  showValidation: boolean
   coatingSandType?: 'plaster' | 'crushedDust'
 }
 
@@ -408,12 +410,10 @@ export interface StockIssue {
   siloLabel?: string
 }
 
-function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate, index, totalOrders, showValidation, coatingSandType }: OrderEntryCardProps) {
+function OrderEntryCard({ pipeConfig, stage, data, onChange, onRemove, onStockUpdate, index, totalOrders, showValidation, coatingSandType }: OrderEntryCardProps) {
   const pipesRejected = Math.max(
     0, (Number(data.pipesProcessed) || 0) - (Number(data.pipesCompleted) || 0)
   )
-
-  const dueQty = Math.max(0, (order.plannedQty ?? 0) - (order.finishedPipes ?? 0))
 
   // ── Inline field validation (shown after first Save attempt) ──────────────
   const processedVal = data.pipesProcessed
@@ -421,10 +421,24 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
   const processedNum = Number(processedVal)
   const completedNum = Number(completedVal)
 
+  // Aggregate WIP at prior stage for this pipe config
+  const { data: wipData } = useQuery({
+    queryKey: ['stage-wip', pipeConfig.id, stage],
+    queryFn: () => productionEntryApi.getStageWip(pipeConfig.id, stage).then(r => r.data.data),
+    enabled: Boolean(pipeConfig.id) && Boolean(stage),
+  })
+  const availableAtPrior = wipData?.available ?? 0
+  const priorStageKey = wipData?.priorStage ?? ''
+  const priorLabel = priorStageKey
+    ? PROD_STAGES.find(s => s.key === priorStageKey)?.label ?? priorStageKey
+    : null
+  const isFirstStage = !priorStageKey
+
   const processedError: string | null = !showValidation ? null
     : processedVal === '' || processedVal === undefined ? 'Pipes processed is required'
     : processedNum === 0 ? 'Processed qty cannot be 0'
     : processedNum < 0   ? 'Must be a positive number'
+    : (!isFirstStage && processedNum > availableAtPrior) ? `Only ${availableAtPrior} available at ${priorLabel ?? 'prior stage'}`
     : null
 
   const completedError: string | null = !showValidation ? null
@@ -433,40 +447,29 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
     : completedNum > processedNum ? 'Cannot exceed processed qty'
     : null
 
-  // Prior stage data
-  const { data: priorStageData } = useQuery({
-    queryKey: ['prior-stage', order.id, stage],
-    queryFn: () => productionEntryApi.getPriorStageCompleted(order.id, stage)
-      .then(r => r.data.data as PriorStageInfo),
-    enabled: Boolean(order.id) && Boolean(stage),
-  })
-
   // Pipe config for material inputs
   const { data: configData } = useQuery({
-    queryKey: ['pipe-config-detail', order.pipeConfigId],
-    queryFn: () => pipeConfigApi.getById(order.pipeConfigId).then((r: any) => r.data.data),
-    enabled: Boolean(order.pipeConfigId) && MATERIAL_STAGES.includes(stage),
+    queryKey: ['pipe-config-detail', pipeConfig.id],
+    queryFn: () => pipeConfigApi.getById(pipeConfig.id).then((r: any) => r.data.data),
+    enabled: Boolean(pipeConfig.id) && MATERIAL_STAGES.includes(stage),
   })
 
-  const priorCompleted = priorStageData?.pipesCompleted ?? 0
-  const priorLabel = priorStageData
-    ? PROD_STAGES.find(s => s.key === priorStageData.stageType)?.label ?? priorStageData.stageType
-    : null
+  const priorCompleted = availableAtPrior
 
   // Stage materials for this stage only
   const stageMaterials: any[] = MATERIAL_STAGES.includes(stage) && configData?.materials
     ? configData.materials.filter((m: any) => m.stageType === stage)
     : []
 
-  // Fetch inventory for each material (at the order's outlet)
+  // Fetch inventory for each material (outlet = 1 for now since no PO)
   const inventoryResults = useQueries({
     queries: stageMaterials.map((mat: any) => ({
-      queryKey: ['inventory-stock', mat.materialProductId, order.outletId],
+      queryKey: ['inventory-stock', mat.materialProductId, 1],
       queryFn: () =>
-        inventoryApi.getStock(mat.materialProductId, order.outletId)
+        inventoryApi.getStock(mat.materialProductId, 1)
           .then((r: any) => r.data.data)
-          .catch(() => ({ quantityOnHand: 0 })),   // treat missing inventory as zero stock
-      enabled: Boolean(mat.materialProductId) && Boolean(order.outletId),
+          .catch(() => ({ quantityOnHand: 0 })),
+      enabled: Boolean(mat.materialProductId),
       staleTime: 30_000,
       retry: false,   // show warning immediately, don't wait for retries
     })),
@@ -556,11 +559,11 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
   useEffect(() => {
     if (!stockDataReady) {
       // Data still loading — tell parent this order isn't ready yet
-      onStockUpdate(order.id, [], false)
+      onStockUpdate(pipeConfig.id, [], false)
       return
     }
     if (pipesEntered === 0) {
-      onStockUpdate(order.id, [], true)
+      onStockUpdate(pipeConfig.id, [], true)
       return
     }
     const inventoryIssues: StockIssue[] = matStockInfos.filter(m => !m.ok).map(m => ({
@@ -576,9 +579,9 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
       source:       'silo' as const,
       siloLabel:    siloLabel,
     }] : []
-    onStockUpdate(order.id, [...inventoryIssues, ...siloIssues], true)
+    onStockUpdate(pipeConfig.id, [...inventoryIssues, ...siloIssues], true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockDataReady, hasStockWarning, hasSiloWarning, pipesEntered, order.id])
+  }, [stockDataReady, hasStockWarning, hasSiloWarning, pipesEntered, pipeConfig.id])
 
   // Sync material inputs when stage/config/pipesCompleted/sandType changes
   useEffect(() => {
@@ -650,14 +653,14 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
               </p>
             </div>
             <p className="text-xs text-blue-100 mt-0.5 flex items-center gap-1.5">
-              {order.diameterMm > 0 && <span>{order.diameterMm}mm</span>}
-              {order.diameterMm > 0 && order.pressureClass && <span className="opacity-50">·</span>}
-              {order.pressureClass && <span>{order.pressureClass}</span>}
-              <span className="opacity-50">·</span>
-              <span className="font-mono">{order.poNumber}</span>
-              <span className="ml-1 bg-amber-400/20 border border-amber-300/30 text-amber-200 font-semibold px-1.5 py-0.5 rounded-full text-[10px]">
-                {(() => { const dueQ = Math.max(0, order.plannedQty - order.finishedPipes); const dueM = dueQ * (order.lengthM ?? 5.25); return `${dueM}m / ${dueQ} qty due`; })()}
-              </span>
+              <span className="font-semibold">{pipeConfig.name}</span>
+              {pipeConfig.diameterMm > 0 && <><span className="opacity-50">·</span><span>{pipeConfig.diameterMm}mm</span></>}
+              {pipeConfig.pressureClass && <><span className="opacity-50">·</span><span>{pipeConfig.pressureClass}</span></>}
+              {!isFirstStage && (
+                <span className="ml-1 bg-emerald-400/20 border border-emerald-300/30 text-emerald-200 font-semibold px-1.5 py-0.5 rounded-full text-[10px]">
+                  {availableAtPrior} available at {priorLabel ?? priorStageKey}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -671,27 +674,22 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
       </div>
 
       {/* ── Prior stage banner ───────────────────────────────────────── */}
-      {priorStageData && stage && (
+      {!isFirstStage && priorLabel && stage && (
         <div className={`flex items-center gap-3 px-5 py-3 border-b ${
-          priorCompleted > 0
+          availableAtPrior > 0
             ? 'bg-blue-50/60 border-blue-100'
             : 'bg-amber-50/60 border-amber-100'
         }`}>
           <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-            priorCompleted > 0 ? 'bg-blue-100' : 'bg-amber-100'
+            availableAtPrior > 0 ? 'bg-blue-100' : 'bg-amber-100'
           }`}>
-            <Info size={13} className={priorCompleted > 0 ? 'text-blue-600' : 'text-amber-600'} />
+            <Info size={13} className={availableAtPrior > 0 ? 'text-blue-600' : 'text-amber-600'} />
           </div>
           <div className="flex-1 min-w-0">
-            <span className={`text-xs font-semibold ${priorCompleted > 0 ? 'text-blue-700' : 'text-amber-700'}`}>
-              Previous stage ({priorLabel}):&nbsp;
-              <span className="text-sm font-extrabold tabular-nums">{priorCompleted}</span> pipes completed
+            <span className={`text-xs font-semibold ${availableAtPrior > 0 ? 'text-blue-700' : 'text-amber-700'}`}>
+              Available at {priorLabel}:&nbsp;
+              <span className="text-sm font-extrabold tabular-nums">{availableAtPrior}</span> pipes
             </span>
-            {priorStageData.lastEntryDate && (
-              <span className={`ml-2 text-[11px] opacity-60 ${priorCompleted > 0 ? 'text-blue-600' : 'text-amber-600'}`}>
-                · last logged {new Date(priorStageData.lastEntryDate).toLocaleDateString('en-IN')}
-              </span>
-            )}
           </div>
         </div>
       )}
@@ -828,7 +826,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
           <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
             Processed
             <span className="normal-case font-normal ml-1 text-gray-300">
-              max {priorStageData ? priorCompleted : dueQty}
+              max {isFirstStage ? '∞' : availableAtPrior}
             </span>
             {limitingMat && stageMaterials.length > 0 && limitingMat.maxPipes < 9999 && (
               <span className={`ml-1.5 font-semibold ${limitingMat.maxPipes === 0 ? 'text-red-400' : 'text-amber-500'}`}>
@@ -843,11 +841,11 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
           </label>
           <input
             type="number" min="0"
-            max={priorStageData ? priorCompleted : dueQty}
+            max={isFirstStage ? undefined : availableAtPrior}
             value={data.pipesProcessed}
             onChange={e => {
               const raw = Number(e.target.value)
-              const maxAllowed = priorStageData ? priorCompleted : dueQty
+              const maxAllowed = isFirstStage ? 9999 : availableAtPrior
               const capped = maxAllowed > 0 ? Math.min(raw, maxAllowed) : raw
               const val = e.target.value === '' ? '' : String(capped)
               onChange({ ...data, pipesProcessed: val, pipesCompleted: val })
@@ -878,7 +876,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
             onChange={e => {
               if (e.target.value === '') { onChange({ ...data, pipesCompleted: '' }); return }
               const maxProcessed = Number(data.pipesProcessed) || 0
-              const maxAllowed   = priorStageData ? Math.min(maxProcessed, priorCompleted) : Math.min(maxProcessed, dueQty)
+              const maxAllowed   = isFirstStage ? maxProcessed : Math.min(maxProcessed, availableAtPrior)
               const val = String(Math.min(Number(e.target.value), maxAllowed || Number(e.target.value)))
               onChange({ ...data, pipesCompleted: val })
             }}
@@ -957,7 +955,7 @@ function OrderEntryCard({ order, stage, data, onChange, onRemove, onStockUpdate,
                         : 'bg-white border-gray-200 text-gray-600 hover:border-blue-300'
                     }`}
                   >
-                    <input type="radio" name={`bedType-${order.id}`} value={bt.key}
+                    <input type="radio" name={`bedType-${pipeConfig.id}`} value={bt.key}
                       checked={data.bedType === bt.key}
                       onChange={() => set('bedType', bt.key)}
                       className="sr-only"
@@ -1672,15 +1670,12 @@ export default function ProductionEntryPage() {
   const [showValidation, setShowValidation]             = useState(false)
   const [coatingSandType, setCoatingSandType]           = useState<'plaster' | 'crushedDust'>('plaster')
 
-  const { data: allOrdersData } = useQuery({
-    queryKey: ['production-orders-for-entry', selectedStage],
-    queryFn: () => productionOrderApi.getSummaries(selectedStage || undefined).then(r => r.data.data ?? []),
+  const { data: allConfigsData } = useQuery({
+    queryKey: ['pipe-configs-active'],
+    queryFn: () => pipeConfigApi.getAll({ active: true, size: 500 }).then((r: any) => r.data.data?.content ?? r.data.data ?? []),
   })
 
-  const orders: any[] = allOrdersData ?? []
-  const activeOrders = orders.filter(
-    o => o.status !== 'CANCELLED' && o.finishedPipes < o.plannedQty
-  )
+  const pipeConfigs: any[] = allConfigsData ?? []
 
   function toggleOrder(id: number) {
     setSelectedIds(prev => {
@@ -1719,7 +1714,7 @@ export default function ProductionEntryPage() {
     e.preventDefault()
 
     if (!selectedStage) { toast.error('Select a process stage'); return }
-    if (selectedIds.length === 0) { toast.error('Select at least one production order'); return }
+    if (selectedIds.length === 0) { toast.error('Select at least one pipe type'); return }
 
     // Trigger inline validation on all cards
     setShowValidation(true)
@@ -1763,16 +1758,16 @@ export default function ProductionEntryPage() {
       const rejected  = Math.max(0, processed - completed)
 
       return {
-        productionOrderId: id,
-        stageType:         selectedStage,
-        pipesProcessed:    processed,
-        pipesCompleted:    completed,
-        pipesRejected:     rejected > 0 ? rejected : undefined,
-        entryDate:         d.entryDate ? new Date(d.entryDate) : undefined,
-        notes:             d.notes || undefined,
-        bedType:           selectedStage === 'SPINNING' ? d.bedType || undefined : undefined,
-        shiftName:         d.shiftName || undefined,
-        consumptions:      d.materialInputs.length > 0
+        pipeConfigId:   id,
+        stageType:      selectedStage,
+        pipesProcessed: processed,
+        pipesCompleted: completed,
+        pipesRejected:  rejected > 0 ? rejected : undefined,
+        entryDate:      d.entryDate ? new Date(d.entryDate) : undefined,
+        notes:          d.notes || undefined,
+        bedType:        selectedStage === 'SPINNING' ? d.bedType || undefined : undefined,
+        shiftName:      d.shiftName || undefined,
+        consumptions:   d.materialInputs.length > 0
           ? d.materialInputs.map(m => ({
               pipeConfigMaterialId: m.pipeConfigMaterialId,
               materialProductId:    m.materialProductId,
@@ -1838,12 +1833,12 @@ export default function ProductionEntryPage() {
               </div>
             )}
             <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
-              <p className="text-base font-extrabold tabular-nums leading-none text-white">{activeOrders.length}</p>
-              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Active Orders</p>
+              <p className="text-base font-extrabold tabular-nums leading-none text-white">{pipeConfigs.length}</p>
+              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Pipe Types</p>
             </div>
             <div className="flex flex-col items-end bg-white/10 border border-white/15 rounded-xl px-4 py-2 min-w-[90px]">
               <p className={`text-base font-extrabold tabular-nums leading-none ${selectedIds.length > 0 ? 'text-amber-300' : 'text-white'}`}>{selectedIds.length}</p>
-              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Orders Queued</p>
+              <p className="text-[10px] text-blue-200 mt-0.5 whitespace-nowrap">Types Queued</p>
             </div>
             <div className="ml-2 border-l border-white/15 pl-4">
               <p className="text-[11px] text-blue-200 font-medium whitespace-nowrap">{today}</p>
@@ -2080,7 +2075,7 @@ export default function ProductionEntryPage() {
       {/* ── Loading Entry Form (LOADING delivery stage) ────────── */}
       {selectedDeliveryStage === 'LOADING' && (
         <LoadingEntryForm
-          orders={orders}
+          orders={[]}
           onSaved={() => setSelectedDeliveryStage('')}
         />
       )}
@@ -2097,18 +2092,19 @@ export default function ProductionEntryPage() {
                 <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
                   <ListChecks size={14} className="text-white" />
                 </div>
-                <h2 className="text-xs font-bold text-white tracking-wide">Select Production Orders</h2>
+                <h2 className="text-xs font-bold text-white tracking-wide">Select Pipe Type</h2>
               </div>
               <span className="text-[11px] font-semibold text-blue-100">
-                {activeOrders.length} active order{activeOrders.length !== 1 ? 's' : ''} available
+                {pipeConfigs.length} pipe type{pipeConfigs.length !== 1 ? 's' : ''} available
               </span>
             </div>
             <div className="p-5 relative">
-              <MultiOrderCombobox
-                orders={activeOrders}
+              <PipeConfigCombobox
+                configs={pipeConfigs}
                 selectedIds={selectedIds}
                 onToggle={toggleOrder}
                 onRemove={removeOrder}
+                stage={selectedStage}
               />
             </div>
           </div>
@@ -2152,12 +2148,12 @@ export default function ProductionEntryPage() {
           {selectedIds.length > 0 && selectedStage && (
             <div className="space-y-4">
               {selectedIds.map((id, index) => {
-                const order = orders.find(o => o.id === id)
-                if (!order) return null
+                const pipeConfig = pipeConfigs.find(c => c.id === id)
+                if (!pipeConfig) return null
                 return (
                   <OrderEntryCard
                     key={id}
-                    order={order}
+                    pipeConfig={pipeConfig}
                     stage={selectedStage}
                     data={entryDataMap[id] ?? defaultEntryData()}
                     onChange={d => setEntryDataMap(prev => ({ ...prev, [id]: d }))}

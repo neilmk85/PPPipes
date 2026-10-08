@@ -105,6 +105,35 @@ func (h *ProductionEntryHandler) GetPriorStageCompleted(w http.ResponseWriter, r
 	util.SendSuccess(w, "Prior stage info retrieved", info)
 }
 
+// GET /api/production/entries/stage-wip?pipeConfigId=X&stage=Y
+func (h *ProductionEntryHandler) GetStageWip(w http.ResponseWriter, r *http.Request) {
+	pipeConfigIdStr := r.URL.Query().Get("pipeConfigId")
+	stageStr := r.URL.Query().Get("stage")
+	if pipeConfigIdStr == "" || stageStr == "" {
+		util.SendError(w, http.StatusBadRequest, "pipeConfigId and stage are required")
+		return
+	}
+	pipeConfigId, err := strconv.Atoi(pipeConfigIdStr)
+	if err != nil || pipeConfigId == 0 {
+		util.SendError(w, http.StatusBadRequest, "pipeConfigId must be a valid integer")
+		return
+	}
+	stage := models.ProdStageType(stageStr)
+	if models.StageIndex(stage) < 0 {
+		util.SendError(w, http.StatusBadRequest, "invalid stage")
+		return
+	}
+	available, priorStage, err := h.service.GetStageWipForConfig(pipeConfigId, stage)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "stage wip retrieved", map[string]interface{}{
+		"available":  available,
+		"priorStage": string(priorStage),
+	})
+}
+
 // POST /api/production/entries
 func (h *ProductionEntryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
