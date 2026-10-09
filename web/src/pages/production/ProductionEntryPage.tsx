@@ -9,7 +9,7 @@ import {
   BarChart3, ClipboardCheck, Truck, Cylinder,
 } from 'lucide-react'
 import { productionOrderApi, productionEntryApi, loadingRecordApi, pdiApi, inventoryApi, pipeConfigApi } from '@/services/api'
-import { siloFillsApi } from '@/services/businessApi'
+import { siloFillsApi, pipePurchasesApi } from '@/services/businessApi'
 import { PROD_STAGES, MATERIAL_STAGES, BED_TYPES, PriorStageInfo } from '@/types'
 
 interface MaterialInput {
@@ -1027,20 +1027,37 @@ function PDIEntryForm({ onSaved }: { onSaved: () => void }) {
     queryFn: () => productionOrderApi.getSummaries('FINAL_TESTING').then(r => r.data.data ?? []),
   })
 
+  // Fetch third-party purchased pipes pending PDI
+  const { data: purchasedPdiPending = [] } = useQuery({
+    queryKey: ['pipe-purchases-pdi-pending'],
+    queryFn: () => pipePurchasesApi.pdiPending(),
+  })
+
   // Aggregate by pipe config name; only show configs with at least 1 final-tested pipe
-  const pipeOptions = (finalTestedOrders as any[])
+  const productionOptions = (finalTestedOrders as any[])
     .filter((o: any) => (o.finishedPipes ?? 0) > 0)
-    .reduce<{ name: string; finishedPipes: number }[]>((acc, o: any) => {
+    .reduce<{ name: string; finishedPipes: number; source: 'production' | 'purchased' }[]>((acc, o: any) => {
       const name = o.pipeConfigName ?? `Config #${o.pipeConfigId}`
       const existing = acc.find(p => p.name === name)
       if (existing) {
         existing.finishedPipes += o.finishedPipes ?? 0
       } else {
-        acc.push({ name, finishedPipes: o.finishedPipes ?? 0 })
+        acc.push({ name, finishedPipes: o.finishedPipes ?? 0, source: 'production' })
       }
       return acc
     }, [])
-    .sort((a, b) => a.name.localeCompare(b.name))
+
+  // Merge purchased pipes — if a pipe name already exists from production, just add qty; otherwise add new entry
+  const pipeOptions = [...productionOptions]
+  for (const p of purchasedPdiPending as any[]) {
+    const existing = pipeOptions.find(o => o.name === p.pipeName)
+    if (existing) {
+      existing.finishedPipes += p.availableQty
+    } else {
+      pipeOptions.push({ name: p.pipeName, finishedPipes: p.availableQty, source: 'purchased' })
+    }
+  }
+  pipeOptions.sort((a, b) => a.name.localeCompare(b.name))
 
   const selectedPipe = pipeOptions.find(p => p.name === form.pipeName)
   const todayStr = new Date().toISOString().split('T')[0]
@@ -1049,6 +1066,7 @@ function PDIEntryForm({ onSaved }: { onSaved: () => void }) {
     mutationFn: (data: any) => pdiApi.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pdi-records'] })
+      qc.invalidateQueries({ queryKey: ['pipe-purchases-pdi-pending'] })
       toast.success('PDI record saved')
       setForm(emptyPDIForm())
       onSaved()
@@ -1067,10 +1085,12 @@ function PDIEntryForm({ onSaved }: { onSaved: () => void }) {
     e.preventDefault()
     if (!form.pipeName) { toast.error('Select a pipe'); return }
     if (!form.quantity)  { toast.error('Enter quantity'); return }
+    const selectedOption = pipeOptions.find(p => p.name === form.pipeName)
+    const thirdPartyValue = form.thirdParty || (selectedOption?.source === 'purchased' ? 'Purchased' : '')
     mut.mutate({
       pipeName:      form.pipeName,
       quantity:      String(parseInt(form.quantity)),
-      thirdParty:    form.thirdParty,
+      thirdParty:    thirdPartyValue,
       finishing:     form.finishing,
       colour:        form.colour,
       numbering:     form.numbering,
@@ -1112,7 +1132,7 @@ function PDIEntryForm({ onSaved }: { onSaved: () => void }) {
               <h2 className="text-sm font-bold text-white">Pre-Delivery Inspection</h2>
               <p className="text-xs text-emerald-100 mt-0.5">
                 {pipeOptions.length === 0
-                  ? 'No final-tested pipes available'
+                  ? 'No pipes available for PDI'
                   : `${pipeOptions.length} pipe type${pipeOptions.length !== 1 ? 's' : ''} ready for PDI`}
               </p>
             </div>
@@ -1128,8 +1148,8 @@ function PDIEntryForm({ onSaved }: { onSaved: () => void }) {
         {pipeOptions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-gray-400 gap-3">
             <ClipboardCheck size={36} className="opacity-20" />
-            <p className="text-sm font-medium">No pipes have completed Final Testing yet</p>
-            <p className="text-xs text-gray-300">Complete the Final Testing stage first to enable PDI</p>
+            <p className="text-sm font-medium">No pipes available for PDI</p>
+            <p className="text-xs text-gray-300">Complete Final Testing or record a Third-Party Pipe Purchase to enable PDI</p>
           </div>
         ) : (
           <div className="p-6 space-y-5">

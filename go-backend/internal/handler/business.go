@@ -1215,6 +1215,40 @@ func (h *BusinessHandler) GetPDIBalance(w http.ResponseWriter, r *http.Request) 
 	util.SendSuccess(w, "PDI balance retrieved", rows)
 }
 
+// GetPurchasedPipePDIPending returns per-pipe-name quantity of third-party purchased pipes
+// that have not yet been PDI'd (purchased qty minus PDI qty where third_party is set).
+func (h *BusinessHandler) GetPurchasedPipePDIPending(w http.ResponseWriter, r *http.Request) {
+	type Row struct {
+		PipeName      string `json:"pipeName"`
+		PurchasedQty  int    `json:"purchasedQty"`
+		PdiDoneQty    int    `json:"pdiDoneQty"`
+		AvailableQty  int    `json:"availableQty"`
+	}
+	rows := []Row{}
+	err := h.db.Raw(`
+		SELECT
+			p.pipe_name,
+			COALESCE(SUM(p.quantity), 0) AS purchased_qty,
+			COALESCE((
+				SELECT SUM(d.quantity) FROM biz_pdis d
+				WHERE d.pipe_name = p.pipe_name AND d.third_party IS NOT NULL AND d.third_party != ''
+			), 0) AS pdi_done_qty,
+			GREATEST(0, COALESCE(SUM(p.quantity), 0) - COALESCE((
+				SELECT SUM(d.quantity) FROM biz_pdis d
+				WHERE d.pipe_name = p.pipe_name AND d.third_party IS NOT NULL AND d.third_party != ''
+			), 0)) AS available_qty
+		FROM biz_third_party_pipe_purchases p
+		GROUP BY p.pipe_name
+		HAVING available_qty > 0
+		ORDER BY p.pipe_name
+	`).Scan(&rows).Error
+	if err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to fetch purchased pipe PDI pending")
+		return
+	}
+	util.SendSuccess(w, "Purchased pipe PDI pending retrieved", rows)
+}
+
 // ─── Loading Records ──────────────────────────────────────────────────────────
 
 func (h *BusinessHandler) ListLoadingRecords(w http.ResponseWriter, r *http.Request) {

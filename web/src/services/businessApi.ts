@@ -593,6 +593,10 @@ export const pipePurchasesApi = {
 
   delete: (id: number) =>
     api.delete(`/business/pipe-purchases/${id}`),
+
+  pdiPending: () =>
+    api.get<{ data: { pipeName: string; purchasedQty: number; pdiDoneQty: number; availableQty: number }[] }>('/business/pipe-purchases/pdi-pending')
+      .then(r => r.data.data ?? []),
 }
 // ─── Cuttings ─────────────────────────────────────────────────────────────────
 

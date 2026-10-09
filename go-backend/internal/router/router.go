@@ -2066,6 +2066,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 
 	// Third-Party Pipe Purchases
 	mux.HandleFunc("GET /api/business/pipe-purchases", middleware.Chain(businessHandler.ListPipePurchases, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/business/pipe-purchases/pdi-pending", middleware.Chain(businessHandler.GetPurchasedPipePDIPending, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/pipe-purchases", middleware.Chain(businessHandler.CreatePipePurchase, middleware.Authenticate(db)))
 	mux.HandleFunc("PUT /api/business/pipe-purchases/{id}", middleware.Chain(businessHandler.UpdatePipePurchase, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/pipe-purchases/{id}", middleware.Chain(businessHandler.DeletePipePurchase, middleware.Authenticate(db)))
