@@ -1193,20 +1193,22 @@ func (h *BusinessHandler) GetPDIBalance(w http.ResponseWriter, r *http.Request) 
 	rows := []BalanceRow{}
 	err := h.db.Raw(`
 		SELECT
-			p.pipe_name,
-			COALESCE(SUM(p.quantity), 0)                                        AS pdi_total,
-			COALESCE((
-				SELECT SUM(lr.quantity) FROM biz_loading_records lr
-				WHERE lr.pipe_name = p.pipe_name
-			), 0)                                                               AS loaded,
-			GREATEST(0, COALESCE(SUM(p.quantity), 0) - COALESCE((
-				SELECT SUM(lr.quantity) FROM biz_loading_records lr
-				WHERE lr.pipe_name = p.pipe_name
-			), 0))                                                              AS available
-		FROM biz_pdis p
-		GROUP BY p.pipe_name
+			pipe_name,
+			SUM(qty)     AS pdi_total,
+			SUM(loaded)  AS loaded,
+			GREATEST(0, SUM(qty) - SUM(loaded)) AS available
+		FROM (
+			SELECT pipe_name, COALESCE(SUM(quantity), 0) AS qty,
+				COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0) AS loaded
+			FROM biz_pdis p GROUP BY pipe_name
+			UNION ALL
+			SELECT pipe_name, COALESCE(SUM(quantity), 0) AS qty,
+				0 AS loaded
+			FROM biz_third_party_pipe_purchases GROUP BY pipe_name
+		) combined
+		GROUP BY pipe_name
 		HAVING available > 0
-		ORDER BY p.pipe_name
+		ORDER BY pipe_name
 	`).Scan(&rows).Error
 	if err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to fetch PDI balance")
@@ -1285,16 +1287,17 @@ func (h *BusinessHandler) CreateLoadingRecord(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Check PDI balance: only pipes cleared through PDI can be loaded
+	// Check PDI balance: PDI-cleared pipes + third-party purchased pipes, minus already loaded
 	var pdiBalance int
 	h.db.Raw(`
 		SELECT GREATEST(0,
-			COALESCE((SELECT SUM(quantity) FROM biz_pdis WHERE pipe_name = ?), 0) -
+			COALESCE((SELECT SUM(quantity) FROM biz_pdis WHERE pipe_name = ?), 0) +
+			COALESCE((SELECT SUM(quantity) FROM biz_third_party_pipe_purchases WHERE pipe_name = ?), 0) -
 			COALESCE((SELECT SUM(quantity) FROM biz_loading_records WHERE pipe_name = ?), 0)
-		)`, row.PipeName, row.PipeName).Scan(&pdiBalance)
+		)`, row.PipeName, row.PipeName, row.PipeName).Scan(&pdiBalance)
 	if row.Quantity > pdiBalance {
 		util.SendError(w, http.StatusBadRequest,
-			fmt.Sprintf("Only %d pipes of %s are available in PDI for loading", pdiBalance, row.PipeName))
+			fmt.Sprintf("Only %d pipes of %s are available for loading", pdiBalance, row.PipeName))
 		return
 	}
 
