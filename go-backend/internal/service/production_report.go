@@ -510,6 +510,43 @@ func (s *ProductionReportService) GetStageWiseInventory(fromDate, toDate string,
 		}
 	}
 
+	// Add third-party purchased pipes (not yet PDI'd) to FINAL_TESTING count
+	type purchaseAgg struct {
+		PipeName string
+		Qty      int
+	}
+	var purchaseRows []purchaseAgg
+	s.db.Raw(`
+		SELECT
+			p.pipe_name,
+			GREATEST(0,
+				COALESCE(SUM(p.quantity), 0) -
+				COALESCE((SELECT SUM(d.quantity) FROM biz_pdis d
+				          WHERE d.pipe_name = p.pipe_name AND d.third_party IS NOT NULL AND d.third_party != ''), 0)
+			) AS qty
+		FROM biz_third_party_pipe_purchases p
+		GROUP BY p.pipe_name
+		HAVING qty > 0
+	`).Scan(&purchaseRows)
+
+	for _, pr := range purchaseRows {
+		found := false
+		for i, row := range rows {
+			if row.PipeConfig == pr.PipeName && row.StageType == "FINAL_TESTING" {
+				rows[i].PipesCompleted += pr.Qty
+				found = true
+				break
+			}
+		}
+		if !found {
+			rows = append(rows, StageWiseInventoryRow{
+				PipeConfig:     pr.PipeName,
+				StageType:      "FINAL_TESTING",
+				PipesCompleted: pr.Qty,
+			})
+		}
+	}
+
 	// Append PDI virtual stage rows (showing only pipes not yet loaded)
 	for pipeName, avail := range pdiAvailMap {
 		if avail == 0 {
