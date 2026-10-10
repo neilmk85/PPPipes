@@ -303,15 +303,7 @@ export default function DashboardPage() {
     { name: '1.6 MM Sheet 1400', qty: 8   },
   ]
 
-  // Use real pipe configs if available, otherwise fall back to hardcoded names
-  const FALLBACK_PIPES = [
-    { id: -1, name: 'PCCP 300mm PN3.15', diameterMm: 300, pressureClass: 'PN3.15' },
-    { id: -2, name: 'PCCP 400mm PN4',    diameterMm: 400, pressureClass: 'PN4'    },
-    { id: -3, name: 'PCCP 500mm PN3.15', diameterMm: 500, pressureClass: 'PN3.15' },
-    { id: -4, name: 'PCCP 600mm PN4',    diameterMm: 600, pressureClass: 'PN4'    },
-    { id: -5, name: 'PCCP 800mm PN3.15', diameterMm: 800, pressureClass: 'PN3.15' },
-  ]
-  const dummyPipes = pipeConfigs.length > 0 ? pipeConfigs.slice(0, 5) : FALLBACK_PIPES
+  const dummyPipes = pipeConfigs.slice(0, 5)
 
   const DUMMY_COUNTS_INTERMEDIATE = [
     { curing1: 24, curing2: 18, finalTesting: 12 },
