@@ -265,6 +265,7 @@ export default function DashboardPage() {
     { key: 'coating2',           label: 'Coating 2',      color: 'text-cyan-700'    },
     { key: 'curing2',            label: 'Curing 2',       color: 'text-sky-600'     },
     { key: 'finalTesting',       label: 'Final Testing',  color: 'text-emerald-600' },
+    { key: 'pdi',                label: 'PDI',            color: 'text-amber-600'   },
   ] as const
 
   const allStagesTotal = (allStagesStock as any[]).reduce((s: number, r: any) => s + r.total, 0)
@@ -861,7 +862,7 @@ export default function DashboardPage() {
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
                     <td className="px-6 py-4"><div className="h-3 bg-gray-100 rounded w-40" /></td>
-                    {Array.from({ length: 11 }).map((_, j) => (
+                    {Array.from({ length: ALL_STAGES.length }).map((_, j) => (
                       <td key={j} className="px-4 py-4 text-center"><div className="h-3 bg-gray-100 rounded w-8 mx-auto" /></td>
                     ))}
                   </tr>
