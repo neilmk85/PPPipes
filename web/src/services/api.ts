@@ -856,6 +856,8 @@ export const productionEntryApi = {
     api.get<ApiResponse<any>>('/production/entries/prior-stage', { params: { orderId, stage } }),
   getStageWip: (pipeConfigId: number, stage: string) =>
     api.get<ApiResponse<{ available: number; priorStage: string }>>('/production/entries/stage-wip', { params: { pipeConfigId, stage } }),
+  getStageWipBulk: (stage: string) =>
+    api.get<ApiResponse<{ pipeConfigId: number; available: number; priorStage: string }[]>>('/production/entries/stage-wip-bulk', { params: { stage } }),
 }
 
 export const machineApi = {

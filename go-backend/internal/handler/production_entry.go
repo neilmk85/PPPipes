@@ -134,6 +134,26 @@ func (h *ProductionEntryHandler) GetStageWip(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+// GET /api/production/entries/stage-wip-bulk?stage=Y
+func (h *ProductionEntryHandler) GetStageWipBulk(w http.ResponseWriter, r *http.Request) {
+	stageStr := r.URL.Query().Get("stage")
+	if stageStr == "" {
+		util.SendError(w, http.StatusBadRequest, "stage is required")
+		return
+	}
+	stage := models.ProdStageType(stageStr)
+	if models.StageIndex(stage) < 0 {
+		util.SendError(w, http.StatusBadRequest, "invalid stage")
+		return
+	}
+	result, err := h.service.GetStageWipBulk(stage)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "bulk stage wip retrieved", result)
+}
+
 // POST /api/production/entries
 func (h *ProductionEntryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)

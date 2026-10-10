@@ -276,18 +276,18 @@ function PipeConfigCombobox({ configs, selectedIds, onToggle, onRemove, stage }:
     return () => document.removeEventListener('mousedown', handle)
   }, [])
 
-  // Fetch WIP at prior stage for all configs so we can show availability
-  const wipQueries = useQueries({
-    queries: configs.map(c => ({
-      queryKey: ['stage-wip', c.id, stage],
-      queryFn: () => productionEntryApi.getStageWip(c.id, stage).then(r => r.data.data),
-      enabled: Boolean(c.id) && Boolean(stage),
-    }))
+  // Fetch WIP for ALL configs in a single bulk request
+  const { data: bulkWip = [] } = useQuery({
+    queryKey: ['stage-wip-bulk', stage],
+    queryFn: () => stage
+      ? productionEntryApi.getStageWipBulk(stage).then(r => r.data.data ?? [])
+      : Promise.resolve([]),
+    enabled: Boolean(stage),
   })
-  const wipMap: Record<number, number> = {}
-  configs.forEach((c, i) => {
-    wipMap[c.id] = wipQueries[i].data?.available ?? 0
-  })
+  const wipMap: Record<number, number> = useMemo(
+    () => Object.fromEntries((bulkWip as { pipeConfigId: number; available: number }[]).map(w => [w.pipeConfigId, w.available])),
+    [bulkWip]
+  )
 
   const isFirstStage = ['FABRICATION'].includes(stage)
 

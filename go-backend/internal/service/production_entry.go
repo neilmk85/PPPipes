@@ -234,6 +234,60 @@ func (s *ProductionEntryService) GetStageWipForConfig(pipeConfigID int, stage mo
 	return available, priorStage, nil
 }
 
+// GetStageWipBulk returns WIP available for ALL pipe configs at the given stage in one query.
+func (s *ProductionEntryService) GetStageWipBulk(stage models.ProdStageType) ([]map[string]interface{}, error) {
+	idx := models.StageIndex(stage)
+
+	// First stage — nothing feeds into it, so everything has unlimited available
+	if idx <= 0 {
+		return []map[string]interface{}{}, nil
+	}
+
+	priorStage := models.StageSequence[idx-1]
+	priorStages := []string{string(priorStage)}
+	priorStageLabel := string(priorStage)
+
+	switch stage {
+	case models.StageWinding2:
+		priorStages = []string{string(models.StageCuring1)}
+		priorStageLabel = string(models.StageCuring1)
+	case models.StageCuring2:
+		priorStages = []string{string(models.StageCoating), string(models.StageCoating2)}
+		priorStageLabel = string(models.StageCoating)
+	}
+
+	type row struct {
+		PipeConfigID int `gorm:"column:pipe_config_id"`
+		Available    int `gorm:"column:available"`
+	}
+
+	priorIn := "'" + strings.Join(priorStages, "','") + "'"
+	var rows []row
+	s.db.Raw(fmt.Sprintf(`
+		SELECT
+			pipe_config_id,
+			GREATEST(0,
+				COALESCE(SUM(CASE WHEN stage_type IN (%s) THEN pipes_completed ELSE 0 END), 0) -
+				COALESCE(SUM(CASE WHEN stage_type = ? THEN pipes_processed ELSE 0 END), 0)
+			) AS available
+		FROM production_entries
+		WHERE stage_type IN (%s, ?)
+		  AND pipe_config_id > 0
+		GROUP BY pipe_config_id
+		HAVING available > 0
+	`, priorIn, priorIn), string(stage), string(stage)).Scan(&rows)
+
+	result := make([]map[string]interface{}, 0, len(rows))
+	for _, r := range rows {
+		result = append(result, map[string]interface{}{
+			"pipeConfigId": r.PipeConfigID,
+			"available":    r.Available,
+			"priorStage":   priorStageLabel,
+		})
+	}
+	return result, nil
+}
+
 // ── Mutation methods ──────────────────────────────────────────────────────────
 
 func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID int, createdBy string) (*models.ProductionEntry, error) {
