@@ -356,8 +356,8 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 	// Production PDI done = pipes that have been PDI'd from production (not purchased)
 	// Used to deduct from FinalTesting so a pipe isn't counted at two stages.
 	type pdiDoneRow struct {
-		PipeName string
-		PDIDone  int
+		PipeName string `gorm:"column:pipe_name"`
+		PDIDone  int    `gorm:"column:pdi_done"`
 	}
 	var pdiDoneRows []pdiDoneRow
 	s.db.Raw(`
