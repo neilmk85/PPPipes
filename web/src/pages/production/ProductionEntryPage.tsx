@@ -291,11 +291,18 @@ function PipeConfigCombobox({ configs, selectedIds, onToggle, onRemove, stage }:
 
   const isFirstStage = ['FABRICATION'].includes(stage)
 
-  const filtered = configs.filter(c => {
-    if (!query) return true
-    const q = query.toLowerCase()
-    return c.name?.toLowerCase().includes(q)
-  })
+  const filtered = configs
+    .filter(c => {
+      if (!query) return true
+      const q = query.toLowerCase()
+      return c.name?.toLowerCase().includes(q)
+    })
+    .sort((a, b) => {
+      const aAvail = wipMap[a.id] ?? 0
+      const bAvail = wipMap[b.id] ?? 0
+      if (bAvail !== aAvail) return bAvail - aAvail
+      return (a.name ?? '').localeCompare(b.name ?? '')
+    })
 
   const selectedConfigs = selectedIds.map(id => configs.find(c => c.id === id)).filter(Boolean)
 
