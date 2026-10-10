@@ -363,7 +363,6 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 	s.db.Raw(`
 		SELECT pipe_name, COALESCE(SUM(quantity), 0) AS pdi_done
 		FROM biz_pdis
-		WHERE third_party IS NULL OR third_party = ''
 		GROUP BY pipe_name
 	`).Scan(&pdiDoneRows)
 	pdiDoneMap := map[string]int{}
