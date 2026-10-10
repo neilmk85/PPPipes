@@ -335,7 +335,7 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 		return nil, err
 	}
 
-	// Fetch PDI totals per pipe name (PDI balance = total PDI - total loaded)
+	// PDI balance = total PDI'd - total loaded (available in PDI yard)
 	type pdiRow struct {
 		PipeName string
 		PDI      int
@@ -348,16 +348,37 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 			) AS pdi
 		FROM biz_pdis p GROUP BY p.pipe_name
 	`).Scan(&pdiRows)
-	pdiMap := map[string]int{}
+	pdiBalanceMap := map[string]int{}
 	for _, pr := range pdiRows {
-		pdiMap[pr.PipeName] = pr.PDI
+		pdiBalanceMap[pr.PipeName] = pr.PDI
 	}
 
-	// Compute totals and drop rows where every stage is zero (pipe configs with
-	// no entries at all). Filtering in Go avoids HAVING alias issues in MySQL.
+	// Production PDI done = pipes that have been PDI'd from production (not purchased)
+	// Used to deduct from FinalTesting so a pipe isn't counted at two stages.
+	type pdiDoneRow struct {
+		PipeName string
+		PDIDone  int
+	}
+	var pdiDoneRows []pdiDoneRow
+	s.db.Raw(`
+		SELECT pipe_name, COALESCE(SUM(quantity), 0) AS pdi_done
+		FROM biz_pdis
+		WHERE third_party IS NULL OR third_party = ''
+		GROUP BY pipe_name
+	`).Scan(&pdiDoneRows)
+	pdiDoneMap := map[string]int{}
+	for _, pr := range pdiDoneRows {
+		pdiDoneMap[pr.PipeName] = pr.PDIDone
+	}
+
+	// Compute totals and drop rows where every stage is zero.
 	result := rows[:0]
 	for _, r := range rows {
-		r.PDI = pdiMap[r.PipeName]
+		// Pipes that completed FinalTesting but have already moved to PDI
+		// must not be counted in FinalTesting — they're in the PDI column now.
+		prodPdiDone := pdiDoneMap[r.PipeName]
+		r.FinalTesting = max(0, r.FinalTesting-prodPdiDone)
+		r.PDI = pdiBalanceMap[r.PipeName]
 		r.Total = r.Fabrication + r.FabricationTesting + r.Moulding +
 			r.Spinning + r.Demoulding + r.Curing1 + r.Winding + r.Winding2 +
 			r.Coating + r.Coating2 + r.Curing2 + r.FinalTesting + r.PDI

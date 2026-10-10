@@ -1,23 +1,23 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { inventoryApi } from '@/services/api'
+import { productionOrderApi } from '@/services/api'
 import { Layers, Loader2, Calendar, ChevronDown, X } from 'lucide-react'
 
 // ── Stage definitions (in production order) ──────────────────────────────────
 const STAGES = [
-  { key: 'FABRICATION',         label: 'Fabrication' },
-  { key: 'FABRICATION_TESTING', label: 'Fab. Testing' },
-  { key: 'MOULDING',            label: 'Moulding' },
-  { key: 'SPINNING',            label: 'Spinning' },
-  { key: 'DEMOULDING',          label: 'Demoulding' },
-  { key: 'CURING_1',            label: 'Curing 1' },
-  { key: 'WINDING',             label: 'Winding' },
-  { key: 'COATING',             label: 'Coating' },
-  { key: 'WINDING_2',           label: 'Winding 2' },
-  { key: 'COATING_2',           label: 'Coating 2' },
-  { key: 'CURING_2',            label: 'Curing 2' },
-  { key: 'FINAL_TESTING',       label: 'Final Testing' },
-  { key: 'PDI',                 label: 'PDI' },
+  { key: 'fabrication',        label: 'Fabrication' },
+  { key: 'fabricationTesting', label: 'Fab. Testing' },
+  { key: 'moulding',           label: 'Moulding' },
+  { key: 'spinning',           label: 'Spinning' },
+  { key: 'demoulding',         label: 'Demoulding' },
+  { key: 'curing1',            label: 'Curing 1' },
+  { key: 'winding',            label: 'Winding' },
+  { key: 'coating',            label: 'Coating' },
+  { key: 'winding2',           label: 'Winding 2' },
+  { key: 'coating2',           label: 'Coating 2' },
+  { key: 'curing2',            label: 'Curing 2' },
+  { key: 'finalTesting',       label: 'Final Testing' },
+  { key: 'pdi',                label: 'PDI' },
 ]
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -120,15 +120,6 @@ function DateRangePicker({ fromDate, toDate, onChange }: {
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface ApiRow {
-  pipeConfigId:   number
-  pipeConfig:     string
-  diameterMm:     number
-  pressureClass:  string
-  stageType:      string
-  pipesCompleted: number
-}
-
 interface PipeRow {
   pipeConfigId:  number
   pipeConfig:    string
@@ -148,40 +139,26 @@ export default function StageWiseInventoryPage() {
     ...(toDate   ? { toDate }   : {}),
   }), [fromDate, toDate])
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['stage-wise-inventory', params],
+  const { data: rawData, isLoading } = useQuery({
+    queryKey: ['all-stages-stock', params],
     queryFn: async () => {
-      const res = await inventoryApi.getStageWise(params)
-      return res.data.data as ApiRow[]
+      const res = await productionOrderApi.getAllStagesStock(params)
+      return res.data.data as any[]
     },
   })
 
-  // Pivot: group by pipeConfigId → one row per pipe type
+  // Map the structured response into the table's stage-keyed format
   const pipeRows = useMemo<PipeRow[]>(() => {
-    if (!data?.length) return []
-    const map = new Map<number, PipeRow>()
-    for (const row of data) {
-      if (!map.has(row.pipeConfigId)) {
-        map.set(row.pipeConfigId, {
-          pipeConfigId: row.pipeConfigId,
-          pipeConfig:   row.pipeConfig,
-          diameterMm:   row.diameterMm,
-          pressureClass: row.pressureClass,
-          stages: {},
-          total: 0,
-        })
-      }
-      const pr = map.get(row.pipeConfigId)!
-      pr.stages[row.stageType] = (pr.stages[row.stageType] ?? 0) + row.pipesCompleted
-      pr.total += row.pipesCompleted
-    }
-    return [...map.values()].sort((a, b) => {
-      const aHas = a.total > 0 ? 0 : 1
-      const bHas = b.total > 0 ? 0 : 1
-      if (aHas !== bHas) return aHas - bHas
-      return a.diameterMm !== b.diameterMm ? a.diameterMm - b.diameterMm : a.pressureClass.localeCompare(b.pressureClass)
-    })
-  }, [data])
+    if (!rawData?.length) return []
+    return rawData.map(r => ({
+      pipeConfigId:  r.pipeConfigId,
+      pipeConfig:    r.pipeName,
+      diameterMm:    r.diameterMm,
+      pressureClass: r.pressureClass,
+      stages:        Object.fromEntries(STAGES.map(s => [s.key, r[s.key] ?? 0])),
+      total:         r.total,
+    }))
+  }, [rawData])
 
   // Column totals
   const colTotals = useMemo(() => {
@@ -216,7 +193,7 @@ export default function StageWiseInventoryPage() {
               <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Inventory</p>
               <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Stage Wise Inventory</h1>
               <p className="text-sm text-blue-200 mt-0.5">
-                Pipes completed at each production stage · by pipe type
+                Pipes currently sitting at each production stage · by pipe type
               </p>
             </div>
           </div>
@@ -254,7 +231,7 @@ export default function StageWiseInventoryPage() {
           <div className="w-px h-6 bg-white/20" />
           <div className="flex items-center gap-2">
             <span className="text-2xl font-extrabold text-white">{grandTotal.toLocaleString()}</span>
-            <span className="text-sm text-blue-200">Total Pipes Completed</span>
+            <span className="text-sm text-blue-200">Total Pipes in Production</span>
           </div>
           {activePreset && (
             <>
@@ -289,7 +266,7 @@ export default function StageWiseInventoryPage() {
                   colSpan={STAGES.length}
                   className="bg-gradient-to-r from-violet-600 to-blue-600 text-white px-4 py-2 text-center font-semibold text-xs uppercase tracking-widest border-b border-white/10"
                 >
-                  Production Stages — Pipes Completed
+                  Production Stages — Pipes Currently at Stage (WIP)
                 </th>
                 <th
                   rowSpan={2}
