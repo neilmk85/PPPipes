@@ -259,11 +259,11 @@ export default function DashboardPage() {
     { key: 'spinning',           label: 'Spinning',       color: 'text-rose-600'    },
     { key: 'demoulding',         label: 'Demoulding',     color: 'text-orange-600'  },
     { key: 'curing1',            label: 'Curing 1',       color: 'text-cyan-600'    },
-    { key: 'curing2',            label: 'Curing 2',       color: 'text-sky-600'     },
     { key: 'winding',            label: 'Winding',        color: 'text-indigo-600'  },
-    { key: 'winding2',           label: 'Winding 2',      color: 'text-violet-600'  },
     { key: 'coating',            label: 'Coating',        color: 'text-teal-600'    },
+    { key: 'winding2',           label: 'Winding 2',      color: 'text-violet-600'  },
     { key: 'coating2',           label: 'Coating 2',      color: 'text-cyan-700'    },
+    { key: 'curing2',            label: 'Curing 2',       color: 'text-sky-600'     },
     { key: 'finalTesting',       label: 'Final Testing',  color: 'text-emerald-600' },
   ] as const
 
