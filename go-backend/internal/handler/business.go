@@ -288,13 +288,16 @@ func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Validate: available cement = total purchased (MT) - total already filled (MT) >= new fill
+	// Count only direct purchases of CEMENT product (unit = MT) in RECEIVED status
 	var totalPurchasedMT decimal.Decimal
 	if err := h.db.Raw(`
-		SELECT COALESCE(SUM(bp.base_qty), 0)
-		FROM bulk_purchases bp
-		JOIN products p ON bp.product_id = p.id
-		WHERE LOWER(p.name) LIKE ? AND LOWER(bp.base_uom) = 'mt'
-	`, "%cement%").Scan(&totalPurchasedMT).Error; err != nil {
+		SELECT COALESCE(SUM(poi.ordered_quantity), 0)
+		FROM purchase_orders po
+		JOIN purchase_order_items poi ON poi.purchase_order_id = po.id
+		JOIN products p ON poi.product_id = p.id
+		WHERE po.is_direct = TRUE AND po.status = 'RECEIVED'
+		  AND LOWER(p.name) = 'cement'
+	`).Scan(&totalPurchasedMT).Error; err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to check cement availability")
 		return
 	}
