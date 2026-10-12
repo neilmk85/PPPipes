@@ -100,19 +100,26 @@ function toUtcDate(iso: string): Date {
   return new Date(iso.includes('Z') || iso.includes('+') ? iso : iso + 'Z')
 }
 
+function istParts(iso: string) {
+  const d = toUtcDate(iso)
+  const ist = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  return {
+    dd: String(ist.getDate()).padStart(2, '0'),
+    mm: String(ist.getMonth() + 1).padStart(2, '0'),
+    yyyy: ist.getFullYear(),
+    weekday: ist.toLocaleDateString('en-IN', { weekday: 'long' }),
+    time: d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }),
+  }
+}
+
 function fmtDateTime(iso: string) {
-  return toUtcDate(iso).toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: true,
-  })
+  const { dd, mm, yyyy, time } = istParts(iso)
+  return `${dd}/${mm}/${yyyy}, ${time}`
 }
 
 function fmtDateOnly(iso: string) {
-  return toUtcDate(iso).toLocaleDateString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
+  const { dd, mm, yyyy, weekday } = istParts(iso)
+  return `${weekday}, ${dd}/${mm}/${yyyy}`
 }
 
 function fmtTimeWithSeconds(iso: string) {
@@ -141,7 +148,10 @@ function fmtDateLabel(iso: string) {
 
   if (isoDate === todayDate)  return 'Today'
   if (isoDate === yestDate)   return 'Yesterday'
-  return d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'long', year: 'numeric' })
+  const ist = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  const dd = String(ist.getDate()).padStart(2, '0')
+  const mm = String(ist.getMonth() + 1).padStart(2, '0')
+  return `${dd}/${mm}/${ist.getFullYear()}`
 }
 
 function dateKey(iso: string) {

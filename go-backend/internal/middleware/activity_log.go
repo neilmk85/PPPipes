@@ -819,36 +819,169 @@ func describeBusiness(action, resource string, req, resp, before []byte) (string
 		return action, "BUSINESS", descLine(action, "vehicle", name)
 
 	case "maintenance":
-		name := label(req, resp, "description", "name", "vehicleNumber")
-		return action, "BUSINESS", descLine(action, "maintenance record", name)
+		process := label(req, resp, "process", "description", "name")
+		vendor := label(req, resp, "vendor")
+		amount := label(req, resp, "amount")
+		base := actionVerb(action) + " maintenance record"
+		if process != "" { base += ": " + process }
+		if vendor != "" { base += " — " + vendor }
+		if amount != "" { base += " — ₹" + amount }
+		return action, "BUSINESS", base
 
 	case "silos":
 		name := label(req, resp, "name", "siloNumber")
 		return action, "BUSINESS", descLine(action, "silo", name)
 
+	case "silo-fills":
+		date := bodyField(req, "date")
+		s1 := bodyField(req, "silo1Value")
+		s2 := bodyField(req, "silo2Value")
+		s3 := bodyField(req, "silo3Value")
+		var parts []string
+		if s1 != "" {
+			u1 := bodyField(req, "silo1Unit")
+			if u1 == "" { u1 = "MT" }
+			parts = append(parts, fmt.Sprintf("Silo 1: %s %s", s1, u1))
+		}
+		if s2 != "" {
+			u2 := bodyField(req, "silo2Unit")
+			if u2 == "" { u2 = "MT" }
+			parts = append(parts, fmt.Sprintf("Silo 2: %s %s", s2, u2))
+		}
+		if s3 != "" {
+			u3 := bodyField(req, "silo3Unit")
+			if u3 == "" { u3 = "MT" }
+			parts = append(parts, fmt.Sprintf("Silo 3: %s %s", s3, u3))
+		}
+		base := actionVerb(action) + " silo fill"
+		if date != "" { base += " on " + date }
+		if len(parts) > 0 { base += " — " + strings.Join(parts, ", ") }
+		return action, "BUSINESS", base
+
 	case "silo-extractions":
-		ref := label(req, resp, "referenceNumber", "siloName")
-		return action, "BUSINESS", descLine(action, "silo extraction", ref)
+		date := bodyField(req, "date")
+		siloNum := bodyField(req, "siloNumber")
+		qty := bodyField(req, "quantityMt")
+		base := actionVerb(action) + " silo extraction"
+		if date != "" { base += " on " + date }
+		if siloNum != "" { base += " — Silo " + siloNum }
+		if qty != "" { base += ": " + qty + " MT" }
+		return action, "BUSINESS", base
+
+	case "loading-records":
+		dc := label(req, resp, "deliveryChallanNo")
+		pipeName := label(req, resp, "pipeName")
+		qty := label(req, resp, "quantity")
+		customer := label(req, resp, "customerName")
+		base := actionVerb(action) + " loading record"
+		if dc != "" { base += ": DC " + dc }
+		if pipeName != "" { base += " — " + pipeName }
+		if qty != "" { base += " × " + qty + " pipes" }
+		if customer != "" { base += " — " + customer }
+		return action, "BUSINESS", base
+
+	case "pdis":
+		pipeName := label(req, resp, "pipeName")
+		qty := label(req, resp, "quantity")
+		inspector := label(req, resp, "thirdParty")
+		date := bodyField(req, "date")
+		base := actionVerb(action) + " PDI"
+		if pipeName != "" { base += ": " + pipeName }
+		if qty != "" { base += " × " + qty + " pipes" }
+		if inspector != "" { base += " — inspector: " + inspector }
+		if date != "" { base += " on " + date }
+		return action, "BUSINESS", base
+
+	case "cuttings":
+		fromSheet := label(req, resp, "fromSheet")
+		toSheet := label(req, resp, "toSheet")
+		qty := label(req, resp, "quantity")
+		base := actionVerb(action) + " cutting"
+		if fromSheet != "" && toSheet != "" { base += ": " + fromSheet + " → " + toSheet }
+		if qty != "" { base += " × " + qty }
+		return action, "BUSINESS", base
+
+	case "discards":
+		pipeName := label(req, resp, "pipeName")
+		qty := label(req, resp, "quantity")
+		process := label(req, resp, "process")
+		base := actionVerb(action) + " discard"
+		if pipeName != "" { base += ": " + pipeName }
+		if qty != "" { base += " × " + qty }
+		if process != "" { base += " (" + process + ")" }
+		return action, "BUSINESS", base
+
+	case "labour":
+		contractor := label(req, resp, "contractorName")
+		count := label(req, resp, "labourCount")
+		date := bodyField(req, "date")
+		base := actionVerb(action) + " labour record"
+		if contractor != "" { base += ": " + contractor }
+		if count != "" { base += " — " + count + " workers" }
+		if date != "" { base += " on " + date }
+		return action, "BUSINESS", base
+
+	case "pipe-purchases":
+		pipeName := label(req, resp, "pipeName")
+		qty := label(req, resp, "quantity")
+		vendor := label(req, resp, "vendor")
+		base := actionVerb(action) + " pipe purchase"
+		if pipeName != "" { base += ": " + pipeName }
+		if qty != "" { base += " × " + qty + " pipes" }
+		if vendor != "" { base += " — " + vendor }
+		return action, "BUSINESS", base
 
 	case "diesel-maintenance":
-		ref := label(req, resp, "vehicleNumber", "description")
-		return action, "BUSINESS", descLine(action, "diesel record", ref)
+		process := label(req, resp, "process")
+		qty := label(req, resp, "quantity")
+		date := bodyField(req, "date")
+		base := actionVerb(action) + " diesel record"
+		if process != "" { base += ": " + process }
+		if qty != "" { base += " — " + qty + " L" }
+		if date != "" { base += " on " + date }
+		return action, "BUSINESS", base
 
 	case "store-room-materials":
-		name := label(req, resp, "materialName", "name")
-		return action, "BUSINESS", descLine(action, "store room material", name)
-
-	case "extra-vehicles":
-		name := label(req, resp, "vehicleNumber", "name")
-		return action, "BUSINESS", descLine(action, "extra vehicle", name)
-
-	case "testing-labs":
-		name := label(req, resp, "name", "labName")
-		return action, "BUSINESS", descLine(action, "testing lab", name)
+		itemName := label(req, resp, "itemName", "materialName", "name")
+		qty := label(req, resp, "quantity")
+		uom := label(req, resp, "uom")
+		base := actionVerb(action) + " store room material"
+		if itemName != "" { base += ": " + itemName }
+		if qty != "" {
+			if uom != "" { base += " — " + qty + " " + uom } else { base += " — qty: " + qty }
+		}
+		return action, "BUSINESS", base
 
 	case "conversions":
-		name := label(req, resp, "name", "description")
-		return action, "BUSINESS", descLine(action, "conversion", name)
+		fromPipe := label(req, resp, "fromPipe")
+		toPipe := label(req, resp, "toPipe")
+		qty := label(req, resp, "quantity")
+		base := actionVerb(action) + " pipe conversion"
+		if fromPipe != "" && toPipe != "" { base += ": " + fromPipe + " → " + toPipe }
+		if qty != "" { base += " × " + qty }
+		return action, "BUSINESS", base
+
+	case "testing-labs":
+		date := bodyField(req, "date")
+		base := actionVerb(action) + " testing lab record"
+		if date != "" { base += " on " + date }
+		return action, "BUSINESS", base
+
+	case "extra-vehicles":
+		vendor := label(req, resp, "vendor")
+		date := bodyField(req, "date")
+		base := actionVerb(action) + " extra vehicle record"
+		if vendor != "" { base += ": " + vendor }
+		if date != "" { base += " on " + date }
+		return action, "BUSINESS", base
+
+	case "extra-fab":
+		desc := label(req, resp, "description", "name")
+		date := bodyField(req, "date")
+		base := actionVerb(action) + " extra fab record"
+		if desc != "" { base += ": " + desc }
+		if date != "" { base += " on " + date }
+		return action, "BUSINESS", base
 
 	default:
 		human := strings.ReplaceAll(resource, "-", " ")
