@@ -1079,6 +1079,14 @@ func poItemsSummary(req, resp []byte) string {
 				break
 			}
 		}
+		// Fall back to nested product.name if item-level description is empty
+		if desc == "" {
+			if prod, ok := item["product"].(map[string]interface{}); ok {
+				if v, ok := prod["name"].(string); ok && v != "" {
+					desc = v
+				}
+			}
+		}
 		qty := ""
 		for _, key := range []string{"orderedQuantity", "quantity"} {
 			if v, ok := item[key].(float64); ok && v != 0 {
