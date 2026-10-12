@@ -286,6 +286,32 @@ func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request)
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+
+	// Validate: available cement = total purchased (MT) - total already filled (MT) >= new fill
+	var totalPurchasedMT decimal.Decimal
+	if err := h.db.Raw(`
+		SELECT COALESCE(SUM(bp.base_qty), 0)
+		FROM bulk_purchases bp
+		JOIN products p ON bp.product_id = p.id
+		WHERE LOWER(p.name) LIKE ? AND LOWER(bp.base_uom) = 'mt'
+	`, "%cement%").Scan(&totalPurchasedMT).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to check cement availability")
+		return
+	}
+	var totalFilledMT decimal.Decimal
+	if err := h.db.Raw(`SELECT COALESCE(SUM(quantity_mt), 0) FROM biz_silo_fills`).Scan(&totalFilledMT).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to check cement availability")
+		return
+	}
+	availableMT := totalPurchasedMT.Sub(totalFilledMT)
+	if availableMT.LessThan(row.QuantityMT) {
+		util.SendError(w, http.StatusBadRequest, fmt.Sprintf(
+			"Only %.2f MT of cement available from purchases — cannot fill %.2f MT",
+			availableMT.InexactFloat64(), row.QuantityMT.InexactFloat64(),
+		))
+		return
+	}
+
 	if err := h.db.Create(&row).Error; err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to create silo fill")
 		return
