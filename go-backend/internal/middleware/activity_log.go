@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/nilesh/pos-backend/internal/models"
@@ -115,6 +116,25 @@ func ActivityLog(db *gorm.DB) func(http.Handler) http.Handler {
 			go func() {
 				action, module, description := describeActivity(r.Method, r.URL.Path, requestBody, responseBody, beforeBody)
 				entityID := extractEntityID(r.URL.Path)
+
+				// Enrich production entry descriptions with pipe config name from DB
+				if module == "PRODUCTION" && strings.Contains(description, "production entry:") && !strings.Contains(description, " — ") {
+					entryID := entityID
+					if entryID == nil {
+						if idStr := respField(responseBody, "id"); idStr != "" {
+							if n, err2 := strconv.Atoi(idStr); err2 == nil {
+								entryID = &n
+							}
+						}
+					}
+					if entryID != nil {
+						var pcName string
+						db.Raw(`SELECT pc.name FROM production_entries pe JOIN pipe_configs pc ON pe.pipe_config_id = pc.id WHERE pe.id = ?`, *entryID).Scan(&pcName)
+						if pcName != "" {
+							description = strings.Replace(description, "production entry:", "production entry: "+pcName+" —", 1)
+						}
+					}
+				}
 
 				userID := user.ID
 				userName := user.Name
