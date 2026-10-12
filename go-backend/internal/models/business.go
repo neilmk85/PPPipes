@@ -7,10 +7,30 @@ import (
 )
 
 // ─── Silo Fill ────────────────────────────────────────────────────────────────
-// Records each bulk cement fill event into a specific silo (1, 2 or 3).
-// Silo 1 & 2 feed the Spinning stage; Silo 3 feeds the Coating stage.
+// Records cement filled INTO the silos from supplier delivery.
+// Silo 1 & 2 feed the Spinning stage (Silo CEMENT CORE); Silo 3 feeds Coating.
 
 type SiloFill struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Date       DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
+	Silo1Value string    `gorm:"column:silo1_value" json:"silo1Value"`
+	Silo1Unit  string    `gorm:"column:silo1_unit;default:MT" json:"silo1Unit"`
+	Silo2Value string    `gorm:"column:silo2_value" json:"silo2Value"`
+	Silo2Unit  string    `gorm:"column:silo2_unit;default:MT" json:"silo2Unit"`
+	Silo3Value string    `gorm:"column:silo3_value" json:"silo3Value"`
+	Silo3Unit  string    `gorm:"column:silo3_unit;default:MT" json:"silo3Unit"`
+	Notes      string    `gorm:"column:notes;type:text" json:"notes"`
+	CreatedAt  time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt  time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (SiloFill) TableName() string { return "biz_silo_fills" }
+
+// ─── Silo Extraction ──────────────────────────────────────────────────────────
+// Records cement extracted FROM a silo for production use.
+// SiloNumber 1 or 2 → deducts from Silo CEMENT (CORE); 3 → Silo CEMENT (COATING).
+
+type SiloExtraction struct {
 	ID         uint            `gorm:"primaryKey;autoIncrement" json:"id"`
 	Date       DateOnly        `gorm:"column:date;type:date;not null" json:"date"`
 	SiloNumber int             `gorm:"column:silo_number;not null" json:"siloNumber"` // 1, 2 or 3
@@ -20,7 +40,7 @@ type SiloFill struct {
 	UpdatedAt  time.Time       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
-func (SiloFill) TableName() string { return "biz_silo_fills" }
+func (SiloExtraction) TableName() string { return "biz_silo_extractions" }
 
 // SiloReset marks a point in time where a silo's running balance is zeroed.
 // Only fills and production consumption AFTER this timestamp are counted.
@@ -97,23 +117,6 @@ type Silo struct {
 
 func (Silo) TableName() string { return "biz_silos" }
 
-// ─── Silo Extraction ──────────────────────────────────────────────────────────
-
-type SiloExtraction struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Date       DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
-	Silo1Value string    `gorm:"column:silo1_value" json:"silo1Value"`
-	Silo1Unit  string    `gorm:"column:silo1_unit;default:MT" json:"silo1Unit"`
-	Silo2Value string    `gorm:"column:silo2_value" json:"silo2Value"`
-	Silo2Unit  string    `gorm:"column:silo2_unit;default:MT" json:"silo2Unit"`
-	Silo3Value string    `gorm:"column:silo3_value" json:"silo3Value"`
-	Silo3Unit  string    `gorm:"column:silo3_unit;default:MT" json:"silo3Unit"`
-	Notes      string    `gorm:"column:notes;type:text" json:"notes"`
-	CreatedAt  time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt  time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
-}
-
-func (SiloExtraction) TableName() string { return "biz_silo_extractions" }
 
 // ─── Diesel Maintenance ───────────────────────────────────────────────────────
 

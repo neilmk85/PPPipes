@@ -720,7 +720,7 @@ class ApiService {
   }
 
   Future<List<dynamic>> getSiloEntries({int page = 0, int size = 20}) async {
-    final res = await _dio.get('/business/silo-extractions', queryParameters: {'page': page, 'size': size});
+    final res = await _dio.get('/business/silo-fills', queryParameters: {'page': page, 'size': size});
     final data = res.data['data'];
     if (data is Map && data.containsKey('content')) return data['content'] as List;
     if (data is List) return data;
@@ -728,13 +728,34 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> createSiloEntry(Map<String, dynamic> data) async {
-    final res = await _dio.post('/business/silo-extractions', data: data);
+    final res = await _dio.post('/business/silo-fills', data: data);
     return Map<String, dynamic>.from(res.data['data'] as Map);
   }
 
   Future<Map<String, dynamic>> updateSiloEntry(int id, Map<String, dynamic> data) async {
-    final res = await _dio.put('/business/silo-extractions/$id', data: data);
+    final res = await _dio.put('/business/silo-fills/$id', data: data);
     return Map<String, dynamic>.from(res.data['data'] as Map);
+  }
+
+  Future<void> deleteSiloEntry(int id) async {
+    await _dio.delete('/business/silo-fills/$id');
+  }
+
+  Future<List<dynamic>> getSiloExtractionEntries({int page = 0, int size = 20}) async {
+    final res = await _dio.get('/business/silo-extractions', queryParameters: {'page': page, 'size': size});
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createSiloExtractionEntry(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/silo-extractions', data: data);
+    return Map<String, dynamic>.from(res.data['data'] as Map);
+  }
+
+  Future<void> deleteSiloExtractionEntry(int id) async {
+    await _dio.delete('/business/silo-extractions/$id');
   }
 
   // ---- PDI ----

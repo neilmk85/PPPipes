@@ -1661,7 +1661,9 @@ class _SiloScreenState extends State<SiloScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final raw = await ApiService().getSiloEntries(size: 500);
+      final raw = widget.isExtraction
+          ? await ApiService().getSiloExtractionEntries(size: 500)
+          : await ApiService().getSiloEntries(size: 500);
       setState(() {
         _allItems = raw.map((e) => SiloEntry.fromJson(e)).toList();
         _loading = false;

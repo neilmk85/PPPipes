@@ -1972,9 +1972,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PUT /api/business/maintenance/{id}", middleware.Chain(businessHandler.UpdateMaintenance, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/maintenance/{id}", middleware.Chain(businessHandler.DeleteMaintenance, middleware.Authenticate(db)))
 
-	// Silo Fills (cement refill events) + summary
+	// Silo Fills (cement filled INTO silos from supplier delivery)
 	mux.HandleFunc("GET /api/business/silo-fills", middleware.Chain(businessHandler.ListSiloFills, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/silo-fills", middleware.Chain(businessHandler.CreateSiloFill, middleware.Authenticate(db)))
+	mux.HandleFunc("PUT /api/business/silo-fills/{id}", middleware.Chain(businessHandler.UpdateSiloFill, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/silo-fills/{id}", middleware.Chain(businessHandler.DeleteSiloFill, middleware.Authenticate(db)))
 	mux.HandleFunc("GET /api/business/silo-summary", middleware.Chain(businessHandler.GetSiloSummary, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/silo-3-reset", middleware.Chain(
@@ -1989,10 +1990,9 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("PUT /api/business/silos/{id}", middleware.Chain(businessHandler.UpdateSilo, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/silos/{id}", middleware.Chain(businessHandler.DeleteSilo, middleware.Authenticate(db)))
 
-	// Silo Extractions
+	// Silo Extractions (cement extracted FROM silos for production use)
 	mux.HandleFunc("GET /api/business/silo-extractions", middleware.Chain(businessHandler.ListSiloExtractions, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/silo-extractions", middleware.Chain(businessHandler.CreateSiloExtraction, middleware.Authenticate(db)))
-	mux.HandleFunc("PUT /api/business/silo-extractions/{id}", middleware.Chain(businessHandler.UpdateSiloExtraction, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/silo-extractions/{id}", middleware.Chain(businessHandler.DeleteSiloExtraction, middleware.Authenticate(db)))
 
 	// Diesel Maintenance
