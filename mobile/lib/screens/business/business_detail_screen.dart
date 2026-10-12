@@ -1668,8 +1668,12 @@ class _SiloScreenState extends State<SiloScreen> {
         _allItems = raw.map((e) => SiloEntry.fromJson(e)).toList();
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
       setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Silo load error: $e'), duration: const Duration(seconds: 10)));
+      }
     }
   }
 
