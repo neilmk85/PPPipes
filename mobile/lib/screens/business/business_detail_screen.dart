@@ -1695,7 +1695,7 @@ class _SiloScreenState extends State<SiloScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
-    final totalExtracted = filtered.fold<double>(0, (s, e) => s + (e.totalMt > 0 ? e.totalMt : (e.extracted ?? 0)));
+    final totalExtracted = filtered.fold<double>(0, (s, e) => s + e.totalMt);
 
     return Scaffold(
       body: CustomScrollView(
@@ -1837,37 +1837,27 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
   static const _violetDark = Color(0xFF4C1D95);
 
   late DateTime _date;
-  late final List<bool> _checked;
-  late final List<TextEditingController> _amountCtrls;
-  late final List<String> _uoms;
-  final _notesCtrl   = TextEditingController();
+  late int _siloNumber;
+  late final TextEditingController _amountCtrl;
+  final _notesCtrl = TextEditingController();
   bool _saving = false;
   bool _isDirty = false;
-  late VoidCallback _dirtyListener;
 
   @override
   void initState() {
     super.initState();
     final e = widget.editing;
     _date = e != null ? (DateTime.tryParse(e.date.split('T').first) ?? DateTime.now()) : DateTime.now();
-    _checked = [e != null && e.silo1Value > 0, e != null && e.silo2Value > 0, e != null && e.silo3Value > 0];
-    _amountCtrls = [
-      TextEditingController(text: e != null && e.silo1Value > 0 ? e.silo1Value.toStringAsFixed(2) : ''),
-      TextEditingController(text: e != null && e.silo2Value > 0 ? e.silo2Value.toStringAsFixed(2) : ''),
-      TextEditingController(text: e != null && e.silo3Value > 0 ? e.silo3Value.toStringAsFixed(2) : ''),
-    ];
-    _uoms = [e?.silo1Unit ?? 'MT', e?.silo2Unit ?? 'MT', e?.silo3Unit ?? 'MT'];
+    _siloNumber = e?.siloNumber ?? 1;
+    _amountCtrl = TextEditingController(text: e != null && e.quantityMt > 0 ? e.quantityMt.toStringAsFixed(2) : '');
     if (e?.notes != null) _notesCtrl.text = e!.notes!;
-    _dirtyListener = () { if (mounted) setState(() => _isDirty = true); };
-    for (final c in _amountCtrls) c.addListener(_dirtyListener);
-    _notesCtrl.addListener(_dirtyListener);
+    _amountCtrl.addListener(() { if (mounted) setState(() => _isDirty = true); });
+    _notesCtrl.addListener(() { if (mounted) setState(() => _isDirty = true); });
   }
 
   @override
   void dispose() {
-    for (final c in _amountCtrls) c.removeListener(_dirtyListener);
-    _notesCtrl.removeListener(_dirtyListener);
-    for (final c in _amountCtrls) c.dispose();
+    _amountCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -1891,40 +1881,20 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
   }
 
   Future<void> _save() async {
-    const names = ['Silo 1', 'Silo 2', 'Silo 3'];
-    const keys  = ['silo1Value', 'silo2Value', 'silo3Value'];
-    const unitKeys = ['silo1Unit', 'silo2Unit', 'silo3Unit'];
-
-    bool anySelected = false;
-    for (var i = 0; i < 3; i++) {
-      if (!_checked[i]) continue;
-      anySelected = true;
-      final amt = double.tryParse(_amountCtrls[i].text.trim()) ?? 0;
-      if (amt <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Enter a valid amount for ${names[i]}')),
-        );
-        return;
-      }
-    }
-    if (!anySelected) {
+    final amt = double.tryParse(_amountCtrl.text.trim()) ?? 0;
+    if (amt <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one silo')),
+        const SnackBar(content: Text('Enter a valid quantity')),
       );
       return;
     }
 
     final payload = <String, dynamic>{
       'date': DateFormat('yyyy-MM-dd').format(_date),
+      'siloNumber': _siloNumber,
+      'quantityMt': amt,
       'notes': _notesCtrl.text.trim(),
     };
-    for (var i = 0; i < 3; i++) {
-      if (!_checked[i]) continue;
-      final amt = double.tryParse(_amountCtrls[i].text.trim()) ?? 0;
-      final unit = widget.isExtraction ? _uoms[i] : 'MT';
-      payload[keys[i]] = amt.toString();
-      payload[unitKeys[i]] = unit;
-    }
 
     setState(() => _saving = true);
     try {
@@ -1999,87 +1969,55 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(widget.isExtraction ? 'Silo Extractions' : 'Silo Entries',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54, letterSpacing: 0.5)),
-                const SizedBox(height: 12),
-                ...List.generate(3, (i) {
-                  final enabled = _checked[i];
+                const Text('Silo Number',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54, letterSpacing: 0.5)),
+                const SizedBox(height: 10),
+                Row(children: [1, 2, 3].map((n) {
+                  final selected = _siloNumber == n;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        // checkbox + label
-                        GestureDetector(
-                          onTap: () => setState(() { _checked[i] = !_checked[i]; _isDirty = true; }),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Container(
-                              width: 22, height: 22,
-                              decoration: BoxDecoration(
-                                color: enabled ? _violet : Colors.transparent,
-                                border: Border.all(
-                                  color: enabled ? _violet : Colors.grey.shade400,
-                                  width: 1.5,
-                                ),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: enabled
-                                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                                  : null,
-                            ),
-                            const SizedBox(width: 8),
-                            Text('Silo ${i + 1}',
-                                style: TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w600,
-                                  color: enabled ? Colors.black87 : Colors.grey.shade500,
-                                )),
-                          ]),
+                    padding: const EdgeInsets.only(right: 10),
+                    child: GestureDetector(
+                      onTap: () => setState(() { _siloNumber = n; _isDirty = true; }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: selected ? _violet : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: selected ? _violet : Colors.grey.shade300),
                         ),
-                        const SizedBox(width: 12),
-                        // amount field
-                        Expanded(
-                          child: TextField(
-                            controller: _amountCtrls[i],
-                            enabled: enabled,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(
-                              hintText: enabled ? '0.00' : '—',
-                              suffixText: widget.isExtraction ? null : 'MT',
-                              suffixStyle: TextStyle(
-                                color: enabled ? _violet : Colors.grey.shade400,
-                                fontWeight: FontWeight.w600, fontSize: 13,
-                              ),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: _violet, width: 1.2),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: _violet, width: 1.8),
-                              ),
-                              disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: Colors.grey.shade200),
-                              ),
-                              filled: true,
-                              fillColor: enabled ? Colors.white : Colors.grey.shade50,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            ),
-                          ),
-                        ),
-                        // UOM toggle — only for Silo Extraction
-                        if (widget.isExtraction) ...[
-                          const SizedBox(width: 8),
-                          _UomToggle(
-                            selected: _uoms[i],
-                            enabled: enabled,
-                            onChanged: (v) => setState(() { _uoms[i] = v; _isDirty = true; }),
-                          ),
-                        ],
-                      ]),
-                    ]),
+                        child: Text('Silo $n',
+                          style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700,
+                            color: selected ? Colors.white : Colors.grey.shade600,
+                          )),
+                      ),
+                    ),
                   );
-                }),
+                }).toList()),
+                const SizedBox(height: 16),
+                const Text('Quantity (MT)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54, letterSpacing: 0.5)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: '0.00',
+                    suffixText: 'MT',
+                    suffixStyle: const TextStyle(color: _violet, fontWeight: FontWeight.w600, fontSize: 13),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: _violet, width: 1.2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: _violet, width: 1.8),
+                    ),
+                    filled: true, fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
                 const Divider(height: 24),
                 // notes
                 TextField(
@@ -5057,11 +4995,10 @@ class _SiloCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final silos = <Map<String, dynamic>>[];
-    if (item.silo1Value > 0) silos.add({'label': 'S1', 'value': item.silo1Value, 'unit': item.silo1Unit});
-    if (item.silo2Value > 0) silos.add({'label': 'S2', 'value': item.silo2Value, 'unit': item.silo2Unit});
-    if (item.silo3Value > 0) silos.add({'label': 'S3', 'value': item.silo3Value, 'unit': item.silo3Unit});
-    final total = item.totalMt > 0 ? item.totalMt : (item.extracted ?? 0);
+    final silos = item.siloNumber > 0
+        ? [{'label': 'S${item.siloNumber}', 'value': item.quantityMt, 'unit': 'MT'}]
+        : <Map<String, dynamic>>[];
+    final total = item.totalMt;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

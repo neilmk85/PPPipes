@@ -824,56 +824,29 @@ class VehicleEntry {
 class SiloEntry {
   final int id;
   final String date;
-  final String? siloName;
-  final double? currentLevel;
-  final double? extracted;
   final String? notes;
-  final double silo1Value;
-  final String silo1Unit;
-  final double silo2Value;
-  final String silo2Unit;
-  final double silo3Value;
-  final String silo3Unit;
+  final int siloNumber;
+  final double quantityMt;
 
   const SiloEntry({
     required this.id,
     required this.date,
-    this.siloName,
-    this.currentLevel,
-    this.extracted,
     this.notes,
-    this.silo1Value = 0,
-    this.silo1Unit = 'MT',
-    this.silo2Value = 0,
-    this.silo2Unit = 'MT',
-    this.silo3Value = 0,
-    this.silo3Unit = 'MT',
+    this.siloNumber = 1,
+    this.quantityMt = 0,
   });
 
-  double get totalMt => silo1Value + silo2Value + silo3Value;
+  double get totalMt => quantityMt;
 
-  String get displayQty {
-    final parts = <String>[];
-    if (silo1Value > 0) parts.add('S1: ${silo1Value.toStringAsFixed(2)} $silo1Unit');
-    if (silo2Value > 0) parts.add('S2: ${silo2Value.toStringAsFixed(2)} $silo2Unit');
-    if (silo3Value > 0) parts.add('S3: ${silo3Value.toStringAsFixed(2)} $silo3Unit');
-    if (parts.isNotEmpty) return parts.join('  ');
-    if (extracted != null && extracted! > 0) return '${extracted!.toStringAsFixed(2)} MT';
-    return '';
-  }
+  String get displayQty => siloNumber > 0
+      ? 'S$siloNumber: ${quantityMt.toStringAsFixed(2)} MT'
+      : '${quantityMt.toStringAsFixed(2)} MT';
 
   factory SiloEntry.fromJson(Map<String, dynamic> json) => SiloEntry(
         id: p.i(json['id']),
         date: json['date'] ?? json['createdAt'] ?? '',
-        siloName: json['siloName'] ?? json['silo']?['name'],
-        currentLevel: p.dOrNull(json['currentLevel']),
-        extracted: p.dOrNull(json['extractedAmount'] ?? json['extracted']),
         notes: json['notes'],
-        silo1Value: p.d(json['silo1Value']),
-        silo1Unit: json['silo1Unit'] ?? 'MT',
-        silo2Value: p.d(json['silo2Value']),
-        silo2Unit: json['silo2Unit'] ?? 'MT',
-        silo3Value: p.d(json['silo3Value']),
-        silo3Unit: json['silo3Unit'] ?? 'MT',
+        siloNumber: p.i(json['siloNumber']),
+        quantityMt: p.d(json['quantityMt']),
       );
 }
