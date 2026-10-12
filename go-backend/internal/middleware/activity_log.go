@@ -489,15 +489,21 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 	case "purchase-orders":
 		num := label(req, resp, "poNumber", "orderNumber", "number")
 		base := descLine(action, "purchase order", num)
-		vendor := label(req, resp, "vendorName", "vendor")
+		vendor := nestedRespField(resp, "supplier", "name")
 		if vendor == "" {
-			vendor = nestedRespField(resp, "vendor", "name")
+			vendor = label(req, resp, "vendorName", "vendor")
 		}
 		if vendor != "" {
-			base += " — vendor: " + vendor
+			base += " — " + vendor
 		}
-		if total := label(req, resp, "totalAmount", "grandTotal"); total != "" {
+		if summary := poItemsSummary(req, resp); summary != "" {
+			base += " — " + summary
+		}
+		if total := respField(resp, "totalAmount"); total != "" {
 			base += " — ₹" + total
+		}
+		if expDate := respField(resp, "expectedDate"); expDate != "" {
+			base += " — due: " + expDate[:10]
 		}
 		return action, "PURCHASES", base
 
@@ -727,9 +733,9 @@ func describeProduction(action, resource string, req, resp []byte) (string, stri
 		stage := label(req, resp, "stageType")
 		processed := label(req, resp, "pipesProcessed")
 		completed := label(req, resp, "pipesCompleted")
-		pipeConfig := respField(resp, "pipeConfigName")
+		pipeConfig := nestedRespField(resp, "pipeConfig", "name")
 		if pipeConfig == "" {
-			pipeConfig = bodyField(req, "pipeConfigName")
+			pipeConfig = respField(resp, "pipeConfigName")
 		}
 
 		if stage != "" {
@@ -1044,6 +1050,75 @@ func fetchBeforeState(db *gorm.DB, resource string, id int) []byte {
 		return b
 	}
 	return nil
+}
+
+// poItemsSummary extracts a readable summary of purchase order items from
+// the response body (data.items[]) or request body (items[]).
+func poItemsSummary(req, resp []byte) string {
+	items := extractItems(resp, true)
+	if len(items) == 0 {
+		items = extractItems(req, false)
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	limit := 2
+	if len(items) < limit {
+		limit = len(items)
+	}
+	var parts []string
+	for i := 0; i < limit; i++ {
+		item, ok := items[i].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		desc := ""
+		for _, key := range []string{"description", "productName", "name"} {
+			if v, ok := item[key].(string); ok && v != "" {
+				desc = v
+				break
+			}
+		}
+		qty := ""
+		for _, key := range []string{"orderedQuantity", "quantity"} {
+			if v, ok := item[key].(float64); ok && v != 0 {
+				qty = fmt.Sprintf("%g", v)
+				break
+			}
+		}
+		if desc != "" {
+			if qty != "" {
+				parts = append(parts, desc+" ×"+qty)
+			} else {
+				parts = append(parts, desc)
+			}
+		}
+	}
+	result := strings.Join(parts, ", ")
+	if len(items) > limit {
+		result += fmt.Sprintf(" +%d more", len(items)-limit)
+	}
+	return result
+}
+
+func extractItems(body []byte, nested bool) []interface{} {
+	if len(body) == 0 {
+		return nil
+	}
+	var m map[string]interface{}
+	if json.Unmarshal(body, &m) != nil {
+		return nil
+	}
+	src := m
+	if nested {
+		data, ok := m["data"].(map[string]interface{})
+		if !ok {
+			return nil
+		}
+		src = data
+	}
+	items, _ := src["items"].([]interface{})
+	return items
 }
 
 // fmtFieldVal normalises a field value string for comparison:
