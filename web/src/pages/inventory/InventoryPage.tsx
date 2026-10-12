@@ -296,7 +296,7 @@ export default function InventoryPage() {
     <div className="min-h-full bg-gray-50/60 p-6 space-y-6">
 
       {/* ── Hero Header ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-700 via-violet-600 to-blue-600 shadow-[0_8px_40px_rgba(109,40,217,0.30)]">
+      <div className="relative rounded-2xl bg-gradient-to-br from-violet-700 via-violet-600 to-blue-600 shadow-[0_8px_40px_rgba(109,40,217,0.30)]">
 
         {/* Title row */}
         <div className="relative flex items-center justify-between gap-4 px-8 py-5">
