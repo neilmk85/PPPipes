@@ -445,7 +445,7 @@ func (h *BusinessHandler) GetSiloSummary(w http.ResponseWriter, r *http.Request)
 		silo3ResetAt = &t
 	}
 
-	// 1. Filled per silo from biz_silo_fills (silo1_value, silo2_value, silo3_value columns)
+	// 1. Filled per silo — handles both old (silo1_value/silo2_value/silo3_value) and new (silo_number/quantity_mt) formats
 	type FillTotals struct {
 		TotalS1 float64 `gorm:"column:total_s1"`
 		TotalS2 float64 `gorm:"column:total_s2"`
@@ -453,9 +453,9 @@ func (h *BusinessHandler) GetSiloSummary(w http.ResponseWriter, r *http.Request)
 	}
 	var ft FillTotals
 	h.db.Model(&models.SiloFill{}).
-		Select(`COALESCE(SUM(CAST(NULLIF(silo1_value,'') AS DECIMAL(10,4))), 0) as total_s1,
-		        COALESCE(SUM(CAST(NULLIF(silo2_value,'') AS DECIMAL(10,4))), 0) as total_s2,
-		        COALESCE(SUM(CAST(NULLIF(silo3_value,'') AS DECIMAL(10,4))), 0) as total_s3`).
+		Select(`COALESCE(SUM(CASE WHEN silo_number=1 THEN quantity_mt WHEN (silo_number IS NULL OR silo_number=0) AND silo1_value IS NOT NULL AND silo1_value!='' THEN CAST(silo1_value AS DECIMAL(10,4)) ELSE 0 END),0) as total_s1,
+		        COALESCE(SUM(CASE WHEN silo_number=2 THEN quantity_mt WHEN (silo_number IS NULL OR silo_number=0) AND silo2_value IS NOT NULL AND silo2_value!='' THEN CAST(silo2_value AS DECIMAL(10,4)) ELSE 0 END),0) as total_s2,
+		        COALESCE(SUM(CASE WHEN silo_number=3 THEN quantity_mt WHEN (silo_number IS NULL OR silo_number=0) AND silo3_value IS NOT NULL AND silo3_value!='' THEN CAST(silo3_value AS DECIMAL(10,4)) ELSE 0 END),0) as total_s3`).
 		Scan(&ft)
 
 	filledMT := map[int]float64{1: ft.TotalS1, 2: ft.TotalS2, 3: ft.TotalS3}
@@ -464,7 +464,7 @@ func (h *BusinessHandler) GetSiloSummary(w http.ResponseWriter, r *http.Request)
 	if silo3ResetAt != nil {
 		var silo3Total float64
 		h.db.Model(&models.SiloFill{}).
-			Select("COALESCE(SUM(CAST(NULLIF(silo3_value,'') AS DECIMAL(10,4))), 0)").
+			Select("COALESCE(SUM(CASE WHEN silo_number=3 THEN quantity_mt WHEN (silo_number IS NULL OR silo_number=0) AND silo3_value IS NOT NULL AND silo3_value!='' THEN CAST(silo3_value AS DECIMAL(10,4)) ELSE 0 END),0)").
 			Where("created_at > ?", silo3ResetAt).
 			Scan(&silo3Total)
 		filledMT[3] = silo3Total
@@ -637,12 +637,13 @@ func (h *BusinessHandler) adjustSiloInventory(productName string, deltaKg float6
 		gorm.Expr("quantity_on_hand + ?", deltaKg))
 }
 
-// siloFillKg returns spinning kg and coating kg from a silo fill row (silo1/2 → core, silo3 → coating).
+// siloFillKg returns spinning kg and coating kg from a silo fill row (silo 1/2 → core, silo 3 → coating).
 func siloFillKg(row models.SiloFill) (spinning float64, coating float64) {
-	s1, _ := strconv.ParseFloat(row.Silo1Value, 64)
-	s2, _ := strconv.ParseFloat(row.Silo2Value, 64)
-	s3, _ := strconv.ParseFloat(row.Silo3Value, 64)
-	return (s1 + s2) * 1000, s3 * 1000
+	kg := row.QuantityMT.InexactFloat64() * 1000
+	if row.SiloNumber == 3 {
+		return 0, kg
+	}
+	return kg, 0
 }
 
 // ─── Diesel Maintenance ───────────────────────────────────────────────────────

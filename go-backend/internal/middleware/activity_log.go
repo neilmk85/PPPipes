@@ -840,24 +840,22 @@ func describeBusiness(action, resource string, req, resp, before []byte) (string
 
 	case "silo-fills":
 		date := bodyField(req, "date")
-		s1 := bodyField(req, "silo1Value")
-		s2 := bodyField(req, "silo2Value")
-		s3 := bodyField(req, "silo3Value")
 		var parts []string
-		if s1 != "" {
-			u1 := bodyField(req, "silo1Unit")
-			if u1 == "" { u1 = "MT" }
-			parts = append(parts, fmt.Sprintf("Silo 1: %s %s", s1, u1))
-		}
-		if s2 != "" {
-			u2 := bodyField(req, "silo2Unit")
-			if u2 == "" { u2 = "MT" }
-			parts = append(parts, fmt.Sprintf("Silo 2: %s %s", s2, u2))
-		}
-		if s3 != "" {
-			u3 := bodyField(req, "silo3Unit")
-			if u3 == "" { u3 = "MT" }
-			parts = append(parts, fmt.Sprintf("Silo 3: %s %s", s3, u3))
+		// New single-silo format: siloNumber + quantityMt
+		if siloNum := bodyField(req, "siloNumber"); siloNum != "" && siloNum != "0" {
+			qty := bodyField(req, "quantityMt")
+			entry := fmt.Sprintf("Silo %s", siloNum)
+			if qty != "" { entry += ": " + qty + " MT" }
+			parts = append(parts, entry)
+		} else {
+			// Old multi-silo format: silo1Value/silo2Value/silo3Value
+			for i, key := range []string{"silo1Value", "silo2Value", "silo3Value"} {
+				if v := bodyField(req, key); v != "" {
+					u := bodyField(req, fmt.Sprintf("silo%dUnit", i+1))
+					if u == "" { u = "MT" }
+					parts = append(parts, fmt.Sprintf("Silo %d: %s %s", i+1, v, u))
+				}
+			}
 		}
 		base := actionVerb(action) + " silo fill"
 		if date != "" { base += " on " + date }
@@ -866,12 +864,26 @@ func describeBusiness(action, resource string, req, resp, before []byte) (string
 
 	case "silo-extractions":
 		date := bodyField(req, "date")
-		siloNum := bodyField(req, "siloNumber")
-		qty := bodyField(req, "quantityMt")
+		var parts []string
+		// New single-silo format
+		if siloNum := bodyField(req, "siloNumber"); siloNum != "" && siloNum != "0" {
+			qty := bodyField(req, "quantityMt")
+			entry := fmt.Sprintf("Silo %s", siloNum)
+			if qty != "" { entry += ": " + qty + " MT" }
+			parts = append(parts, entry)
+		} else {
+			// Old multi-silo format
+			for i, key := range []string{"silo1Value", "silo2Value", "silo3Value"} {
+				if v := bodyField(req, key); v != "" {
+					u := bodyField(req, fmt.Sprintf("silo%dUnit", i+1))
+					if u == "" { u = "MT" }
+					parts = append(parts, fmt.Sprintf("Silo %d: %s %s", i+1, v, u))
+				}
+			}
+		}
 		base := actionVerb(action) + " silo extraction"
 		if date != "" { base += " on " + date }
-		if siloNum != "" { base += " — Silo " + siloNum }
-		if qty != "" { base += ": " + qty + " MT" }
+		if len(parts) > 0 { base += " — " + strings.Join(parts, ", ") }
 		return action, "BUSINESS", base
 
 	case "loading-records":

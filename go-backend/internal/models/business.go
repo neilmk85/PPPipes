@@ -11,17 +11,13 @@ import (
 // Silo 1 & 2 feed the Spinning stage (Silo CEMENT CORE); Silo 3 feeds Coating.
 
 type SiloFill struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Date       DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
-	Silo1Value string    `gorm:"column:silo1_value" json:"silo1Value"`
-	Silo1Unit  string    `gorm:"column:silo1_unit;default:MT" json:"silo1Unit"`
-	Silo2Value string    `gorm:"column:silo2_value" json:"silo2Value"`
-	Silo2Unit  string    `gorm:"column:silo2_unit;default:MT" json:"silo2Unit"`
-	Silo3Value string    `gorm:"column:silo3_value" json:"silo3Value"`
-	Silo3Unit  string    `gorm:"column:silo3_unit;default:MT" json:"silo3Unit"`
-	Notes      string    `gorm:"column:notes;type:text" json:"notes"`
-	CreatedAt  time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt  time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID         uint            `gorm:"primaryKey;autoIncrement" json:"id"`
+	Date       DateOnly        `gorm:"column:date;type:date;not null" json:"date"`
+	SiloNumber int             `gorm:"column:silo_number;not null" json:"siloNumber"`
+	QuantityMT decimal.Decimal `gorm:"column:quantity_mt;type:decimal(10,4);not null" json:"quantityMt"`
+	Notes      string          `gorm:"column:notes;type:text" json:"notes"`
+	CreatedAt  time.Time       `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt  time.Time       `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (SiloFill) TableName() string { return "biz_silo_fills" }
