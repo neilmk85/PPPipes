@@ -49,6 +49,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _restoreSession() async {
+    try {
+      await _doRestore().timeout(
+        const Duration(seconds: 12),
+        onTimeout: () async {
+          await _storage.deleteAll();
+          state = state.copyWith(isRestoring: false, clearUser: true);
+        },
+      );
+    } catch (_) {
+      state = state.copyWith(isRestoring: false, clearUser: true);
+    }
+  }
+
+  Future<void> _doRestore() async {
     final token = await _storage.read(key: 'accessToken');
     if (token == null) {
       state = state.copyWith(isRestoring: false);
@@ -59,7 +73,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(user: user, isRestoring: false);
       _refreshWidget(user.outletId);
     } catch (_) {
-      // Token invalid or expired — clear storage and go to login
       await _storage.deleteAll();
       state = state.copyWith(isRestoring: false, clearUser: true);
     }
@@ -125,5 +138,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(ApiService(), const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   ));
 });
