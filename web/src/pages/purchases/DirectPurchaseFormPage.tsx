@@ -511,11 +511,16 @@ export default function DirectPurchaseFormPage() {
     try {
       const itemsPayload = validLines.map(l => {
         const taxGroup = l.taxGroupOverride ?? l.product?.taxGroup
+        const taxRate  = parseFloat(taxGroup?.totalRate ?? l.taxRate ?? 0)
+        const rawCost  = parseFloat(String(l.unitCost)) || 0
+        const baseCost = gstInclusive && taxRate > 0
+          ? rawCost / (1 + taxRate / 100)
+          : rawCost
         return {
           productId: l.product.id,
           quantity:  parseFloat(String(l.qty)),
-          unitCost:  parseFloat(String(l.unitCost)) || 0,
-          taxRate:   parseFloat(taxGroup?.totalRate ?? l.taxRate ?? 0),
+          unitCost:  parseFloat(baseCost.toFixed(4)),
+          taxRate,
         }
       })
 
