@@ -199,9 +199,8 @@ function useSiteAddressOptions(): string[] {
 
   const addrs: string[] = []
 
-  // From customers: siteAddresses array
+  // From customers: siteAddresses array (delivery sites only, not office address)
   for (const c of custData ?? []) {
-    if (c.address?.trim()) addrs.push(c.address.trim())
     for (const sa of c.siteAddresses ?? []) {
       const parts = [sa.address, sa.city, sa.state, sa.pincode ? sa.pincode : ''].filter(Boolean)
       if (parts.length) addrs.push(parts.join(', '))
