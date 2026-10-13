@@ -81,7 +81,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final auth = await _api.login(email, password);
+      final auth = await _api.login(email, password).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => throw const LoginException('Request timed out. Check your connection.'),
+      );
       state = AuthState(user: auth, isRestoring: false);
       _refreshWidget(auth.outletId);
       return true;

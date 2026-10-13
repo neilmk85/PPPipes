@@ -17,6 +17,7 @@ class ApiService {
   late final Dio _dio;
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
   ApiService._internal() {
@@ -48,8 +49,10 @@ class ApiService {
     try {
       final res = await _dio.post('/auth/login', data: {'email': email, 'password': password});
       final auth = AuthResponse.fromJson(res.data['data']);
-      await _storage.write(key: 'accessToken', value: auth.accessToken);
-      await _storage.write(key: 'refreshToken', value: auth.refreshToken);
+      await Future.wait([
+        _storage.write(key: 'accessToken',  value: auth.accessToken),
+        _storage.write(key: 'refreshToken', value: auth.refreshToken),
+      ]).timeout(const Duration(seconds: 8), onTimeout: () => []);
       return auth;
     } on DioException catch (e) {
       final serverMsg = e.response?.data?['message'] as String?;
