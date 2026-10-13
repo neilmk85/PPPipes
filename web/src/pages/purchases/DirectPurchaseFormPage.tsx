@@ -754,8 +754,21 @@ export default function DirectPurchaseFormPage() {
 
           {/* ── Line Items ── */}
           <div className="bg-white rounded-2xl border border-violet-100 shadow-[0_4px_24px_rgba(109,40,217,0.10)] overflow-hidden">
-            <div className="bg-gray-50 border-b border-gray-200 px-6 py-3.5">
+            <div className="bg-gray-50 border-b border-gray-200 px-6 py-3.5 flex items-center justify-between">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Products</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-gray-500 font-medium">Rate is</span>
+                <div className="flex items-center gap-0.5 bg-gray-200 rounded-lg p-0.5">
+                  <button
+                    onClick={() => { setGstInclusive(false); markDirty() }}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${!gstInclusive ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  >Excl. GST</button>
+                  <button
+                    onClick={() => { setGstInclusive(true); markDirty() }}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${gstInclusive ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                  >Incl. GST</button>
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full table-fixed">
@@ -773,10 +786,7 @@ export default function DirectPurchaseFormPage() {
                     <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-900 uppercase tracking-widest">Product</th>
                     <th className="px-3 py-3 text-right text-[11px] font-bold text-gray-900 uppercase tracking-widest">Qty</th>
                     <th className="px-3 py-3 text-left text-[11px] font-bold text-gray-900 uppercase tracking-widest">Unit</th>
-                    <th className="px-3 py-3 text-right text-[11px] font-bold text-gray-900 uppercase tracking-widest">
-                      <div>Unit Cost</div>
-                      <div className="text-[10px] font-normal text-gray-500 normal-case">{gstInclusive ? 'incl. GST' : 'excl. GST'}</div>
-                    </th>
+                    <th className="px-3 py-3 text-right text-[11px] font-bold text-gray-900 uppercase tracking-widest">Unit Cost</th>
                     <th className="px-3 py-3 text-left text-[11px] font-bold text-gray-900 uppercase tracking-widest">GST</th>
                     <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-900 uppercase tracking-widest">Amount</th>
                     <th className="px-2 py-3" />
