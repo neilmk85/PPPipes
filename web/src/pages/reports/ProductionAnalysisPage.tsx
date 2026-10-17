@@ -59,9 +59,12 @@ export default function ProductionAnalysisPage() {
       ])
 
       // Silo balances from inventory (paginated: res.data.data.content)
-      const items: any[] = invRes.data?.data?.content ?? invRes.data?.data ?? []
+      const rawInv = invRes.data?.data
+      const items: any[] = Array.isArray(rawInv) ? rawInv : (rawInv?.content ?? rawInv?.items ?? [])
+      console.log('[PA] inv items count:', items.length, 'rawInv keys:', rawInv ? Object.keys(rawInv) : 'null')
       const core    = items.find((i: any) => i.product?.name === 'Silo CEMENT (CORE)'    || i.name === 'Silo CEMENT (CORE)')
       const coating = items.find((i: any) => i.product?.name === 'Silo CEMENT (COATING)' || i.name === 'Silo CEMENT (COATING)')
+      console.log('[PA] core:', core?.product?.name, core?.quantityOnHand, 'coating:', coating?.product?.name, coating?.quantityOnHand)
       const cBal = parseFloat(core?.quantityOnHand    ?? core?.quantity_on_hand    ?? 0)
       const oBal = parseFloat(coating?.quantityOnHand ?? coating?.quantity_on_hand ?? 0)
       setCoreBal(cBal)
