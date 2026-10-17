@@ -188,7 +188,7 @@ export default function ProductionAnalysisPage() {
           {[
             { label: 'Total Planned', value: totalPlanned, color: 'text-violet-600', sub: 'pipes across all orders' },
             { label: 'Produced (Final Testing)', value: totalProduced, color: 'text-emerald-600', sub: 'pipes completed' },
-            { label: 'Expected from Spinning', value: totalExpectedCore, color: 'text-blue-600', sub: 'pipes (cement limited)' },
+            { label: 'Expected Pipes (Spinning)', value: totalExpectedCore, color: 'text-blue-600', sub: 'pipes (cement limited)' },
           ].map(c => (
             <div key={c.label} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-center">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 mb-1">{c.label}</p>
@@ -212,7 +212,7 @@ export default function ProductionAnalysisPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-left border-b border-gray-200">
-                  {['Pipe Type','Status','Planned','Produced','Spinning kg/pipe','Coating kg/pipe','Expected (Spinning)','Expected (Coating)','Limiting'].map(h => (
+                  {['Pipe Type','Status','Planned','Produced','Spinning kg/pipe','Coating kg/pipe','Expected Pipes (Spinning)','Expected Pipes (Coating)','Limiting'].map(h => (
                     <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
