@@ -62,11 +62,11 @@ export default function ProductionAnalysisPage() {
   async function load(from = dateFrom, to = dateTo) {
     setLoading(true)
     try {
-      const [invRes, plannedRes, inProgressRes, wipRes, extData] = await Promise.all([
+      const [invRes, plannedRes, inProgressRes, stagesRes, extData] = await Promise.all([
         inventoryApi.getAllByOutlet(oid, undefined, 0, 1000),
         productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
         productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
-        productionEntryApi.getStageWipBulk('FINAL_TESTING'),
+        productionOrderApi.getAllStagesStock(),
         siloExtractionsApi.list(from, to),
       ])
 
@@ -80,13 +80,15 @@ export default function ProductionAnalysisPage() {
       setCoreBal(cBal)
       setCoatingBal(oBal)
 
-      // Current WIP at Final Testing stage per pipeConfigId (matches inventory stages dashboard)
+      // Current WIP at Final Testing stage per pipeConfigId (same source as inventory stages dashboard)
       const producedMap: Record<number, number> = {}
-      const wipItems: any[] = wipRes.data?.data ?? []
+      const stagesRows: any[] = stagesRes.data?.data ?? []
       let wipTotal = 0
-      wipItems.forEach((w: any) => {
-        producedMap[w.pipeConfigId] = w.available ?? 0
-        wipTotal += w.available ?? 0
+      stagesRows.forEach((r: any) => {
+        const configId = r.pipeConfigId ?? r.pipe_config_id
+        const ft = r.finalTesting ?? r.final_testing ?? 0
+        if (configId && ft > 0) producedMap[configId] = ft
+        wipTotal += ft
       })
       setTotalFinalTesting(wipTotal)
 
