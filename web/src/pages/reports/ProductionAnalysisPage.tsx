@@ -76,16 +76,16 @@ export default function ProductionAnalysisPage() {
         producedMap[key] = (producedMap[key] ?? 0) + (e.pipesCompleted ?? 0)
       })
 
-      // Cement per pipe from pipe configs materials
+      // Cement per pipe from pipe configs materials (stageType = SPINNING or COATING)
       const configs: any[] = configsRes.data?.data?.content ?? configsRes.data?.data ?? []
       const formulaMap: Record<number, { core: number; coating: number }> = {}
       configs.forEach((c: any) => {
         const materials: any[] = c.materials ?? []
-        const coreM    = materials.find((m: any) => m.materialName?.includes('CORE')    || m.product?.name?.includes('CORE'))
-        const coatingM = materials.find((m: any) => m.materialName?.includes('COATING') || m.product?.name?.includes('COATING'))
+        const spinningM = materials.find((m: any) => m.stageType === 'SPINNING')
+        const coatingM  = materials.find((m: any) => m.stageType === 'COATING')
         formulaMap[c.id] = {
-          core:    parseFloat(coreM?.quantityPerPipe    ?? 0),
-          coating: parseFloat(coatingM?.quantityPerPipe ?? 0),
+          core:    parseFloat(spinningM?.quantityPerPipe ?? 0),
+          coating: parseFloat(coatingM?.quantityPerPipe  ?? 0),
         }
       })
 
