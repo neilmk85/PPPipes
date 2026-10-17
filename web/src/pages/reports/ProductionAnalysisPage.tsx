@@ -49,13 +49,12 @@ export default function ProductionAnalysisPage() {
   async function load() {
     setLoading(true)
     try {
-      const [invRes, plannedRes, inProgressRes, entriesRes, extData, configsRes] = await Promise.all([
+      const [invRes, plannedRes, inProgressRes, entriesRes, extData] = await Promise.all([
         inventoryApi.getAllByOutlet(oid, undefined, 0, 1000),
         productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
         productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
         productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000 }),
         siloExtractionsApi.list(),
-        pipeConfigApi.getAll({ size: 200 }),
       ])
 
       // Silo balances from inventory (paginated: res.data.data.content)
@@ -76,10 +75,19 @@ export default function ProductionAnalysisPage() {
         producedMap[key] = (producedMap[key] ?? 0) + (e.pipesCompleted ?? 0)
       })
 
-      // Cement per pipe: find the specific silo cement material within each stage
-      const configs: any[] = configsRes.data?.data?.content ?? configsRes.data?.data ?? []
+      // Combine PLANNED + IN_PROGRESS orders
+      const activeOrders: any[] = [
+        ...(plannedRes.data?.data?.content    ?? plannedRes.data?.data    ?? []),
+        ...(inProgressRes.data?.data?.content ?? inProgressRes.data?.data ?? []),
+      ]
+
+      // Fetch each pipe config individually (GetByID includes materials; GetAll does not)
+      const uniqueConfigIds = [...new Set(activeOrders.map((o: any) => o.pipeConfigId ?? o.pipeConfig?.id).filter(Boolean))]
+      const configDetails = await Promise.all(uniqueConfigIds.map(id => pipeConfigApi.getById(id)))
       const formulaMap: Record<number, { core: number; coating: number }> = {}
-      configs.forEach((c: any) => {
+      configDetails.forEach((r: any) => {
+        const c = r.data?.data
+        if (!c) return
         const materials: any[] = c.materials ?? []
         const spinningM = materials.find((m: any) => m.materialProduct?.name === 'Silo CEMENT (CORE)')
         const coatingM  = materials.find((m: any) => m.materialProduct?.name === 'Silo CEMENT (COATING)')
@@ -89,11 +97,6 @@ export default function ProductionAnalysisPage() {
         }
       })
 
-      // Build order rows — combine PLANNED + IN_PROGRESS
-      const activeOrders: any[] = [
-        ...(plannedRes.data?.data?.content    ?? plannedRes.data?.data    ?? []),
-        ...(inProgressRes.data?.data?.content ?? inProgressRes.data?.data ?? []),
-      ]
       const rows: OrderRow[] = activeOrders.map((o: any) => {
         const configId = o.pipeConfigId ?? o.pipeConfig?.id
         const f = formulaMap[configId] ?? { core: 0, coating: 0 }
