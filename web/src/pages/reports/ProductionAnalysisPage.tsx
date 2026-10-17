@@ -147,12 +147,13 @@ export default function ProductionAnalysisPage() {
     <div className="min-h-screen bg-white">
       {/* Page header */}
       <div
-        className="px-6 pt-5 pb-6"
+        className="px-6 py-5"
         style={{ background: 'linear-gradient(160deg, #1e4d8c 0%, #2e6fc4 60%, #3a7fd4 100%)' }}
       >
-        {/* Top row: title + controls */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-6">
+
+          {/* Left: title */}
+          <div className="flex items-center gap-3 shrink-0">
             <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
               <Factory size={18} className="text-white" />
             </div>
@@ -164,7 +165,49 @@ export default function ProductionAnalysisPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Center: silo values */}
+          <div className="flex items-center justify-center gap-0 flex-1">
+            {/* CORE */}
+            <div className="text-center px-8">
+              <p className="text-[11px] text-white font-semibold tracking-wide uppercase">
+                Silo CEMENT (CORE) <span className="font-normal opacity-70">· Spinning</span>
+              </p>
+              {loading ? (
+                <div className="h-9 w-32 bg-white/20 rounded mt-1 animate-pulse mx-auto" />
+              ) : (
+                <>
+                  <p className="text-[36px] font-light text-white leading-tight tabular-nums">
+                    {fmt(coreBal)} <span className="text-sm font-normal">kg</span>
+                  </p>
+                  <p className="text-xs text-white tabular-nums">{(coreBal / 1000).toFixed(2)} MT</p>
+                </>
+              )}
+            </div>
+
+            {/* Thin vertical divider */}
+            <div className="w-px h-14 bg-white/30" />
+
+            {/* COATING */}
+            <div className="text-center px-8">
+              <p className="text-[11px] text-white font-semibold tracking-wide uppercase">
+                Silo CEMENT (COATING) <span className="font-normal opacity-70">· Coating</span>
+              </p>
+              {loading ? (
+                <div className="h-9 w-32 bg-white/20 rounded mt-1 animate-pulse mx-auto" />
+              ) : (
+                <>
+                  <p className="text-[36px] font-light text-white leading-tight tabular-nums">
+                    {fmt(coatingBal)} <span className="text-sm font-normal">kg</span>
+                  </p>
+                  <p className="text-xs text-white tabular-nums">{(coatingBal / 1000).toFixed(2)} MT</p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right: controls */}
+          <div className="flex items-center gap-3 shrink-0">
             <DateRangePicker
               fromDate={dateFrom}
               toDate={dateTo}
@@ -184,46 +227,7 @@ export default function ProductionAnalysisPage() {
               Refresh
             </button>
           </div>
-        </div>
 
-        {/* Silo balances — embedded in header, split by thin divider */}
-        <div className="flex items-center">
-          {/* CORE */}
-          <div className="flex-1 pr-6">
-            <p className="text-xs text-white font-semibold tracking-wide">
-              Silo CEMENT (CORE) <span className="font-normal opacity-70">· Spinning stage</span>
-            </p>
-            {loading ? (
-              <div className="h-10 w-40 bg-white/20 rounded mt-2 animate-pulse" />
-            ) : (
-              <>
-                <p className="text-[40px] font-light text-white leading-none tabular-nums mt-1">
-                  {fmt(coreBal)} <span className="text-base font-normal">kg</span>
-                </p>
-                <p className="text-sm text-white mt-1 tabular-nums">{(coreBal / 1000).toFixed(2)} MT</p>
-              </>
-            )}
-          </div>
-
-          {/* Thin vertical divider */}
-          <div className="w-px self-stretch bg-white/25 mx-2" />
-
-          {/* COATING */}
-          <div className="flex-1 pl-6">
-            <p className="text-xs text-white font-semibold tracking-wide">
-              Silo CEMENT (COATING) <span className="font-normal opacity-70">· Coating stage</span>
-            </p>
-            {loading ? (
-              <div className="h-10 w-40 bg-white/20 rounded mt-2 animate-pulse" />
-            ) : (
-              <>
-                <p className="text-[40px] font-light text-white leading-none tabular-nums mt-1">
-                  {fmt(coatingBal)} <span className="text-base font-normal">kg</span>
-                </p>
-                <p className="text-sm text-white mt-1 tabular-nums">{(coatingBal / 1000).toFixed(2)} MT</p>
-              </>
-            )}
-          </div>
         </div>
       </div>
 
