@@ -35,6 +35,15 @@ function pill(status: string) {
   return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">Planned</span>
 }
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function monthStartStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+
 export default function ProductionAnalysisPage() {
   const { outletId } = useAuthStore()
   const oid = outletId ?? 1
@@ -45,6 +54,8 @@ export default function ProductionAnalysisPage() {
   const [orders, setOrders]         = useState<OrderRow[]>([])
   const [extractions, setExtractions] = useState<SiloExtraction[]>([])
   const [updatedAt, setUpdatedAt]   = useState<string>('')
+  const [dateFrom, setDateFrom]     = useState<string>(monthStartStr())
+  const [dateTo, setDateTo]         = useState<string>(todayStr())
 
   async function load() {
     setLoading(true)
@@ -53,8 +64,8 @@ export default function ProductionAnalysisPage() {
         inventoryApi.getAllByOutlet(oid, undefined, 0, 1000),
         productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
         productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
-        productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000 }),
-        siloExtractionsApi.list(),
+        productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000, from: dateFrom, to: dateTo }),
+        siloExtractionsApi.list(dateFrom, dateTo),
       ])
 
       // Silo balances from inventory (paginated: res.data.data.content)
@@ -148,14 +159,34 @@ export default function ProductionAnalysisPage() {
               </p>
             </div>
           </div>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 font-medium">From</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="text-xs border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 font-medium">To</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                className="text-xs border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
+              />
+            </div>
+            <button
+              onClick={load}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              Apply
+            </button>
+          </div>
         </div>
       </div>
 
@@ -266,7 +297,7 @@ export default function ProductionAnalysisPage() {
             </table>
           </div>
           <p className="px-5 py-3 text-xs text-gray-500 border-t border-gray-100">
-            Expected = available cement ÷ kg per pipe. Limiting = whichever cement (Spinning or Coating) runs out first. Produced = pipes that reached Final Testing stage.
+            Expected = available cement ÷ kg per pipe. Limiting = whichever cement (Spinning or Coating) runs out first. Produced = pipes that reached Final Testing within the selected date range.
           </p>
         </div>
 
