@@ -166,38 +166,38 @@ export default function ProductionAnalysisPage() {
           {/* Center: silo values */}
           <div className="flex items-center justify-center gap-0 flex-1">
             {/* CORE */}
-            <div className="text-center px-8">
+            <div className="text-center px-12">
               <p className="text-[11px] text-white font-semibold tracking-wide uppercase">
                 Silo CEMENT (CORE) <span className="font-normal opacity-70">· Spinning</span>
               </p>
               {loading ? (
-                <div className="h-9 w-32 bg-white/20 rounded mt-1 animate-pulse mx-auto" />
+                <div className="h-10 w-36 bg-white/20 rounded mt-2 animate-pulse mx-auto" />
               ) : (
                 <>
-                  <p className="text-[36px] font-light text-white leading-tight tabular-nums">
+                  <p className="text-[38px] font-light text-white leading-tight tabular-nums mt-1">
                     {fmt(coreBal)} <span className="text-sm font-normal">kg</span>
                   </p>
-                  <p className="text-xs text-white tabular-nums">{(coreBal / 1000).toFixed(2)} MT</p>
+                  <p className="text-xs text-white/80 tabular-nums mt-0.5">{(coreBal / 1000).toFixed(2)} MT</p>
                 </>
               )}
             </div>
 
             {/* Thin vertical divider */}
-            <div className="w-px h-14 bg-white/30" />
+            <div className="w-px h-16 bg-white/30" />
 
             {/* COATING */}
-            <div className="text-center px-8">
+            <div className="text-center px-12">
               <p className="text-[11px] text-white font-semibold tracking-wide uppercase">
                 Silo CEMENT (COATING) <span className="font-normal opacity-70">· Coating</span>
               </p>
               {loading ? (
-                <div className="h-9 w-32 bg-white/20 rounded mt-1 animate-pulse mx-auto" />
+                <div className="h-10 w-36 bg-white/20 rounded mt-2 animate-pulse mx-auto" />
               ) : (
                 <>
-                  <p className="text-[36px] font-light text-white leading-tight tabular-nums">
+                  <p className="text-[38px] font-light text-white leading-tight tabular-nums mt-1">
                     {fmt(coatingBal)} <span className="text-sm font-normal">kg</span>
                   </p>
-                  <p className="text-xs text-white tabular-nums">{(coatingBal / 1000).toFixed(2)} MT</p>
+                  <p className="text-xs text-white/80 tabular-nums mt-0.5">{(coatingBal / 1000).toFixed(2)} MT</p>
                 </>
               )}
             </div>
@@ -232,18 +232,18 @@ export default function ProductionAnalysisPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Total Planned', value: totalPlanned, color: 'text-violet-600', sub: 'pipes across all orders' },
-            { label: 'Produced (Final Testing)', value: totalProduced, color: 'text-emerald-600', sub: 'pipes completed' },
-            { label: 'Expected Pipes (Spinning)', value: totalExpectedCore, color: 'text-blue-600', sub: 'pipes (cement limited)' },
+            { label: 'Total Planned',             value: totalPlanned,     accent: '#1e3a5f', sub: 'pipes across all active orders' },
+            { label: 'Produced (Final Testing)',   value: totalProduced,    accent: '#14434a', sub: 'pipes completed in date range'   },
+            { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore, accent: '#2d2d5e', sub: 'cement-limited capacity'         },
           ].map(c => (
-            <div key={c.label} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 mb-1">{c.label}</p>
+            <div key={c.label} className="bg-white rounded-xl p-5 text-center" style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10), 0 1.5px 6px 0 rgba(0,0,0,0.06)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">{c.label}</p>
               {loading ? (
                 <div className="h-9 w-24 bg-gray-100 rounded animate-pulse mx-auto" />
               ) : (
-                <p className={`text-3xl font-black tabular-nums ${c.color}`}>{fmt(c.value)}</p>
+                <p className="text-3xl font-black tabular-nums" style={{ color: c.accent }}>{fmt(c.value)}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">{c.sub}</p>
+              <p className="text-xs text-gray-400 mt-1.5">{c.sub}</p>
             </div>
           ))}
         </div>
