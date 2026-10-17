@@ -192,26 +192,38 @@ export default function ProductionAnalysisPage() {
 
 <div className="px-6 py-6 space-y-6">
 
-        {/* Silo balance cards */}
+        {/* Silo balance cards — weather-widget style */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm border-t-4 border-t-violet-600">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Silo CEMENT (CORE)</p>
-            {loading ? (
-              <div className="h-9 w-36 bg-gray-100 rounded animate-pulse" />
-            ) : (
-              <p className="text-3xl font-black text-violet-600 tabular-nums">{fmt(coreBal)} <span className="text-sm font-medium text-gray-500">kg</span></p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">Current inventory balance</p>
-          </div>
-          <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm border-t-4 border-t-blue-600">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Silo CEMENT (COATING)</p>
-            {loading ? (
-              <div className="h-9 w-36 bg-gray-100 rounded animate-pulse" />
-            ) : (
-              <p className="text-3xl font-black text-blue-600 tabular-nums">{fmt(coatingBal)} <span className="text-sm font-medium text-gray-500">kg</span></p>
-            )}
-            <p className="text-xs text-gray-500 mt-1">Current inventory balance</p>
-          </div>
+          {[
+            { label: 'Silo CEMENT (CORE)',    val: coreBal,    sub: 'Spinning stage',  icon: '🌀' },
+            { label: 'Silo CEMENT (COATING)', val: coatingBal, sub: 'Coating stage',   icon: '🎨' },
+          ].map(card => (
+            <div
+              key={card.label}
+              className="rounded-2xl p-5 flex flex-col justify-between"
+              style={{
+                background: 'linear-gradient(160deg, #1e4d8c 0%, #2e6fc4 60%, #3a7fd4 100%)',
+                minHeight: 148,
+              }}
+            >
+              <div>
+                <p className="text-[13px] font-semibold text-white/90 leading-tight">{card.label}</p>
+              </div>
+              <div className="mt-1">
+                {loading ? (
+                  <div className="h-10 w-32 bg-white/20 rounded animate-pulse" />
+                ) : (
+                  <p className="text-[42px] font-light text-white leading-none tabular-nums">
+                    {fmt(card.val)}
+                  </p>
+                )}
+              </div>
+              <div className="mt-2">
+                <p className="text-sm text-white/75">{card.icon} {card.sub}</p>
+                <p className="text-xs text-white/60 mt-0.5">Current inventory balance · kg</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Summary cards */}
