@@ -61,11 +61,11 @@ export default function ProductionAnalysisPage() {
   async function load(from = dateFrom, to = dateTo) {
     setLoading(true)
     try {
-      const [invRes, plannedRes, inProgressRes, entriesRes, extData] = await Promise.all([
+      const [invRes, plannedRes, inProgressRes, wipRes, extData] = await Promise.all([
         inventoryApi.getAllByOutlet(oid, undefined, 0, 1000),
         productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
         productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
-        productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000, from, to }),
+        productionEntryApi.getStageWipBulk('FINAL_TESTING'),
         siloExtractionsApi.list(from, to),
       ])
 
@@ -79,12 +79,11 @@ export default function ProductionAnalysisPage() {
       setCoreBal(cBal)
       setCoatingBal(oBal)
 
-      // Produced per pipeConfigId (FINAL_TESTING stage)
+      // Current WIP at Final Testing stage per pipeConfigId (matches inventory stages dashboard)
       const producedMap: Record<number, number> = {}
-      const entries: any[] = entriesRes.data?.data?.content ?? entriesRes.data?.data ?? []
-      entries.forEach((e: any) => {
-        const key = e.pipeConfigId
-        producedMap[key] = (producedMap[key] ?? 0) + (e.pipesCompleted ?? 0)
+      const wipItems: any[] = wipRes.data?.data ?? []
+      wipItems.forEach((w: any) => {
+        producedMap[w.pipeConfigId] = w.available ?? 0
       })
 
       // Combine PLANNED + IN_PROGRESS orders
@@ -233,7 +232,7 @@ export default function ProductionAnalysisPage() {
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: 'Total Planned',             value: totalPlanned,      sub: 'pipes across all active orders' },
-            { label: 'Produced (Final Testing)',   value: totalProduced,     sub: 'pipes completed in date range'  },
+            { label: 'In Final Testing',           value: totalProduced,     sub: 'pipes currently at this stage'  },
             { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore, sub: 'cement-limited capacity'        },
           ].map(c => (
             <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: '#F4F4F6', boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -312,7 +311,7 @@ export default function ProductionAnalysisPage() {
             </table>
           </div>
           <p className="px-5 py-3 text-xs text-gray-500 border-t border-gray-100">
-            Expected = available cement ÷ kg per pipe. Limiting = whichever cement (Spinning or Coating) runs out first. Produced = pipes that reached Final Testing within the selected date range.
+            Expected = available cement ÷ kg per pipe. Limiting = whichever cement (Spinning or Coating) runs out first. Produced = current WIP count at Final Testing stage.
           </p>
         </div>
 
