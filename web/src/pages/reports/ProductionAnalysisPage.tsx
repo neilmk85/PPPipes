@@ -135,7 +135,7 @@ export default function ProductionAnalysisPage() {
     <div className="min-h-screen bg-white">
       {/* Page header */}
       <div className="bg-white border-b border-gray-200 px-6 py-5">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
               <Factory size={18} className="text-violet-600" />
@@ -159,7 +159,7 @@ export default function ProductionAnalysisPage() {
         </div>
       </div>
 
-<div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+<div className="px-6 py-6 space-y-6">
 
         {/* Silo balance cards */}
         <div className="grid grid-cols-2 gap-4">
