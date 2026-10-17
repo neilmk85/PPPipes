@@ -49,14 +49,15 @@ export default function ProductionAnalysisPage() {
   const { outletId } = useAuthStore()
   const oid = outletId ?? 1
 
-  const [loading, setLoading]       = useState(true)
-  const [coreBal, setCoreBal]       = useState<number>(0)
-  const [coatingBal, setCoatingBal] = useState<number>(0)
-  const [orders, setOrders]         = useState<OrderRow[]>([])
-  const [extractions, setExtractions] = useState<SiloExtraction[]>([])
-  const [updatedAt, setUpdatedAt]   = useState<string>('')
-  const [dateFrom, setDateFrom]     = useState<string>(todayStr())
-  const [dateTo, setDateTo]         = useState<string>(todayStr())
+  const [loading, setLoading]           = useState(true)
+  const [coreBal, setCoreBal]           = useState<number>(0)
+  const [coatingBal, setCoatingBal]     = useState<number>(0)
+  const [orders, setOrders]             = useState<OrderRow[]>([])
+  const [totalFinalTesting, setTotalFinalTesting] = useState<number>(0)
+  const [extractions, setExtractions]   = useState<SiloExtraction[]>([])
+  const [updatedAt, setUpdatedAt]       = useState<string>('')
+  const [dateFrom, setDateFrom]         = useState<string>(todayStr())
+  const [dateTo, setDateTo]             = useState<string>(todayStr())
 
   async function load(from = dateFrom, to = dateTo) {
     setLoading(true)
@@ -82,9 +83,12 @@ export default function ProductionAnalysisPage() {
       // Current WIP at Final Testing stage per pipeConfigId (matches inventory stages dashboard)
       const producedMap: Record<number, number> = {}
       const wipItems: any[] = wipRes.data?.data ?? []
+      let wipTotal = 0
       wipItems.forEach((w: any) => {
         producedMap[w.pipeConfigId] = w.available ?? 0
+        wipTotal += w.available ?? 0
       })
+      setTotalFinalTesting(wipTotal)
 
       // Combine PLANNED + IN_PROGRESS orders
       const activeOrders: any[] = [
@@ -133,8 +137,7 @@ export default function ProductionAnalysisPage() {
 
   useEffect(() => { load() }, [])
 
-  const totalPlanned  = orders.reduce((s, o) => s + o.plannedQty, 0)
-  const totalProduced = orders.reduce((s, o) => s + o.produced, 0)
+  const totalPlanned = orders.reduce((s, o) => s + o.plannedQty, 0)
 
   // Expected pipes = min(core / corePerPipe, coating / coatingPerPipe) per order — summed
   const totalExpectedCore = orders.reduce((s, o) => {
@@ -232,7 +235,7 @@ export default function ProductionAnalysisPage() {
         <div className="grid grid-cols-3 gap-4">
           {[
             { label: 'Total Planned',             value: totalPlanned,      sub: 'pipes across all active orders' },
-            { label: 'In Final Testing',           value: totalProduced,     sub: 'pipes currently at this stage'  },
+            { label: 'In Final Testing',           value: totalFinalTesting, sub: 'pipes currently at this stage'  },
             { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore, sub: 'cement-limited capacity'        },
           ].map(c => (
             <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: '#F4F4F6', boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
