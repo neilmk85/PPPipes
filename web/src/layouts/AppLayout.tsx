@@ -22,6 +22,7 @@ interface NavItem {
   permission?: string
   highlight?: boolean
   disabled?: boolean
+  external?: boolean
 }
 
 interface NavGroup {
@@ -154,6 +155,7 @@ const navEntries: NavEntry[] = [
       { path: '/reports/transport',         icon: <FileBarChart2 size={14} />,  label: 'Transport',           permission: 'VIEW_TRANSPORT_REPORT' },
       { path: '/reports/ledger',            icon: <FileText size={14} />,       label: 'Ledger',              permission: 'VIEW_LEDGER_REPORT' },
       { path: '/reports/tds',               icon: <Receipt size={14} />,        label: 'TDS',                 permission: 'VIEW_GST_REPORT' },
+      { path: '/cement-report.html',         icon: <Factory size={14} />,        label: 'Production Analysis', permission: 'VIEW_REPORTS', external: true },
     ],
   },
   { path: '/activity-logs', icon: <Activity size={18} />, label: 'Activity Logs', permission: 'VIEW_ACTIVITY_LOGS' },
@@ -262,21 +264,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )
     }
 
-    return (
-      <Link
-        key={item.path}
-        to={item.path}
-        title={!isExpanded ? item.label : undefined}
-        className={`group relative flex items-center gap-3 rounded-lg mb-0.5 transition-all duration-150 ${
-          indent ? 'px-2.5 py-1.5' : 'px-3 py-2.5 mx-2'
-        } ${
-          active
-            ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-sm shadow-violet-200'
-            : indent
-              ? 'text-gray-500 hover:bg-violet-50 hover:text-violet-700'
-              : 'text-gray-500 hover:bg-violet-50 hover:text-violet-700'
-        }`}
-      >
+    const navClassName = `group relative flex items-center gap-3 rounded-lg mb-0.5 transition-all duration-150 ${
+      indent ? 'px-2.5 py-1.5' : 'px-3 py-2.5 mx-2'
+    } ${
+      active
+        ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-sm shadow-violet-200'
+        : indent
+          ? 'text-gray-500 hover:bg-violet-50 hover:text-violet-700'
+          : 'text-gray-500 hover:bg-violet-50 hover:text-violet-700'
+    }`
+
+    const navContent = (
+      <>
         {active && (
           <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-white/60" />
         )}
@@ -288,6 +287,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {item.label}
           </span>
         )}
+      </>
+    )
+
+    if (item.external) {
+      return (
+        <a key={item.path} href={item.path} target="_blank" rel="noopener noreferrer"
+          title={!isExpanded ? item.label : undefined} className={navClassName}>
+          {navContent}
+        </a>
+      )
+    }
+
+    return (
+      <Link key={item.path} to={item.path} title={!isExpanded ? item.label : undefined} className={navClassName}>
+        {navContent}
       </Link>
     )
   }
