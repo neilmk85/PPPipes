@@ -76,13 +76,13 @@ export default function ProductionAnalysisPage() {
         producedMap[key] = (producedMap[key] ?? 0) + (e.pipesCompleted ?? 0)
       })
 
-      // Cement per pipe from pipe configs materials (stageType = SPINNING or COATING)
+      // Cement per pipe: find the specific silo cement material within each stage
       const configs: any[] = configsRes.data?.data?.content ?? configsRes.data?.data ?? []
       const formulaMap: Record<number, { core: number; coating: number }> = {}
       configs.forEach((c: any) => {
         const materials: any[] = c.materials ?? []
-        const spinningM = materials.find((m: any) => m.stageType === 'SPINNING')
-        const coatingM  = materials.find((m: any) => m.stageType === 'COATING')
+        const spinningM = materials.find((m: any) => m.materialProduct?.name === 'Silo CEMENT (CORE)')
+        const coatingM  = materials.find((m: any) => m.materialProduct?.name === 'Silo CEMENT (COATING)')
         formulaMap[c.id] = {
           core:    parseFloat(spinningM?.quantityPerPipe ?? 0),
           coating: parseFloat(coatingM?.quantityPerPipe  ?? 0),
