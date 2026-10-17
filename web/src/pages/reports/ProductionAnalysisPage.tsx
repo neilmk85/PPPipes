@@ -55,7 +55,7 @@ export default function ProductionAnalysisPage() {
   const [orders, setOrders]         = useState<OrderRow[]>([])
   const [extractions, setExtractions] = useState<SiloExtraction[]>([])
   const [updatedAt, setUpdatedAt]   = useState<string>('')
-  const [dateFrom, setDateFrom]     = useState<string>(monthStartStr())
+  const [dateFrom, setDateFrom]     = useState<string>(todayStr())
   const [dateTo, setDateTo]         = useState<string>(todayStr())
 
   async function load(from = dateFrom, to = dateTo) {
@@ -147,10 +147,11 @@ export default function ProductionAnalysisPage() {
     <div className="min-h-screen bg-white">
       {/* Page header */}
       <div
-        className="px-6 py-5"
+        className="px-6 pt-5 pb-6"
         style={{ background: 'linear-gradient(160deg, #1e4d8c 0%, #2e6fc4 60%, #3a7fd4 100%)' }}
       >
-        <div className="flex items-center justify-between">
+        {/* Top row: title + controls */}
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
               <Factory size={18} className="text-white" />
@@ -184,44 +185,49 @@ export default function ProductionAnalysisPage() {
             </button>
           </div>
         </div>
+
+        {/* Silo balances — embedded in header, split by thin divider */}
+        <div className="flex items-center">
+          {/* CORE */}
+          <div className="flex-1 pr-6">
+            <p className="text-xs text-white font-semibold tracking-wide">
+              Silo CEMENT (CORE) <span className="font-normal opacity-70">· Spinning stage</span>
+            </p>
+            {loading ? (
+              <div className="h-10 w-40 bg-white/20 rounded mt-2 animate-pulse" />
+            ) : (
+              <>
+                <p className="text-[40px] font-light text-white leading-none tabular-nums mt-1">
+                  {fmt(coreBal)} <span className="text-base font-normal">kg</span>
+                </p>
+                <p className="text-sm text-white mt-1 tabular-nums">{(coreBal / 1000).toFixed(2)} MT</p>
+              </>
+            )}
+          </div>
+
+          {/* Thin vertical divider */}
+          <div className="w-px self-stretch bg-white/25 mx-2" />
+
+          {/* COATING */}
+          <div className="flex-1 pl-6">
+            <p className="text-xs text-white font-semibold tracking-wide">
+              Silo CEMENT (COATING) <span className="font-normal opacity-70">· Coating stage</span>
+            </p>
+            {loading ? (
+              <div className="h-10 w-40 bg-white/20 rounded mt-2 animate-pulse" />
+            ) : (
+              <>
+                <p className="text-[40px] font-light text-white leading-none tabular-nums mt-1">
+                  {fmt(coatingBal)} <span className="text-base font-normal">kg</span>
+                </p>
+                <p className="text-sm text-white mt-1 tabular-nums">{(coatingBal / 1000).toFixed(2)} MT</p>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
-<div className="px-6 py-6 space-y-6">
-
-        {/* Silo balance cards — weather-widget style */}
-        <div className="grid grid-cols-2 gap-4">
-          {[
-            { label: 'Silo CEMENT (CORE)',    val: coreBal,    sub: 'Spinning stage'  },
-            { label: 'Silo CEMENT (COATING)', val: coatingBal, sub: 'Coating stage'   },
-          ].map(card => (
-            <div
-              key={card.label}
-              className="rounded-2xl p-5 flex flex-col justify-between"
-              style={{
-                background: 'linear-gradient(160deg, #1e4d8c 0%, #2e6fc4 60%, #3a7fd4 100%)',
-                minHeight: 148,
-              }}
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-[13px] font-semibold text-white leading-tight">{card.label}</p>
-                <span className="text-[11px] text-white font-normal opacity-80">· {card.sub}</span>
-              </div>
-              <div className="mt-1">
-                {loading ? (
-                  <div className="h-10 w-32 bg-white/20 rounded animate-pulse" />
-                ) : (
-                  <p className="text-[42px] font-light text-white leading-none tabular-nums">
-                    {fmt(card.val)} <span className="text-lg font-normal">kg</span>
-                  </p>
-                )}
-                {!loading && (
-                  <p className="text-sm text-white mt-1 tabular-nums">{(card.val / 1000).toFixed(2)} MT</p>
-                )}
-              </div>
-              <div className="mt-2" />
-            </div>
-          ))}
-        </div>
+      <div className="px-6 py-6 space-y-6">
 
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-4">
