@@ -49,16 +49,17 @@ export default function ProductionAnalysisPage() {
   async function load() {
     setLoading(true)
     try {
-      const [invRes, ordersRes, entriesRes, extRes, configsRes] = await Promise.all([
+      const [invRes, plannedRes, inProgressRes, entriesRes, extData, configsRes] = await Promise.all([
         inventoryApi.getAllByOutlet(oid, undefined, 0, 200),
-        productionOrderApi.getAll({ status: 'PLANNED,IN_PROGRESS', size: 100 }),
-        productionEntryApi.getAll({ size: 500 }),
+        productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
+        productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
+        productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000 }),
         siloExtractionsApi.list(),
         pipeConfigApi.getAll({ size: 200 }),
       ])
 
-      // Silo balances from inventory
-      const items: any[] = invRes.data?.data ?? invRes.data ?? []
+      // Silo balances from inventory (paginated: res.data.data.content)
+      const items: any[] = invRes.data?.data?.content ?? invRes.data?.data ?? []
       const core    = items.find((i: any) => i.product?.name === 'Silo CEMENT (CORE)'    || i.name === 'Silo CEMENT (CORE)')
       const coating = items.find((i: any) => i.product?.name === 'Silo CEMENT (COATING)' || i.name === 'Silo CEMENT (COATING)')
       const cBal = parseFloat(core?.quantityOnHand    ?? core?.quantity_on_hand    ?? 0)
@@ -68,16 +69,14 @@ export default function ProductionAnalysisPage() {
 
       // Produced per pipeConfigId (FINAL_TESTING stage)
       const producedMap: Record<number, number> = {}
-      const entries: any[] = entriesRes.data?.data ?? entriesRes.data ?? []
+      const entries: any[] = entriesRes.data?.data?.content ?? entriesRes.data?.data ?? []
       entries.forEach((e: any) => {
-        if (e.stageType === 'FINAL_TESTING') {
-          const key = e.pipeConfigId
-          producedMap[key] = (producedMap[key] ?? 0) + (e.pipesCompleted ?? 0)
-        }
+        const key = e.pipeConfigId
+        producedMap[key] = (producedMap[key] ?? 0) + (e.pipesCompleted ?? 0)
       })
 
       // Cement per pipe from pipe configs materials
-      const configs: any[] = configsRes.data?.data ?? configsRes.data ?? []
+      const configs: any[] = configsRes.data?.data?.content ?? configsRes.data?.data ?? []
       const formulaMap: Record<number, { core: number; coating: number }> = {}
       configs.forEach((c: any) => {
         const materials: any[] = c.materials ?? []
@@ -89,8 +88,11 @@ export default function ProductionAnalysisPage() {
         }
       })
 
-      // Build order rows
-      const activeOrders: any[] = ordersRes.data?.data ?? ordersRes.data ?? []
+      // Build order rows — combine PLANNED + IN_PROGRESS
+      const activeOrders: any[] = [
+        ...(plannedRes.data?.data?.content    ?? plannedRes.data?.data    ?? []),
+        ...(inProgressRes.data?.data?.content ?? inProgressRes.data?.data ?? []),
+      ]
       const rows: OrderRow[] = activeOrders.map((o: any) => {
         const configId = o.pipeConfigId ?? o.pipeConfig?.id
         const f = formulaMap[configId] ?? { core: 0, coating: 0 }
@@ -105,7 +107,7 @@ export default function ProductionAnalysisPage() {
         }
       })
       setOrders(rows)
-      setExtractions(extRes ?? [])
+      setExtractions(extData ?? [])
       setUpdatedAt(new Date().toLocaleTimeString('en-IN'))
     } catch (e: any) {
       toast.error('Failed to load production analysis data')
