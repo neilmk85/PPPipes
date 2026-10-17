@@ -232,16 +232,16 @@ export default function ProductionAnalysisPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Total Planned',             value: totalPlanned,     accent: '#1e3a5f', sub: 'pipes across all active orders' },
-            { label: 'Produced (Final Testing)',   value: totalProduced,    accent: '#14434a', sub: 'pipes completed in date range'   },
-            { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore, accent: '#2d2d5e', sub: 'cement-limited capacity'         },
+            { label: 'Total Planned',             value: totalPlanned,      sub: 'pipes across all active orders' },
+            { label: 'Produced (Final Testing)',   value: totalProduced,     sub: 'pipes completed in date range'  },
+            { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore, sub: 'cement-limited capacity'        },
           ].map(c => (
-            <div key={c.label} className="bg-white rounded-xl p-5 text-center" style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10), 0 1.5px 6px 0 rgba(0,0,0,0.06)' }}>
+            <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: '#F4F4F6' }}>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-2">{c.label}</p>
               {loading ? (
-                <div className="h-9 w-24 bg-gray-100 rounded animate-pulse mx-auto" />
+                <div className="h-9 w-24 rounded animate-pulse mx-auto" style={{ background: '#E4E4E8' }} />
               ) : (
-                <p className="text-3xl font-black tabular-nums" style={{ color: c.accent }}>{fmt(c.value)}</p>
+                <p className="text-3xl font-black tabular-nums text-gray-900">{fmt(c.value)}</p>
               )}
               <p className="text-xs text-gray-400 mt-1.5">{c.sub}</p>
             </div>
