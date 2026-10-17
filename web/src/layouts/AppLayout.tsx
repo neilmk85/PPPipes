@@ -155,7 +155,7 @@ const navEntries: NavEntry[] = [
       { path: '/reports/transport',         icon: <FileBarChart2 size={14} />,  label: 'Transport',           permission: 'VIEW_TRANSPORT_REPORT' },
       { path: '/reports/ledger',            icon: <FileText size={14} />,       label: 'Ledger',              permission: 'VIEW_LEDGER_REPORT' },
       { path: '/reports/tds',               icon: <Receipt size={14} />,        label: 'TDS',                 permission: 'VIEW_GST_REPORT' },
-      { path: '/cement-report.html',         icon: <Factory size={14} />,        label: 'Production Analysis', permission: 'VIEW_REPORTS', external: true },
+      { path: '/reports/production-analysis', icon: <Factory size={14} />,        label: 'Production Analysis', permission: 'VIEW_REPORTS' },
     ],
   },
   { path: '/activity-logs', icon: <Activity size={18} />, label: 'Activity Logs', permission: 'VIEW_ACTIVITY_LOGS' },

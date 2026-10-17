@@ -16,6 +16,7 @@ import PaymentReportPage from '@/pages/reports/PaymentReportPage'
 import CreditorsReportPage from '@/pages/reports/CreditorsReportPage'
 import LedgerReportPage from '@/pages/reports/LedgerReportPage'
 import TDSReportPage from '@/pages/reports/TDSReportPage'
+import ProductionAnalysisPage from '@/pages/reports/ProductionAnalysisPage'
 import DayBookPage from '@/pages/reports/DayBookPage'
 import StockStatementPage from '@/pages/reports/StockStatementPage'
 import HSNReportPage from '@/pages/reports/HSNReportPage'
@@ -206,6 +207,7 @@ export default function App() {
           <Route path="/reports/creditors" element={<ProtectedRoute><CreditorsReportPage /></ProtectedRoute>} />
           <Route path="/reports/ledger" element={<ProtectedRoute><LedgerReportPage /></ProtectedRoute>} />
           <Route path="/reports/tds" element={<ProtectedRoute><TDSReportPage /></ProtectedRoute>} />
+          <Route path="/reports/production-analysis" element={<ProtectedRoute><ProductionAnalysisPage /></ProtectedRoute>} />
           <Route path="/reports/daybook" element={<ProtectedRoute><DayBookPage /></ProtectedRoute>} />
           <Route path="/reports/stock-statement" element={<ProtectedRoute><StockStatementPage /></ProtectedRoute>} />
           <Route path="/reports/hsn" element={<ProtectedRoute><HSNReportPage /></ProtectedRoute>} />
