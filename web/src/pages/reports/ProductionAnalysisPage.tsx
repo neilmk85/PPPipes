@@ -195,8 +195,8 @@ export default function ProductionAnalysisPage() {
         {/* Silo balance cards — weather-widget style */}
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: 'Silo CEMENT (CORE)',    val: coreBal,    sub: 'Spinning stage',  icon: '🌀' },
-            { label: 'Silo CEMENT (COATING)', val: coatingBal, sub: 'Coating stage',   icon: '🎨' },
+            { label: 'Silo CEMENT (CORE)',    val: coreBal,    sub: 'Spinning stage'  },
+            { label: 'Silo CEMENT (COATING)', val: coatingBal, sub: 'Coating stage'   },
           ].map(card => (
             <div
               key={card.label}
@@ -207,7 +207,7 @@ export default function ProductionAnalysisPage() {
               }}
             >
               <div>
-                <p className="text-[13px] font-semibold text-white/90 leading-tight">{card.label}</p>
+                <p className="text-[13px] font-semibold text-white leading-tight">{card.label}</p>
               </div>
               <div className="mt-1">
                 {loading ? (
@@ -219,8 +219,8 @@ export default function ProductionAnalysisPage() {
                 )}
               </div>
               <div className="mt-2">
-                <p className="text-sm text-white/75">{card.icon} {card.sub}</p>
-                <p className="text-xs text-white/60 mt-0.5">Current inventory balance · kg</p>
+                <p className="text-sm text-white">{card.sub}</p>
+                <p className="text-xs text-white mt-0.5">Current inventory balance · kg</p>
               </div>
             </div>
           ))}
