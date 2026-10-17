@@ -214,13 +214,15 @@ export default function ProductionAnalysisPage() {
                   <div className="h-10 w-32 bg-white/20 rounded animate-pulse" />
                 ) : (
                   <p className="text-[42px] font-light text-white leading-none tabular-nums">
-                    {fmt(card.val)}
+                    {fmt(card.val)} <span className="text-lg font-normal">kg</span>
                   </p>
+                )}
+                {!loading && (
+                  <p className="text-sm text-white mt-1 tabular-nums">{(card.val / 1000).toFixed(2)} MT</p>
                 )}
               </div>
               <div className="mt-2">
                 <p className="text-sm text-white">{card.sub}</p>
-                <p className="text-xs text-white mt-0.5">Current inventory balance · kg</p>
               </div>
             </div>
           ))}
