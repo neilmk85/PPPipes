@@ -211,9 +211,19 @@ export default function ProductionAnalysisPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 text-left border-b border-gray-200">
-                  {['Pipe Type','Status','Planned','Produced','Spinning kg/pipe','Coating kg/pipe','Expected Pipes (Spinning)','Expected Pipes (Coating)','Limiting'].map(h => (
-                    <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">{h}</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  {[
+                    { label: 'Pipe Type',                  align: 'text-left'  },
+                    { label: 'Status',                     align: 'text-left'  },
+                    { label: 'Planned',                    align: 'text-right' },
+                    { label: 'Produced',                   align: 'text-right' },
+                    { label: 'Spinning kg/pipe',           align: 'text-right' },
+                    { label: 'Coating kg/pipe',            align: 'text-right' },
+                    { label: 'Expected Pipes (Spinning)',  align: 'text-right' },
+                    { label: 'Expected Pipes (Coating)',   align: 'text-right' },
+                    { label: 'Limiting',                   align: 'text-right' },
+                  ].map(({ label, align }) => (
+                    <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
                 </tr>
               </thead>
@@ -230,8 +240,8 @@ export default function ProductionAnalysisPage() {
                   const isCoreLimiting = expCore != null && expCoating != null && expCore <= expCoating
                   return (
                     <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">{o.pipeType}</td>
-                      <td className="px-4 py-3">{pill(o.status)}</td>
+                      <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap text-left">{o.pipeType}</td>
+                      <td className="px-4 py-3 text-left">{pill(o.status)}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{fmt(o.plannedQty)}</td>
                       <td className="px-4 py-3 tabular-nums text-right">
                         {o.produced > 0
