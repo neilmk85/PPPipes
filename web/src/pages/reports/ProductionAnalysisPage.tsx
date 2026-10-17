@@ -45,6 +45,7 @@ export default function ProductionAnalysisPage() {
   const [orders, setOrders]         = useState<OrderRow[]>([])
   const [extractions, setExtractions] = useState<SiloExtraction[]>([])
   const [updatedAt, setUpdatedAt]   = useState<string>('')
+  const [dbg, setDbg]               = useState<string>('')
 
   async function load() {
     setLoading(true)
@@ -61,10 +62,10 @@ export default function ProductionAnalysisPage() {
       // Silo balances from inventory (paginated: res.data.data.content)
       const rawInv = invRes.data?.data
       const items: any[] = Array.isArray(rawInv) ? rawInv : (rawInv?.content ?? rawInv?.items ?? [])
-      console.log('[PA] inv items count:', items.length, 'rawInv keys:', rawInv ? Object.keys(rawInv) : 'null')
+      const firstNames = items.slice(0, 3).map((i: any) => i.product?.name ?? i.name ?? '?').join(', ')
+      setDbg(`items:${items.length} keys:${rawInv ? Object.keys(rawInv).join(',') : 'null'} first:[${firstNames}]`)
       const core    = items.find((i: any) => i.product?.name === 'Silo CEMENT (CORE)'    || i.name === 'Silo CEMENT (CORE)')
       const coating = items.find((i: any) => i.product?.name === 'Silo CEMENT (COATING)' || i.name === 'Silo CEMENT (COATING)')
-      console.log('[PA] core:', core?.product?.name, core?.quantityOnHand, 'coating:', coating?.product?.name, coating?.quantityOnHand)
       const cBal = parseFloat(core?.quantityOnHand    ?? core?.quantity_on_hand    ?? 0)
       const oBal = parseFloat(coating?.quantityOnHand ?? coating?.quantity_on_hand ?? 0)
       setCoreBal(cBal)
@@ -157,6 +158,8 @@ export default function ProductionAnalysisPage() {
           </button>
         </div>
       </div>
+
+      {dbg && <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-xs font-mono text-yellow-800 break-all">{dbg}</div>}
 
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
 
