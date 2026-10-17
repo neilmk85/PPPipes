@@ -45,13 +45,12 @@ export default function ProductionAnalysisPage() {
   const [orders, setOrders]         = useState<OrderRow[]>([])
   const [extractions, setExtractions] = useState<SiloExtraction[]>([])
   const [updatedAt, setUpdatedAt]   = useState<string>('')
-  const [dbg, setDbg]               = useState<string>('')
 
   async function load() {
     setLoading(true)
     try {
       const [invRes, plannedRes, inProgressRes, entriesRes, extData, configsRes] = await Promise.all([
-        inventoryApi.getAllByOutlet(oid, undefined, 0, 200),
+        inventoryApi.getAllByOutlet(oid, undefined, 0, 1000),
         productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
         productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
         productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000 }),
@@ -62,8 +61,6 @@ export default function ProductionAnalysisPage() {
       // Silo balances from inventory (paginated: res.data.data.content)
       const rawInv = invRes.data?.data
       const items: any[] = Array.isArray(rawInv) ? rawInv : (rawInv?.content ?? rawInv?.items ?? [])
-      const firstNames = items.slice(0, 3).map((i: any) => i.product?.name ?? i.name ?? '?').join(', ')
-      setDbg(`items:${items.length} keys:${rawInv ? Object.keys(rawInv).join(',') : 'null'} first:[${firstNames}]`)
       const core    = items.find((i: any) => i.product?.name === 'Silo CEMENT (CORE)'    || i.name === 'Silo CEMENT (CORE)')
       const coating = items.find((i: any) => i.product?.name === 'Silo CEMENT (COATING)' || i.name === 'Silo CEMENT (COATING)')
       const cBal = parseFloat(core?.quantityOnHand    ?? core?.quantity_on_hand    ?? 0)
@@ -159,9 +156,7 @@ export default function ProductionAnalysisPage() {
         </div>
       </div>
 
-      {dbg && <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-2 text-xs font-mono text-yellow-800 break-all">{dbg}</div>}
-
-      <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+<div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
 
         {/* Silo balance cards */}
         <div className="grid grid-cols-2 gap-4">
