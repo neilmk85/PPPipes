@@ -206,8 +206,9 @@ export default function ProductionAnalysisPage() {
                 minHeight: 148,
               }}
             >
-              <div>
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-[13px] font-semibold text-white leading-tight">{card.label}</p>
+                <span className="text-[11px] text-white font-normal opacity-80">· {card.sub}</span>
               </div>
               <div className="mt-1">
                 {loading ? (
@@ -221,9 +222,7 @@ export default function ProductionAnalysisPage() {
                   <p className="text-sm text-white mt-1 tabular-nums">{(card.val / 1000).toFixed(2)} MT</p>
                 )}
               </div>
-              <div className="mt-2">
-                <p className="text-sm text-white">{card.sub}</p>
-              </div>
+              <div className="mt-2" />
             </div>
           ))}
         </div>
