@@ -159,10 +159,7 @@ export default function ProductionAnalysisPage() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">Production Analysis</h1>
-              <p className="text-xs text-white/75 mt-0.5">
-                Cement availability vs pipe production
-                {updatedAt && <span className="ml-2 text-white/50">· Updated {updatedAt}</span>}
-              </p>
+              <p className="text-xs text-white/75 mt-0.5">Cement availability vs pipe production</p>
             </div>
           </div>
 
@@ -221,10 +218,9 @@ export default function ProductionAnalysisPage() {
             <button
               onClick={() => load()}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 border border-white/25 text-white text-xs font-semibold hover:bg-white/25 disabled:opacity-50 transition-colors backdrop-blur-sm"
+              className="p-2 rounded-xl bg-white/15 border border-white/25 text-white hover:bg-white/25 disabled:opacity-50 transition-colors backdrop-blur-sm"
             >
-              {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              Refresh
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
             </button>
           </div>
 
