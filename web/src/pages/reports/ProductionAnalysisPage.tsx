@@ -185,7 +185,7 @@ export default function ProductionAnalysisPage() {
           {[
             { label: 'Total Planned', value: totalPlanned, color: 'text-violet-600', sub: 'pipes across all orders' },
             { label: 'Produced (Final Testing)', value: totalProduced, color: 'text-emerald-600', sub: 'pipes completed' },
-            { label: 'Expected from CORE', value: totalExpectedCore, color: 'text-blue-600', sub: 'pipes (cement limited)' },
+            { label: 'Expected from Spinning', value: totalExpectedCore, color: 'text-blue-600', sub: 'pipes (cement limited)' },
           ].map(c => (
             <div key={c.label} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-center">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 mb-1">{c.label}</p>
@@ -209,7 +209,7 @@ export default function ProductionAnalysisPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-left border-b border-gray-200">
-                  {['Pipe Type','Status','Planned','Produced','CORE kg/pipe','COATING kg/pipe','Expected (CORE)','Expected (COATING)','Limiting'].map(h => (
+                  {['Pipe Type','Status','Planned','Produced','Spinning kg/pipe','Coating kg/pipe','Expected (Spinning)','Expected (Coating)','Limiting'].map(h => (
                     <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -242,7 +242,7 @@ export default function ProductionAnalysisPage() {
                       <td className="px-4 py-3 text-right">
                         {expCore != null && expCoating != null
                           ? <span className={`font-bold ${isCoreLimiting ? 'text-violet-600' : 'text-blue-600'}`}>
-                              {isCoreLimiting ? 'CORE' : 'COATING'}
+                              {isCoreLimiting ? 'Spinning' : 'Coating'}
                             </span>
                           : <span className="text-gray-400">—</span>}
                       </td>
@@ -253,7 +253,7 @@ export default function ProductionAnalysisPage() {
             </table>
           </div>
           <p className="px-5 py-3 text-xs text-gray-500 border-t border-gray-100">
-            Expected = available cement ÷ cement per pipe. Limiting = whichever silo runs out first. Produced = pipes that reached Final Testing stage.
+            Expected = available cement ÷ kg per pipe. Limiting = whichever cement (Spinning or Coating) runs out first. Produced = pipes that reached Final Testing stage.
           </p>
         </div>
 
