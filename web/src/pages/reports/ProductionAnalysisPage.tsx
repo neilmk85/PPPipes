@@ -3,6 +3,7 @@ import { RefreshCw, Factory, Loader2, FlaskConical } from 'lucide-react'
 import { inventoryApi, productionOrderApi, productionEntryApi, pipeConfigApi } from '@/services/api'
 import { siloExtractionsApi } from '@/services/businessApi'
 import { useAuthStore } from '@/store/authStore'
+import { DateRangePicker } from '@/components/DateRangePicker'
 import toast from 'react-hot-toast'
 
 interface OrderRow {
@@ -57,15 +58,15 @@ export default function ProductionAnalysisPage() {
   const [dateFrom, setDateFrom]     = useState<string>(monthStartStr())
   const [dateTo, setDateTo]         = useState<string>(todayStr())
 
-  async function load() {
+  async function load(from = dateFrom, to = dateTo) {
     setLoading(true)
     try {
       const [invRes, plannedRes, inProgressRes, entriesRes, extData] = await Promise.all([
         inventoryApi.getAllByOutlet(oid, undefined, 0, 1000),
         productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
         productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
-        productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000, from: dateFrom, to: dateTo }),
-        siloExtractionsApi.list(dateFrom, dateTo),
+        productionEntryApi.getAll({ stageType: 'FINAL_TESTING', size: 1000, from, to }),
+        siloExtractionsApi.list(from, to),
       ])
 
       // Silo balances from inventory (paginated: res.data.data.content)
@@ -145,46 +146,41 @@ export default function ProductionAnalysisPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Page header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-5">
+      <div
+        className="px-6 py-5"
+        style={{ background: 'linear-gradient(160deg, #1e4d8c 0%, #2e6fc4 60%, #3a7fd4 100%)' }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Factory size={18} className="text-violet-600" />
+            <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
+              <Factory size={18} className="text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Production Analysis</h1>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <h1 className="text-lg font-bold text-white">Production Analysis</h1>
+              <p className="text-xs text-white/75 mt-0.5">
                 Cement availability vs pipe production
-                {updatedAt && <span className="ml-2 text-gray-400">· Updated {updatedAt}</span>}
+                {updatedAt && <span className="ml-2 text-white/50">· Updated {updatedAt}</span>}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 font-medium">From</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 font-medium">To</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-400"
-              />
-            </div>
+            <DateRangePicker
+              fromDate={dateFrom}
+              toDate={dateTo}
+              variant="dark"
+              onChange={(from, to) => {
+                setDateFrom(from)
+                setDateTo(to)
+                load(from, to)
+              }}
+            />
             <button
-              onClick={load}
+              onClick={() => load()}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-semibold hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 border border-white/25 text-white text-xs font-semibold hover:bg-white/25 disabled:opacity-50 transition-colors backdrop-blur-sm"
             >
               {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              Apply
+              Refresh
             </button>
           </div>
         </div>
