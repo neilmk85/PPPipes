@@ -253,15 +253,15 @@ export default function ProductionAnalysisPage() {
         </div>
 
         {/* Orders table */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200">
+        <div className="rounded-xl border border-gray-200 shadow-sm overflow-hidden" style={{ background: '#EFF6FF' }}>
+          <div className="px-5 py-4 border-b border-blue-100" style={{ background: '#EFF6FF' }}>
             <p className="text-sm font-bold text-gray-800">Production Orders</p>
             <p className="text-xs text-gray-500 mt-0.5">Active orders with cement requirement and expected output</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
+                <tr className="border-b border-blue-100" style={{ background: '#DBEAFE' }}>
                   {[
                     { label: 'Pipe Type',                  align: 'text-left'  },
                     { label: 'Status',                     align: 'text-left'  },
@@ -277,7 +277,7 @@ export default function ProductionAnalysisPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-blue-100">
                 {loading ? (
                   <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 text-sm">
                     <Loader2 size={16} className="animate-spin inline mr-2" />Loading…
@@ -289,7 +289,7 @@ export default function ProductionAnalysisPage() {
                   const expCoating = o.coatingPerPipe > 0 ? Math.floor(coatingBal / o.coatingPerPipe) : null
                   const isCoreLimiting = expCore != null && expCoating != null && expCore <= expCoating
                   return (
-                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={o.id} className="transition-colors" style={{ background: 'transparent' }} onMouseEnter={e => (e.currentTarget.style.background='#DBEAFE')} onMouseLeave={e => (e.currentTarget.style.background='transparent')}>
                       <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap text-left">{o.pipeType}</td>
                       <td className="px-4 py-3 text-left">{pill(o.status)}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{fmt(o.plannedQty)}</td>
@@ -315,7 +315,7 @@ export default function ProductionAnalysisPage() {
               </tbody>
             </table>
           </div>
-          <p className="px-5 py-3 text-xs text-gray-500 border-t border-gray-100">
+          <p className="px-5 py-3 text-xs text-gray-500 border-t border-blue-100">
             Expected = available cement ÷ kg per pipe. Limiting = whichever cement (Spinning or Coating) runs out first. Produced = current WIP count at Final Testing stage.
           </p>
         </div>
