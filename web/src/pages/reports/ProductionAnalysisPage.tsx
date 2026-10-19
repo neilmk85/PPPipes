@@ -263,18 +263,24 @@ export default function ProductionAnalysisPage() {
               <thead>
                 <tr className="border-b border-blue-100" style={{ background: '#EFF6FF' }}>
                   {[
-                    { label: 'Pipe Type',                  align: 'text-left'  },
-                    { label: 'Status',                     align: 'text-left'  },
-                    { label: 'Planned',                    align: 'text-right' },
-                    { label: 'Produced',                   align: 'text-right' },
-                    { label: 'Spinning kg/pipe',           align: 'text-right' },
-                    { label: 'Coating kg/pipe',            align: 'text-right' },
-                    { label: 'Expected Pipes (Spinning)',  align: 'text-right' },
-                    { label: 'Expected Pipes (Coating)',   align: 'text-right' },
-                    { label: 'Limiting',                   align: 'text-right' },
+                    { label: 'Pipe Type',        align: 'text-left'  },
+                    { label: 'Status',           align: 'text-left'  },
+                    { label: 'Planned',          align: 'text-right' },
+                    { label: 'Produced',         align: 'text-right' },
+                    { label: 'Spinning kg/pipe', align: 'text-right' },
+                    { label: 'Coating kg/pipe',  align: 'text-right' },
+                    { label: 'Limiting',         align: 'text-right' },
                   ].map(({ label, align }) => (
                     <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
+                  <th className="px-4 py-3 text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
+                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Core cement</div>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
+                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Coating cement</div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -298,10 +304,8 @@ export default function ProductionAnalysisPage() {
                           ? <span className="text-emerald-600 font-bold">{fmt(o.produced)}</span>
                           : <span className="text-gray-400">0</span>}
                       </td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.corePerPipe    > 0 ? fmt(o.corePerPipe)    : '—'}</td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.coatingPerPipe > 0 ? fmt(o.coatingPerPipe) : '—'}</td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCore    != null ? fmt(expCore)    : '—'}</td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCoating != null ? fmt(expCoating) : '—'}</td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.corePerPipe    > 0 ? <>{fmt(o.corePerPipe)}    <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.coatingPerPipe > 0 ? <>{fmt(o.coatingPerPipe)} <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
                       <td className="px-4 py-3 text-right">
                         {expCore != null && expCoating != null
                           ? <span className={`font-bold ${isCoreLimiting ? 'text-violet-600' : 'text-blue-600'}`}>
@@ -309,6 +313,8 @@ export default function ProductionAnalysisPage() {
                             </span>
                           : <span className="text-gray-400">—</span>}
                       </td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCore    != null ? fmt(expCore)    : '—'}</td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCoating != null ? fmt(expCoating) : '—'}</td>
                     </tr>
                   )
                 })}
