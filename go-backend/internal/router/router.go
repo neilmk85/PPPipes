@@ -171,6 +171,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	// ==================== HEALTH CHECKS ====================
 	mux.HandleFunc("GET /health", handler.HealthCheck)
 	mux.HandleFunc("GET /api/health", handler.HealthCheck)
+	mux.HandleFunc("GET /api/app/version", middleware.Chain(handler.AppVersion, middleware.Authenticate(db)))
 
 	// ==================== AUTHENTICATION ====================
 	mux.HandleFunc("POST /api/auth/login", authHandler.Login)

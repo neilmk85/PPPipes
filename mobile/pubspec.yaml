@@ -28,7 +28,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
   home_widget: ^0.9.2+1
-  in_app_update: ^4.2.3
+  package_info_plus: ^8.0.0
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
