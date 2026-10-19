@@ -265,8 +265,9 @@ export default function ProductionAnalysisPage() {
                   {[
                     { label: 'Pipe Type', align: 'text-left'  },
                     { label: 'Status',    align: 'text-left'  },
-                    { label: 'Planned',   align: 'text-right' },
-                    { label: 'Produced',  align: 'text-right' },
+                    { label: 'Planned',        align: 'text-right' },
+                    { label: 'Produced',       align: 'text-right' },
+                    { label: 'Yet to Produce', align: 'text-right' },
                   ].map(({ label, align }) => (
                     <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
@@ -295,11 +296,11 @@ export default function ProductionAnalysisPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-500 text-sm">
                     <Loader2 size={16} className="animate-spin inline mr-2" />Loading…
                   </td></tr>
                 ) : orders.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 text-sm">No active production orders</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-500 text-sm">No active production orders</td></tr>
                 ) : orders.map(o => {
                   const expCore    = o.corePerPipe    > 0 ? Math.floor(coreBal    / o.corePerPipe)    : null
                   const expCoating = o.coatingPerPipe > 0 ? Math.floor(coatingBal / o.coatingPerPipe) : null
@@ -313,6 +314,9 @@ export default function ProductionAnalysisPage() {
                         {o.produced > 0
                           ? <span className="text-emerald-600 font-bold">{fmt(o.produced)}</span>
                           : <span className="text-gray-400">0</span>}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-right">
+                        {(() => { const rem = o.plannedQty - o.produced; return rem > 0 ? <span className="text-orange-600 font-semibold">{fmt(rem)}</span> : <span className="text-gray-400">0</span> })()}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.corePerPipe    > 0 ? <>{fmt(o.corePerPipe)}    <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.coatingPerPipe > 0 ? <>{fmt(o.coatingPerPipe)} <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
