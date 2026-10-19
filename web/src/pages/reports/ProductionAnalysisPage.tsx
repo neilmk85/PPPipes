@@ -279,7 +279,7 @@ export default function ProductionAnalysisPage() {
                     <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">Cement required per pipe</div>
                   </th>
                   {[
-                    { label: 'Limiting', align: 'text-right' },
+                    { label: 'Reaching the Limit', align: 'text-right' },
                   ].map(({ label, align }) => (
                     <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
@@ -332,7 +332,7 @@ export default function ProductionAnalysisPage() {
             </table>
           </div>
           <p className="px-5 py-3 text-xs text-gray-500 border-t border-gray-100">
-            Expected = available cement ÷ kg per pipe. Limiting = whichever cement (Spinning or Coating) runs out first. Produced = current WIP count at Final Testing stage.
+            Expected = available cement ÷ kg per pipe. Reaching the Limit = whichever cement (Spinning or Coating) runs out first. Produced = current WIP count at Final Testing stage.
           </p>
         </div>
 
