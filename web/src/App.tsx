@@ -132,6 +132,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <AppLayout>{children}</AppLayout> : <Navigate to="/login" />
 }
 
+function PermissionRoute({ permission, children }: { permission: string; children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const hasPermission = useAuthStore((s) => s.hasPermission)
+  if (!isAuthenticated) return <Navigate to="/login" />
+  if (!hasPermission(permission)) return <AppLayout><div className="flex items-center justify-center h-96 text-gray-500">You don't have permission to view this page.</div></AppLayout>
+  return <AppLayout>{children}</AppLayout>
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -207,7 +215,7 @@ export default function App() {
           <Route path="/reports/creditors" element={<ProtectedRoute><CreditorsReportPage /></ProtectedRoute>} />
           <Route path="/reports/ledger" element={<ProtectedRoute><LedgerReportPage /></ProtectedRoute>} />
           <Route path="/reports/tds" element={<ProtectedRoute><TDSReportPage /></ProtectedRoute>} />
-          <Route path="/reports/production-analysis" element={<ProtectedRoute><ProductionAnalysisPage /></ProtectedRoute>} />
+          <Route path="/reports/production-analysis" element={<PermissionRoute permission="VIEW_PRODUCTION_REPORTS"><ProductionAnalysisPage /></PermissionRoute>} />
           <Route path="/reports/daybook" element={<ProtectedRoute><DayBookPage /></ProtectedRoute>} />
           <Route path="/reports/stock-statement" element={<ProtectedRoute><StockStatementPage /></ProtectedRoute>} />
           <Route path="/reports/hsn" element={<ProtectedRoute><HSNReportPage /></ProtectedRoute>} />
