@@ -272,6 +272,14 @@ export default function ProductionAnalysisPage() {
                     <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
                   <th className="px-4 py-3 text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
+                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Core cement</div>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
+                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Coating cement</div>
+                  </th>
+                  <th className="px-4 py-3 text-right">
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Spinning kg/pipe</div>
                     <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">Cement required per pipe</div>
                   </th>
@@ -284,14 +292,6 @@ export default function ProductionAnalysisPage() {
                   ].map(({ label, align }) => (
                     <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
-                  <th className="px-4 py-3 text-right">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
-                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Core cement</div>
-                  </th>
-                  <th className="px-4 py-3 text-right">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
-                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Coating cement</div>
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -318,6 +318,8 @@ export default function ProductionAnalysisPage() {
                       <td className="px-4 py-3 tabular-nums text-right">
                         {(() => { const rem = o.plannedQty - o.produced; return rem > 0 ? <span className="text-orange-600 font-semibold">{fmt(rem)}</span> : <span className="text-gray-400">0</span> })()}
                       </td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCore    != null ? fmt(expCore)    : '—'}</td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCoating != null ? fmt(expCoating) : '—'}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.corePerPipe    > 0 ? <>{fmt(o.corePerPipe)}    <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.coatingPerPipe > 0 ? <>{fmt(o.coatingPerPipe)} <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
                       <td className="px-4 py-3 text-right">
@@ -327,8 +329,6 @@ export default function ProductionAnalysisPage() {
                             </span>
                           : <span className="text-gray-400">—</span>}
                       </td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCore    != null ? fmt(expCore)    : '—'}</td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCoating != null ? fmt(expCoating) : '—'}</td>
                     </tr>
                   )
                 })}
