@@ -318,8 +318,18 @@ export default function ProductionAnalysisPage() {
                       <td className="px-4 py-3 tabular-nums text-right">
                         {(() => { const rem = o.plannedQty - o.produced; return rem > 0 ? <span className="text-orange-600 font-semibold">{fmt(rem)}</span> : <span className="text-gray-400">0</span> })()}
                       </td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCore    != null ? fmt(expCore)    : '—'}</td>
-                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{expCoating != null ? fmt(expCoating) : '—'}</td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">
+                        {expCore != null ? <>
+                          <div className="font-medium">{fmt(expCore)}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">{fmt(expCore * o.corePerPipe)} kg cement</div>
+                        </> : '—'}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-gray-800 text-right">
+                        {expCoating != null ? <>
+                          <div className="font-medium">{fmt(expCoating)}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">{fmt(expCoating * o.coatingPerPipe)} kg cement</div>
+                        </> : '—'}
+                      </td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.corePerPipe    > 0 ? <>{fmt(o.corePerPipe)}    <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.coatingPerPipe > 0 ? <>{fmt(o.coatingPerPipe)} <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
                       <td className="px-4 py-3 text-right">
