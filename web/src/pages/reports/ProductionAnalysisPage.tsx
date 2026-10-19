@@ -263,13 +263,23 @@ export default function ProductionAnalysisPage() {
               <thead>
                 <tr className="border-b border-blue-100" style={{ background: '#EFF6FF' }}>
                   {[
-                    { label: 'Pipe Type',        align: 'text-left'  },
-                    { label: 'Status',           align: 'text-left'  },
-                    { label: 'Planned',          align: 'text-right' },
-                    { label: 'Produced',         align: 'text-right' },
-                    { label: 'Spinning kg/pipe', align: 'text-right' },
-                    { label: 'Coating kg/pipe',  align: 'text-right' },
-                    { label: 'Limiting',         align: 'text-right' },
+                    { label: 'Pipe Type', align: 'text-left'  },
+                    { label: 'Status',    align: 'text-left'  },
+                    { label: 'Planned',   align: 'text-right' },
+                    { label: 'Produced',  align: 'text-right' },
+                  ].map(({ label, align }) => (
+                    <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
+                  ))}
+                  <th className="px-4 py-3 text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Spinning kg/pipe</div>
+                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">Cement required per pipe</div>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Coating kg/pipe</div>
+                    <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">Cement required per pipe</div>
+                  </th>
+                  {[
+                    { label: 'Limiting', align: 'text-right' },
                   ].map(({ label, align }) => (
                     <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
