@@ -321,13 +321,13 @@ export default function ProductionAnalysisPage() {
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">
                         {expCore != null ? <>
                           <div className="font-medium">{fmt(expCore)}</div>
-                          <div className="text-[10px] text-gray-400 mt-0.5">{fmt(expCore * o.corePerPipe)} kg cement</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">{fmt(expCore * o.corePerPipe)} kg cement required</div>
                         </> : '—'}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">
                         {expCoating != null ? <>
                           <div className="font-medium">{fmt(expCoating)}</div>
-                          <div className="text-[10px] text-gray-400 mt-0.5">{fmt(expCoating * o.coatingPerPipe)} kg cement</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">{fmt(expCoating * o.coatingPerPipe)} kg cement required</div>
                         </> : '—'}
                       </td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.corePerPipe    > 0 ? <>{fmt(o.corePerPipe)}    <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
