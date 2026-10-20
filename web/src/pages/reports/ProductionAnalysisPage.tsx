@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { RefreshCw, Factory, Loader2, FlaskConical } from 'lucide-react'
 import { inventoryApi, productionOrderApi, productionEntryApi, pipeConfigApi } from '@/services/api'
 import { siloExtractionsApi } from '@/services/businessApi'
@@ -343,6 +344,69 @@ export default function ProductionAnalysisPage() {
             Expected = available cement ÷ kg per pipe. Reaching the Limit = whichever cement (Spinning or Coating) runs out first. Produced = current WIP count at Final Testing stage.
           </p>
         </div>
+
+        {/* Progress bars chart */}
+        {!loading && orders.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <p className="text-sm font-bold text-gray-800 mb-1">Production Progress</p>
+            <p className="text-xs text-gray-500 mb-5">Produced vs. planned per pipe type</p>
+            <div className="space-y-4">
+              {orders.map(o => {
+                const pct = o.plannedQty > 0 ? Math.min(100, Math.round((o.produced / o.plannedQty) * 100)) : 0
+                const rem = Math.max(0, o.plannedQty - o.produced)
+                return (
+                  <div key={o.id}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-semibold text-gray-800">{o.pipeType}</span>
+                      <span className="text-xs text-gray-500 tabular-nums">{fmt(o.produced)} / {fmt(o.plannedQty)} &nbsp;·&nbsp; <span className="text-orange-500 font-medium">{fmt(rem)} remaining</span></span>
+                    </div>
+                    <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, background: pct >= 100 ? '#10b981' : pct >= 60 ? '#3b82f6' : '#f97316' }}
+                      />
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-1 text-right">{pct}% complete</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Grouped bar chart */}
+        {!loading && orders.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <p className="text-sm font-bold text-gray-800 mb-1">Capacity vs. Plan</p>
+            <p className="text-xs text-gray-500 mb-5">Planned, produced and cement-limited capacity per pipe type</p>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart
+                data={orders.map(o => ({
+                  name: o.pipeType,
+                  Planned:          o.plannedQty,
+                  Produced:         o.produced,
+                  'Yet to Produce': Math.max(0, o.plannedQty - o.produced),
+                  'Exp. (Core)':    o.corePerPipe    > 0 ? Math.floor(coreBal    / o.corePerPipe)    : 0,
+                  'Exp. (Coating)': o.coatingPerPipe > 0 ? Math.floor(coatingBal / o.coatingPerPipe) : 0,
+                }))}
+                margin={{ top: 4, right: 16, left: 8, bottom: 60 }}
+                barCategoryGap="30%"
+                barGap={2}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} angle={-30} textAnchor="end" interval={0} />
+                <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={v => fmt(v)} width={55} />
+                <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                <Bar dataKey="Planned"          fill="#d1d5db" radius={[3,3,0,0]} />
+                <Bar dataKey="Produced"         fill="#10b981" radius={[3,3,0,0]} />
+                <Bar dataKey="Yet to Produce"   fill="#f97316" radius={[3,3,0,0]} />
+                <Bar dataKey="Exp. (Core)"      fill="#3b82f6" radius={[3,3,0,0]} />
+                <Bar dataKey="Exp. (Coating)"   fill="#93c5fd" radius={[3,3,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
         {/* Silo extractions */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
