@@ -215,7 +215,7 @@ export default function App() {
           <Route path="/reports/creditors" element={<ProtectedRoute><CreditorsReportPage /></ProtectedRoute>} />
           <Route path="/reports/ledger" element={<ProtectedRoute><LedgerReportPage /></ProtectedRoute>} />
           <Route path="/reports/tds" element={<ProtectedRoute><TDSReportPage /></ProtectedRoute>} />
-          <Route path="/reports/production-analysis" element={<PermissionRoute permission="VIEW_PRODUCTION_REPORTS"><ProductionAnalysisPage /></PermissionRoute>} />
+          <Route path="/reports/production-analysis" element={<PermissionRoute permission="VIEW_PRODUCTION_ANALYSIS"><ProductionAnalysisPage /></PermissionRoute>} />
           <Route path="/reports/daybook" element={<ProtectedRoute><DayBookPage /></ProtectedRoute>} />
           <Route path="/reports/stock-statement" element={<ProtectedRoute><StockStatementPage /></ProtectedRoute>} />
           <Route path="/reports/hsn" element={<ProtectedRoute><HSNReportPage /></ProtectedRoute>} />
