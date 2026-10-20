@@ -269,12 +269,12 @@ export default function ProductionAnalysisPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: 'Total Planned',             value: totalPlanned,         sub: 'pipes across all active orders' },
-            { label: 'In Final Testing',           value: totalFinalTesting,    sub: 'pipes currently at this stage'  },
-            { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore,    sub: 'from Silo Core cement'          },
-            { label: 'Expected Pipes (Coating)',   value: totalExpectedCoating, sub: 'from Silo Coating cement'       },
+            { label: 'Total Planned',             value: totalPlanned,         sub: 'pipes across all active orders', bg: 'linear-gradient(135deg, #b8cbee 0%, #9dd4c8 100%)' },
+            { label: 'In Final Testing',           value: totalFinalTesting,    sub: 'pipes currently at this stage',  bg: 'linear-gradient(135deg, #b8cbee 0%, #9dd4c8 100%)' },
+            { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore,    sub: 'from Silo Core cement',          bg: 'linear-gradient(135deg, #fddbb0 0%, #f6a89a 100%)' },
+            { label: 'Expected Pipes (Coating)',   value: totalExpectedCoating, sub: 'from Silo Coating cement',       bg: 'linear-gradient(135deg, #fddbb0 0%, #f6a89a 100%)' },
           ].map(c => (
-            <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: 'linear-gradient(135deg, #b8cbee 0%, #9dd4c8 100%)', boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: c.bg, boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
               <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: '#0f1f3d' }}>{c.label}</p>
               {loading ? (
                 <div className="h-9 w-24 rounded animate-pulse mx-auto" style={{ background: 'rgba(255,255,255,0.4)' }} />
