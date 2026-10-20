@@ -482,7 +482,7 @@ export default function ProductionAnalysisPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} angle={-30} textAnchor="end" interval={0} />
                 <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={v => fmt(v)} width={55} />
-                <Tooltip formatter={(v: number) => [`${fmt(v)} pipes`, undefined]} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                <Tooltip formatter={(v: number, name: string) => [`${fmt(v)} pipes`, name]} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
                 <Bar dataKey="Planned"          fill="#d1d5db" radius={[3,3,0,0]} />
                 <Bar dataKey="Produced"         fill="#10b981" radius={[3,3,0,0]} />
                 <Bar dataKey="Yet to Produce"   fill="#f97316" radius={[3,3,0,0]} />
