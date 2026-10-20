@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { RefreshCw, Factory, Loader2, FlaskConical, AlertTriangle } from 'lucide-react'
+import { RefreshCw, Factory, Loader2, AlertTriangle } from 'lucide-react'
 import { inventoryApi, productionOrderApi, productionEntryApi, pipeConfigApi } from '@/services/api'
-import { siloExtractionsApi } from '@/services/businessApi'
 import { useAuthStore } from '@/store/authStore'
 import { DateRangePicker } from '@/components/DateRangePicker'
 import toast from 'react-hot-toast'
@@ -17,14 +16,6 @@ interface OrderRow {
   coatingPerPipe: number
 }
 
-interface SiloExtraction {
-  id: number
-  date: string
-  silo1Value: string
-  silo2Value: string
-  silo3Value: string
-  notes?: string
-}
 
 function fmt(n: number | null | undefined) {
   if (n == null) return '—'
@@ -55,8 +46,6 @@ export default function ProductionAnalysisPage() {
   const [coatingBal, setCoatingBal]     = useState<number>(0)
   const [orders, setOrders]             = useState<OrderRow[]>([])
   const [totalFinalTesting, setTotalFinalTesting] = useState<number>(0)
-  const [extractions, setExtractions]   = useState<SiloExtraction[]>([])
-  const [updatedAt, setUpdatedAt]       = useState<string>('')
   const [dateFrom, setDateFrom]         = useState<string>(todayStr())
   const [dateTo, setDateTo]             = useState<string>(todayStr())
   const [cementFilter, setCementFilter] = useState<'attention' | 'all'>('attention')
@@ -64,12 +53,11 @@ export default function ProductionAnalysisPage() {
   async function load(from = dateFrom, to = dateTo) {
     setLoading(true)
     try {
-      const [invRes, plannedRes, inProgressRes, stagesRes, extData] = await Promise.all([
+      const [invRes, plannedRes, inProgressRes, stagesRes] = await Promise.all([
         inventoryApi.getAllByOutlet(oid, undefined, 0, 1000),
         productionOrderApi.getAll({ status: 'PLANNED', size: 100 }),
         productionOrderApi.getAll({ status: 'IN_PROGRESS', size: 100 }),
         productionOrderApi.getAllStagesStock(),
-        siloExtractionsApi.list(from, to),
       ])
 
       // Silo balances from inventory (paginated: res.data.data.content)
@@ -130,8 +118,6 @@ export default function ProductionAnalysisPage() {
         }
       })
       setOrders(rows)
-      setExtractions(extData ?? [])
-      setUpdatedAt(new Date().toLocaleTimeString('en-IN'))
     } catch (e: any) {
       toast.error('Failed to load production analysis data')
     } finally {
@@ -318,22 +304,22 @@ export default function ProductionAnalysisPage() {
                     { label: 'Produced',       align: 'text-right' },
                     { label: 'Yet to Produce', align: 'text-right' },
                   ].map(({ label, align }) => (
-                    <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
+                    <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-800 whitespace-nowrap ${align}`}>{label}</th>
                   ))}
                   <th className="px-4 py-3 text-right">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-800">Expected Pipes</div>
                     <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Core cement</div>
                   </th>
                   <th className="px-4 py-3 text-right">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Expected Pipes</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-800">Expected Pipes</div>
                     <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">from Silo Coating cement</div>
                   </th>
                   <th className="px-4 py-3 text-right">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Spinning kg/pipe</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-800">Spinning kg/pipe</div>
                     <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">Cement required per pipe</div>
                   </th>
                   <th className="px-4 py-3 text-right">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Coating kg/pipe</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-800">Coating kg/pipe</div>
                     <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">Cement required per pipe</div>
                   </th>
                 </tr>
@@ -469,8 +455,8 @@ export default function ProductionAnalysisPage() {
 
         {/* Cement Sufficiency */}
         {!loading && orders.length > 0 && (
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#f8f7ff', boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div className="px-6 py-5 flex items-center justify-between gap-4 flex-wrap" style={{ borderBottom: '1px solid #ede9ff' }}>
+            <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div className="px-6 py-5 flex items-center justify-between gap-4 flex-wrap" style={{ borderBottom: '1px solid #f0f0f0' }}>
                 <div>
                   <p className="text-sm font-bold text-gray-900">Cement Sufficiency</p>
                   <p className="text-xs text-gray-400 mt-0.5">Will available stock complete all active orders?</p>
@@ -496,7 +482,7 @@ export default function ProductionAnalysisPage() {
               </div>
 
               {/* Two aggregate tiles */}
-              <div className="grid grid-cols-2 gap-4 px-6 py-5" style={{ borderBottom: '1px solid #ede9ff' }}>
+              <div className="grid grid-cols-2 gap-4 px-6 py-5" style={{ borderBottom: '1px solid #f0f0f0' }}>
                 {[
                   { label: 'Core Cement', sub: 'Spinning', avail: coreBal,    needed: totalCoreNeeded,    surplus: coreSurplus,    accent: '#4f46e5', bg: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)', track: '#c7d2fe' },
                   { label: 'Coating Cement', sub: 'Coating', avail: coatingBal, needed: totalCoatingNeeded, surplus: coatingSurplus, accent: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', track: '#ddd6fe' },
@@ -535,23 +521,20 @@ export default function ProductionAnalysisPage() {
               {/* Per-order table */}
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ background: '#ede9ff', borderBottom: '1px solid #ddd6fe' }}>
-                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Pipe Type</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Core Used</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Core Needed</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Coating Used</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Coating Needed</th>
-                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Status</th>
+                  <tr style={{ background: '#EFF6FF', borderBottom: '1px solid #dbeafe' }}>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-800">Pipe Type</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-800">Core Used</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-800">Core Needed</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-800">Coating Used</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-800">Coating Needed</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-800">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {orderAnalysis
                     .filter(o => cementFilter === 'all' || o.atRisk)
                     .map(o => (
-                    <tr key={o.id} className="transition-colors" style={{ borderTop: '1px solid #ede9ff' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f5f3ff')}
-                      onMouseLeave={e => (e.currentTarget.style.background = '')}
-                    >
+                    <tr key={o.id} className="hover:bg-gray-50 transition-colors" style={{ borderTop: '1px solid #f5f5f5' }}>
                       <td className="px-6 py-3.5 font-semibold text-gray-900">{o.pipeType}</td>
                       <td className="px-4 py-3.5 tabular-nums text-gray-600 text-right">{fmt(o.coreConsumed)} kg</td>
                       <td className={`px-4 py-3.5 tabular-nums text-right font-medium ${o.coreGap < 0 ? 'text-red-600' : 'text-gray-700'}`}>{fmt(o.coreNeeded)} kg</td>
@@ -569,46 +552,6 @@ export default function ProductionAnalysisPage() {
             </div>
         )}
 
-        {/* Silo extractions */}
-        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
-          <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #f0f0f0' }}>
-            <FlaskConical size={15} className="text-gray-500" />
-            <div>
-              <p className="text-sm font-bold text-gray-800">Silo Extractions</p>
-              <p className="text-xs text-gray-500 mt-0.5">Cement removed from silos outside of production</p>
-            </div>
-          </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #f0f0f0' }}>
-                {['Date','Silo','Quantity (kg)','Notes'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500 text-sm">Loading…</td></tr>
-              ) : extractions.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500 text-sm">No extractions recorded</td></tr>
-              ) : extractions.map(e => {
-                const vals = [
-                  e.silo1Value && parseFloat(e.silo1Value) > 0 ? { silo: 1, val: parseFloat(e.silo1Value) } : null,
-                  e.silo2Value && parseFloat(e.silo2Value) > 0 ? { silo: 2, val: parseFloat(e.silo2Value) } : null,
-                  e.silo3Value && parseFloat(e.silo3Value) > 0 ? { silo: 3, val: parseFloat(e.silo3Value) } : null,
-                ].filter(Boolean) as { silo: number; val: number }[]
-                return vals.map((v, i) => (
-                  <tr key={`${e.id}-${v.silo}`} className="hover:bg-gray-50" style={{ borderTop: '1px solid #f5f5f5' }}>
-                    {i === 0 && <td className="px-4 py-3 text-gray-700" rowSpan={vals.length}>{e.date}</td>}
-                    <td className="px-4 py-3 text-gray-700">Silo {v.silo}</td>
-                    <td className="px-4 py-3 tabular-nums font-medium text-gray-900">{fmt(v.val * 1000)}</td>
-                    {i === 0 && <td className="px-4 py-3 text-gray-600" rowSpan={vals.length}>{e.notes || '—'}</td>}
-                  </tr>
-                ))
-              })}
-            </tbody>
-          </table>
-        </div>
 
       </div>
     </div>
