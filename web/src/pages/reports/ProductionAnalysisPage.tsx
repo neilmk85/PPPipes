@@ -386,10 +386,54 @@ export default function ProductionAnalysisPage() {
 
         {/* Progress bars chart */}
         {!loading && orders.length > 0 && (
-          <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
-            <p className="text-sm font-bold text-gray-800 mb-1">Production Progress</p>
-            <p className="text-xs text-gray-500 mb-5">Produced vs. planned per pipe type</p>
-            <div className="space-y-4">
+          <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
+            {/* Section header */}
+            {(() => {
+              const totalProduced  = orders.reduce((s, o) => s + o.produced, 0)
+              const totalPlannedAll = orders.reduce((s, o) => s + o.plannedQty, 0)
+              const totalYet       = Math.max(0, totalPlannedAll - totalProduced)
+              const overallPct     = totalPlannedAll > 0 ? Math.round((totalProduced / totalPlannedAll) * 100) : 0
+              return (
+                <div className="px-6 py-5 flex items-center justify-between gap-6 flex-wrap" style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">Production Progress</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Produced vs. planned per pipe type</p>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="text-center">
+                      <p className="text-xl font-semibold tabular-nums text-emerald-600">{fmt(totalProduced)}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide">Produced</p>
+                    </div>
+                    <div className="text-gray-200 text-lg font-light">/</div>
+                    <div className="text-center">
+                      <p className="text-xl font-semibold tabular-nums text-gray-800">{fmt(totalPlannedAll)}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide">Planned</p>
+                    </div>
+                    <div className="w-px h-8 bg-gray-100" />
+                    <div className="text-center">
+                      <p className="text-xl font-semibold tabular-nums text-orange-500">{fmt(totalYet)}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide">Yet to Produce</p>
+                    </div>
+                    <div className="w-px h-8 bg-gray-100" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold tabular-nums"
+                        style={{
+                          background: `conic-gradient(${overallPct >= 100 ? '#10b981' : overallPct >= 60 ? '#3b82f6' : '#f97316'} ${overallPct * 3.6}deg, #f0f0f0 0deg)`,
+                          color: overallPct >= 60 ? '#1f2937' : '#f97316',
+                        }}
+                      >
+                        <span className="text-[10px] font-bold text-gray-800 bg-white rounded-full w-7 h-7 flex items-center justify-center">{overallPct}%</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700">{overallPct}% complete</p>
+                        <p className="text-[10px] text-gray-400">overall</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+            <div className="p-6 space-y-4">
               {orders.map(o => {
                 const pct = o.plannedQty > 0 ? Math.min(100, Math.round((o.produced / o.plannedQty) * 100)) : 0
                 const rem = Math.max(0, o.plannedQty - o.produced)
@@ -416,7 +460,7 @@ export default function ProductionAnalysisPage() {
                 )
               })}
             </div>
-          </div>
+            </div>
         )}
 
         {/* Grouped bar chart */}
