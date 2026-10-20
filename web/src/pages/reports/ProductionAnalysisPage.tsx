@@ -274,14 +274,14 @@ export default function ProductionAnalysisPage() {
             { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore,    sub: 'from Silo Core cement'          },
             { label: 'Expected Pipes (Coating)',   value: totalExpectedCoating, sub: 'from Silo Coating cement'       },
           ].map(c => (
-            <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: '#F4F4F6', boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-900 mb-2">{c.label}</p>
+            <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: 'linear-gradient(135deg, #b8cbee 0%, #9dd4c8 100%)', boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
+              <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(30,50,90,0.7)' }}>{c.label}</p>
               {loading ? (
-                <div className="h-9 w-24 rounded animate-pulse mx-auto" style={{ background: '#E4E4E8' }} />
+                <div className="h-9 w-24 rounded animate-pulse mx-auto" style={{ background: 'rgba(255,255,255,0.4)' }} />
               ) : (
-                <p className="text-3xl font-light tabular-nums text-gray-800">{fmt(c.value)}</p>
+                <p className="text-3xl font-light tabular-nums" style={{ color: '#1a3a60' }}>{fmt(c.value)}</p>
               )}
-              <p className="text-xs text-gray-400 mt-1.5">{c.sub}</p>
+              <p className="text-xs mt-1.5" style={{ color: 'rgba(30,50,90,0.55)' }}>{c.sub}</p>
             </div>
           ))}
         </div>
