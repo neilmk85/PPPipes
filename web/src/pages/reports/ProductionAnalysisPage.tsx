@@ -470,66 +470,68 @@ export default function ProductionAnalysisPage() {
         {/* Cement Sufficiency */}
         {!loading && orders.length > 0 && (
             <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div className="px-6 py-5 flex items-center justify-between gap-4 flex-wrap" style={{ borderBottom: '1px solid #f0f0f0' }}>
-                <div>
-                  <p className="text-sm font-bold text-gray-900">Cement Sufficiency</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Will available stock complete all active orders?</p>
-                </div>
-                <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-                  {([
-                    { key: 'attention', label: `Needs Attention · ${atRiskCount}` },
-                    { key: 'all',       label: `All Orders · ${orderAnalysis.length}` },
-                  ] as const).map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setCementFilter(tab.key)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        cementFilter === tab.key
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Two aggregate tiles */}
-              <div className="grid grid-cols-2 gap-4 px-6 py-5" style={{ borderBottom: '1px solid #f0f0f0' }}>
-                {[
-                  { label: 'Core Cement', sub: 'Spinning', avail: coreBal,    needed: totalCoreNeeded,    surplus: coreSurplus,    accent: '#4f46e5', bg: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)', track: '#c7d2fe' },
-                  { label: 'Coating Cement', sub: 'Coating', avail: coatingBal, needed: totalCoatingNeeded, surplus: coatingSurplus, accent: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', track: '#ddd6fe' },
-                ].map(t => {
-                  const ok  = t.surplus >= 0
-                  const pct = t.needed > 0 ? Math.min(100, (t.avail / t.needed) * 100) : 100
-                  return (
-                    <div key={t.label} className="rounded-xl p-5" style={{ background: t.bg }}>
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-2 h-2 rounded-full" style={{ background: t.accent }} />
-                        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: t.accent }}>{t.label}</p>
-                        <span className="text-xs text-gray-400 font-normal">· {t.sub}</span>
-                      </div>
-                      <div className="flex items-end gap-6 mb-4">
-                        <div>
-                          <p className="text-2xl font-semibold tabular-nums text-gray-900">{fmt(t.avail)}<span className="text-sm font-normal text-gray-500 ml-1">kg</span></p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">available in silo</p>
+              {/* Gradient header with title + two stat chips + tab filter */}
+              <div className="px-6 py-5" style={{ background: 'linear-gradient(160deg, #1e4d8c 0%, #2e6fc4 60%, #3a7fd4 100%)' }}>
+                {/* Top row: title + tab filter */}
+                <div className="flex items-center justify-between gap-4 flex-wrap mb-5">
+                  <div>
+                    <p className="text-sm font-bold text-white">Cement Sufficiency</p>
+                    <p className="text-xs text-white/70 mt-0.5">Will available stock complete all active orders?</p>
+                  </div>
+                  <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                    {([
+                      { key: 'attention', label: `Needs Attention · ${atRiskCount}` },
+                      { key: 'all',       label: `All Orders · ${orderAnalysis.length}` },
+                    ] as const).map(tab => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setCementFilter(tab.key)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                          cementFilter === tab.key
+                            ? 'text-gray-900 shadow-sm'
+                            : 'text-white/80 hover:text-white'
+                        }`}
+                        style={cementFilter === tab.key ? { background: 'rgba(255,255,255,0.95)' } : {}}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Two stat chips */}
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { label: 'Core Cement', sub: 'Spinning', avail: coreBal,    needed: totalCoreNeeded,    surplus: coreSurplus    },
+                    { label: 'Coating Cement', sub: 'Coating', avail: coatingBal, needed: totalCoatingNeeded, surplus: coatingSurplus },
+                  ].map(t => {
+                    const ok  = t.surplus >= 0
+                    const pct = t.needed > 0 ? Math.min(100, (t.avail / t.needed) * 100) : 100
+                    return (
+                      <div key={t.label} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)' }}>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60 mb-3">{t.label} · {t.sub}</p>
+                        <div className="flex items-end gap-5 mb-3">
+                          <div>
+                            <p className="text-2xl font-semibold tabular-nums text-white leading-tight">{fmt(t.avail)}<span className="text-sm font-normal text-white/60 ml-1">kg</span></p>
+                            <p className="text-[10px] text-white/50 mt-0.5">available</p>
+                          </div>
+                          <div className="text-white/40 pb-4 text-lg">→</div>
+                          <div>
+                            <p className="text-xl font-medium tabular-nums text-white/80 leading-tight">{fmt(t.needed)}<span className="text-sm font-normal text-white/40 ml-1">kg</span></p>
+                            <p className="text-[10px] text-white/50 mt-0.5">required</p>
+                          </div>
                         </div>
-                        <div className="text-gray-400 pb-4">→</div>
-                        <div>
-                          <p className="text-xl font-medium tabular-nums text-gray-700">{fmt(t.needed)}<span className="text-sm font-normal text-gray-400 ml-1">kg</span></p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">required to finish</p>
+                        <div className="w-full h-1.5 rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: ok ? '#34d399' : '#f87171' }} />
                         </div>
+                        <p className={`text-sm font-bold tabular-nums ${ok ? 'text-emerald-300' : 'text-red-300'}`}>
+                          {ok ? `+${fmt(t.surplus)} kg surplus` : `${fmt(Math.abs(t.surplus))} kg short`}
+                        </p>
                       </div>
-                      <div className="w-full h-2 rounded-full overflow-hidden mb-2.5" style={{ background: t.track }}>
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: ok ? '#10b981' : '#ef4444' }} />
-                      </div>
-                      <p className={`text-sm font-bold tabular-nums ${ok ? 'text-emerald-600' : 'text-red-500'}`}>
-                        {ok ? `+${fmt(t.surplus)} kg surplus` : `${fmt(Math.abs(t.surplus))} kg short`}
-                      </p>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Per-order table */}
