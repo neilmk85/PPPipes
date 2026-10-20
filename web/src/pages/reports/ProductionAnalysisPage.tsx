@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { RefreshCw, Factory, Loader2, FlaskConical } from 'lucide-react'
+import { RefreshCw, Factory, Loader2, FlaskConical, AlertTriangle } from 'lucide-react'
 import { inventoryApi, productionOrderApi, productionEntryApi, pipeConfigApi } from '@/services/api'
 import { siloExtractionsApi } from '@/services/businessApi'
 import { useAuthStore } from '@/store/authStore'
@@ -59,6 +59,7 @@ export default function ProductionAnalysisPage() {
   const [updatedAt, setUpdatedAt]       = useState<string>('')
   const [dateFrom, setDateFrom]         = useState<string>(todayStr())
   const [dateTo, setDateTo]             = useState<string>(todayStr())
+  const [cementFilter, setCementFilter] = useState<'attention' | 'all'>('attention')
 
   async function load(from = dateFrom, to = dateTo) {
     setLoading(true)
@@ -153,6 +154,27 @@ export default function ProductionAnalysisPage() {
     return s + Math.floor(coatingBal / o.coatingPerPipe)
   }, 0)
 
+  // Cement analysis — lifted up so it's available for banner + risk column
+  const orderAnalysis = orders.map(o => {
+    const rem             = Math.max(0, o.plannedQty - o.produced)
+    const coreNeeded      = rem * o.corePerPipe
+    const coatingNeeded   = rem * o.coatingPerPipe
+    const coreConsumed    = o.produced * o.corePerPipe
+    const coatingConsumed = o.produced * o.coatingPerPipe
+    const coreGap         = coreBal    - coreNeeded
+    const coatingGap      = coatingBal - coatingNeeded
+    const atRisk          = (o.corePerPipe > 0 && coreGap < 0) || (o.coatingPerPipe > 0 && coatingGap < 0)
+    const coreCoverage    = coreNeeded    > 0 ? Math.min(100, (coreBal    / coreNeeded)    * 100) : 100
+    const coatingCoverage = coatingNeeded > 0 ? Math.min(100, (coatingBal / coatingNeeded) * 100) : 100
+    return { ...o, rem, coreNeeded, coatingNeeded, coreConsumed, coatingConsumed, coreGap, coatingGap, atRisk, coreCoverage, coatingCoverage }
+  })
+  const atRiskCount        = orderAnalysis.filter(o => o.atRisk).length
+  const totalCoreNeeded    = orderAnalysis.reduce((s, o) => s + o.coreNeeded, 0)
+  const totalCoatingNeeded = orderAnalysis.reduce((s, o) => s + o.coatingNeeded, 0)
+  const coreSurplus        = coreBal - totalCoreNeeded
+  const coatingSurplus     = coatingBal - totalCoatingNeeded
+  const riskMap            = Object.fromEntries(orderAnalysis.map(o => [o.id, o.atRisk]))
+
   return (
     <div className="min-h-screen bg-white">
       {/* Page header */}
@@ -237,6 +259,25 @@ export default function ProductionAnalysisPage() {
         </div>
       </div>
 
+      {/* Alert banner — shown when any order has cement shortage */}
+      {!loading && atRiskCount > 0 && (
+        <div className="mx-6 mt-5 flex items-start gap-3 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-xl">
+          <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              {atRiskCount} of {orders.length} order{orders.length !== 1 ? 's' : ''} exceed current cement stock
+            </p>
+            <p className="text-xs text-amber-600 mt-0.5">
+              {coreSurplus < 0 && coatingSurplus < 0
+                ? 'Both core and coating cement need replenishment to complete all active orders.'
+                : coreSurplus < 0
+                ? 'Core cement (Spinning) needs replenishment to complete all active orders.'
+                : 'Coating cement needs replenishment to complete all active orders.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="px-6 py-6 space-y-6">
 
         {/* Summary cards */}
@@ -270,8 +311,9 @@ export default function ProductionAnalysisPage() {
               <thead>
                 <tr className="border-b border-blue-100" style={{ background: '#EFF6FF' }}>
                   {[
-                    { label: 'Pipe Type', align: 'text-left'  },
-                    { label: 'Status',    align: 'text-left'  },
+                    { label: 'Pipe Type',      align: 'text-left'  },
+                    { label: 'Status',         align: 'text-left'  },
+                    { label: 'Cement',         align: 'text-left'  },
                     { label: 'Planned',        align: 'text-right' },
                     { label: 'Produced',       align: 'text-right' },
                     { label: 'Yet to Produce', align: 'text-right' },
@@ -298,19 +340,30 @@ export default function ProductionAnalysisPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-500 text-sm">
                     <Loader2 size={16} className="animate-spin inline mr-2" />Loading…
                   </td></tr>
                 ) : orders.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 text-sm">No active production orders</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-500 text-sm">No active production orders</td></tr>
                 ) : orders.map(o => {
                   const expCore    = o.corePerPipe    > 0 ? Math.floor(coreBal    / o.corePerPipe)    : null
                   const expCoating = o.coatingPerPipe > 0 ? Math.floor(coatingBal / o.coatingPerPipe) : null
                   const isCoreLimiting = expCore != null && expCoating != null && expCore <= expCoating
+                  const isAtRisk = riskMap[o.id]
                   return (
                     <tr key={o.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap text-left">{o.pipeType}</td>
                       <td className="px-4 py-3 text-left">{pill(o.status)}</td>
+                      <td className="px-4 py-3 text-left">
+                        {isAtRisk
+                          ? <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 whitespace-nowrap">
+                              <AlertTriangle size={9} />Cement Short
+                            </span>
+                          : <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 whitespace-nowrap">
+                              ✓ Sufficient
+                            </span>
+                        }
+                      </td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{fmt(o.plannedQty)}</td>
                       <td className="px-4 py-3 tabular-nums text-right">
                         {o.produced > 0
@@ -414,32 +467,32 @@ export default function ProductionAnalysisPage() {
           </div>
         )}
 
-        {/* Cement Intelligence */}
-        {!loading && orders.length > 0 && (() => {
-          const totalCoreNeeded    = orders.reduce((s, o) => s + Math.max(0, o.plannedQty - o.produced) * o.corePerPipe,    0)
-          const totalCoatingNeeded = orders.reduce((s, o) => s + Math.max(0, o.plannedQty - o.produced) * o.coatingPerPipe, 0)
-          const coreSurplus    = coreBal    - totalCoreNeeded
-          const coatingSurplus = coatingBal - totalCoatingNeeded
-          const orderAnalysis  = orders.map(o => {
-            const rem             = Math.max(0, o.plannedQty - o.produced)
-            const coreNeeded      = rem * o.corePerPipe
-            const coatingNeeded   = rem * o.coatingPerPipe
-            const coreConsumed    = o.produced * o.corePerPipe
-            const coatingConsumed = o.produced * o.coatingPerPipe
-            const coreGap         = coreBal    - coreNeeded
-            const coatingGap      = coatingBal - coatingNeeded
-            const atRisk          = (o.corePerPipe > 0 && coreGap < 0) || (o.coatingPerPipe > 0 && coatingGap < 0)
-            const coreCoverage    = coreNeeded    > 0 ? Math.min(100, (coreBal    / coreNeeded)    * 100) : 100
-            const coatingCoverage = coatingNeeded > 0 ? Math.min(100, (coatingBal / coatingNeeded) * 100) : 100
-            return { ...o, rem, coreNeeded, coatingNeeded, coreConsumed, coatingConsumed, coreGap, coatingGap, atRisk, coreCoverage, coatingCoverage }
-          })
-          const atRiskCount = orderAnalysis.filter(o => o.atRisk).length
-
-          return (
+        {/* Cement Sufficiency */}
+        {!loading && orders.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-100">
-                <p className="text-sm font-bold text-gray-900">Cement Sufficiency</p>
-                <p className="text-xs text-gray-400 mt-0.5">Will available stock complete all active orders?</p>
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">Cement Sufficiency</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Will available stock complete all active orders?</p>
+                </div>
+                <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                  {([
+                    { key: 'attention', label: `Needs Attention · ${atRiskCount}` },
+                    { key: 'all',       label: `All Orders · ${orderAnalysis.length}` },
+                  ] as const).map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setCementFilter(tab.key)}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                        cementFilter === tab.key
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Two aggregate tiles */}
@@ -488,7 +541,9 @@ export default function ProductionAnalysisPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {orderAnalysis.map(o => (
+                  {orderAnalysis
+                    .filter(o => cementFilter === 'all' || o.atRisk)
+                    .map(o => (
                     <tr key={o.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-3.5 font-semibold text-gray-900">{o.pipeType}</td>
                       <td className="px-4 py-3.5 tabular-nums text-gray-600 text-right">{fmt(o.coreConsumed)} kg</td>
@@ -505,8 +560,7 @@ export default function ProductionAnalysisPage() {
                 </tbody>
               </table>
             </div>
-          )
-        })()}
+        )}
 
         {/* Silo extractions */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
