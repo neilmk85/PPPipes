@@ -593,10 +593,22 @@ export default function ProductionAnalysisPage() {
                     .map(o => (
                     <tr key={o.id} className="hover:bg-gray-50 transition-colors" style={{ borderTop: '1px solid #f5f5f5' }}>
                       <td className="px-6 py-3.5 font-semibold text-gray-900">{o.pipeType}</td>
-                      <td className="px-4 py-3.5 tabular-nums text-gray-600 text-right">{fmt(o.coreConsumed)} kg</td>
-                      <td className={`px-4 py-3.5 tabular-nums text-right font-medium ${o.coreGap < 0 ? 'text-red-600' : 'text-gray-700'}`}>{fmt(o.coreNeeded)} kg</td>
-                      <td className="px-4 py-3.5 tabular-nums text-gray-600 text-right">{fmt(o.coatingConsumed)} kg</td>
-                      <td className={`px-4 py-3.5 tabular-nums text-right font-medium ${o.coatingGap < 0 ? 'text-red-600' : 'text-gray-700'}`}>{fmt(o.coatingNeeded)} kg</td>
+                      <td className="px-4 py-3.5 tabular-nums text-gray-600 text-right">
+                        <div>{fmt(o.coreConsumed)} kg</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{fmt(o.produced)} pipes</div>
+                      </td>
+                      <td className={`px-4 py-3.5 tabular-nums text-right font-medium ${o.coreGap < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                        <div>{fmt(o.coreNeeded)} kg</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5 font-normal">{fmt(o.rem)} pipes</div>
+                      </td>
+                      <td className="px-4 py-3.5 tabular-nums text-gray-600 text-right">
+                        <div>{fmt(o.coatingConsumed)} kg</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{fmt(o.produced)} pipes</div>
+                      </td>
+                      <td className={`px-4 py-3.5 tabular-nums text-right font-medium ${o.coatingGap < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                        <div>{fmt(o.coatingNeeded)} kg</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5 font-normal">{fmt(o.rem)} pipes</div>
+                      </td>
                       <td className="px-4 py-3.5 text-center">
                         <span className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full ${o.atRisk ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                           {o.atRisk ? '⚠ At Risk' : '✓ OK'}
