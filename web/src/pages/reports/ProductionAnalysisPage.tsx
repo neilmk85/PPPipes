@@ -293,20 +293,15 @@ export default function ProductionAnalysisPage() {
                     <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-600">Coating kg/pipe</div>
                     <div className="text-[10px] font-normal normal-case tracking-normal text-gray-400 mt-0.5">Cement required per pipe</div>
                   </th>
-                  {[
-                    { label: 'Reaching the Limit', align: 'text-right' },
-                  ].map(({ label, align }) => (
-                    <th key={label} className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap ${align}`}>{label}</th>
-                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-500 text-sm">
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 text-sm">
                     <Loader2 size={16} className="animate-spin inline mr-2" />Loading…
                   </td></tr>
                 ) : orders.length === 0 ? (
-                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-500 text-sm">No active production orders</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-500 text-sm">No active production orders</td></tr>
                 ) : orders.map(o => {
                   const expCore    = o.corePerPipe    > 0 ? Math.floor(coreBal    / o.corePerPipe)    : null
                   const expCoating = o.coatingPerPipe > 0 ? Math.floor(coatingBal / o.coatingPerPipe) : null
@@ -338,13 +333,6 @@ export default function ProductionAnalysisPage() {
                       </td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.corePerPipe    > 0 ? <>{fmt(o.corePerPipe)}    <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-800 text-right">{o.coatingPerPipe > 0 ? <>{fmt(o.coatingPerPipe)} <span className="text-gray-400 text-xs">kg</span></> : '—'}</td>
-                      <td className="px-4 py-3 text-right">
-                        {expCore != null && expCoating != null
-                          ? <span className={`font-bold ${isCoreLimiting ? 'text-violet-600' : 'text-blue-600'}`}>
-                              {isCoreLimiting ? 'Spinning' : 'Coating'}
-                            </span>
-                          : <span className="text-gray-400">—</span>}
-                      </td>
                     </tr>
                   )
                 })}
