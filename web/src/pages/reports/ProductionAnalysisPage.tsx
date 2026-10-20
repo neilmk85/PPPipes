@@ -251,19 +251,19 @@ export default function ProductionAnalysisPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            { label: 'Total Planned',             value: totalPlanned,         sub: 'pipes across all active orders', bg: 'linear-gradient(135deg, #1e3a5f 0%, #2d5f96 60%, #3a78b5 100%)' },
-            { label: 'In Final Testing',           value: totalFinalTesting,    sub: 'pipes currently at this stage',  bg: 'linear-gradient(135deg, #1e3a5f 0%, #2d5f96 60%, #3a78b5 100%)' },
+            { label: 'Total Planned',             value: totalPlanned,         sub: 'pipes across all active orders', bg: 'linear-gradient(135deg, #3d6db5 0%, #4f80c8 60%, #5a8cd4 100%)' },
+            { label: 'In Final Testing',           value: totalFinalTesting,    sub: 'pipes currently at this stage',  bg: 'linear-gradient(135deg, #3d6db5 0%, #4f80c8 60%, #5a8cd4 100%)' },
             { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore,    sub: 'from Silo Core cement',          bg: 'linear-gradient(135deg, #fddbb0 0%, #f6a89a 100%)' },
             { label: 'Expected Pipes (Coating)',   value: totalExpectedCoating, sub: 'from Silo Coating cement',       bg: 'linear-gradient(135deg, #fddbb0 0%, #f6a89a 100%)' },
           ].map(c => (
             <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: c.bg, boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
-              <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: c.bg.includes('#1e3a5f') ? 'rgba(255,255,255,0.75)' : '#0f1f3d' }}>{c.label}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: c.bg.includes('#3d6db5') ? 'rgba(255,255,255,0.75)' : '#0f1f3d' }}>{c.label}</p>
               {loading ? (
                 <div className="h-9 w-24 rounded animate-pulse mx-auto" style={{ background: 'rgba(255,255,255,0.3)' }} />
               ) : (
-                <p className="text-3xl font-light tabular-nums" style={{ color: c.bg.includes('#1e3a5f') ? '#ffffff' : '#1a3a60' }}>{fmt(c.value)}</p>
+                <p className="text-3xl font-light tabular-nums" style={{ color: c.bg.includes('#3d6db5') ? '#ffffff' : '#1a3a60' }}>{fmt(c.value)}</p>
               )}
-              <p className="text-xs mt-1.5" style={{ color: c.bg.includes('#1e3a5f') ? 'rgba(255,255,255,0.5)' : 'rgba(30,50,90,0.55)' }}>{c.sub}</p>
+              <p className="text-xs mt-1.5" style={{ color: c.bg.includes('#3d6db5') ? 'rgba(255,255,255,0.5)' : 'rgba(30,50,90,0.55)' }}>{c.sub}</p>
             </div>
           ))}
         </div>
