@@ -265,10 +265,11 @@ const PERMISSION_GROUPS = [
     group: 'Production & Operations',
     icon: '🏭',
     items: [
-      { key: 'VIEW_PRODUCTION_ORDERS', label: 'View Production',    desc: 'Browse production orders and pipeline' },
-      { key: 'VIEW_BUSINESS',          label: 'View Business Hub',  desc: 'Access the business hub screen' },
-      { key: 'VIEW_EXPENSES',          label: 'View Expenses',      desc: 'Browse expense records' },
-      { key: 'MANAGE_LOADING',         label: 'Manage Loading',     desc: 'Manage pipe loading and dispatch' },
+      { key: 'VIEW_PRODUCTION_ORDERS',  label: 'View Production',         desc: 'Browse production orders and pipeline' },
+      { key: 'VIEW_PRODUCTION_REPORTS', label: 'Production Reports',      desc: 'View production performance reports' },
+      { key: 'VIEW_BUSINESS',           label: 'View Business Hub',       desc: 'Access the business hub screen' },
+      { key: 'VIEW_EXPENSES',           label: 'View Expenses',           desc: 'Browse expense records' },
+      { key: 'MANAGE_LOADING',          label: 'Manage Loading',          desc: 'Manage pipe loading and dispatch' },
     ],
   },
   {
