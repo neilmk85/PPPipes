@@ -442,7 +442,6 @@ export default function ProductionAnalysisPage() {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} angle={-30} textAnchor="end" interval={0} />
                 <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={v => fmt(v)} width={55} />
                 <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
-                <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 24 }} />
                 <Bar dataKey="Planned"          fill="#d1d5db" radius={[3,3,0,0]} />
                 <Bar dataKey="Produced"         fill="#10b981" radius={[3,3,0,0]} />
                 <Bar dataKey="Yet to Produce"   fill="#f97316" radius={[3,3,0,0]} />
@@ -450,6 +449,21 @@ export default function ProductionAnalysisPage() {
                 <Bar dataKey="Exp. (Coating)"   fill="#93c5fd" radius={[3,3,0,0]} />
               </BarChart>
             </ResponsiveContainer>
+            {/* Manual legend below the chart */}
+            <div className="flex items-center justify-center flex-wrap gap-x-5 gap-y-2 pt-4 mt-2" style={{ borderTop: '1px solid #f0f0f0' }}>
+              {[
+                { color: '#d1d5db', label: 'Planned' },
+                { color: '#10b981', label: 'Produced' },
+                { color: '#f97316', label: 'Yet to Produce' },
+                { color: '#3b82f6', label: 'Exp. (Core)' },
+                { color: '#93c5fd', label: 'Exp. (Coating)' },
+              ].map(({ color, label }) => (
+                <span key={label} className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="inline-block w-3 h-3 rounded-sm flex-shrink-0" style={{ background: color }} />
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
