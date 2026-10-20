@@ -239,7 +239,7 @@ export default function ProductionAnalysisPage() {
       <div className="px-6 py-6 space-y-6">
 
         {/* Summary cards */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           {[
             { label: 'Total Planned',             value: totalPlanned,         sub: 'pipes across all active orders' },
             { label: 'In Final Testing',           value: totalFinalTesting,    sub: 'pipes currently at this stage'  },
