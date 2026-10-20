@@ -358,7 +358,13 @@ export default function ProductionAnalysisPage() {
                   <div key={o.id}>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-sm font-semibold text-gray-800">{o.pipeType}</span>
-                      <span className="text-xs text-gray-500 tabular-nums">{fmt(o.produced)} / {fmt(o.plannedQty)} &nbsp;·&nbsp; <span className="text-orange-500 font-medium">{fmt(rem)} remaining</span></span>
+                      <span className="text-xs tabular-nums text-gray-700">
+                        <span className="font-bold text-emerald-600">{fmt(o.produced)}</span>
+                        <span className="text-gray-400 mx-1">/</span>
+                        <span className="font-semibold text-gray-800">{fmt(o.plannedQty)}</span>
+                        <span className="text-gray-400 mx-2">·</span>
+                        <span className="font-semibold text-orange-500">{fmt(rem)} remaining</span>
+                      </span>
                     </div>
                     <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div
