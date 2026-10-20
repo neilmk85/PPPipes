@@ -414,6 +414,100 @@ export default function ProductionAnalysisPage() {
           </div>
         )}
 
+        {/* Cement Intelligence */}
+        {!loading && orders.length > 0 && (() => {
+          // Aggregate cement needed to finish all remaining pipes
+          const totalCoreNeeded    = orders.reduce((s, o) => s + Math.max(0, o.plannedQty - o.produced) * o.corePerPipe,    0)
+          const totalCoatingNeeded = orders.reduce((s, o) => s + Math.max(0, o.plannedQty - o.produced) * o.coatingPerPipe, 0)
+          const coreSurplus    = coreBal    - totalCoreNeeded
+          const coatingSurplus = coatingBal - totalCoatingNeeded
+
+          // Per-order analysis
+          const orderAnalysis = orders.map(o => {
+            const rem            = Math.max(0, o.plannedQty - o.produced)
+            const coreNeeded     = rem * o.corePerPipe
+            const coatingNeeded  = rem * o.coatingPerPipe
+            const coreConsumed   = o.produced * o.corePerPipe
+            const coatingConsumed= o.produced * o.coatingPerPipe
+            const coreGap        = coreBal    - coreNeeded
+            const coatingGap     = coatingBal - coatingNeeded
+            const atRisk         = (o.corePerPipe > 0 && coreGap < 0) || (o.coatingPerPipe > 0 && coatingGap < 0)
+            return { ...o, rem, coreNeeded, coatingNeeded, coreConsumed, coatingConsumed, coreGap, coatingGap, atRisk }
+          })
+          const atRiskCount = orderAnalysis.filter(o => o.atRisk).length
+
+          return (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <p className="text-sm font-bold text-gray-800 mb-1">Cement Intelligence</p>
+              <p className="text-xs text-gray-500 mb-5">Will available cement be enough to complete all active orders?</p>
+
+              <div className="flex gap-6">
+                {/* Left: 3 aggregate stat tiles */}
+                <div className="flex flex-col gap-3 w-64 shrink-0">
+                  {/* Core */}
+                  <div className={`rounded-xl p-4 border ${coreSurplus >= 0 ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Core Cement (Spinning)</p>
+                    <p className="text-xs text-gray-600 tabular-nums">Available: <span className="font-semibold text-gray-800">{fmt(coreBal)} kg</span></p>
+                    <p className="text-xs text-gray-600 tabular-nums mt-0.5">Required to finish: <span className="font-semibold text-gray-800">{fmt(totalCoreNeeded)} kg</span></p>
+                    <p className={`text-sm font-bold mt-2 tabular-nums ${coreSurplus >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {coreSurplus >= 0 ? `+${fmt(coreSurplus)} kg surplus` : `${fmt(Math.abs(coreSurplus))} kg short`}
+                    </p>
+                  </div>
+                  {/* Coating */}
+                  <div className={`rounded-xl p-4 border ${coatingSurplus >= 0 ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Coating Cement</p>
+                    <p className="text-xs text-gray-600 tabular-nums">Available: <span className="font-semibold text-gray-800">{fmt(coatingBal)} kg</span></p>
+                    <p className="text-xs text-gray-600 tabular-nums mt-0.5">Required to finish: <span className="font-semibold text-gray-800">{fmt(totalCoatingNeeded)} kg</span></p>
+                    <p className={`text-sm font-bold mt-2 tabular-nums ${coatingSurplus >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {coatingSurplus >= 0 ? `+${fmt(coatingSurplus)} kg surplus` : `${fmt(Math.abs(coatingSurplus))} kg short`}
+                    </p>
+                  </div>
+                  {/* At risk */}
+                  <div className={`rounded-xl p-4 border ${atRiskCount === 0 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Orders at Risk</p>
+                    <p className={`text-3xl font-light tabular-nums ${atRiskCount === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{atRiskCount}</p>
+                    <p className="text-xs text-gray-500 mt-1">{atRiskCount === 0 ? 'All orders can be completed' : 'orders may face cement shortage'}</p>
+                  </div>
+                </div>
+
+                {/* Right: per-order cards */}
+                <div className="flex-1 grid grid-cols-2 gap-3 content-start">
+                  {orderAnalysis.map(o => (
+                    <div key={o.id} className={`rounded-xl border p-4 ${o.atRisk ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+                      <div className="flex items-start justify-between mb-3">
+                        <p className="text-sm font-bold text-gray-800 leading-tight">{o.pipeType}</p>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${o.atRisk ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          {o.atRisk ? 'At Risk' : 'OK'}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5 text-xs text-gray-600">
+                        <div className="flex justify-between">
+                          <span>Consumed (Core)</span>
+                          <span className="tabular-nums font-medium text-gray-800">{fmt(o.coreConsumed)} kg</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Consumed (Coating)</span>
+                          <span className="tabular-nums font-medium text-gray-800">{fmt(o.coatingConsumed)} kg</span>
+                        </div>
+                        <div className="border-t border-gray-200 pt-1.5 mt-1.5">
+                          <div className="flex justify-between">
+                            <span>Still needed (Core)</span>
+                            <span className={`tabular-nums font-semibold ${o.coreGap < 0 ? 'text-red-600' : 'text-gray-800'}`}>{fmt(o.coreNeeded)} kg</span>
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span>Still needed (Coating)</span>
+                            <span className={`tabular-nums font-semibold ${o.coatingGap < 0 ? 'text-red-600' : 'text-gray-800'}`}>{fmt(o.coatingNeeded)} kg</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Silo extractions */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-200 flex items-center gap-2">
