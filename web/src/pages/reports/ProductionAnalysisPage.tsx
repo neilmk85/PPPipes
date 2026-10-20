@@ -301,15 +301,15 @@ export default function ProductionAnalysisPage() {
         </div>
 
         {/* Orders table */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200">
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid #f0f0f0' }}>
             <p className="text-sm font-bold text-gray-800">Production Orders</p>
             <p className="text-xs text-gray-500 mt-0.5">Active orders with cement requirement and expected output</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-blue-100" style={{ background: '#EFF6FF' }}>
+                <tr style={{ background: '#EFF6FF', borderBottom: '1px solid #dbeafe' }}>
                   {[
                     { label: 'Pipe Type',      align: 'text-left'  },
                     { label: 'Status',         align: 'text-left'  },
@@ -338,7 +338,7 @@ export default function ProductionAnalysisPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody style={{ borderTop: 'none' }}>
                 {loading ? (
                   <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-500 text-sm">
                     <Loader2 size={16} className="animate-spin inline mr-2" />Loading…
@@ -351,7 +351,7 @@ export default function ProductionAnalysisPage() {
                   const isCoreLimiting = expCore != null && expCoating != null && expCore <= expCoating
                   const isAtRisk = riskMap[o.id]
                   return (
-                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={o.id} className="hover:bg-gray-50 transition-colors" style={{ borderTop: '1px solid #f5f5f5' }}>
                       <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap text-left">{o.pipeType}</td>
                       <td className="px-4 py-3 text-left">{pill(o.status)}</td>
                       <td className="px-4 py-3 text-left">
@@ -393,14 +393,14 @@ export default function ProductionAnalysisPage() {
               </tbody>
             </table>
           </div>
-          <p className="px-5 py-3 text-xs text-gray-500 border-t border-gray-100">
+          <p className="px-5 py-3 text-xs text-gray-500" style={{ borderTop: '1px solid #f5f5f5' }}>
             Expected = available cement ÷ kg per pipe. Reaching the Limit = whichever cement (Spinning or Coating) runs out first. Produced = current WIP count at Final Testing stage.
           </p>
         </div>
 
         {/* Progress bars chart */}
         {!loading && orders.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
             <p className="text-sm font-bold text-gray-800 mb-1">Production Progress</p>
             <p className="text-xs text-gray-500 mb-5">Produced vs. planned per pipe type</p>
             <div className="space-y-4">
@@ -435,7 +435,7 @@ export default function ProductionAnalysisPage() {
 
         {/* Grouped bar chart */}
         {!loading && orders.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
             <p className="text-sm font-bold text-gray-800 mb-1">Capacity vs. Plan</p>
             <p className="text-xs text-gray-500 mb-5">Planned, produced and cement-limited capacity per pipe type</p>
             <ResponsiveContainer width="100%" height={320}>
@@ -469,8 +469,8 @@ export default function ProductionAnalysisPage() {
 
         {/* Cement Sufficiency */}
         {!loading && orders.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap">
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#f8f7ff', boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div className="px-6 py-5 flex items-center justify-between gap-4 flex-wrap" style={{ borderBottom: '1px solid #ede9ff' }}>
                 <div>
                   <p className="text-sm font-bold text-gray-900">Cement Sufficiency</p>
                   <p className="text-xs text-gray-400 mt-0.5">Will available stock complete all active orders?</p>
@@ -496,29 +496,33 @@ export default function ProductionAnalysisPage() {
               </div>
 
               {/* Two aggregate tiles */}
-              <div className="grid grid-cols-2 divide-x divide-gray-100 border-b border-gray-100">
+              <div className="grid grid-cols-2 gap-4 px-6 py-5" style={{ borderBottom: '1px solid #ede9ff' }}>
                 {[
-                  { label: 'Core Cement (Spinning)', avail: coreBal,    needed: totalCoreNeeded,    surplus: coreSurplus    },
-                  { label: 'Coating Cement',          avail: coatingBal, needed: totalCoatingNeeded, surplus: coatingSurplus },
+                  { label: 'Core Cement', sub: 'Spinning', avail: coreBal,    needed: totalCoreNeeded,    surplus: coreSurplus,    accent: '#4f46e5', bg: 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)', track: '#c7d2fe' },
+                  { label: 'Coating Cement', sub: 'Coating', avail: coatingBal, needed: totalCoatingNeeded, surplus: coatingSurplus, accent: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)', track: '#ddd6fe' },
                 ].map(t => {
                   const ok  = t.surplus >= 0
                   const pct = t.needed > 0 ? Math.min(100, (t.avail / t.needed) * 100) : 100
                   return (
-                    <div key={t.label} className="px-6 py-5">
-                      <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-3">{t.label}</p>
-                      <div className="flex items-baseline gap-4 mb-3">
+                    <div key={t.label} className="rounded-xl p-5" style={{ background: t.bg }}>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-2 h-2 rounded-full" style={{ background: t.accent }} />
+                        <p className="text-xs font-bold uppercase tracking-widest" style={{ color: t.accent }}>{t.label}</p>
+                        <span className="text-xs text-gray-400 font-normal">· {t.sub}</span>
+                      </div>
+                      <div className="flex items-end gap-6 mb-4">
                         <div>
-                          <p className="text-2xl font-light tabular-nums text-gray-900">{fmt(t.avail)}<span className="text-sm text-gray-400 ml-1">kg</span></p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">available</p>
+                          <p className="text-2xl font-semibold tabular-nums text-gray-900">{fmt(t.avail)}<span className="text-sm font-normal text-gray-500 ml-1">kg</span></p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">available in silo</p>
                         </div>
-                        <div className="text-gray-300 text-lg">→</div>
+                        <div className="text-gray-400 pb-4">→</div>
                         <div>
-                          <p className="text-xl font-light tabular-nums text-gray-700">{fmt(t.needed)}<span className="text-sm text-gray-400 ml-1">kg</span></p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">required</p>
+                          <p className="text-xl font-medium tabular-nums text-gray-700">{fmt(t.needed)}<span className="text-sm font-normal text-gray-400 ml-1">kg</span></p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">required to finish</p>
                         </div>
                       </div>
-                      <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: ok ? '#10b981' : '#ef4444' }} />
+                      <div className="w-full h-2 rounded-full overflow-hidden mb-2.5" style={{ background: t.track }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: ok ? '#10b981' : '#ef4444' }} />
                       </div>
                       <p className={`text-sm font-bold tabular-nums ${ok ? 'text-emerald-600' : 'text-red-500'}`}>
                         {ok ? `+${fmt(t.surplus)} kg surplus` : `${fmt(Math.abs(t.surplus))} kg short`}
@@ -531,20 +535,23 @@ export default function ProductionAnalysisPage() {
               {/* Per-order table */}
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100" style={{ background: '#F8F9FA' }}>
-                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Pipe Type</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Core Used</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Core Needed</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Coating Used</th>
-                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-gray-500">Coating Needed</th>
-                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                  <tr style={{ background: '#ede9ff', borderBottom: '1px solid #ddd6fe' }}>
+                    <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Pipe Type</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Core Used</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Core Needed</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Coating Used</th>
+                    <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Coating Needed</th>
+                    <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-indigo-600">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody>
                   {orderAnalysis
                     .filter(o => cementFilter === 'all' || o.atRisk)
                     .map(o => (
-                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={o.id} className="transition-colors" style={{ borderTop: '1px solid #ede9ff' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#f5f3ff')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '')}
+                    >
                       <td className="px-6 py-3.5 font-semibold text-gray-900">{o.pipeType}</td>
                       <td className="px-4 py-3.5 tabular-nums text-gray-600 text-right">{fmt(o.coreConsumed)} kg</td>
                       <td className={`px-4 py-3.5 tabular-nums text-right font-medium ${o.coreGap < 0 ? 'text-red-600' : 'text-gray-700'}`}>{fmt(o.coreNeeded)} kg</td>
@@ -563,8 +570,8 @@ export default function ProductionAnalysisPage() {
         )}
 
         {/* Silo extractions */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-200 flex items-center gap-2">
+        <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div className="px-5 py-4 flex items-center gap-2" style={{ borderBottom: '1px solid #f0f0f0' }}>
             <FlaskConical size={15} className="text-gray-500" />
             <div>
               <p className="text-sm font-bold text-gray-800">Silo Extractions</p>
@@ -573,13 +580,13 @@ export default function ProductionAnalysisPage() {
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #f0f0f0' }}>
                 {['Date','Silo','Quantity (kg)','Notes'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-600">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {loading ? (
                 <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500 text-sm">Loading…</td></tr>
               ) : extractions.length === 0 ? (
@@ -591,7 +598,7 @@ export default function ProductionAnalysisPage() {
                   e.silo3Value && parseFloat(e.silo3Value) > 0 ? { silo: 3, val: parseFloat(e.silo3Value) } : null,
                 ].filter(Boolean) as { silo: number; val: number }[]
                 return vals.map((v, i) => (
-                  <tr key={`${e.id}-${v.silo}`} className="hover:bg-gray-50">
+                  <tr key={`${e.id}-${v.silo}`} className="hover:bg-gray-50" style={{ borderTop: '1px solid #f5f5f5' }}>
                     {i === 0 && <td className="px-4 py-3 text-gray-700" rowSpan={vals.length}>{e.date}</td>}
                     <td className="px-4 py-3 text-gray-700">Silo {v.silo}</td>
                     <td className="px-4 py-3 tabular-nums font-medium text-gray-900">{fmt(v.val * 1000)}</td>
