@@ -245,24 +245,6 @@ export default function ProductionAnalysisPage() {
         </div>
       </div>
 
-      {/* Alert banner — shown when any order has cement shortage */}
-      {!loading && atRiskCount > 0 && (
-        <div className="mx-6 mt-5 flex items-start gap-3 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-xl">
-          <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-amber-800">
-              {atRiskCount} of {orders.length} order{orders.length !== 1 ? 's' : ''} exceed current cement stock
-            </p>
-            <p className="text-xs text-amber-600 mt-0.5">
-              {coreSurplus < 0 && coatingSurplus < 0
-                ? 'Both core and coating cement need replenishment to complete all active orders.'
-                : coreSurplus < 0
-                ? 'Core cement (Spinning) needs replenishment to complete all active orders.'
-                : 'Coating cement needs replenishment to complete all active orders.'}
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="px-6 py-6 space-y-6">
 
