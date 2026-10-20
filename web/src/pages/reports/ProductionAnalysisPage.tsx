@@ -147,6 +147,11 @@ export default function ProductionAnalysisPage() {
     return s + Math.floor(coreBal / o.corePerPipe)
   }, 0)
 
+  const totalExpectedCoating = orders.reduce((s, o) => {
+    if (o.coatingPerPipe <= 0) return s
+    return s + Math.floor(coatingBal / o.coatingPerPipe)
+  }, 0)
+
   return (
     <div className="min-h-screen bg-white">
       {/* Page header */}
@@ -236,9 +241,10 @@ export default function ProductionAnalysisPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Total Planned',             value: totalPlanned,      sub: 'pipes across all active orders' },
-            { label: 'In Final Testing',           value: totalFinalTesting, sub: 'pipes currently at this stage'  },
-            { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore, sub: 'cement-limited capacity'        },
+            { label: 'Total Planned',             value: totalPlanned,         sub: 'pipes across all active orders' },
+            { label: 'In Final Testing',           value: totalFinalTesting,    sub: 'pipes currently at this stage'  },
+            { label: 'Expected Pipes (Spinning)',  value: totalExpectedCore,    sub: 'from Silo Core cement'          },
+            { label: 'Expected Pipes (Coating)',   value: totalExpectedCoating, sub: 'from Silo Coating cement'       },
           ].map(c => (
             <div key={c.label} className="rounded-2xl p-6 text-center" style={{ background: '#F4F4F6', boxShadow: '0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)' }}>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-900 mb-2">{c.label}</p>
