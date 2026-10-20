@@ -448,7 +448,7 @@ export default function ProductionAnalysisPage() {
                   'Exp. (Core)':    o.corePerPipe    > 0 ? Math.floor(coreBal    / o.corePerPipe)    : 0,
                   'Exp. (Coating)': o.coatingPerPipe > 0 ? Math.floor(coatingBal / o.coatingPerPipe) : 0,
                 }))}
-                margin={{ top: 4, right: 16, left: 8, bottom: 60 }}
+                margin={{ top: 4, right: 16, left: 8, bottom: 80 }}
                 barCategoryGap="30%"
                 barGap={2}
               >
@@ -456,7 +456,7 @@ export default function ProductionAnalysisPage() {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} angle={-30} textAnchor="end" interval={0} />
                 <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} tickFormatter={v => fmt(v)} width={55} />
                 <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 24 }} />
                 <Bar dataKey="Planned"          fill="#d1d5db" radius={[3,3,0,0]} />
                 <Bar dataKey="Produced"         fill="#10b981" radius={[3,3,0,0]} />
                 <Bar dataKey="Yet to Produce"   fill="#f97316" radius={[3,3,0,0]} />
