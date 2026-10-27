@@ -414,8 +414,9 @@ export default function ProductionAnalysisPage() {
             })()}
             <div className="p-6 space-y-4">
               {orders.map(o => {
-                const pct = o.plannedQty > 0 ? Math.min(100, Math.round((o.produced / o.plannedQty) * 100)) : 0
-                const rem = Math.max(0, o.plannedQty - o.produced)
+                const isOver = o.produced > o.plannedQty
+                const pct    = o.plannedQty > 0 ? Math.round((o.produced / o.plannedQty) * 100) : 0
+                const rem    = o.plannedQty - o.produced
                 return (
                   <div key={o.id}>
                     <div className="flex items-center justify-between mb-1.5">
@@ -425,16 +426,24 @@ export default function ProductionAnalysisPage() {
                         <span className="text-gray-400 mx-1">/</span>
                         <span className="font-semibold text-gray-800">{fmt(o.plannedQty)}</span>
                         <span className="text-gray-400 mx-2">·</span>
-                        <span className="font-semibold text-orange-500">{fmt(rem)} remaining</span>
+                        {isOver
+                          ? <span className="font-semibold text-violet-600">+{fmt(Math.abs(rem))} over plan</span>
+                          : <span className="font-semibold text-orange-500">{fmt(rem)} remaining</span>
+                        }
                       </span>
                     </div>
                     <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, background: pct >= 100 ? '#10b981' : pct >= 60 ? '#3b82f6' : '#f97316' }}
+                        style={{ width: `${Math.min(100, pct)}%`, background: isOver ? '#8b5cf6' : pct >= 100 ? '#10b981' : pct >= 60 ? '#3b82f6' : '#f97316' }}
                       />
                     </div>
-                    <div className="text-[10px] text-gray-400 mt-1 text-right">{pct}% complete</div>
+                    <div className="text-[10px] mt-1 text-right">
+                      {isOver
+                        ? <span className="text-violet-500 font-medium">{pct}% — over-produced</span>
+                        : <span className="text-gray-400">{pct}% complete</span>
+                      }
+                    </div>
                   </div>
                 )
               })}
