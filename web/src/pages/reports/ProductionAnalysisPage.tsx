@@ -427,7 +427,7 @@ export default function ProductionAnalysisPage() {
                         <span className="font-semibold text-gray-800">{fmt(o.plannedQty)}</span>
                         <span className="text-gray-400 mx-2">·</span>
                         {isOver
-                          ? <span className="font-semibold text-violet-600">+{fmt(Math.abs(rem))} over plan</span>
+                          ? <span className="font-semibold text-violet-600">+{fmt(Math.abs(rem))} over produced</span>
                           : <span className="font-semibold text-orange-500">{fmt(rem)} remaining</span>
                         }
                       </span>
