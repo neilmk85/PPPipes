@@ -173,6 +173,49 @@ func (s *ProductionReportService) GetMaterialConsumption(fromDate, toDate string
 	return rows, err
 }
 
+// ── Material Consumption By Pipe ─────────────────────────────────────────────
+// Returns per-pipe-type breakdown for a specific material.
+
+type MaterialByPipeRow struct {
+	PipeName       string          `gorm:"column:pipe_name"        json:"pipeName"`
+	PipesProduced  int             `gorm:"column:pipes_produced"   json:"pipesProduced"`
+	ConsumedQty    decimal.Decimal `gorm:"column:consumed_qty"     json:"consumedQty"`
+	UOM            string          `gorm:"column:uom"              json:"uom"`
+	QtyPerPipe     decimal.Decimal `gorm:"column:qty_per_pipe"     json:"qtyPerPipe"`
+	TotalCost      decimal.Decimal `gorm:"column:total_cost"       json:"totalCost"`
+}
+
+func (s *ProductionReportService) GetMaterialConsumptionByPipe(materialName, fromDate, toDate string) ([]MaterialByPipeRow, error) {
+	query := `
+		SELECT
+			pc.name                              AS pipe_name,
+			SUM(pe.pipes_completed)              AS pipes_produced,
+			SUM(mc.consumed_qty)                 AS consumed_qty,
+			mc.uom                               AS uom,
+			ROUND(SUM(mc.consumed_qty) / NULLIF(SUM(pe.pipes_completed), 0), 4) AS qty_per_pipe,
+			SUM(mc.total_cost)                   AS total_cost
+		FROM material_consumptions mc
+		JOIN products p            ON p.id  = mc.material_product_id
+		JOIN production_entries pe ON pe.id = mc.production_entry_id
+		JOIN pipe_configs pc       ON pc.id = pe.pipe_config_id
+		WHERE p.name = ?`
+
+	args := []interface{}{materialName}
+	if fromDate != "" {
+		query += " AND DATE(pe.entry_date) >= ?"
+		args = append(args, fromDate)
+	}
+	if toDate != "" {
+		query += " AND DATE(pe.entry_date) <= ?"
+		args = append(args, toDate)
+	}
+	query += " GROUP BY pc.name, mc.uom ORDER BY consumed_qty DESC"
+
+	var rows []MaterialByPipeRow
+	err := s.db.Raw(query, args...).Scan(&rows).Error
+	return rows, err
+}
+
 // ── Machine Utilization ───────────────────────────────────────────────────────
 // Returns per-machine entry counts and pipes completed.
 

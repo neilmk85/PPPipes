@@ -904,6 +904,8 @@ export const productionReportApi = {
     api.get<ApiResponse<any>>('/production/reports/cost-summary', { params }),
   materialConsumption: (params?: { fromDate?: string; toDate?: string; outletId?: number }) =>
     api.get<ApiResponse<any>>('/production/reports/material-consumption', { params }),
+  materialByPipe: (params: { material: string; fromDate?: string; toDate?: string }) =>
+    api.get<ApiResponse<any>>('/production/reports/material-by-pipe', { params }),
   machineUtilization: (params?: { fromDate?: string; toDate?: string; outletId?: number }) =>
     api.get<ApiResponse<any>>('/production/reports/machine-utilization', { params }),
   contractorCosts: (params?: { fromDate?: string; toDate?: string; outletId?: number }) =>

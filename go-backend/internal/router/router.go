@@ -1906,6 +1906,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		productionReportHandler.MaterialConsumption,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("GET /api/production/reports/material-by-pipe", middleware.Chain(
+		productionReportHandler.MaterialByPipe,
+		middleware.Authenticate(db),
+	))
 	mux.HandleFunc("GET /api/production/reports/machine-utilization", middleware.Chain(
 		productionReportHandler.MachineUtilization,
 		middleware.Authenticate(db),

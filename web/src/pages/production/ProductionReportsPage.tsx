@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Package, Layers, Download, Calendar, TrendingUp, ChevronDown, Hammer, UserCheck, BarChart2, Search } from 'lucide-react'
+import { BarChart3, Package, Layers, Download, Calendar, TrendingUp, ChevronDown, Hammer, UserCheck, BarChart2, Search, X, Loader2 } from 'lucide-react'
 import { subDays } from 'date-fns'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
@@ -503,9 +503,93 @@ function CostSummaryTab({ from, to }: { from: string; to: string }) {
 
 // ── Tab 3: Material Consumption ───────────────────────────────────────────────
 
+function MaterialByPipeModal({ material, from, to, onClose }: { material: string; from: string; to: string; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['material-by-pipe', material, from, to],
+    queryFn: () => productionReportApi.materialByPipe({ material, fromDate: from || undefined, toDate: to || undefined })
+      .then(r => r.data.data as any[]),
+  })
+  const rows = data ?? []
+  const totalQty = rows.reduce((s: number, r: any) => s + Number(r.consumedQty), 0)
+  const totalPipes = rows.reduce((s: number, r: any) => s + Number(r.pipesProduced), 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-violet-500 mb-1">Material Breakdown</p>
+            <h2 className="text-lg font-bold text-gray-900">{material}</h2>
+            {(from || to) && (
+              <p className="text-xs text-gray-400 mt-0.5">{from || '—'} to {to || '—'}</p>
+            )}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 mt-1">
+            <X size={18} />
+          </button>
+        </div>
+        {/* Summary chips */}
+        {!isLoading && rows.length > 0 && (
+          <div className="px-6 py-4 flex gap-4 border-b border-gray-100">
+            <div className="flex-1 bg-violet-50 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold tabular-nums text-violet-700">{fmtQty(totalQty)}</p>
+              <p className="text-xs text-violet-400 mt-0.5 uppercase tracking-wide">Total Consumed ({rows[0]?.uom ?? 'kg'})</p>
+            </div>
+            <div className="flex-1 bg-emerald-50 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold tabular-nums text-emerald-700">{fmt(totalPipes)}</p>
+              <p className="text-xs text-emerald-400 mt-0.5 uppercase tracking-wide">Total Pipes Produced</p>
+            </div>
+          </div>
+        )}
+        {/* Table */}
+        <div className="overflow-y-auto flex-1">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16 text-gray-400 gap-2">
+              <Loader2 size={16} className="animate-spin" />Loading…
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">No production data for this material in the selected range</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-xs text-gray-500 uppercase sticky top-0">
+                <tr>
+                  <th className="px-6 py-3 text-left">Pipe Type</th>
+                  <th className="px-6 py-3 text-right">Pipes Produced</th>
+                  <th className="px-6 py-3 text-right">Total Consumed</th>
+                  <th className="px-6 py-3 text-right">Per Pipe</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r: any, i: number) => (
+                  <tr key={i} className="hover:bg-violet-50/40">
+                    <td className="px-6 py-3.5 font-medium text-gray-900">{r.pipeName}</td>
+                    <td className="px-6 py-3.5 text-right tabular-nums text-gray-700">{fmt(r.pipesProduced)}</td>
+                    <td className="px-6 py-3.5 text-right tabular-nums font-medium text-gray-900">{fmtQty(r.consumedQty)} <span className="text-gray-400 text-xs">{r.uom}</span></td>
+                    <td className="px-6 py-3.5 text-right tabular-nums text-violet-600 font-semibold">{fmtQty(r.qtyPerPipe)} <span className="text-violet-300 text-xs">{r.uom}/pipe</span></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-gray-50 font-semibold text-sm">
+                <tr>
+                  <td className="px-6 py-3 text-gray-700">Total</td>
+                  <td className="px-6 py-3 text-right tabular-nums">{fmt(totalPipes)}</td>
+                  <td className="px-6 py-3 text-right tabular-nums">{fmtQty(totalQty)} <span className="text-gray-400 text-xs">{rows[0]?.uom ?? 'kg'}</span></td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
   const [showChart, setShowChart] = useState(false)
   const [search, setSearch] = useState('')
+  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null)
   const { data: apiData, isLoading: apiLoading } = useQuery({
     queryKey: ['prod-report-material', from, to],
     queryFn: () => productionReportApi.materialConsumption({
@@ -593,8 +677,8 @@ function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredRows.map((r: any, i: number) => (
-                <tr key={i} className="hover:bg-violet-50/40">
-                  <td className="px-4 py-3 font-medium text-gray-900">{r.materialName}</td>
+                <tr key={i} className="hover:bg-violet-50/40 cursor-pointer" onClick={() => setSelectedMaterial(r.materialName)}>
+                  <td className="px-4 py-3 font-medium text-violet-700 underline underline-offset-2 decoration-dotted">{r.materialName}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{STAGE_LABEL[r.stageType] ?? r.stageType}</td>
                   <td className="px-4 py-3 text-right font-mono">{fmtQty(r.totalQty)}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{r.uom}</td>
@@ -612,6 +696,14 @@ function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
             </tfoot>
           </table>
         </div>
+      )}
+      {selectedMaterial && (
+        <MaterialByPipeModal
+          material={selectedMaterial}
+          from={from}
+          to={to}
+          onClose={() => setSelectedMaterial(null)}
+        />
       )}
     </div>
   )

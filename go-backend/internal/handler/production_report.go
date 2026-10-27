@@ -60,6 +60,22 @@ func (h *ProductionReportHandler) MaterialConsumption(w http.ResponseWriter, r *
 	util.SendSuccess(w, "Material consumption retrieved", rows)
 }
 
+// GET /api/production/reports/material-by-pipe
+func (h *ProductionReportHandler) MaterialByPipe(w http.ResponseWriter, r *http.Request) {
+	materialName := r.URL.Query().Get("material")
+	if materialName == "" {
+		util.SendError(w, 400, "material parameter required")
+		return
+	}
+	from, to, _ := parseReportFilters(r)
+	rows, err := h.service.GetMaterialConsumptionByPipe(materialName, from, to)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Material consumption by pipe", rows)
+}
+
 // GET /api/production/reports/machine-utilization
 func (h *ProductionReportHandler) MachineUtilization(w http.ResponseWriter, r *http.Request) {
 	from, to, outletID := parseReportFilters(r)
