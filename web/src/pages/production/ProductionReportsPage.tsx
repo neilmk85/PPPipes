@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Package, Layers, Download, Calendar, TrendingUp, ChevronDown, Hammer, UserCheck, BarChart2 } from 'lucide-react'
+import { BarChart3, Package, Layers, Download, Calendar, TrendingUp, ChevronDown, Hammer, UserCheck, BarChart2, Search } from 'lucide-react'
 import { subDays } from 'date-fns'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
@@ -505,6 +505,7 @@ function CostSummaryTab({ from, to }: { from: string; to: string }) {
 
 function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
   const [showChart, setShowChart] = useState(false)
+  const [search, setSearch] = useState('')
   const { data: apiData, isLoading: apiLoading } = useQuery({
     queryKey: ['prod-report-material', from, to],
     queryFn: () => productionReportApi.materialConsumption({
@@ -524,7 +525,13 @@ function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
     return makeMaterialDummy()
   }, [apiData, products])
 
-  const totalCost = rows.reduce((s: number, r: any) => s + Number(r.totalCost), 0)
+  const filteredRows = useMemo(() =>
+    search.trim()
+      ? rows.filter((r: any) => r.materialName?.toLowerCase().includes(search.trim().toLowerCase()))
+      : rows
+  , [rows, search])
+
+  const totalCost = filteredRows.reduce((s: number, r: any) => s + Number(r.totalCost), 0)
 
   const top10 = useMemo(() =>
     [...rows].sort((a: any, b: any) => Number(b.totalCost) - Number(a.totalCost)).slice(0, 10)
@@ -533,7 +540,17 @@ function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
   return (
     <div className="space-y-4">
       {rows.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search raw material…"
+              className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300"
+            />
+          </div>
           <button onClick={() => setShowChart(v => !v)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition">
             <BarChart2 size={13} />{showChart ? 'Hide Chart' : 'Show Chart'}
@@ -559,8 +576,8 @@ function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
           </ResponsiveContainer>
         </div>
       )}
-      {isLoading ? <LoadingTable /> : rows.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">No data for selected range</div>
+      {isLoading ? <LoadingTable /> : filteredRows.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">{search ? 'No materials match your search' : 'No data for selected range'}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -575,7 +592,7 @@ function MaterialConsumptionTab({ from, to }: { from: string; to: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {rows.map((r: any, i: number) => (
+              {filteredRows.map((r: any, i: number) => (
                 <tr key={i} className="hover:bg-violet-50/40">
                   <td className="px-4 py-3 font-medium text-gray-900">{r.materialName}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{STAGE_LABEL[r.stageType] ?? r.stageType}</td>
