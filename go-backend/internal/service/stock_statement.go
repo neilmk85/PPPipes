@@ -1,8 +1,6 @@
 package service
 
 import (
-	"time"
-
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
@@ -16,173 +14,214 @@ func NewStockStatementService(db *gorm.DB) *StockStatementService {
 }
 
 type StockStatementRow struct {
-	ProductID    int             `json:"productId"`
-	ProductName  string          `json:"productName"`
-	Category     string          `json:"category"`
-	UOM          string          `json:"uom"`
-	OpeningQty   decimal.Decimal `json:"openingQty"`
-	InwardQty    decimal.Decimal `json:"inwardQty"`
-	OutwardQty   decimal.Decimal `json:"outwardQty"`
-	ClosingQty   decimal.Decimal `json:"closingQty"`
-	AvgCost      decimal.Decimal `json:"avgCost"`
-	ClosingValue decimal.Decimal `json:"closingValue"`
-	ReorderLevel int             `json:"reorderLevel"`
-	IsLow        bool            `json:"isLow"`
+	ProductID     uint            `json:"productId"`
+	ProductName   string          `json:"productName"`
+	UOM           string          `json:"uom"`
+	OpeningQty    decimal.Decimal `json:"openingQty"`
+	OpeningAmount decimal.Decimal `json:"openingAmount"`
+	InwardQty     decimal.Decimal `json:"inwardQty"`
+	InwardAmount  decimal.Decimal `json:"inwardAmount"`
+	OutwardQty    decimal.Decimal `json:"outwardQty"`
+	OutwardAmount decimal.Decimal `json:"outwardAmount"`
+	ClosingQty    decimal.Decimal `json:"closingQty"`
+	ClosingAmount decimal.Decimal `json:"closingAmount"`
 }
 
-type productQtyRow struct {
-	ProductID int
+type StockLedgerRow struct {
+	Date           string          `json:"date"`
+	Code           string          `json:"code"`
+	TxType         string          `json:"txType"` // "INWARD" | "OUTWARD"
+	InwardQty      decimal.Decimal `json:"inwardQty"`
+	OutwardQty     decimal.Decimal `json:"outwardQty"`
+	ClosingBalance decimal.Decimal `json:"closingBalance"`
+}
+
+type movRow struct {
+	ProductID uint
 	Qty       decimal.Decimal
+	Amount    decimal.Decimal
 }
 
-func (s *StockStatementService) GetStatement(outletId int, from, to time.Time) ([]StockStatementRow, error) {
-	// ── 1. Base: all inventory positions for this outlet ─────────────────────
-	type inventoryRow struct {
-		ProductID    int
-		ProductName  string
-		Category     string
-		UOM          string
-		ClosingQty   decimal.Decimal
-		AvgCost      decimal.Decimal
-		ReorderLevel int
+func (s *StockStatementService) GetStatement(fromDate, toDate string) ([]StockStatementRow, error) {
+	// ── inward before period (purchase bills) ────────────────────────────────
+	var preIn []movRow
+	s.db.Raw(`
+		SELECT pbi.product_id, SUM(pbi.quantity) AS qty, SUM(pbi.line_total) AS amount
+		FROM purchase_bill_items pbi
+		JOIN purchase_bills pb ON pb.id = pbi.bill_id
+		WHERE pb.bill_date < ?
+		GROUP BY pbi.product_id
+	`, fromDate).Scan(&preIn)
+
+	// ── outward before period (material consumptions) ────────────────────────
+	var preOut []movRow
+	s.db.Raw(`
+		SELECT mc.material_product_id AS product_id, SUM(mc.consumed_qty) AS qty, SUM(mc.total_cost) AS amount
+		FROM material_consumptions mc
+		JOIN production_entries pe ON pe.id = mc.production_entry_id
+		WHERE pe.entry_date < ?
+		GROUP BY mc.material_product_id
+	`, fromDate).Scan(&preOut)
+
+	// ── stock adjustments before period ─────────────────────────────────────
+	var preAdj []movRow
+	s.db.Raw(`
+		SELECT product_id, SUM(adjustment_quantity) AS qty, 0 AS amount
+		FROM stock_adjustments
+		WHERE DATE(created_at) < ?
+		GROUP BY product_id
+	`, fromDate).Scan(&preAdj)
+
+	// ── inward in period ─────────────────────────────────────────────────────
+	var inRows []movRow
+	s.db.Raw(`
+		SELECT pbi.product_id, SUM(pbi.quantity) AS qty, SUM(pbi.line_total) AS amount
+		FROM purchase_bill_items pbi
+		JOIN purchase_bills pb ON pb.id = pbi.bill_id
+		WHERE pb.bill_date BETWEEN ? AND ?
+		GROUP BY pbi.product_id
+	`, fromDate, toDate).Scan(&inRows)
+
+	// ── outward in period ────────────────────────────────────────────────────
+	var outRows []movRow
+	s.db.Raw(`
+		SELECT mc.material_product_id AS product_id, SUM(mc.consumed_qty) AS qty, SUM(mc.total_cost) AS amount
+		FROM material_consumptions mc
+		JOIN production_entries pe ON pe.id = mc.production_entry_id
+		WHERE pe.entry_date BETWEEN ? AND ?
+		GROUP BY mc.material_product_id
+	`, fromDate, toDate).Scan(&outRows)
+
+	// ── all products that appear in any movement ─────────────────────────────
+	type prodRow struct {
+		ProductID uint
+		Name      string
+		UOM       string
 	}
-	var items []inventoryRow
-	if err := s.db.Raw(`
-		SELECT i.product_id,
-		       p.name AS product_name,
-		       COALESCE(c.name, '') AS category,
-		       p.unit_of_measure AS uom,
-		       i.quantity_on_hand AS closing_qty,
-		       COALESCE(i.average_cost, 0) AS avg_cost,
-		       i.reorder_level
-		FROM inventory i
-		JOIN products p ON p.id = i.product_id
-		LEFT JOIN categories c ON c.id = p.category_id
-		WHERE i.outlet_id = ?
+	var products []prodRow
+	s.db.Raw(`
+		SELECT DISTINCT p.id AS product_id, p.name, COALESCE(p.unit_of_measure, 'kg') AS uom
+		FROM products p
+		WHERE p.id IN (
+			SELECT product_id FROM purchase_bill_items
+			UNION
+			SELECT material_product_id FROM material_consumptions
+			UNION
+			SELECT product_id FROM stock_adjustments
+		)
 		ORDER BY p.name
-	`, outletId).Scan(&items).Error; err != nil {
-		return nil, err
-	}
-	if len(items) == 0 {
-		return []StockStatementRow{}, nil
-	}
+	`).Scan(&products)
 
-	fromStr := from.Format("2006-01-02")
-	toStr := to.Format("2006-01-02")
+	// ── aggregate into maps ──────────────────────────────────────────────────
+	preInQty  := map[uint]decimal.Decimal{}
+	preInAmt  := map[uint]decimal.Decimal{}
+	preOutQty := map[uint]decimal.Decimal{}
+	preAdjQty := map[uint]decimal.Decimal{}
+	inQty     := map[uint]decimal.Decimal{}
+	inAmt     := map[uint]decimal.Decimal{}
+	outQty    := map[uint]decimal.Decimal{}
+	outAmt    := map[uint]decimal.Decimal{}
 
-	// ── 2. Inward movements within date range ─────────────────────────────────
+	for _, r := range preIn  { preInQty[r.ProductID] = preInQty[r.ProductID].Add(r.Qty); preInAmt[r.ProductID] = preInAmt[r.ProductID].Add(r.Amount) }
+	for _, r := range preOut { preOutQty[r.ProductID] = preOutQty[r.ProductID].Add(r.Qty) }
+	for _, r := range preAdj { preAdjQty[r.ProductID] = preAdjQty[r.ProductID].Add(r.Qty) }
+	for _, r := range inRows  { inQty[r.ProductID] = inQty[r.ProductID].Add(r.Qty); inAmt[r.ProductID] = inAmt[r.ProductID].Add(r.Amount) }
+	for _, r := range outRows { outQty[r.ProductID] = outQty[r.ProductID].Add(r.Qty); outAmt[r.ProductID] = outAmt[r.ProductID].Add(r.Amount) }
 
-	// 2a. Bulk purchases
-	var bulkIn []productQtyRow
-	s.db.Raw(`
-		SELECT product_id, SUM(COALESCE(base_qty, purchase_qty)) AS qty
-		FROM bulk_purchases
-		WHERE outlet_id = ? AND DATE(COALESCE(purchase_date, created_at)) BETWEEN ? AND ?
-		GROUP BY product_id
-	`, outletId, fromStr, toStr).Scan(&bulkIn)
+	// ── build result ─────────────────────────────────────────────────────────
+	rows := make([]StockStatementRow, 0, len(products))
+	for _, p := range products {
+		openQty := preInQty[p.ProductID].Add(preAdjQty[p.ProductID]).Sub(preOutQty[p.ProductID])
+		iQty    := inQty[p.ProductID]
+		iAmt    := inAmt[p.ProductID]
+		oQty    := outQty[p.ProductID]
+		oAmt    := outAmt[p.ProductID]
+		closeQty := openQty.Add(iQty).Sub(oQty)
 
-	// 2b. Purchase orders received
-	var poIn []productQtyRow
-	s.db.Raw(`
-		SELECT poi.product_id, SUM(poi.received_quantity) AS qty
-		FROM purchase_order_items poi
-		JOIN purchase_orders po ON po.id = poi.purchase_order_id
-		WHERE po.outlet_id = ? AND DATE(po.created_at) BETWEEN ? AND ?
-		  AND po.status IN ('RECEIVED','PARTIALLY_RECEIVED')
-		  AND poi.received_quantity > 0
-		GROUP BY poi.product_id
-	`, outletId, fromStr, toStr).Scan(&poIn)
-
-	// 2c. Stock transfers received (incoming to this outlet)
-	var transferIn []productQtyRow
-	s.db.Raw(`
-		SELECT sti.product_id, SUM(sti.received_quantity) AS qty
-		FROM stock_transfer_items sti
-		JOIN stock_transfers st ON st.id = sti.transfer_id
-		WHERE st.to_outlet_id = ? AND DATE(st.created_at) BETWEEN ? AND ?
-		  AND st.status = 'COMPLETED' AND sti.received_quantity > 0
-		GROUP BY sti.product_id
-	`, outletId, fromStr, toStr).Scan(&transferIn)
-
-	// 2d. Positive stock adjustments
-	var adjIn []productQtyRow
-	s.db.Raw(`
-		SELECT product_id, SUM(adjustment_quantity) AS qty
-		FROM stock_adjustments
-		WHERE outlet_id = ? AND DATE(created_at) BETWEEN ? AND ?
-		  AND adjustment_quantity > 0
-		GROUP BY product_id
-	`, outletId, fromStr, toStr).Scan(&adjIn)
-
-	// ── 3. Outward movements within date range ────────────────────────────────
-
-	// 3a. Sales (order_items)
-	var orderOut []productQtyRow
-	s.db.Raw(`
-		SELECT oi.product_id, SUM(GREATEST(oi.quantity - oi.returned_quantity, 0)) AS qty
-		FROM order_items oi
-		JOIN orders o ON o.id = oi.order_id
-		WHERE o.outlet_id = ? AND DATE(o.created_at) BETWEEN ? AND ?
-		  AND o.status NOT IN ('CANCELLED','REFUNDED')
-		GROUP BY oi.product_id
-	`, outletId, fromStr, toStr).Scan(&orderOut)
-
-	// 3b. Stock transfers shipped (outgoing from this outlet)
-	var transferOut []productQtyRow
-	s.db.Raw(`
-		SELECT sti.product_id, SUM(sti.shipped_quantity) AS qty
-		FROM stock_transfer_items sti
-		JOIN stock_transfers st ON st.id = sti.transfer_id
-		WHERE st.from_outlet_id = ? AND DATE(st.created_at) BETWEEN ? AND ?
-		  AND st.status = 'COMPLETED' AND sti.shipped_quantity > 0
-		GROUP BY sti.product_id
-	`, outletId, fromStr, toStr).Scan(&transferOut)
-
-	// 3c. Negative stock adjustments
-	var adjOut []productQtyRow
-	s.db.Raw(`
-		SELECT product_id, SUM(ABS(adjustment_quantity)) AS qty
-		FROM stock_adjustments
-		WHERE outlet_id = ? AND DATE(created_at) BETWEEN ? AND ?
-		  AND adjustment_quantity < 0
-		GROUP BY product_id
-	`, outletId, fromStr, toStr).Scan(&adjOut)
-
-	// ── 4. Aggregate into maps ────────────────────────────────────────────────
-	inMap := map[int]decimal.Decimal{}
-	for _, r := range bulkIn     { inMap[r.ProductID] = inMap[r.ProductID].Add(r.Qty) }
-	for _, r := range poIn       { inMap[r.ProductID] = inMap[r.ProductID].Add(r.Qty) }
-	for _, r := range transferIn { inMap[r.ProductID] = inMap[r.ProductID].Add(r.Qty) }
-	for _, r := range adjIn      { inMap[r.ProductID] = inMap[r.ProductID].Add(r.Qty) }
-
-	outMap := map[int]decimal.Decimal{}
-	for _, r := range orderOut    { outMap[r.ProductID] = outMap[r.ProductID].Add(r.Qty) }
-	for _, r := range transferOut { outMap[r.ProductID] = outMap[r.ProductID].Add(r.Qty) }
-	for _, r := range adjOut      { outMap[r.ProductID] = outMap[r.ProductID].Add(r.Qty) }
-
-	// ── 5. Build result rows ──────────────────────────────────────────────────
-	rows := make([]StockStatementRow, 0, len(items))
-	for _, item := range items {
-		inward  := inMap[item.ProductID]
-		outward := outMap[item.ProductID]
-		// opening = closing - inward + outward (backward calculation from current state)
-		opening := item.ClosingQty.Sub(inward).Add(outward)
-		value   := item.ClosingQty.Mul(item.AvgCost)
+		// avg cost from opening inward amount
+		var openAmt decimal.Decimal
+		if preInQty[p.ProductID].IsPositive() {
+			openAmt = preInAmt[p.ProductID]
+		}
+		closeAmt := openAmt.Add(iAmt).Sub(oAmt)
 
 		rows = append(rows, StockStatementRow{
-			ProductID:    item.ProductID,
-			ProductName:  item.ProductName,
-			Category:     item.Category,
-			UOM:          item.UOM,
-			OpeningQty:   opening,
-			InwardQty:    inward,
-			OutwardQty:   outward,
-			ClosingQty:   item.ClosingQty,
-			AvgCost:      item.AvgCost,
-			ClosingValue: value,
-			ReorderLevel: item.ReorderLevel,
-			IsLow:        item.ReorderLevel > 0 && item.ClosingQty.LessThanOrEqual(decimal.NewFromInt(int64(item.ReorderLevel))),
+			ProductID:     p.ProductID,
+			ProductName:   p.Name,
+			UOM:           p.UOM,
+			OpeningQty:    openQty,
+			OpeningAmount: openAmt,
+			InwardQty:     iQty,
+			InwardAmount:  iAmt,
+			OutwardQty:    oQty,
+			OutwardAmount: oAmt,
+			ClosingQty:    closeQty,
+			ClosingAmount: closeAmt,
 		})
 	}
 	return rows, nil
+}
+
+func (s *StockStatementService) GetLedger(productID uint, fromDate, toDate string) (decimal.Decimal, []StockLedgerRow, error) {
+	// ── opening balance before period ────────────────────────────────────────
+	type sumRow struct{ Qty decimal.Decimal }
+	var openIn, openOut, openAdj sumRow
+
+	s.db.Raw(`SELECT COALESCE(SUM(pbi.quantity),0) AS qty FROM purchase_bill_items pbi
+		JOIN purchase_bills pb ON pb.id = pbi.bill_id
+		WHERE pbi.product_id = ? AND pb.bill_date < ?`, productID, fromDate).Scan(&openIn)
+
+	s.db.Raw(`SELECT COALESCE(SUM(mc.consumed_qty),0) AS qty FROM material_consumptions mc
+		JOIN production_entries pe ON pe.id = mc.production_entry_id
+		WHERE mc.material_product_id = ? AND pe.entry_date < ?`, productID, fromDate).Scan(&openOut)
+
+	s.db.Raw(`SELECT COALESCE(SUM(adjustment_quantity),0) AS qty FROM stock_adjustments
+		WHERE product_id = ? AND DATE(created_at) < ?`, productID, fromDate).Scan(&openAdj)
+
+	opening := openIn.Qty.Add(openAdj.Qty).Sub(openOut.Qty)
+
+	// ── transactions in period ───────────────────────────────────────────────
+	type txRow struct {
+		TxDate string
+		Code   string
+		TxType string
+		Qty    decimal.Decimal
+	}
+	var txns []txRow
+
+	s.db.Raw(`
+		SELECT pb.bill_date AS tx_date, pb.bill_number AS code, 'INWARD' AS tx_type, pbi.quantity AS qty
+		FROM purchase_bill_items pbi
+		JOIN purchase_bills pb ON pb.id = pbi.bill_id
+		WHERE pbi.product_id = ? AND pb.bill_date BETWEEN ? AND ?
+		UNION ALL
+		SELECT pe.entry_date AS tx_date, po.po_number AS code, 'OUTWARD' AS tx_type, mc.consumed_qty AS qty
+		FROM material_consumptions mc
+		JOIN production_entries pe ON pe.id = mc.production_entry_id
+		JOIN production_orders po  ON po.id = pe.production_order_id
+		WHERE mc.material_product_id = ? AND pe.entry_date BETWEEN ? AND ?
+		ORDER BY tx_date ASC, tx_type ASC
+	`, productID, fromDate, toDate, productID, fromDate, toDate).Scan(&txns)
+
+	ledger := make([]StockLedgerRow, 0, len(txns))
+	balance := opening
+	for _, t := range txns {
+		var inQty, outQty decimal.Decimal
+		if t.TxType == "INWARD" {
+			inQty = t.Qty
+			balance = balance.Add(t.Qty)
+		} else {
+			outQty = t.Qty
+			balance = balance.Sub(t.Qty)
+		}
+		ledger = append(ledger, StockLedgerRow{
+			Date:           t.TxDate,
+			Code:           t.Code,
+			TxType:         t.TxType,
+			InwardQty:      inQty,
+			OutwardQty:     outQty,
+			ClosingBalance: balance,
+		})
+	}
+	return opening, ledger, nil
 }

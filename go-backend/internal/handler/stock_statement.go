@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/nilesh/pos-backend/internal/service"
 	"github.com/nilesh/pos-backend/internal/util"
@@ -17,33 +16,42 @@ func NewStockStatementHandler(svc *service.StockStatementService) *StockStatemen
 	return &StockStatementHandler{svc: svc}
 }
 
+// GET /api/reports/stock-statement?fromDate=&toDate=
 func (h *StockStatementHandler) GetStatement(w http.ResponseWriter, r *http.Request) {
-	outletId, _ := strconv.Atoi(r.URL.Query().Get("outletId"))
-	if outletId == 0 {
-		util.SendError(w, http.StatusBadRequest, "outletId required")
+	from := r.URL.Query().Get("fromDate")
+	to   := r.URL.Query().Get("toDate")
+	if from == "" || to == "" {
+		util.SendError(w, 400, "fromDate and toDate are required")
 		return
 	}
-
-	fromStr := r.URL.Query().Get("from")
-	toStr := r.URL.Query().Get("to")
-
-	from, err := time.Parse("2006-01-02", fromStr)
+	rows, err := h.svc.GetStatement(from, to)
 	if err != nil {
-		util.SendError(w, http.StatusBadRequest, "invalid from date")
+		handleError(w, err)
 		return
 	}
-	to, err := time.Parse("2006-01-02", toStr)
-	if err != nil {
-		util.SendError(w, http.StatusBadRequest, "invalid to date")
-		return
-	}
-	// Include the full to-date day
-	to = to.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	util.SendSuccess(w, "stock statement", rows)
+}
 
-	rows, err := h.svc.GetStatement(outletId, from, to)
-	if err != nil {
-		util.SendError(w, http.StatusInternalServerError, err.Error())
+// GET /api/reports/stock-ledger?productId=&fromDate=&toDate=
+func (h *StockStatementHandler) GetLedger(w http.ResponseWriter, r *http.Request) {
+	productID, err := strconv.ParseUint(r.URL.Query().Get("productId"), 10, 64)
+	if err != nil || productID == 0 {
+		util.SendError(w, 400, "valid productId required")
 		return
 	}
-	util.SendSuccess(w, "stock statement fetched", rows)
+	from := r.URL.Query().Get("fromDate")
+	to   := r.URL.Query().Get("toDate")
+	if from == "" || to == "" {
+		util.SendError(w, 400, "fromDate and toDate are required")
+		return
+	}
+	opening, rows, err := h.svc.GetLedger(uint(productID), from, to)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "stock ledger", map[string]any{
+		"opening": opening,
+		"rows":    rows,
+	})
 }

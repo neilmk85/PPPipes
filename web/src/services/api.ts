@@ -493,6 +493,10 @@ export const reportApi = {
     api.get<ApiResponse<any>>('/reports/daybook', { params: { outletId, from, to } }),
   getStockStatement: (outletId: number, from: string, to: string) =>
     api.get<ApiResponse<any>>('/reports/stock-statement', { params: { outletId, from, to } }),
+  stockStatement: (fromDate: string, toDate: string) =>
+    api.get<ApiResponse<any>>('/reports/stock-statement', { params: { fromDate, toDate } }),
+  stockLedger: (productId: number, fromDate: string, toDate: string) =>
+    api.get<ApiResponse<any>>('/reports/stock-ledger', { params: { productId, fromDate, toDate } }),
 }
 
 export const tdsApi = {

@@ -1710,6 +1710,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		stockStatementHandler.GetStatement,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("GET /api/reports/stock-ledger", middleware.Chain(
+		stockStatementHandler.GetLedger,
+		middleware.Authenticate(db),
+	))
 
 	// ==================== PRODUCTION MODULE ====================
 	pipeConfigService := service.NewPipeConfigService(db)
