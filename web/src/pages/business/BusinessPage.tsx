@@ -12,6 +12,7 @@ import {
 interface BusinessCard {
   key: string
   label: string
+  sublabel?: string
   icon: React.ReactNode
   color: string       // Tailwind bg for icon wrapper
   iconColor: string   // Tailwind text for icon
@@ -31,7 +32,7 @@ const CARDS: BusinessCard[] = [
   { key: 'extra-fab',          label: 'Extra Fab',          icon: <Hammer size={26} />,         color: 'bg-yellow-50',  iconColor: 'text-yellow-600',  glow: 'rgba(234,179,8,0.35)'   },
   { key: 'labour',             label: 'Labour',             icon: <Users size={26} />,          color: 'bg-indigo-50',  iconColor: 'text-indigo-600',  glow: 'rgba(99,102,241,0.35)'  },
   { key: 'cement-bags',        label: 'Cement Bags',        icon: <PackageOpen size={26} />,    color: 'bg-stone-50',   iconColor: 'text-stone-600',   glow: 'rgba(120,113,108,0.30)' },
-  { key: 'cement-chemical',    label: 'Cement / Chemical',  icon: <FlaskRound size={26} />,     color: 'bg-green-50',   iconColor: 'text-green-600',   glow: 'rgba(22,163,74,0.30)'   },
+  { key: 'cement-chemical',    label: 'Cement / Chemical',  sublabel: 'Coating', icon: <FlaskRound size={26} />,     color: 'bg-green-50',   iconColor: 'text-green-600',   glow: 'rgba(22,163,74,0.30)'   },
   { key: 'store-material',     label: 'Store Material',     icon: <Archive size={26} />,        color: 'bg-lime-50',    iconColor: 'text-lime-600',    glow: 'rgba(101,163,13,0.35)'  },
   { key: 'diesel-maintenance', label: 'Diesel Maintenance', icon: <Fuel size={26} />,           color: 'bg-rose-50',    iconColor: 'text-rose-600',    glow: 'rgba(244,63,94,0.30)'   },
   { key: 'extra-vehicles',     label: 'Extra Vehicles',     icon: <Car size={26} />,            color: 'bg-fuchsia-50', iconColor: 'text-fuchsia-600', glow: 'rgba(192,38,211,0.30)'  },
@@ -75,6 +76,9 @@ function BusinessCard({ card }: { card: BusinessCard }) {
       <span className="text-sm font-semibold text-gray-800 leading-tight">
         {card.label}
       </span>
+      {card.sublabel && (
+        <span className="text-xs text-gray-400 -mt-1">{card.sublabel}</span>
+      )}
     </button>
   )
 }
