@@ -6,9 +6,8 @@ import {
   Trash2, Hammer, Users, PackageOpen,
   Archive, Fuel, Car, Scissors, RefreshCw, Container,
   FileBarChart2, Settings, Building2, ReceiptText, Printer,
-  FlaskRound, CheckCircle,
+  FlaskRound,
 } from 'lucide-react'
-import { cementBagsApi } from '../../services/businessApi'
 
 interface BusinessCard {
   key: string
@@ -32,6 +31,7 @@ const CARDS: BusinessCard[] = [
   { key: 'extra-fab',          label: 'Extra Fab',          icon: <Hammer size={26} />,         color: 'bg-yellow-50',  iconColor: 'text-yellow-600',  glow: 'rgba(234,179,8,0.35)'   },
   { key: 'labour',             label: 'Labour',             icon: <Users size={26} />,          color: 'bg-indigo-50',  iconColor: 'text-indigo-600',  glow: 'rgba(99,102,241,0.35)'  },
   { key: 'cement-bags',        label: 'Cement Bags',        icon: <PackageOpen size={26} />,    color: 'bg-stone-50',   iconColor: 'text-stone-600',   glow: 'rgba(120,113,108,0.30)' },
+  { key: 'cement-chemical',    label: 'Cement / Chemical',  icon: <FlaskRound size={26} />,     color: 'bg-green-50',   iconColor: 'text-green-600',   glow: 'rgba(22,163,74,0.30)'   },
   { key: 'store-material',     label: 'Store Material',     icon: <Archive size={26} />,        color: 'bg-lime-50',    iconColor: 'text-lime-600',    glow: 'rgba(101,163,13,0.35)'  },
   { key: 'diesel-maintenance', label: 'Diesel Maintenance', icon: <Fuel size={26} />,           color: 'bg-rose-50',    iconColor: 'text-rose-600',    glow: 'rgba(244,63,94,0.30)'   },
   { key: 'extra-vehicles',     label: 'Extra Vehicles',     icon: <Car size={26} />,            color: 'bg-fuchsia-50', iconColor: 'text-fuchsia-600', glow: 'rgba(192,38,211,0.30)'  },
@@ -42,110 +42,6 @@ const CARDS: BusinessCard[] = [
   { key: 'loading-invoice',    label: 'Loading + Invoice',  icon: <ReceiptText size={26} />,    color: 'bg-blue-50',    iconColor: 'text-blue-600',    glow: 'rgba(37,99,235,0.30)'   },
   { key: 'print-invoices',     label: 'Print Invoices',     icon: <Printer size={26} />,        color: 'bg-sky-50',     iconColor: 'text-sky-600',     glow: 'rgba(14,165,233,0.35)'  },
 ]
-
-// ─── Cement / Chemical for Coating Card ──────────────────────────────────────
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function CementChemicalCard() {
-  const [date, setDate] = useState(todayStr())
-  const [bags, setBags] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState('')
-
-  const chemicalKg = bags !== '' && !isNaN(parseInt(bags)) ? parseInt(bags) : ''
-
-  async function handleSave() {
-    if (!bags || parseInt(bags) <= 0) { setError('Enter a valid bag count'); return }
-    setSaving(true); setError(''); setSaved(false)
-    try {
-      await cementBagsApi.create({ date, quantity: parseInt(bags), notes: '' })
-      setSaved(true)
-      setBags('')
-      setDate(todayStr())
-      setTimeout(() => setSaved(false), 3000)
-    } catch {
-      setError('Failed to save. Try again.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.07)] p-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-          <FlaskRound size={20} className="text-green-600" />
-        </div>
-        <div>
-          <h2 className="text-sm font-bold text-gray-800 leading-tight">Cement / Chemical for Coating</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Daily coating usage · 1 bag = 1 kg</p>
-        </div>
-      </div>
-
-      {/* Fields */}
-      <div className="flex flex-wrap gap-4 items-end">
-        {/* Date */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={e => setDate(e.target.value)}
-            className="h-10 px-3 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400"
-          />
-        </div>
-
-        {/* Cement Bags */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Cement Bags (numbers)</label>
-          <input
-            type="number"
-            min="1"
-            step="1"
-            placeholder="e.g. 10"
-            value={bags}
-            onChange={e => setBags(e.target.value === '' ? '' : String(Math.floor(Number(e.target.value))))}
-            className="h-10 w-36 px-3 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-400"
-          />
-        </div>
-
-        {/* Chemical kg — auto-filled */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Chemical (kg)</label>
-          <input
-            type="number"
-            readOnly
-            value={chemicalKg}
-            placeholder="Auto"
-            className="h-10 w-36 px-3 border border-gray-100 rounded-lg text-sm text-gray-700 bg-gray-50 cursor-not-allowed"
-          />
-        </div>
-
-        {/* Save button */}
-        <button
-          onClick={handleSave}
-          disabled={saving || !bags}
-          className="h-10 px-5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold rounded-lg transition"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-
-      {/* Feedback */}
-      {saved && (
-        <div className="mt-3 flex items-center gap-2 text-green-600 text-xs font-medium">
-          <CheckCircle size={14} /> Saved successfully
-        </div>
-      )}
-      {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
-    </div>
-  )
-}
 
 // ─── Business Card ────────────────────────────────────────────────────────────
 
@@ -234,9 +130,6 @@ export default function BusinessPage() {
           ))}
         </div>
       </div>
-
-      {/* Cement / Chemical for Coating */}
-      <CementChemicalCard />
 
       {/* Cards grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">

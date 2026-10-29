@@ -78,6 +78,7 @@ import Coating2ReportPage from '@/pages/production/Coating2ReportPage'
 import ProductionEntryDetailPage from '@/pages/production/ProductionEntryDetailPage'
 import BusinessPage from '@/pages/business/BusinessPage'
 import CementBagsPage from '@/pages/business/CementBagsPage'
+import CementChemicalPage from '@/pages/business/CementChemicalPage'
 import VehiclesPage from '@/pages/business/VehiclesPage'
 import MaintenancePage from '@/pages/business/MaintenancePage'
 import SiloPage from '@/pages/business/SiloPage'
@@ -154,6 +155,7 @@ export default function App() {
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/business" element={<ProtectedRoute><BusinessPage /></ProtectedRoute>} />
           <Route path="/business/cement-bags" element={<ProtectedRoute><CementBagsPage /></ProtectedRoute>} />
+          <Route path="/business/cement-chemical" element={<ProtectedRoute><CementChemicalPage /></ProtectedRoute>} />
           <Route path="/business/vehicles" element={<ProtectedRoute><VehiclesPage /></ProtectedRoute>} />
           <Route path="/business/maintenance" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
           <Route path="/business/silo" element={<ProtectedRoute><SiloPage /></ProtectedRoute>} />
