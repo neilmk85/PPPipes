@@ -1973,10 +1973,15 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
             SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Silo Number',
+                const Text('Silo',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54, letterSpacing: 0.5)),
                 const SizedBox(height: 10),
-                Row(children: [1, 2, 3].map((n) {
+                Row(children: [
+                  {'n': 1, 'label': 'Silo Core'},
+                  {'n': 3, 'label': 'Silo Coating'},
+                ].map((item) {
+                  final n = item['n'] as int;
+                  final label = item['label'] as String;
                   final selected = _siloNumber == n;
                   return Padding(
                     padding: const EdgeInsets.only(right: 10),
@@ -1989,7 +1994,7 @@ class _SiloEntrySheetState extends State<_SiloEntrySheet> {
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: selected ? _violet : Colors.grey.shade300),
                         ),
-                        child: Text('Silo $n',
+                        child: Text(label,
                           style: TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w700,
                             color: selected ? Colors.white : Colors.grey.shade600,
@@ -4999,8 +5004,9 @@ class _SiloCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String _siloLabel(int n) => n == 3 ? 'Coating' : 'Core';
     final silos = item.siloNumber > 0
-        ? [{'label': 'S${item.siloNumber}', 'value': item.quantityMt, 'unit': 'MT'}]
+        ? [{'label': _siloLabel(item.siloNumber), 'value': item.quantityMt, 'unit': 'MT'}]
         : <Map<String, dynamic>>[];
     final total = item.totalMt;
 

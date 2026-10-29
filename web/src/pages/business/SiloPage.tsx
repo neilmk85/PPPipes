@@ -154,9 +154,8 @@ function FillForm({ onSaved }: { onSaved: () => void }) {
   const labelCls = 'block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5'
 
   const siloMeta = [
-    { n: 1, label: 'Silo 1', stage: 'Spinning', active: 'bg-blue-600 text-white border-blue-600' },
-    { n: 2, label: 'Silo 2', stage: 'Spinning', active: 'bg-indigo-600 text-white border-indigo-600' },
-    { n: 3, label: 'Silo 3', stage: 'Coating',  active: 'bg-violet-600 text-white border-violet-600' },
+    { n: 1, label: 'Silo Core',    stage: 'Spinning', active: 'bg-blue-600 text-white border-blue-600' },
+    { n: 3, label: 'Silo Coating', stage: 'Coating',  active: 'bg-violet-600 text-white border-violet-600' },
   ]
 
   return (
@@ -178,7 +177,7 @@ function FillForm({ onSaved }: { onSaved: () => void }) {
         {/* Silo selector */}
         <div>
           <label className={labelCls}>Select Silo *</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {siloMeta.map(s => (
               <button
                 key={s.n}
@@ -245,7 +244,7 @@ function FillForm({ onSaved }: { onSaved: () => void }) {
           className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-500 hover:from-teal-700 hover:to-emerald-600 disabled:opacity-50 text-white px-6 py-3 rounded-xl font-semibold shadow-md shadow-teal-200 transition-all"
         >
           <PackagePlus size={15} />
-          {mut.isPending ? 'Saving…' : `Record Fill — Silo ${siloNumber}`}
+          {mut.isPending ? 'Saving…' : `Record Fill — ${siloNumber === 3 ? 'Silo Coating' : 'Silo Core'}`}
         </button>
       </div>
     </div>
@@ -256,9 +255,10 @@ function FillForm({ onSaved }: { onSaved: () => void }) {
 
 const SILO_COLORS: Record<number, string> = {
   1: 'bg-blue-100 text-blue-700 border-blue-200',
-  2: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  2: 'bg-blue-100 text-blue-700 border-blue-200',
   3: 'bg-violet-100 text-violet-700 border-violet-200',
 }
+const SILO_LABEL: Record<number, string> = { 1: 'Silo Core', 2: 'Silo Core', 3: 'Silo Coating' }
 const SILO_STAGE: Record<number, string> = { 1: 'Spinning', 2: 'Spinning', 3: 'Coating' }
 
 function FillHistoryTable({ fills, onDelete }: { fills: SiloFill[]; onDelete: (id: number) => void }) {
@@ -293,7 +293,7 @@ function FillHistoryTable({ fills, onDelete }: { fills: SiloFill[]; onDelete: (i
               <td className="px-4 py-2.5 text-center">
                 <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${SILO_COLORS[f.siloNumber] ?? ''}`}>
                   <Cylinder size={9} />
-                  Silo {f.siloNumber}
+                  {SILO_LABEL[f.siloNumber] ?? `Silo ${f.siloNumber}`}
                 </span>
               </td>
               <td className="px-4 py-2.5 text-center text-gray-500 font-medium">{SILO_STAGE[f.siloNumber] ?? '—'}</td>
@@ -384,7 +384,7 @@ export default function SiloPage() {
     { from: 'from-violet-400', to: 'to-purple-300', ring: 'ring-violet-100', bar: 'bg-violet-300', badge: 'bg-violet-400/30 text-violet-50' },
   ]
   const stageIcons  = [RotateCw, RotateCw, Paintbrush]
-  const stageLabels = ['Spinning (Silo 1)', 'Spinning (Silo 2)', 'Coating (Silo 3)']
+  const stageLabels = ['Silo Core (S1)', 'Silo Core (S2)', 'Silo Coating (S3)']
 
   const totalFilled   = summary?.silos.reduce((s, x) => s + x.totalFilledMt, 0) ?? 0
   const totalConsumed = (summary?.spinningConsumedMt ?? 0) + (summary?.coatingConsumedMt ?? 0)
@@ -411,7 +411,7 @@ export default function SiloPage() {
               <div>
                 <h1 className="text-xl font-extrabold text-white tracking-tight">Cement Silos</h1>
                 <p className="text-sm text-teal-200 mt-0.5">
-                  Silo 1 &amp; 2 → Spinning &nbsp;·&nbsp; Silo 3 → Coating &nbsp;·&nbsp; Auto-computed from production
+                  Silo Core (S1 & S2) → Spinning &nbsp;·&nbsp; Silo Coating (S3) → Coating &nbsp;·&nbsp; Auto-computed from production
                 </p>
               </div>
             </div>
@@ -463,7 +463,7 @@ export default function SiloPage() {
                   className="inline-flex items-center gap-2 text-xs font-semibold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition-colors"
                 >
                   <RotateCcw size={12} />
-                  Reset Silo 3 to Zero
+                  Reset Silo Coating to Zero
                 </button>
               </div>
             )}
@@ -479,14 +479,14 @@ export default function SiloPage() {
                   <RotateCcw size={18} className="text-red-600" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800">Reset Silo 3 to Zero</p>
-                  <p className="text-xs text-gray-500 mt-0.5">This clears the running balance for Silo 3 (Coating). Existing fill records are kept but will no longer count toward the current balance.</p>
+                  <p className="font-bold text-gray-800">Reset Silo Coating to Zero</p>
+                  <p className="text-xs text-gray-500 mt-0.5">This clears the running balance for Silo Coating (S3). Existing fill records are kept but will no longer count toward the current balance.</p>
                 </div>
               </div>
               <div className="p-6 space-y-4">
                 <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
                   <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-amber-700 font-medium">This action affects Silo 3 balance only. Silos 1 and 2 are unaffected. The reset is permanent and cannot be undone.</p>
+                  <p className="text-xs text-amber-700 font-medium">This action affects Silo Coating (S3) balance only. Silo Core (S1 & S2) is unaffected. The reset is permanent and cannot be undone.</p>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Reason / Notes (optional)</label>
@@ -556,7 +556,7 @@ export default function SiloPage() {
             <div className="grid grid-cols-2 divide-x divide-gray-100">
               {[
                 {
-                  label:    'Spinning — Silos 1 & 2',
+                  label:    'Spinning — Silo Core',
                   consumed: summary.spinningConsumedMt,
                   Icon:     RotateCw,
                   color:    'text-blue-600',
@@ -564,7 +564,7 @@ export default function SiloPage() {
                   note:     'Total cement consumed across all Spinning production entries',
                 },
                 {
-                  label:    'Coating — Silo 3',
+                  label:    'Coating — Silo Coating',
                   consumed: summary.coatingConsumedMt,
                   Icon:     Paintbrush,
                   color:    'text-violet-600',
