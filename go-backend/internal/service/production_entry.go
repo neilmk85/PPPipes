@@ -494,6 +494,14 @@ func (s *ProductionEntryService) createConsumptions(
 	// Use caller-provided consumptions if supplied (actual qty override)
 	if len(req.Consumptions) > 0 {
 		for _, c := range req.Consumptions {
+			// Reject inactive products
+			var prod models.Product
+			if err := tx.First(&prod, c.MaterialProductID).Error; err != nil {
+				return fmt.Errorf("material product %d not found", c.MaterialProductID)
+			}
+			if !prod.Active {
+				return fmt.Errorf("material product %q is inactive and cannot be used in production", prod.Name)
+			}
 			// Get unit cost from inventory
 			unitCost := decimal.Zero
 			var inv models.Inventory
