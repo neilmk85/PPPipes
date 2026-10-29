@@ -351,6 +351,9 @@ func Migrate(db *gorm.DB) error {
 		slog.Error("[Database] Failed to migrate Silo", "error", err)
 		return err
 	}
+	// Make old NOT NULL columns nullable so AutoMigrate can add new columns without conflicts.
+	db.Exec("ALTER TABLE biz_silo_extractions MODIFY COLUMN silo_number INT NULL DEFAULT 0")
+	db.Exec("ALTER TABLE biz_silo_extractions MODIFY COLUMN quantity_mt DECIMAL(10,4) NULL DEFAULT 0")
 	if err := db.AutoMigrate(&models.SiloExtraction{}); err != nil {
 		slog.Error("[Database] Failed to migrate SiloExtraction", "error", err)
 		return err

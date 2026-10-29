@@ -280,6 +280,18 @@ func (h *BusinessHandler) ListSiloFills(w http.ResponseWriter, r *http.Request) 
 	util.SendSuccess(w, "Silo fills retrieved", rows)
 }
 
+func (h *BusinessHandler) cementStockKg() (float64, error) {
+	var prod models.Product
+	if err := h.db.Where("name = ?", "CEMENT").First(&prod).Error; err != nil {
+		return 0, err
+	}
+	var inv models.Inventory
+	if err := h.db.Where("product_id = ? AND outlet_id = ?", prod.ID, 1).First(&inv).Error; err != nil {
+		return 0, nil // no inventory record yet = 0 stock
+	}
+	return inv.QuantityOnHand.InexactFloat64(), nil
+}
+
 func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request) {
 	var row models.SiloFill
 	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
@@ -287,30 +299,17 @@ func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Validate: available cement = total purchased (MT) - total already filled (MT) >= new fill
-	// Count only direct purchases of CEMENT product (unit = MT) in RECEIVED status
-	var totalPurchasedMT decimal.Decimal
-	if err := h.db.Raw(`
-		SELECT COALESCE(SUM(poi.ordered_quantity), 0)
-		FROM purchase_orders po
-		JOIN purchase_order_items poi ON poi.purchase_order_id = po.id
-		JOIN products p ON poi.product_id = p.id
-		WHERE po.is_direct = TRUE AND po.status = 'RECEIVED'
-		  AND LOWER(p.name) = 'cement'
-	`).Scan(&totalPurchasedMT).Error; err != nil {
+	// Validate: CEMENT stock must cover the fill quantity
+	availableKg, err := h.cementStockKg()
+	if err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to check cement availability")
 		return
 	}
-	var totalFilledMT decimal.Decimal
-	if err := h.db.Raw(`SELECT COALESCE(SUM(quantity_mt), 0) FROM biz_silo_fills`).Scan(&totalFilledMT).Error; err != nil {
-		util.SendError(w, http.StatusInternalServerError, "Failed to check cement availability")
-		return
-	}
-	availableMT := totalPurchasedMT.Sub(totalFilledMT)
-	if availableMT.LessThan(row.QuantityMT) {
+	fillKg := row.QuantityMT.InexactFloat64() * 1000
+	if fillKg > availableKg {
 		util.SendError(w, http.StatusBadRequest, fmt.Sprintf(
-			"Only %.2f MT of cement available from purchases — cannot fill %.2f MT",
-			availableMT.InexactFloat64(), row.QuantityMT.InexactFloat64(),
+			"Only %.2f MT of cement available — cannot fill %.2f MT",
+			availableKg/1000, row.QuantityMT.InexactFloat64(),
 		))
 		return
 	}
@@ -320,6 +319,7 @@ func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	spinning, coating := siloFillKg(row)
+	h.adjustSiloInventory("CEMENT", -fillKg)
 	h.adjustSiloInventory("Silo CEMENT (CORE)", spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", coating)
 	util.SendSuccess(w, "Silo fill created", row)
@@ -348,6 +348,9 @@ func (h *BusinessHandler) UpdateSiloFill(w http.ResponseWriter, r *http.Request)
 	}
 	oldSpinning, oldCoating := siloFillKg(old)
 	newSpinning, newCoating := siloFillKg(row)
+	oldKg := old.QuantityMT.InexactFloat64() * 1000
+	newKg := row.QuantityMT.InexactFloat64() * 1000
+	h.adjustSiloInventory("CEMENT", oldKg-newKg) // net change: refund old, deduct new
 	h.adjustSiloInventory("Silo CEMENT (CORE)", newSpinning-oldSpinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", newCoating-oldCoating)
 	util.SendSuccess(w, "Silo fill updated", row)
@@ -369,6 +372,8 @@ func (h *BusinessHandler) DeleteSiloFill(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	spinning, coating := siloFillKg(row)
+	deletedKg := row.QuantityMT.InexactFloat64() * 1000
+	h.adjustSiloInventory("CEMENT", deletedKg) // restore cement stock on delete
 	h.adjustSiloInventory("Silo CEMENT (CORE)", -spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", -coating)
 	util.SendSuccess(w, "Silo fill deleted", nil)
@@ -391,29 +396,92 @@ func (h *BusinessHandler) ListSiloExtractions(w http.ResponseWriter, r *http.Req
 	util.SendSuccess(w, "Silo extractions retrieved", rows)
 }
 
+func siloValueToKg(val, unit string) float64 {
+	if val == "" {
+		return 0
+	}
+	f, err := strconv.ParseFloat(val, 64)
+	if err != nil || f <= 0 {
+		return 0
+	}
+	if unit == "MT" {
+		return f * 1000
+	}
+	return f
+}
+
 func (h *BusinessHandler) CreateSiloExtraction(w http.ResponseWriter, r *http.Request) {
-	var row models.SiloExtraction
-	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
+	// Accept both mobile format { siloNumber, quantityMt } and web format { silo1Value, silo1Unit, ... }
+	var body struct {
+		Date       string  `json:"date"`
+		SiloNumber int     `json:"siloNumber"`
+		QuantityMt float64 `json:"quantityMt"`
+		Notes      string  `json:"notes"`
+		Silo1Value string  `json:"silo1Value"`
+		Silo1Unit  string  `json:"silo1Unit"`
+		Silo2Value string  `json:"silo2Value"`
+		Silo2Unit  string  `json:"silo2Unit"`
+		Silo3Value string  `json:"silo3Value"`
+		Silo3Unit  string  `json:"silo3Unit"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if row.SiloNumber < 1 || row.SiloNumber > 3 {
-		util.SendError(w, http.StatusBadRequest, "siloNumber must be 1, 2 or 3")
-		return
+	row := models.SiloExtraction{
+		Silo1Value: body.Silo1Value,
+		Silo1Unit:  body.Silo1Unit,
+		Silo2Value: body.Silo2Value,
+		Silo2Unit:  body.Silo2Unit,
+		Silo3Value: body.Silo3Value,
+		Silo3Unit:  body.Silo3Unit,
+		Notes:      body.Notes,
 	}
-	if row.QuantityMT.IsZero() || row.QuantityMT.IsNegative() {
-		util.SendError(w, http.StatusBadRequest, "quantityMt must be positive")
+	// Parse date
+	if _, err := time.Parse("2006-01-02", body.Date); err == nil {
+		row.Date = models.DateOnly(body.Date)
+	}
+	// Mobile format: map siloNumber+quantityMt to the right silo field
+	if body.SiloNumber >= 1 && body.SiloNumber <= 3 && body.QuantityMt > 0 {
+		val := strconv.FormatFloat(body.QuantityMt, 'f', 4, 64)
+		switch body.SiloNumber {
+		case 1:
+			row.Silo1Value = val
+			row.Silo1Unit = "MT"
+		case 2:
+			row.Silo2Value = val
+			row.Silo2Unit = "MT"
+		case 3:
+			row.Silo3Value = val
+			row.Silo3Unit = "MT"
+		}
+	}
+	if row.Silo1Unit == "" {
+		row.Silo1Unit = "MT"
+	}
+	if row.Silo2Unit == "" {
+		row.Silo2Unit = "MT"
+	}
+	if row.Silo3Unit == "" {
+		row.Silo3Unit = "MT"
+	}
+	kg1 := siloValueToKg(row.Silo1Value, row.Silo1Unit)
+	kg2 := siloValueToKg(row.Silo2Value, row.Silo2Unit)
+	kg3 := siloValueToKg(row.Silo3Value, row.Silo3Unit)
+	if kg1 == 0 && kg2 == 0 && kg3 == 0 {
+		util.SendError(w, http.StatusBadRequest, "At least one silo must have a positive quantity")
 		return
 	}
 	if err := h.db.Create(&row).Error; err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to create silo extraction")
 		return
 	}
-	kgDelta := row.QuantityMT.InexactFloat64() * 1000
-	if row.SiloNumber == 3 {
-		h.adjustSiloInventory("Silo CEMENT (COATING)", -kgDelta)
-	} else {
-		h.adjustSiloInventory("Silo CEMENT (CORE)", -kgDelta)
+	coreKg := kg1 + kg2
+	if coreKg > 0 {
+		h.adjustSiloInventory("Silo CEMENT (CORE)", -coreKg)
+	}
+	if kg3 > 0 {
+		h.adjustSiloInventory("Silo CEMENT (COATING)", -kg3)
 	}
 	util.SendSuccess(w, "Silo extraction created", row)
 }
@@ -433,11 +501,15 @@ func (h *BusinessHandler) DeleteSiloExtraction(w http.ResponseWriter, r *http.Re
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete silo extraction")
 		return
 	}
-	kgDelta := row.QuantityMT.InexactFloat64() * 1000
-	if row.SiloNumber == 3 {
-		h.adjustSiloInventory("Silo CEMENT (COATING)", kgDelta)
-	} else {
-		h.adjustSiloInventory("Silo CEMENT (CORE)", kgDelta)
+	kg1 := siloValueToKg(row.Silo1Value, row.Silo1Unit)
+	kg2 := siloValueToKg(row.Silo2Value, row.Silo2Unit)
+	kg3 := siloValueToKg(row.Silo3Value, row.Silo3Unit)
+	coreKg := kg1 + kg2
+	if coreKg > 0 {
+		h.adjustSiloInventory("Silo CEMENT (CORE)", coreKg)
+	}
+	if kg3 > 0 {
+		h.adjustSiloInventory("Silo CEMENT (COATING)", kg3)
 	}
 	util.SendSuccess(w, "Silo extraction deleted", nil)
 }

@@ -825,8 +825,14 @@ class SiloEntry {
   final int id;
   final String date;
   final String? notes;
-  final int siloNumber;
-  final double quantityMt;
+  final int siloNumber;    // kept for mobile form compat; 0 when using multi-silo format
+  final double quantityMt; // kept for mobile form compat
+  final String silo1Value;
+  final String silo1Unit;
+  final String silo2Value;
+  final String silo2Unit;
+  final String silo3Value;
+  final String silo3Unit;
 
   const SiloEntry({
     required this.id,
@@ -834,13 +840,43 @@ class SiloEntry {
     this.notes,
     this.siloNumber = 1,
     this.quantityMt = 0,
+    this.silo1Value = '',
+    this.silo1Unit = 'MT',
+    this.silo2Value = '',
+    this.silo2Unit = 'MT',
+    this.silo3Value = '',
+    this.silo3Unit = 'MT',
   });
 
-  double get totalMt => quantityMt;
+  static double _parseKg(String val, String unit) {
+    final v = double.tryParse(val) ?? 0;
+    if (v <= 0) return 0;
+    return unit == 'MT' ? v * 1000 : v;
+  }
 
-  String get displayQty => siloNumber > 0
-      ? 'S$siloNumber: ${quantityMt.toStringAsFixed(2)} MT'
-      : '${quantityMt.toStringAsFixed(2)} MT';
+  double get totalMt {
+    // Multi-silo format
+    if (silo1Value.isNotEmpty || silo2Value.isNotEmpty || silo3Value.isNotEmpty) {
+      final kg = _parseKg(silo1Value, silo1Unit) +
+          _parseKg(silo2Value, silo2Unit) +
+          _parseKg(silo3Value, silo3Unit);
+      return kg / 1000;
+    }
+    return quantityMt;
+  }
+
+  String get displayQty {
+    if (silo1Value.isNotEmpty || silo2Value.isNotEmpty || silo3Value.isNotEmpty) {
+      final parts = <String>[];
+      if (silo1Value.isNotEmpty) parts.add('S1:${silo1Value}${silo1Unit}');
+      if (silo2Value.isNotEmpty) parts.add('S2:${silo2Value}${silo2Unit}');
+      if (silo3Value.isNotEmpty) parts.add('S3:${silo3Value}${silo3Unit}');
+      return parts.join('  ');
+    }
+    return siloNumber > 0
+        ? 'S$siloNumber: ${quantityMt.toStringAsFixed(2)} MT'
+        : '${quantityMt.toStringAsFixed(2)} MT';
+  }
 
   factory SiloEntry.fromJson(Map<String, dynamic> json) => SiloEntry(
         id: p.i(json['id']),
@@ -848,5 +884,11 @@ class SiloEntry {
         notes: json['notes'],
         siloNumber: p.i(json['siloNumber']),
         quantityMt: p.d(json['quantityMt']),
+        silo1Value: json['silo1Value']?.toString() ?? '',
+        silo1Unit: json['silo1Unit']?.toString() ?? 'MT',
+        silo2Value: json['silo2Value']?.toString() ?? '',
+        silo2Unit: json['silo2Unit']?.toString() ?? 'MT',
+        silo3Value: json['silo3Value']?.toString() ?? '',
+        silo3Unit: json['silo3Unit']?.toString() ?? 'MT',
       );
 }
