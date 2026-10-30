@@ -42,6 +42,7 @@ const CARDS: BusinessCard[] = [
   { key: 'transport-report',   label: 'Transport Report',   icon: <FileBarChart2 size={26} />,  color: 'bg-orange-50',  iconColor: 'text-orange-600',  glow: 'rgba(234,88,12,0.30)'   },
   { key: 'loading-invoice',    label: 'Loading + Invoice',  icon: <ReceiptText size={26} />,    color: 'bg-blue-50',    iconColor: 'text-blue-600',    glow: 'rgba(37,99,235,0.30)'   },
   { key: 'print-invoices',     label: 'Print Invoices',     icon: <Printer size={26} />,        color: 'bg-sky-50',     iconColor: 'text-sky-600',     glow: 'rgba(14,165,233,0.35)'  },
+  { key: 'construction',       label: 'Construction',       icon: <Building2 size={26} />,      color: 'bg-slate-50',   iconColor: 'text-slate-600',   glow: 'rgba(71,85,105,0.30)'   },
 ]
 
 // ─── Business Card ────────────────────────────────────────────────────────────

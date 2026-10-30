@@ -668,3 +668,34 @@ export const extraFabApi = {
   delete: (id: number) =>
     api.delete(`/business/extra-fab/${id}`),
 }
+
+// ─── Construction ─────────────────────────────────────────────────────────────
+
+export interface ConstructionEntry {
+  id:          number
+  date:        string
+  siloType:    string
+  cementKg:    number
+  crushSandKg: number
+  dustKg:      number
+  metal10mmKg: number
+  metal20mmKg: number
+  notes:       string
+  createdAt:   string
+  updatedAt:   string
+}
+
+export const constructionApi = {
+  list: (from?: string, to?: string) =>
+    api.get<{ data: ConstructionEntry[] }>('/business/constructions', { params: buildParams(from, to) })
+      .then(unwrap<ConstructionEntry[]>),
+
+  create: (data: Omit<ConstructionEntry, 'id' | 'createdAt' | 'updatedAt'>) =>
+    api.post<{ data: ConstructionEntry }>('/business/constructions', data).then(unwrap<ConstructionEntry>),
+
+  update: (id: number, data: Omit<ConstructionEntry, 'id' | 'createdAt' | 'updatedAt'>) =>
+    api.put<{ data: ConstructionEntry }>(`/business/constructions/${id}`, data).then(unwrap<ConstructionEntry>),
+
+  delete: (id: number) =>
+    api.delete(`/business/constructions/${id}`),
+}

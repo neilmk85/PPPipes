@@ -2090,3 +2090,172 @@ func (h *BusinessHandler) DeleteExtraFab(w http.ResponseWriter, r *http.Request)
 	}
 	util.SendSuccess(w, "Extra fab entry deleted", nil)
 }
+
+// ─── Construction ─────────────────────────────────────────────────────────────
+
+func (h *BusinessHandler) adjustInventoryByName(tx *gorm.DB, productName string, deltaKg float64) {
+	var prod models.Product
+	if tx.Where("name = ?", productName).First(&prod).Error != nil {
+		return
+	}
+	var inv models.Inventory
+	if tx.Where("product_id = ? AND outlet_id = ?", prod.ID, 1).First(&inv).Error != nil {
+		inv = models.Inventory{ProductID: prod.ID, OutletID: 1}
+		tx.Create(&inv)
+	}
+	tx.Model(&inv).UpdateColumn("quantity_on_hand", gorm.Expr("quantity_on_hand + ?", deltaKg))
+}
+
+func constructionSiloProduct(siloType string) string {
+	if siloType == "COATING" {
+		return "Silo CEMENT (COATING)"
+	}
+	return "Silo CEMENT (CORE)"
+}
+
+func (h *BusinessHandler) ListConstructions(w http.ResponseWriter, r *http.Request) {
+	var rows []models.Construction
+	q := applyDateRange(h.db.Order("date DESC, id DESC"), r)
+	if err := q.Find(&rows).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to fetch construction entries")
+		return
+	}
+	util.SendSuccess(w, "Construction entries retrieved", rows)
+}
+
+func (h *BusinessHandler) CreateConstruction(w http.ResponseWriter, r *http.Request) {
+	var row models.Construction
+	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		if row.CementKg > 0 && row.SiloType != "" {
+			h.adjustInventoryByName(tx, constructionSiloProduct(row.SiloType), -row.CementKg)
+		}
+		if row.CrushSandKg > 0 {
+			h.adjustInventoryByName(tx, "CRUSHED SAND", -row.CrushSandKg)
+		}
+		if row.DustKg > 0 {
+			h.adjustInventoryByName(tx, "DUST", -row.DustKg)
+		}
+		if row.Metal10mmKg > 0 {
+			h.adjustInventoryByName(tx, "10MM METAL", -row.Metal10mmKg)
+		}
+		if row.Metal20mmKg > 0 {
+			h.adjustInventoryByName(tx, "20MM METAL", -row.Metal20mmKg)
+		}
+		return nil
+	})
+	if err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to create construction entry")
+		return
+	}
+	util.SendSuccess(w, "Construction entry created", row)
+}
+
+func (h *BusinessHandler) UpdateConstruction(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	var old models.Construction
+	if err := h.db.First(&old, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	var upd models.Construction
+	if err := json.NewDecoder(r.Body).Decode(&upd); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	err = h.db.Transaction(func(tx *gorm.DB) error {
+		// Reverse old inventory deductions
+		if old.CementKg > 0 && old.SiloType != "" {
+			h.adjustInventoryByName(tx, constructionSiloProduct(old.SiloType), old.CementKg)
+		}
+		if old.CrushSandKg > 0 {
+			h.adjustInventoryByName(tx, "CRUSHED SAND", old.CrushSandKg)
+		}
+		if old.DustKg > 0 {
+			h.adjustInventoryByName(tx, "DUST", old.DustKg)
+		}
+		if old.Metal10mmKg > 0 {
+			h.adjustInventoryByName(tx, "10MM METAL", old.Metal10mmKg)
+		}
+		if old.Metal20mmKg > 0 {
+			h.adjustInventoryByName(tx, "20MM METAL", old.Metal20mmKg)
+		}
+		// Apply new values
+		upd.ID = id
+		if err := tx.Save(&upd).Error; err != nil {
+			return err
+		}
+		// Apply new inventory deductions
+		if upd.CementKg > 0 && upd.SiloType != "" {
+			h.adjustInventoryByName(tx, constructionSiloProduct(upd.SiloType), -upd.CementKg)
+		}
+		if upd.CrushSandKg > 0 {
+			h.adjustInventoryByName(tx, "CRUSHED SAND", -upd.CrushSandKg)
+		}
+		if upd.DustKg > 0 {
+			h.adjustInventoryByName(tx, "DUST", -upd.DustKg)
+		}
+		if upd.Metal10mmKg > 0 {
+			h.adjustInventoryByName(tx, "10MM METAL", -upd.Metal10mmKg)
+		}
+		if upd.Metal20mmKg > 0 {
+			h.adjustInventoryByName(tx, "20MM METAL", -upd.Metal20mmKg)
+		}
+		return nil
+	})
+	if err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to update construction entry")
+		return
+	}
+	util.SendSuccess(w, "Construction entry updated", upd)
+}
+
+func (h *BusinessHandler) DeleteConstruction(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r)
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid ID")
+		return
+	}
+	var row models.Construction
+	if err := h.db.First(&row, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	err = h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.Construction{}, id).Error; err != nil {
+			return err
+		}
+		// Restore inventory
+		if row.CementKg > 0 && row.SiloType != "" {
+			h.adjustInventoryByName(tx, constructionSiloProduct(row.SiloType), row.CementKg)
+		}
+		if row.CrushSandKg > 0 {
+			h.adjustInventoryByName(tx, "CRUSHED SAND", row.CrushSandKg)
+		}
+		if row.DustKg > 0 {
+			h.adjustInventoryByName(tx, "DUST", row.DustKg)
+		}
+		if row.Metal10mmKg > 0 {
+			h.adjustInventoryByName(tx, "10MM METAL", row.Metal10mmKg)
+		}
+		if row.Metal20mmKg > 0 {
+			h.adjustInventoryByName(tx, "20MM METAL", row.Metal20mmKg)
+		}
+		return nil
+	})
+	if err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to delete construction entry")
+		return
+	}
+	util.SendSuccess(w, "Construction entry deleted", nil)
+}

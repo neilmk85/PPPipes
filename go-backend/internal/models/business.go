@@ -399,3 +399,22 @@ type BizExtraFab struct {
 }
 
 func (BizExtraFab) TableName() string { return "biz_extra_fab" }
+
+// ─── Construction ─────────────────────────────────────────────────────────────
+// Records material consumed for civil/construction work (separate from production).
+
+type Construction struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Date        DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
+	SiloType    string    `gorm:"column:silo_type;size:50" json:"siloType"`
+	CementKg    float64   `gorm:"column:cement_kg;type:decimal(12,2);default:0" json:"cementKg"`
+	CrushSandKg float64   `gorm:"column:crush_sand_kg;type:decimal(12,2);default:0" json:"crushSandKg"`
+	DustKg      float64   `gorm:"column:dust_kg;type:decimal(12,2);default:0" json:"dustKg"`
+	Metal10mmKg float64   `gorm:"column:metal_10mm_kg;type:decimal(12,2);default:0" json:"metal10mmKg"`
+	Metal20mmKg float64   `gorm:"column:metal_20mm_kg;type:decimal(12,2);default:0" json:"metal20mmKg"`
+	Notes       string    `gorm:"column:notes;type:text" json:"notes"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt   time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+}
+
+func (Construction) TableName() string { return "biz_constructions" }

@@ -98,6 +98,7 @@ import TransportReportPage from '@/pages/business/TransportReportPage'
 import LabourPage from '@/pages/business/LabourPage'
 import ThirdPartyPipePurchasePage from '@/pages/business/ThirdPartyPipePurchasePage'
 import ExtraFabPage from '@/pages/business/ExtraFabPage'
+import ConstructionPage from '@/pages/business/ConstructionPage'
 import BusinessSettingsPage from '@/pages/business/BusinessSettingsPage'
 import LoadingInvoicePage from '@/pages/business/LoadingInvoicePage'
 import PrintInvoicesPage from '@/pages/business/PrintInvoicesPage'
@@ -168,6 +169,7 @@ export default function App() {
           <Route path="/business/cutting" element={<ProtectedRoute><CuttingPage /></ProtectedRoute>} />
           <Route path="/business/discard" element={<ProtectedRoute><DiscardPage /></ProtectedRoute>} />
           <Route path="/business/extra-fab" element={<ProtectedRoute><ExtraFabPage /></ProtectedRoute>} />
+          <Route path="/business/construction" element={<ProtectedRoute><ConstructionPage /></ProtectedRoute>} />
           <Route path="/business/pdi" element={<ProtectedRoute><PDIPage /></ProtectedRoute>} />
           <Route path="/business/loading" element={<ProtectedRoute><LoadingPage /></ProtectedRoute>} />
           <Route path="/business/loading/diameter-view" element={<ProtectedRoute><DiameterHeatmapPage /></ProtectedRoute>} />
