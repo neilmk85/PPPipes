@@ -405,12 +405,12 @@ export default function InventoryPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gradient-to-r from-violet-50 to-blue-50 border-y border-violet-100">
-                <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-500 uppercase tracking-widest">Product</th>
-                <th className="px-4 py-3 text-center text-[11px] font-bold text-violet-500 uppercase tracking-widest">Unit Config</th>
-                <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">On Hand</th>
-                <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Reorder Level</th>
-                <th className="px-4 py-3 text-center text-[11px] font-bold text-violet-500 uppercase tracking-widest">Status</th>
-                <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-500 uppercase tracking-widest">Actions</th>
+                <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-900 uppercase tracking-widest">Product</th>
+                <th className="px-4 py-3 text-center text-[11px] font-bold text-gray-900 uppercase tracking-widest">Unit Config</th>
+                <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-900 uppercase tracking-widest">On Hand</th>
+                <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-900 uppercase tracking-widest">Reorder Level</th>
+                <th className="px-4 py-3 text-center text-[11px] font-bold text-gray-900 uppercase tracking-widest">Status</th>
+                <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-900 uppercase tracking-widest">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
