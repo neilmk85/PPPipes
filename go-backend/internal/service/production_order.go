@@ -322,7 +322,8 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING'  THEN pe.pipes_processed ELSE 0 END), 0)
 			) AS curing2,
 			GREATEST(0,
-				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0)
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = pc.name), 0)
 			) AS final_testing
 		FROM pipe_configs pc
 		LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id
@@ -353,30 +354,9 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 		pdiBalanceMap[pr.PipeName] = pr.PDI
 	}
 
-	// Production PDI done = pipes that have been PDI'd from production (not purchased)
-	// Used to deduct from FinalTesting so a pipe isn't counted at two stages.
-	type pdiDoneRow struct {
-		PipeName string `gorm:"column:pipe_name"`
-		PDIDone  int    `gorm:"column:pdi_done"`
-	}
-	var pdiDoneRows []pdiDoneRow
-	s.db.Raw(`
-		SELECT pipe_name, COALESCE(SUM(quantity), 0) AS pdi_done
-		FROM biz_pdis
-		GROUP BY pipe_name
-	`).Scan(&pdiDoneRows)
-	pdiDoneMap := map[string]int{}
-	for _, pr := range pdiDoneRows {
-		pdiDoneMap[pr.PipeName] = pr.PDIDone
-	}
-
 	// Compute totals and drop rows where every stage is zero.
 	result := rows[:0]
 	for _, r := range rows {
-		// Pipes that completed FinalTesting but have already moved to PDI
-		// must not be counted in FinalTesting — they're in the PDI column now.
-		prodPdiDone := pdiDoneMap[r.PipeName]
-		r.FinalTesting = max(0, r.FinalTesting-prodPdiDone)
 		r.PDI = pdiBalanceMap[r.PipeName]
 		r.Total = r.Fabrication + r.FabricationTesting + r.Moulding +
 			r.Spinning + r.Demoulding + r.Curing1 + r.Winding + r.Winding2 +
@@ -417,7 +397,8 @@ func (s *ProductionOrderService) GetIntermediateStock(fromDate, toDate string) (
 				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_processed ELSE 0 END), 0)
 			) AS curing2,
 			GREATEST(0,
-				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0)
+				COALESCE(SUM(CASE WHEN pe.stage_type = 'FINAL_TESTING' THEN pe.pipes_completed ELSE 0 END), 0) -
+				COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = pc.name), 0)
 			) AS final_testing
 		FROM pipe_configs pc
 		LEFT JOIN production_entries pe ON pe.pipe_config_id = pc.id
