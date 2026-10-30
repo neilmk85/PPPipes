@@ -629,6 +629,12 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Phase 28: Construction
+	if err := db.AutoMigrate(&models.Construction{}); err != nil {
+		slog.Error("[Database] Failed to migrate Construction", "error", err)
+		return err
+	}
+
 	slog.Info("[Database] Migrations completed successfully")
 	return nil
 }
