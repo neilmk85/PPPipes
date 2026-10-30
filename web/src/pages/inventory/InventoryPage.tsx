@@ -228,7 +228,8 @@ export default function InventoryPage() {
       const aQty = Number(a.quantityOnHand ?? 0)
       const bQty = Number(b.quantityOnHand ?? 0)
       if ((aQty > 0) !== (bQty > 0)) return aQty > 0 ? -1 : 1
-      return 0
+      // Within same group, sort alphabetically so order is stable regardless of server response order
+      return (a.product?.name ?? '').localeCompare(b.product?.name ?? '')
     })
     const shouldSort = tab === 'finished_pipe' || tab === 'raw_material' || tab === 'store_material'
     if (!search.trim()) return shouldSort ? sortByStock(source) : source
@@ -238,7 +239,7 @@ export default function InventoryPage() {
       inv.product?.sku?.toLowerCase().includes(q)
     )
     return shouldSort ? sortByStock(result) : result
-  }, [tab, allInventory, rawMaterials, finishedPipes, storeMaterials, lowStock, search])
+  }, [tab, rawMaterials, finishedPipes, storeMaterials, lowStock, search])
 
   const totalPages   = Math.ceil(filtered.length / pageSize)
   const displayItems = filtered.slice(page * pageSize, (page + 1) * pageSize)
