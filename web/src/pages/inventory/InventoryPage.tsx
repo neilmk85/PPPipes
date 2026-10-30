@@ -148,7 +148,7 @@ function StockDisplay({ inv }: { inv: any }) {
           {fmtN(qty / pFactor)}{' '}
           <span className="text-xs font-semibold text-indigo-600">{purchaseUom}</span>
         </span>
-        <span className="text-xs text-gray-400 font-medium">{fmt2(qty)} {baseUom}</span>
+        <span className="text-sm text-gray-600 font-semibold">{fmt2(qty)} {baseUom}</span>
       </div>
     )
   }
@@ -161,7 +161,7 @@ function StockDisplay({ inv }: { inv: any }) {
           {fmtN(qty)}{' '}
           <span className="text-xs font-semibold text-indigo-600">{baseUom}</span>
         </span>
-        <span className="text-xs text-gray-400 font-medium">{fmt2(qty * sFactor)} {saleUom}</span>
+        <span className="text-sm text-gray-600 font-semibold">{fmt2(qty * sFactor)} {saleUom}</span>
       </div>
     )
   }
