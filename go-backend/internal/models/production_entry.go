@@ -6,7 +6,7 @@ import "time"
 // Users fill this in for each of the 9 stages: Pipe Type, Date, Pipes Processed, Notes.
 type ProductionEntry struct {
 	ID                int           `gorm:"primaryKey;autoIncrement;column:id" json:"id"`
-	ProductionOrderID int           `gorm:"index;column:production_order_id" json:"productionOrderId"`
+	ProductionOrderID *int          `gorm:"index;column:production_order_id" json:"productionOrderId"`
 	PipeConfigID      *int          `gorm:"column:pipe_config_id" json:"pipeConfigId"`
 	StageType         ProdStageType `gorm:"column:stage_type" json:"stageType"`
 

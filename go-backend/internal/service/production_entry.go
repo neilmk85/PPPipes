@@ -419,23 +419,21 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 	}
 
 	entry := &models.ProductionEntry{
-		StageType:       stage,
-		PipeConfigID:    entryPipeConfigID,
-		PipesProcessed:  req.PipesProcessed,
-		PipesCompleted:  req.PipesCompleted,
-		PipesRejected:   rejected,
-		EntryDate:       entryDate,
-		Notes:           req.Notes,
-		BedType:         bedTypePtr,
-		MachineID:       req.MachineID,
-		ShiftName:       shiftNamePtr,
-		OperatorUserID:  req.OperatorUserID,
-		CreatedByUserID: &userID,
-		CreatedBy:       &createdBy,
-		UpdatedBy:       &createdBy,
-	}
-	if productionOrderIDPtr != nil {
-		entry.ProductionOrderID = *productionOrderIDPtr
+		ProductionOrderID: productionOrderIDPtr,
+		StageType:         stage,
+		PipeConfigID:      entryPipeConfigID,
+		PipesProcessed:    req.PipesProcessed,
+		PipesCompleted:    req.PipesCompleted,
+		PipesRejected:     rejected,
+		EntryDate:         entryDate,
+		Notes:             req.Notes,
+		BedType:           bedTypePtr,
+		MachineID:         req.MachineID,
+		ShiftName:         shiftNamePtr,
+		OperatorUserID:    req.OperatorUserID,
+		CreatedByUserID:   &userID,
+		CreatedBy:         &createdBy,
+		UpdatedBy:         &createdBy,
 	}
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
