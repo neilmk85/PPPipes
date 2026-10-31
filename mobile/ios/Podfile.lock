@@ -66,9 +66,6 @@ PODS:
     - nanopb/encode (= 2.30910.0)
   - nanopb/decode (2.30910.0)
   - nanopb/encode (2.30910.0)
-  - path_provider_foundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
   - printing (1.0.0):
     - Flutter
   - PromisesObjC (2.4.1)
@@ -87,7 +84,6 @@ DEPENDENCIES:
   - home_widget (from `.symlinks/plugins/home_widget/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - mobile_scanner (from `.symlinks/plugins/mobile_scanner/ios`)
-  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - printing (from `.symlinks/plugins/printing/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -119,8 +115,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   mobile_scanner:
     :path: ".symlinks/plugins/mobile_scanner/ios"
-  path_provider_foundation:
-    :path: ".symlinks/plugins/path_provider_foundation/darwin"
   printing:
     :path: ".symlinks/plugins/printing/ios"
   share_plus:
@@ -140,18 +134,17 @@ SPEC CHECKSUMS:
   GoogleUtilitiesComponents: 679b2c881db3b615a2777504623df6122dd20afe
   GTMSessionFetcher: 3a63d75eecd6aa32c2fc79f578064e1214dfdec2
   home_widget: 54b4f6b36ed8d64cfee594a476225c35c3e45091
-  image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
+  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   MLImage: 7bb7c4264164ade9bf64f679b40fb29c8f33ee9b
   MLKitBarcodeScanning: 04e264482c5f3810cb89ebc134ef6b61e67db505
   MLKitCommon: c1b791c3e667091918d91bda4bba69a91011e390
   MLKitVision: 8baa5f46ee3352614169b85250574fde38c36f49
   mobile_scanner: b67191637a5ea7ba15652ca208069d2bae1900ab
   nanopb: 438bc412db1928dac798aa6fd75726007be04262
-  path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   share_plus: 011d6fb4f9d2576b83179a3a5c5e323202cdabcf
-  shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
 
 PODFILE CHECKSUM: 53a6aebc29ccee84c41f92f409fc20cd4ca011f1

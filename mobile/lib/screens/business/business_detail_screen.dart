@@ -14715,6 +14715,573 @@ class _ExtraFabSheetState extends State<_ExtraFabSheet> {
 }
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Construction Screen
+// ─────────────────────────────────────────────
+
+class ConstructionScreen extends StatefulWidget {
+  const ConstructionScreen({super.key});
+  @override
+  State<ConstructionScreen> createState() => _ConstructionScreenState();
+}
+
+class _ConstructionScreenState extends State<ConstructionScreen> {
+  static const _color     = Color(0xFF4F46E5);
+  static const _colorDark = Color(0xFF3730A3);
+
+  bool _loadingData = true;
+  List<Map<String, dynamic>> _items = [];
+  final _layerLink = LayerLink();
+  OverlayEntry? _dateOverlay;
+  _PdiDateFilter _dateFilter = const _PdiDateFilter();
+  late DateTime _from, _to;
+
+  @override
+  void initState() {
+    super.initState();
+    _to = DateTime.now();
+    _from = _to.subtract(const Duration(days: 29));
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _closeDateOverlay();
+    super.dispose();
+  }
+
+  String _fmtIso(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _loadingData = true);
+    try {
+      final data = await ApiService().getConstructions(from: _fmtIso(_from), to: _fmtIso(_to));
+      if (mounted) setState(() => _items = data.cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loadingData = false);
+  }
+
+  void _closeDateOverlay() { _dateOverlay?.remove(); _dateOverlay = null; }
+
+  void _toggleDateOverlay() {
+    if (_dateOverlay != null) { _closeDateOverlay(); return; }
+    final entry = OverlayEntry(
+      builder: (_) => _PdiDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          _closeDateOverlay();
+          setState(() {
+            _dateFilter = f;
+            _from = f.from ?? DateTime.now().subtract(const Duration(days: 29));
+            _to   = f.to   ?? DateTime.now();
+          });
+          _load();
+        },
+        onDismiss: _closeDateOverlay,
+      ),
+    );
+    Overlay.of(context).insert(entry);
+    _dateOverlay = entry;
+  }
+
+  static double _toD(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
+  }
+  static int _toI(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v.toString()) ?? 0;
+  }
+
+  void _showAddEdit([Map<String, dynamic>? editing]) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ConstructionSheet(
+        initial: editing,
+        onSubmit: (data) async {
+          if (editing != null) {
+            await ApiService().updateConstruction(_toI(editing['id']), data);
+          } else {
+            await ApiService().createConstruction(data);
+          }
+          _load();
+        },
+      ),
+    );
+  }
+
+  Future<void> _delete(int id) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: const Text('Inventory will be restored. This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (ok == true) { await ApiService().deleteConstruction(id); _load(); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: _loadingData
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: CustomScrollView(slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  expandedHeight: 100,
+                  toolbarHeight: 46,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.pin,
+                    background: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [_color, _colorDark],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Align(
+                        alignment: Alignment.bottomLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+                          child: Row(children: [
+                            _hStat('${_items.length}', 'Entries'),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
+                  title: const Text('Construction',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3, color: Colors.white)),
+                  actions: [
+                    CompositedTransformTarget(
+                      link: _layerLink,
+                      child: GestureDetector(
+                        onTap: _toggleDateOverlay,
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white),
+                            const SizedBox(width: 5),
+                            Text(_dateFilter.isActive ? _dateFilter.label : 'Filter',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_items.isEmpty)
+                  SliverFillRemaining(
+                    child: Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.domain_outlined, size: 48, color: Colors.grey.shade300),
+                        const SizedBox(height: 12),
+                        Text('No entries yet', style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text('Tap + to add construction material usage', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+                      ]),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) {
+                          final e = _items[i];
+                          final date = (e['date'] ?? '').toString();
+                          final silo = (e['siloType'] ?? '').toString();
+                          final cement    = _toD(e['cementKg']);
+                          final crushSand = _toD(e['crushSandKg']);
+                          final dust      = _toD(e['dustKg']);
+                          final m10       = _toD(e['metal10mmKg']);
+                          final m20       = _toD(e['metal20mmKg']);
+                          final notes     = (e['notes'] ?? '').toString();
+                          String _fmtKg(double v) => v > 0 ? '${v.toStringAsFixed(0)} kg' : '—';
+                          String _fmtDate(String s) {
+                            try {
+                              final parts = s.split('-');
+                              if (parts.length == 3) return '${parts[2]}/${parts[1]}/${parts[0]}';
+                            } catch (_) {}
+                            return s;
+                          }
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
+                            ),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              // Header row
+                              Container(
+                                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(colors: [_color.withValues(alpha: 0.08), _colorDark.withValues(alpha: 0.04)]),
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                                ),
+                                child: Row(children: [
+                                  const Icon(Icons.calendar_today_outlined, size: 13, color: _color),
+                                  const SizedBox(width: 6),
+                                  Text(_fmtDate(date), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _color)),
+                                  if (silo.isNotEmpty) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: silo == 'CORE' ? const Color(0xFFEFF6FF) : const Color(0xFFF5F3FF),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(silo == 'CORE' ? 'Silo Core' : 'Silo Coating',
+                                          style: TextStyle(
+                                            fontSize: 10, fontWeight: FontWeight.w700,
+                                            color: silo == 'CORE' ? const Color(0xFF1D4ED8) : const Color(0xFF7C3AED),
+                                          )),
+                                    ),
+                                  ],
+                                  const Spacer(),
+                                  GestureDetector(onTap: () => _showAddEdit(e),
+                                    child: Container(padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(color: _color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+                                      child: const Icon(Icons.edit_outlined, size: 15, color: _color))),
+                                  const SizedBox(width: 6),
+                                  GestureDetector(onTap: () => _delete(_toI(e['id'])),
+                                    child: Container(padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.07), borderRadius: BorderRadius.circular(8)),
+                                      child: const Icon(Icons.delete_outline, size: 15, color: Colors.red))),
+                                ]),
+                              ),
+                              // Material grid
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Wrap(spacing: 8, runSpacing: 8, children: [
+                                  if (cement > 0)    _matChip('Cement',     _fmtKg(cement)),
+                                  if (crushSand > 0) _matChip('Crush Sand', _fmtKg(crushSand)),
+                                  if (dust > 0)      _matChip('Dust',       _fmtKg(dust)),
+                                  if (m10 > 0)       _matChip('10MM Metal', _fmtKg(m10)),
+                                  if (m20 > 0)       _matChip('20MM Metal', _fmtKg(m20)),
+                                ]),
+                              ),
+                              if (notes.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                                  child: Text(notes, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                ),
+                            ]),
+                          );
+                        },
+                        childCount: _items.length,
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddEdit(),
+        backgroundColor: _color,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _hStat(String value, String label) => Expanded(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      Text(label, style: const TextStyle(fontSize: 9, color: Colors.white70, letterSpacing: 0.2), textAlign: TextAlign.center),
+    ]),
+  );
+
+  Widget _matChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _color.withValues(alpha: 0.15)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: _color.withValues(alpha: 0.7), letterSpacing: 0.3)),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _color)),
+      ]),
+    );
+  }
+}
+
+// ─── Construction Add/Edit Sheet ──────────────────────────────────────────────
+
+class _ConstructionSheet extends StatefulWidget {
+  final Map<String, dynamic>? initial;
+  final Future<void> Function(Map<String, dynamic>) onSubmit;
+  const _ConstructionSheet({this.initial, required this.onSubmit});
+  @override
+  State<_ConstructionSheet> createState() => _ConstructionSheetState();
+}
+
+class _ConstructionSheetState extends State<_ConstructionSheet> {
+  static const _color = Color(0xFF4F46E5);
+
+  final _dateCtrl      = TextEditingController();
+  final _cementCtrl    = TextEditingController();
+  final _crushCtrl     = TextEditingController();
+  final _dustCtrl      = TextEditingController();
+  final _m10Ctrl       = TextEditingController();
+  final _m20Ctrl       = TextEditingController();
+  final _notesCtrl     = TextEditingController();
+  String _siloType     = '';
+  bool _submitting     = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial;
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    _dateCtrl.text   = e != null ? (e['date'] ?? today).toString() : today;
+    _siloType        = e != null ? (e['siloType'] ?? '').toString() : '';
+    _cementCtrl.text = e != null && (e['cementKg'] ?? 0) > 0 ? e['cementKg'].toString() : '';
+    _crushCtrl.text  = e != null && (e['crushSandKg'] ?? 0) > 0 ? e['crushSandKg'].toString() : '';
+    _dustCtrl.text   = e != null && (e['dustKg'] ?? 0) > 0 ? e['dustKg'].toString() : '';
+    _m10Ctrl.text    = e != null && (e['metal10mmKg'] ?? 0) > 0 ? e['metal10mmKg'].toString() : '';
+    _m20Ctrl.text    = e != null && (e['metal20mmKg'] ?? 0) > 0 ? e['metal20mmKg'].toString() : '';
+    _notesCtrl.text  = e != null ? (e['notes'] ?? '').toString() : '';
+  }
+
+  @override
+  void dispose() {
+    _dateCtrl.dispose(); _cementCtrl.dispose(); _crushCtrl.dispose();
+    _dustCtrl.dispose(); _m10Ctrl.dispose(); _m20Ctrl.dispose(); _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final cement    = double.tryParse(_cementCtrl.text.trim()) ?? 0;
+    final crushSand = double.tryParse(_crushCtrl.text.trim())  ?? 0;
+    final dust      = double.tryParse(_dustCtrl.text.trim())   ?? 0;
+    final m10       = double.tryParse(_m10Ctrl.text.trim())    ?? 0;
+    final m20       = double.tryParse(_m20Ctrl.text.trim())    ?? 0;
+
+    if (_dateCtrl.text.trim().isEmpty) { setState(() => _error = 'Please select a date'); return; }
+    if (cement + crushSand + dust + m10 + m20 == 0) { setState(() => _error = 'Enter at least one material quantity'); return; }
+    if (cement > 0 && _siloType.isEmpty) { setState(() => _error = 'Select a silo for cement'); return; }
+
+    setState(() { _submitting = true; _error = null; });
+    try {
+      await widget.onSubmit({
+        'date':        _dateCtrl.text.trim(),
+        'siloType':    _siloType,
+        'cementKg':    cement,
+        'crushSandKg': crushSand,
+        'dustKg':      dust,
+        'metal10mmKg': m10,
+        'metal20mmKg': m20,
+        'notes':       _notesCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) setState(() { _error = 'Failed to save entry'; _submitting = false; });
+    }
+  }
+
+  Widget _numField(String label, TextEditingController ctrl) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+      const SizedBox(height: 6),
+      TextFormField(
+        controller: ctrl,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          suffixText: 'kg',
+          suffixStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12),
+          hintText: '0',
+          hintStyle: const TextStyle(color: Color(0xFFD1D5DB)),
+          filled: true,
+          fillColor: const Color(0xFFF9FAFB),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _color, width: 1.5)),
+        ),
+      ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Handle
+          Center(child: Container(width: 36, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 14),
+          Text(widget.initial != null ? 'Edit Entry' : 'Add Construction Entry',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF111827))),
+          const SizedBox(height: 16),
+
+          // Date
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Date *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.tryParse(_dateCtrl.text) ?? DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) setState(() => _dateCtrl.text = DateFormat('yyyy-MM-dd').format(picked));
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.calendar_today_outlined, size: 16, color: _color),
+                  const SizedBox(width: 8),
+                  Text(_dateCtrl.text.isEmpty ? 'Select date' : _dateCtrl.text,
+                      style: TextStyle(fontSize: 13, color: _dateCtrl.text.isEmpty ? const Color(0xFF9CA3AF) : const Color(0xFF111827))),
+                ]),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 14),
+
+          // Cement + Silo
+          Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Expanded(child: _numField('Cement (kg)', _cementCtrl)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Silo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _siloType.isEmpty ? null : _siloType,
+                      hint: const Text('Select', style: TextStyle(color: Color(0xFFD1D5DB), fontSize: 13)),
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'CORE',    child: Text('Core',    style: TextStyle(fontSize: 13))),
+                        DropdownMenuItem(value: 'COATING', child: Text('Coating', style: TextStyle(fontSize: 13))),
+                      ],
+                      onChanged: (v) => setState(() => _siloType = v ?? ''),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 14),
+
+          // Material fields grid
+          Row(children: [
+            Expanded(child: _numField('Crush Sand (kg)', _crushCtrl)),
+            const SizedBox(width: 10),
+            Expanded(child: _numField('Dust (kg)', _dustCtrl)),
+          ]),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _numField('10MM Metal (kg)', _m10Ctrl)),
+            const SizedBox(width: 10),
+            Expanded(child: _numField('20MM Metal (kg)', _m20Ctrl)),
+          ]),
+          const SizedBox(height: 14),
+
+          // Notes
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Notes', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _notesCtrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Optional notes…',
+                hintStyle: const TextStyle(color: Color(0xFFD1D5DB), fontSize: 13),
+                filled: true,
+                fillColor: const Color(0xFFF9FAFB),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _color, width: 1.5)),
+              ),
+            ),
+          ]),
+
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade200)),
+              child: Text(_error!, style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+            ),
+          ],
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 50, width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _submitting ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _color,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                disabledBackgroundColor: _color.withValues(alpha: 0.5),
+              ),
+              child: _submitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(widget.initial != null ? 'Save Changes' : 'Add Entry',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 // Testing Lab Screen
 // ─────────────────────────────────────────────
 

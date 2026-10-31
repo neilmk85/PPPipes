@@ -53,6 +53,7 @@ _BizCard('maintenance',        'Maintenance',        'Equipment & plant upkeep',
   _BizCard('labour',             'Labour',             'Daily attendance & wages',      'HR',         Icons.people_outline,                Color(0xFF4F46E5)),
   _BizCard('cement-bags',        'Used Cement Bags',   'Daily bag consumption log',     'Materials',  Icons.all_inbox_outlined,            Color(0xFF3730A3)),
   _BizCard('store-material',     'Store Material',     'Store room stock entries',      'Materials',  Icons.archive_outlined,              Color(0xFF7C3AED)),
+  _BizCard('construction',       'Construction',       'Civil & construction material', 'Materials',  Icons.domain_outlined,               Color(0xFF4F46E5)),
   _BizCard('diesel-maintenance', 'Diesel Maintenance', 'Fuel usage & maintenance',      'Logistics',  Icons.local_gas_station_outlined,    Color(0xFF1D4ED8)),
   _BizCard('extra-vehicles',     'Extra Vehicles',     'Hired & additional vehicles',   'Logistics',  Icons.directions_car_outlined,       Color(0xFF8B5CF6)),
   _BizCard('cutting',            'Cutting',            'Pipe cutting records',          'Production', Icons.content_cut_outlined,          Color(0xFF6D28D9)),
@@ -63,7 +64,7 @@ _BizCard('maintenance',        'Maintenance',        'Equipment & plant upkeep',
   _BizCard('transport-report',   'Transport Report',   'Vehicle trip summary',          'Logistics',  Icons.bar_chart_outlined,            Color(0xFF2563EB)),
 ];
 
-const _routed = {'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes', 'loading-invoice', 'labour', 'store-material', 'maintenance', 'cutting', 'diesel-maintenance', 'transport-report', 'discard', 'extra-fab', 'testing-lab'};
+const _routed = {'cement-bags', 'vehicles', 'silo', 'silo-extraction', 'loading', 'extra-vehicles', 'conversion', 'loaded-pipes', 'loading-invoice', 'labour', 'store-material', 'maintenance', 'cutting', 'diesel-maintenance', 'transport-report', 'discard', 'extra-fab', 'testing-lab', 'construction'};
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -250,6 +251,8 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
       context.push('/business/extra-fab');
     } else if (key == 'testing-lab') {
       context.push('/business/testing-lab');
+    } else if (key == 'construction') {
+      context.push('/business/construction');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Coming soon'), duration: Duration(seconds: 2)),

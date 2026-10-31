@@ -1010,4 +1010,29 @@ class ApiService {
   Future<void> deleteExtraFabEntry(int id) async {
     await _dio.delete('/business/extra-fab/$id');
   }
+
+  Future<List<dynamic>> getConstructions({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['from'] = from;
+    if (to != null) params['to'] = to;
+    final res = await _dio.get('/business/constructions', queryParameters: params);
+    final data = res.data['data'];
+    if (data is Map && data.containsKey('content')) return data['content'] as List;
+    if (data is List) return data;
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createConstruction(Map<String, dynamic> data) async {
+    final res = await _dio.post('/business/constructions', data: data);
+    return Map<String, dynamic>.from(res.data['data'] as Map);
+  }
+
+  Future<Map<String, dynamic>> updateConstruction(int id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/business/constructions/$id', data: data);
+    return Map<String, dynamic>.from(res.data['data'] as Map);
+  }
+
+  Future<void> deleteConstruction(int id) async {
+    await _dio.delete('/business/constructions/$id');
+  }
 }

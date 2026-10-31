@@ -113,6 +113,7 @@ class PosApp extends ConsumerWidget {
             GoRoute(path: '/business/discard',           builder: (_, __) => const DiscardScreen()),
             GoRoute(path: '/business/extra-fab',         builder: (_, __) => const ExtraFabScreen()),
             GoRoute(path: '/business/testing-lab',       builder: (_, __) => const TestingLabScreen()),
+            GoRoute(path: '/business/construction',      builder: (_, __) => const ConstructionScreen()),
             GoRoute(path: '/business/pccp',              builder: (_, __) => const PccpScreen()),
             GoRoute(
               path: '/business/pccp/stage',
