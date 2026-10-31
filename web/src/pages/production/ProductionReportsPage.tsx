@@ -743,8 +743,8 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
 
   const rows     = data     ?? []
   const spinRows = spinData ?? []
-  const fabRows  = rows.filter((r: any) => Number(r.fabPipesCompleted)  > 0)
-  const coatRows = rows.filter((r: any) => Number(r.coatPipesCompleted) > 0)
+  const fabRows  = rows
+  const coatRows = rows
   const totalFab  = fabRows.reduce((s: number,  r: any) => s + Number(r.fabCost),  0)
   const totalCoat = coatRows.reduce((s: number, r: any) => s + Number(r.coatCost), 0)
   const totalSpin = spinRows.reduce((s: number, r: any) => s + Number(r.spinCost), 0)
