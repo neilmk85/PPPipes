@@ -18,6 +18,7 @@ const BUSINESS_CARDS = [
   { key: 'labour',            label: 'Labour',              category: 'HR' },
   { key: 'cement-bags',       label: 'Cement Bags',         category: 'Materials' },
   { key: 'store-material',    label: 'Store Material',      category: 'Materials' },
+  { key: 'construction',      label: 'Construction',        category: 'Materials' },
   { key: 'diesel-maintenance',label: 'Diesel Maintenance',  category: 'Operations' },
   { key: 'extra-vehicles',    label: 'Extra Vehicles',      category: 'Operations' },
   { key: 'cutting',           label: 'Cutting',             category: 'Production' },

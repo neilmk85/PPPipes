@@ -1263,6 +1263,7 @@ const CARD_PERMISSION_BUSINESS = [
   { key: 'silo-extraction',    label: 'Silo Extraction',    category: 'Materials' },
   { key: 'cement-bags',        label: 'Cement Bags',        category: 'Materials' },
   { key: 'store-material',     label: 'Store Material',     category: 'Materials' },
+  { key: 'construction',       label: 'Construction',       category: 'Materials' },
   { key: 'loading',            label: 'Loading',            category: 'Logistics' },
   { key: 'loaded-pipes',       label: 'Loaded Pipes',       category: 'Logistics' },
   { key: 'transport-report',   label: 'Transport Report',   category: 'Logistics' },
