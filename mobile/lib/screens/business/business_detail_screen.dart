@@ -16365,6 +16365,7 @@ class PccpStageScreen extends StatefulWidget {
 
 class _PccpStageScreenState extends State<PccpStageScreen> {
   bool _loading = true;
+  bool _hasError = false;
   List<Map<String, dynamic>> _entries = [];
   List<_C2Row> _curing2Rows = [];
   late DateTime _from, _to;
@@ -16435,7 +16436,7 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
   String get _curingLabel     => 'Curing 2';
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _hasError = false; });
     try {
       final today = DateTime.now();
       final c2From = _fmt(today.subtract(const Duration(days: 8)));
@@ -16472,7 +16473,7 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
         _loading      = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() { _loading = false; _hasError = true; });
     }
   }
 
@@ -16755,7 +16756,24 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
             ),
 
             // ── Entries list ──
-            filtered.isEmpty && !_loading
+            _hasError && !_loading
+              ? SliverFillRemaining(
+                  child: Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.wifi_off_outlined, size: 48, color: Colors.red[200]),
+                      const SizedBox(height: 10),
+                      Text('Could not load entries',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: _load,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                      ),
+                    ]),
+                  ),
+                )
+              : filtered.isEmpty && !_loading
               ? SliverFillRemaining(
                   child: Center(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
