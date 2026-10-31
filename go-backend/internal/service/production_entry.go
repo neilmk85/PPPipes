@@ -462,7 +462,16 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 
 		// 11. On FINAL_TESTING completion, credit finished-goods inventory
 		if stage == models.StageFinalTesting && entry.PipesCompleted > 0 {
-			if err := s.creditFinishedGoodsInventory(tx, order, entry.PipesCompleted, createdBy); err != nil {
+			creditOrder := order
+			if req.ProductionOrderID == 0 && entry.PipeConfigID != nil {
+				// PO-free: load pipe config and default to factory outlet (1)
+				var pc models.PipeConfig
+				if err := tx.First(&pc, *entry.PipeConfigID).Error; err == nil {
+					creditOrder.PipeConfig = &pc
+				}
+				creditOrder.OutletID = 1
+			}
+			if err := s.creditFinishedGoodsInventory(tx, creditOrder, entry.PipesCompleted, createdBy); err != nil {
 				return err
 			}
 		}
