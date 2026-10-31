@@ -16949,7 +16949,7 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
         _api.getProductionOrders(size: 200),
         _api.getProductionEntries(stageType: widget.stageType, size: 2000),
         _api.getStageWipBulk(widget.stageType),
-        _api.getPipeConfigs(size: 500),
+        _api.getPipeConfigs(size: 1000),
       ]);
 
       final raw = results[0];
