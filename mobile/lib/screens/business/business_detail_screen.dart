@@ -16944,14 +16944,23 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
 
   Future<void> _loadOrders() async {
     try {
-      // Fetch orders and existing stage entries in parallel
+      // Fetch orders, existing stage entries, WIP bulk, and all pipe configs in parallel
       final results = await Future.wait([
         _api.getProductionOrders(size: 200),
         _api.getProductionEntries(stageType: widget.stageType, size: 2000),
+        _api.getStageWipBulk(widget.stageType),
+        _api.getPipeConfigs(size: 500),
       ]);
 
       final raw = results[0];
       final existingEntries = results[1];
+      final wipBulk = results[2] as List;
+      final allConfigs = results[3] as List;
+      // Build a map from configId → config map for quick name lookup
+      final configMap = <int, Map<String, dynamic>>{
+        for (final c in allConfigs.cast<Map<String, dynamic>>())
+          if (c['id'] is int) (c['id'] as int): c,
+      };
 
       // Build per-order progress map (total pipesProcessed already logged)
       final progress = <int, int>{};
@@ -16971,7 +16980,40 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
           })
           .cast<Map<String, dynamic>>()
           .toList();
-      if (mounted) setState(() { _orders = filtered; _loading = false; });
+
+      // Build set of pipe config IDs already covered by active production orders
+      final coveredConfigIds = filtered
+          .map((o) => o['pipeConfigId'] as int?)
+          .whereType<int>()
+          .toSet();
+
+      // Add PO-free virtual entries for pipe configs available in WipBulk
+      // but not already covered by a production order
+      final poFreeEntries = <Map<String, dynamic>>[];
+      for (final wip in wipBulk.cast<Map<String, dynamic>>()) {
+        final configId = (wip['pipeConfigId'] as num?)?.toInt() ?? 0;
+        final available = (wip['available'] as num?)?.toInt() ?? 0;
+        if (configId <= 0 || available <= 0) continue;
+        if (coveredConfigIds.contains(configId)) continue;
+        final config = configMap[configId] ?? {'id': configId, 'name': 'Config #$configId'};
+        poFreeEntries.add({
+          'id': -configId,            // negative to avoid clash with real PO ids
+          'pipeConfigId': configId,
+          'pipeConfig': config,
+          'wipAvailable': available,
+          'isPOFree': true,
+          'poNumber': 'Free Stock',
+          'status': 'IN_PROGRESS',
+        });
+      }
+      // Sort PO-free entries by pipe name for consistent display
+      poFreeEntries.sort((a, b) {
+        final na = (a['pipeConfig']?['name'] ?? '').toString();
+        final nb = (b['pipeConfig']?['name'] ?? '').toString();
+        return na.compareTo(nb);
+      });
+
+      if (mounted) setState(() { _orders = [...filtered, ...poFreeEntries]; _loading = false; });
 
       // Fetch prior-stage completed count for all orders in parallel
       final priorFutures = filtered.map((o) {
@@ -17076,12 +17118,18 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
   List<Map<String, dynamic>> get _filtered {
     return _orders.where((o) {
       final id = o['id'] as int;
-      // Once prior-stage data is loaded, hide orders with nothing left to process.
-      // Only apply when prior > 0 (i.e. a real prior stage exists; 0 means FABRICATION/first stage).
-      if (_priorCompleted.containsKey(id)) {
-        final prior = _priorCompleted[id]!;
-        final done = _orderProgress[id] ?? 0;
-        if (prior > 0 && (prior - done) <= 0) return false;
+      final isPOFree = o['isPOFree'] == true;
+      // PO-free entries: only show if wipAvailable > 0 (already guaranteed by _loadOrders)
+      if (isPOFree) {
+        final avail = (o['wipAvailable'] as int?) ?? 0;
+        if (avail <= 0) return false;
+      } else {
+        // PO-linked: hide orders with nothing left to process (once prior-stage data loads)
+        if (_priorCompleted.containsKey(id)) {
+          final prior = _priorCompleted[id]!;
+          final done = _orderProgress[id] ?? 0;
+          if (prior > 0 && (prior - done) <= 0) return false;
+        }
       }
       // Search filter
       if (_search.trim().isNotEmpty) {
@@ -17103,12 +17151,17 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
       } else {
         final entry = _OrderEntry(order);
         _selected[id] = entry;
+        final isPOFree = order['isPOFree'] == true;
         final planned = (order['plannedQty'] as num?)?.toInt() ?? 0;
-        // priorCompleted = pipes completed in the prior stage (the true ceiling)
-        // alreadyDone   = pipes already logged at THIS stage for this order
-        final priorCompleted = _priorCompleted[id] ?? planned;
+        // For PO-free entries, use wipAvailable directly as the ceiling
+        // For PO-linked entries, use priorCompleted from prior-stage API
+        final priorCompleted = isPOFree
+            ? (order['wipAvailable'] as int? ?? 0)
+            : (_priorCompleted[id] ?? planned);
         final alreadyDone = _orderProgress[id] ?? 0;
-        final remaining = (priorCompleted - alreadyDone).clamp(0, priorCompleted);
+        final remaining = isPOFree
+            ? priorCompleted
+            : (priorCompleted - alreadyDone).clamp(0, priorCompleted);
         entry.completedCtrl.addListener(() {
           if (mounted) setState(() {});
         });
@@ -17343,8 +17396,10 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
       }
 
       try {
+        final isPOFree = entry.order['isPOFree'] == true;
         final payload = <String, dynamic>{
-          'productionOrderId': entry.order['id'],
+          if (!isPOFree) 'productionOrderId': entry.order['id'],
+          if (isPOFree) 'pipeConfigId': entry.order['pipeConfigId'],
           'stageType': widget.stageType,
           'pipesProcessed': processed,
           'pipesCompleted': completed,
@@ -17587,9 +17642,9 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                       child: Text(
                         _search.isNotEmpty
                             ? 'No orders match "$_search"'
-                            : _orders.isNotEmpty && _priorCompleted.isNotEmpty
-                                ? 'All orders are fully processed at this stage'
-                                : 'No active production orders',
+                            : _orders.isNotEmpty
+                                ? 'All orders fully processed at this stage'
+                                : 'No active orders or available pipe types',
                         style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                     )
@@ -17659,11 +17714,16 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                       ]),
                                       const SizedBox(height: 2),
                                       Builder(builder: (_) {
+                                        final isPOFree = order['isPOFree'] == true;
+                                        if (isPOFree) {
+                                          final avail = (order['wipAvailable'] as int?) ?? 0;
+                                          return Text('Free Stock · Available: $avail pipes',
+                                              style: TextStyle(fontSize: 11, color: Colors.green[700], fontWeight: FontWeight.w500));
+                                        }
                                         final prior = _priorCompleted[id];
                                         final done = _orderProgress[id] ?? 0;
                                         final pl = (planned as num).toInt();
                                         if (prior == null) {
-                                          // Still loading prior-stage info
                                           return Text('$poNum · Planned: $pl pipes',
                                               style: TextStyle(fontSize: 11, color: Colors.grey[500]));
                                         }
@@ -17680,12 +17740,18 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: Colors.orange[50],
+                                      color: order['isPOFree'] == true ? Colors.green[50] : Colors.orange[50],
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      (order['status'] ?? '').toString().replaceAll('_', ' '),
-                                      style: TextStyle(fontSize: 10, color: Colors.orange[700], fontWeight: FontWeight.w600),
+                                      order['isPOFree'] == true
+                                          ? 'Free Stock'
+                                          : (order['status'] ?? '').toString().replaceAll('_', ' '),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: order['isPOFree'] == true ? Colors.green[700] : Colors.orange[700],
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ]),
@@ -17701,6 +17767,11 @@ class _ProductionEntrySheetState extends State<_ProductionEntrySheet> {
                                         child: _QtyField(
                                           controller: entry!.processedCtrl,
                                           label: () {
+                                            final isPOFree = order['isPOFree'] == true;
+                                            if (isPOFree) {
+                                              final avail = (order['wipAvailable'] as int?) ?? 0;
+                                              return 'Processed (max: $avail available)';
+                                            }
                                             final pl = (order['plannedQty'] as num?)?.toInt() ?? 0;
                                             final prior = _priorCompleted[id] ?? pl;
                                             final dn = _orderProgress[id] ?? 0;

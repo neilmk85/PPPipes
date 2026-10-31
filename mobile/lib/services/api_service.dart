@@ -799,6 +799,18 @@ class ApiService {
     return [];
   }
 
+  Future<List<dynamic>> getStageWipBulk(String stageType) async {
+    try {
+      final res = await _dio.get('/production/entries/stage-wip-bulk',
+          queryParameters: {'stage': stageType});
+      final data = res.data['data'];
+      if (data is List) return data;
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>> getPriorStageInfo(int orderId, String stageType) async {
     try {
       final res = await _dio.get('/production/entries/prior-stage',
