@@ -635,6 +635,12 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Phase 29: User replacements
+	if err := db.AutoMigrate(&models.UserReplacement{}); err != nil {
+		slog.Error("[Database] Failed to migrate UserReplacement", "error", err)
+		return err
+	}
+
 	slog.Info("[Database] Migrations completed successfully")
 	return nil
 }
