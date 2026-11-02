@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
+
 type AuthService struct {
 	db *gorm.DB
 }
@@ -31,6 +32,12 @@ type AuthResponse struct {
 	CardPermissions *CardPermissions `json:"cardPermissions"`
 	Permissions     []string         `json:"permissions"`
 	OutOfOffice     bool             `json:"outOfOffice"`
+
+	// Replacement session fields — present only when logging in with temp credentials
+	IsReplacement       bool   `json:"isReplacement,omitempty"`
+	ReplacedUserName    string `json:"replacedUserName,omitempty"`    // User A (who is on leave)
+	ActualEnteredByName string `json:"actualEnteredByName,omitempty"` // User B (who is typing)
+	ActualEnteredByID   int    `json:"actualEnteredById,omitempty"`
 }
 
 // LoginRequest represents the login request body
@@ -324,8 +331,53 @@ func builtInRolePermissions(role models.RoleName) []string {
 	return []string{}
 }
 
-// Login authenticates a user with email and password
+// Login authenticates a user with email and password.
+// It also handles temp-credential replacement logins: if the email matches an
+// active user_replacements.temp_email, the leave user's full context is loaded
+// and the response is tagged with replacement metadata.
 func (s *AuthService) Login(req *LoginRequest) (*AuthResponse, error) {
+	// ── Check if this is a replacement temp-credential login ──────────────
+	var pairing models.UserReplacement
+	tempErr := s.db.
+		Preload("LeaveUser", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Preload("UserRoles", func(db *gorm.DB) *gorm.DB { return db.Preload("Role") }).
+				Preload("Outlet")
+		}).
+		Preload("ReplacementUser").
+		Where("temp_email = ? AND is_active = true", req.Email).
+		First(&pairing).Error
+
+	if tempErr == nil && pairing.LeaveUser != nil {
+		// Validate temp password
+		if pairing.TempPasswordHash == nil || !util.ComparePassword(req.Password, *pairing.TempPasswordHash) {
+			return nil, &util.BusinessException{StatusCode: 400, Message: "Invalid credentials"}
+		}
+
+		leaveUser := pairing.LeaveUser
+
+		// Generate tokens encoding the leave user's email + replacement pairing ID
+		accessToken, err := util.GenerateAccessTokenWithReplacement(leaveUser.Email, pairing.ID)
+		if err != nil {
+			return nil, &util.BusinessException{StatusCode: 500, Message: "Failed to generate tokens"}
+		}
+		refreshToken, err := util.GenerateRefreshToken(leaveUser.Email)
+		if err != nil {
+			return nil, &util.BusinessException{StatusCode: 500, Message: "Failed to generate tokens"}
+		}
+
+		resp := s.buildAuthResponse(leaveUser, accessToken, refreshToken)
+		resp.IsReplacement = true
+		resp.ReplacedUserName = leaveUser.Name
+		if pairing.ReplacementUser != nil {
+			resp.ActualEnteredByName = pairing.ReplacementUser.Name
+			resp.ActualEnteredByID = pairing.ReplacementUser.ID
+		}
+		slog.Info("[AuthService] Replacement temp login", "leave_user", leaveUser.Email, "pairing_id", pairing.ID)
+		return resp, nil
+	}
+
+	// ── Normal login ──────────────────────────────────────────────────────
 	user, err := s.getUserWithRoles(req.Email)
 	if err != nil {
 		slog.Error("[AuthService] Failed to get user with roles", "error", err)
@@ -353,7 +405,6 @@ func (s *AuthService) Login(req *LoginRequest) (*AuthResponse, error) {
 	now := util.Now()
 	if err := s.db.Model(user).Update("last_login", now).Error; err != nil {
 		slog.Error("[AuthService] Failed to update last_login", "error", err)
-		// Don't fail on this error
 	}
 
 	// Generate tokens
@@ -362,7 +413,7 @@ func (s *AuthService) Login(req *LoginRequest) (*AuthResponse, error) {
 		slog.Error("[AuthService] Failed to generate access token", "error", err)
 		return nil, &util.BusinessException{
 			StatusCode: 500,
-			Message: "Failed to generate tokens",
+			Message:    "Failed to generate tokens",
 		}
 	}
 
@@ -371,7 +422,7 @@ func (s *AuthService) Login(req *LoginRequest) (*AuthResponse, error) {
 		slog.Error("[AuthService] Failed to generate refresh token", "error", err)
 		return nil, &util.BusinessException{
 			StatusCode: 500,
-			Message: "Failed to generate tokens",
+			Message:    "Failed to generate tokens",
 		}
 	}
 

@@ -1036,4 +1036,16 @@ export const clientBillApi = {
   delete: (id: number) => api.delete<ApiResponse<any>>(`/client-bills/${id}`),
 }
 
+export const userReplacementApi = {
+  getAll: () => api.get<ApiResponse<any[]>>('/user-replacements'),
+  getById: (id: number) => api.get<ApiResponse<any>>(`/user-replacements/${id}`),
+  create: (data: { leaveUserId: number; replacementUserId: number }) =>
+    api.post<ApiResponse<any>>('/user-replacements', data),
+  update: (id: number, data: { leaveUserId: number; replacementUserId: number }) =>
+    api.put<ApiResponse<any>>(`/user-replacements/${id}`, data),
+  delete: (id: number) => api.delete<ApiResponse<any>>(`/user-replacements/${id}`),
+  activate: (id: number) => api.post<ApiResponse<any>>(`/user-replacements/${id}/activate`),
+  deactivate: (id: number) => api.post<ApiResponse<any>>(`/user-replacements/${id}/deactivate`),
+}
+
 export default api

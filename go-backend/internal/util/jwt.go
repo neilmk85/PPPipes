@@ -18,20 +18,30 @@ func InitJWT(secret, expiry, refreshExpiry string) {
 }
 
 type Claims struct {
-	Email string `json:"email"`
-	Type  string `json:"type"`
+	Email                string `json:"email"`
+	Type                 string `json:"type"`
+	ReplacementPairingID int    `json:"replacementPairingId,omitempty"` // >0 when this is a temp-credential session
 	jwt.RegisteredClaims
 }
 
 func GenerateAccessToken(email string) (string, error) {
+	return generateAccessTokenWithReplacement(email, 0)
+}
+
+func GenerateAccessTokenWithReplacement(email string, pairingID int) (string, error) {
+	return generateAccessTokenWithReplacement(email, pairingID)
+}
+
+func generateAccessTokenWithReplacement(email string, pairingID int) (string, error) {
 	duration, err := time.ParseDuration(jwtExpiry)
 	if err != nil {
 		return "", fmt.Errorf("invalid JWT_EXPIRY duration: %w", err)
 	}
 
 	claims := Claims{
-		Email: email,
-		Type:  "access",
+		Email:                email,
+		Type:                 "access",
+		ReplacementPairingID: pairingID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

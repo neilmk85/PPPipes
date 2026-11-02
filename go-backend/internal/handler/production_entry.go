@@ -162,7 +162,14 @@ func (h *ProductionEntryHandler) Create(w http.ResponseWriter, r *http.Request) 
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	entry, err := h.service.Create(req, user.ID, user.Email)
+
+	// When entered by a replacement user, stamp created_by as "User A (via User B — replacement)"
+	createdBy := user.Email
+	if user.IsReplacement && user.ActualEnteredByName != "" {
+		createdBy = user.Email + " (via " + user.ActualEnteredByName + " — replacement)"
+	}
+
+	entry, err := h.service.Create(req, user.ID, createdBy)
 	if err != nil {
 		handleError(w, err)
 		return

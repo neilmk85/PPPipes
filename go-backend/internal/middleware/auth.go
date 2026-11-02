@@ -20,6 +20,12 @@ type AuthUser struct {
 	Roles       []string `json:"roles"`
 	OutletID    *int     `json:"outletId"`
 	Permissions []string `json:"permissions"`
+
+	// Replacement session fields — non-zero only when logged in via temp credentials
+	IsReplacement        bool   `json:"isReplacement"`
+	ReplacementPairingID int    `json:"replacementPairingId"`
+	ActualEnteredByID    int    `json:"actualEnteredById"`    // replacement user's real ID
+	ActualEnteredByName  string `json:"actualEnteredByName"`  // replacement user's name
 }
 
 // contextKey type for storing values in context
@@ -123,6 +129,19 @@ func Authenticate(db *gorm.DB) func(http.Handler) http.Handler {
 				Permissions: permissions,
 			}
 
+			// If this is a replacement session, load the replacement user details
+			if claims.ReplacementPairingID > 0 {
+				var pairing models.UserReplacement
+				if err := db.Preload("ReplacementUser").
+					Where("id = ? AND is_active = true", claims.ReplacementPairingID).
+					First(&pairing).Error; err == nil && pairing.ReplacementUser != nil {
+					authUser.IsReplacement = true
+					authUser.ReplacementPairingID = claims.ReplacementPairingID
+					authUser.ActualEnteredByID = pairing.ReplacementUser.ID
+					authUser.ActualEnteredByName = pairing.ReplacementUser.Name
+				}
+			}
+
 			// Store user in context
 			ctx := context.WithValue(r.Context(), UserContextKey, authUser)
 			newR := r.WithContext(ctx)
@@ -133,7 +152,7 @@ func Authenticate(db *gorm.DB) func(http.Handler) http.Handler {
 				bucket.User = authUser
 			}
 
-			slog.Debug("[Auth] User authenticated", "user_id", user.ID, "email", user.Email)
+			slog.Debug("[Auth] User authenticated", "user_id", user.ID, "email", user.Email, "is_replacement", authUser.IsReplacement)
 
 			next.ServeHTTP(w, newR)
 		})

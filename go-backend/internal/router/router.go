@@ -44,6 +44,9 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	userPreferenceService := service.NewUserPreferenceService(db)
 	userPreferenceHandler := handler.NewUserPreferenceHandler(userPreferenceService)
 
+	userReplacementService := service.NewUserReplacementService(db)
+	userReplacementHandler := handler.NewUserReplacementHandler(userReplacementService)
+
 	vendorPaymentService := service.NewVendorPaymentService(db)
 	tdsService := service.NewTDSService(db)
 	tdsHandler := handler.NewTDSHandler(tdsService)
@@ -2112,6 +2115,43 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("DELETE /api/users/preferences/{key}", middleware.Chain(
 		userPreferenceHandler.Delete,
 		middleware.Authenticate(db),
+	))
+
+	// ==================== USER REPLACEMENTS ====================
+	mux.HandleFunc("GET /api/user-replacements", middleware.Chain(
+		userReplacementHandler.GetAll,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+	))
+	mux.HandleFunc("GET /api/user-replacements/{id}", middleware.Chain(
+		userReplacementHandler.GetByID,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+	))
+	mux.HandleFunc("POST /api/user-replacements", middleware.Chain(
+		userReplacementHandler.Create,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+	))
+	mux.HandleFunc("PUT /api/user-replacements/{id}", middleware.Chain(
+		userReplacementHandler.Update,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+	))
+	mux.HandleFunc("DELETE /api/user-replacements/{id}", middleware.Chain(
+		userReplacementHandler.Delete,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+	))
+	mux.HandleFunc("POST /api/user-replacements/{id}/activate", middleware.Chain(
+		userReplacementHandler.Activate,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
+	))
+	mux.HandleFunc("POST /api/user-replacements/{id}/deactivate", middleware.Chain(
+		userReplacementHandler.Deactivate,
+		middleware.Authenticate(db),
+		middleware.RequireRole("SUPER_ADMIN", "ADMIN"),
 	))
 
 	// ==================== VENDOR PAYMENTS ====================
