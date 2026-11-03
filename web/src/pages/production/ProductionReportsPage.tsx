@@ -844,12 +844,14 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
 
   function processMatchesContractor(proc: string) {
     if (contractorFilter === 'all') return true
-    const a = assignmentByProcess[proc] as ProcessContractorAssignment | undefined
-    return a?.supplierId === contractorFilter
+    return spinAssignments.some((a: ContractorProcessAssignment) =>
+      a.contractorId === contractorFilter &&
+      (a.processType === proc || a.processType.startsWith(proc))
+    )
   }
 
   const showFab  = (processFilter === 'all' || processFilter === 'FABRICATION') && processMatchesContractor('FABRICATION')
-  const showSpin = processFilter === 'all' || processFilter === 'SPINNING'
+  const showSpin = (processFilter === 'all' || processFilter === 'SPINNING')    && (contractorFilter === 'all' || processMatchesContractor('SPINNING'))
   const showCoat = (processFilter === 'all' || processFilter === 'COATING')     && processMatchesContractor('COATING')
 
   const visibleTotal =
