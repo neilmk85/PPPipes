@@ -21,6 +21,7 @@ import 'screens/vendors/vendors_screen.dart';
 import 'screens/expenses/expenses_screen.dart';
 import 'screens/shifts/shifts_screen.dart';
 import 'screens/production/production_screen.dart';
+import 'screens/production/contractor_costs_screen.dart';
 import 'screens/business/business_screen.dart';
 import 'screens/business/business_detail_screen.dart';
 
@@ -93,6 +94,7 @@ class PosApp extends ConsumerWidget {
             GoRoute(path: '/expenses',    builder: (_, __) => const ExpensesScreen()),
             GoRoute(path: '/shifts',      builder: (_, __) => const ShiftsScreen()),
             GoRoute(path: '/production',  builder: (_, __) => const ProductionScreen()),
+            GoRoute(path: '/production/contractor-costs', builder: (_, __) => const ContractorCostsScreen()),
             GoRoute(path: '/business',             builder: (_, __) => const BusinessScreen()),
             GoRoute(path: '/business/cement-bags',     builder: (_, __) => const CementBagsScreen()),
             GoRoute(path: '/business/vehicles',        builder: (_, __) => const VehiclesScreen()),

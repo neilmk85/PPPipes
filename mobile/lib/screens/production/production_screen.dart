@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:pos_mobile/main.dart';
 import '../../models/models.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 
 class ProductionScreen extends StatefulWidget {
@@ -307,6 +309,17 @@ class _ProductionScreenState extends State<ProductionScreen> {
                       letterSpacing: -0.3,
                       color: Colors.white)),
               actions: [
+                Consumer(builder: (ctx, ref, _) {
+                  final perms = ref.read(authProvider).user?.permissions ?? [];
+                  final canView = perms.isEmpty ||
+                      perms.contains('VIEW_CONTRACTOR_COSTS');
+                  if (!canView) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: const Icon(Icons.assessment_outlined, size: 20),
+                    tooltip: 'Contractor Costs',
+                    onPressed: () => ctx.push('/production/contractor-costs'),
+                  );
+                }),
                 TextButton(
                   onPressed: () => _showAddEntrySheet(context, null),
                   style: TextButton.styleFrom(

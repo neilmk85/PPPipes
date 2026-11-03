@@ -1047,4 +1047,25 @@ class ApiService {
   Future<void> deleteConstruction(int id) async {
     await _dio.delete('/business/constructions/$id');
   }
+
+  Future<List<dynamic>> getContractorCosts({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['fromDate'] = from;
+    if (to != null)   params['toDate']   = to;
+    final res = await _dio.get('/production/reports/contractor-costs', queryParameters: params);
+    return (res.data['data'] as List?) ?? [];
+  }
+
+  Future<List<dynamic>> getSpinningEntries({String? from, String? to}) async {
+    final params = <String, dynamic>{};
+    if (from != null) params['fromDate'] = from;
+    if (to != null)   params['toDate']   = to;
+    final res = await _dio.get('/production/reports/spinning-entries', queryParameters: params);
+    return (res.data['data'] as List?) ?? [];
+  }
+
+  Future<List<dynamic>> getContractorProcessAssignments() async {
+    final res = await _dio.get('/contractors/process-assignments');
+    return (res.data['data'] as List?) ?? [];
+  }
 }
