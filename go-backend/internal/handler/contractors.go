@@ -168,3 +168,59 @@ func (h *ContractorHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Contractor deleted", "id", id, "name", c.Name, "user", user.Email)
 	util.SendSuccess(w, "Contractor deleted", map[string]int{"id": id})
 }
+
+// ── Process Assignments ───────────────────────────────────────────────────────
+
+// GetProcessAssignments GET /api/contractors/process-assignments
+func (h *ContractorHandler) GetProcessAssignments(w http.ResponseWriter, r *http.Request) {
+	processType := r.URL.Query().Get("processType")
+	assignments, err := h.service.GetProcessAssignments(processType)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Process assignments retrieved", assignments)
+}
+
+type processAssignmentRequest struct {
+	ContractorID int    `json:"contractorId"`
+	ProcessType  string `json:"processType"`
+	CommencedAt  string `json:"commencedAt"` // YYYY-MM-DD
+}
+
+// CreateProcessAssignment POST /api/contractors/process-assignments
+func (h *ContractorHandler) CreateProcessAssignment(w http.ResponseWriter, r *http.Request) {
+	var req processAssignmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.ContractorID == 0 || req.ProcessType == "" || req.CommencedAt == "" {
+		util.SendError(w, http.StatusBadRequest, "contractorId, processType and commencedAt are required")
+		return
+	}
+	a, err := h.service.CreateProcessAssignment(req.ContractorID, req.ProcessType, req.CommencedAt)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	user := r.Context().Value(middleware.UserContextKey).(*middleware.AuthUser)
+	slog.Info("Contractor process assignment created", "id", a.ID, "process", a.ProcessType, "user", user.Email)
+	util.SendSuccess(w, "Process assignment created", a)
+}
+
+// DeleteProcessAssignment DELETE /api/contractors/process-assignments/{id}
+func (h *ContractorHandler) DeleteProcessAssignment(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid assignment ID")
+		return
+	}
+	if err := h.service.DeleteProcessAssignment(id); err != nil {
+		handleError(w, err)
+		return
+	}
+	user := r.Context().Value(middleware.UserContextKey).(*middleware.AuthUser)
+	slog.Info("Contractor process assignment deleted", "id", id, "user", user.Email)
+	util.SendSuccess(w, "Process assignment deleted", map[string]int{"id": id})
+}

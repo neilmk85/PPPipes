@@ -912,6 +912,18 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		contractorHandler.Delete,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("GET /api/contractors/process-assignments", middleware.Chain(
+		contractorHandler.GetProcessAssignments,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("POST /api/contractors/process-assignments", middleware.Chain(
+		contractorHandler.CreateProcessAssignment,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("DELETE /api/contractors/process-assignments/{id}", middleware.Chain(
+		contractorHandler.DeleteProcessAssignment,
+		middleware.Authenticate(db),
+	))
 
 	// ==================== SITE: PROJECTS ====================
 	mux.HandleFunc("GET /api/site-projects", middleware.Chain(
@@ -1927,6 +1939,10 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	))
 	mux.HandleFunc("GET /api/production/reports/spinning-costs", middleware.Chain(
 		productionReportHandler.SpinningCosts,
+		middleware.Authenticate(db),
+	))
+	mux.HandleFunc("GET /api/production/reports/spinning-entries", middleware.Chain(
+		productionReportHandler.SpinningEntries,
 		middleware.Authenticate(db),
 	))
 

@@ -430,6 +430,63 @@ func (s *ProductionReportService) GetSpinningCostReport(fromDate, toDate string,
 	return rows, err
 }
 
+// ── Spinning Entries Report ───────────────────────────────────────────────────
+// Returns individual spinning entries with entry_date so the caller can assign
+// each to a contractor based on contractor_process_assignments.
+
+type SpinningEntryRow struct {
+	EntryDate          string          `gorm:"column:entry_date"           json:"entryDate"`
+	BedSize            string          `gorm:"column:bed_size"             json:"bedSize"`
+	PipeConfig         string          `gorm:"column:pipe_config"          json:"pipeConfig"`
+	DiameterMM         int             `gorm:"column:diameter_mm"          json:"diameterMm"`
+	PressureClass      string          `gorm:"column:pressure_class"       json:"pressureClass"`
+	PipesCompleted     int             `gorm:"column:pipes_completed"      json:"pipesCompleted"`
+	RatePerPipe        decimal.Decimal `gorm:"column:rate_per_pipe"        json:"ratePerPipe"`
+	SpinCost           decimal.Decimal `gorm:"column:spin_cost"            json:"spinCost"`
+}
+
+func (s *ProductionReportService) GetSpinningEntries(fromDate, toDate string, outletID *int) ([]SpinningEntryRow, error) {
+	query := `
+		SELECT
+			DATE(pe.entry_date)                              AS entry_date,
+			COALESCE(pe.bed_type, 'UNKNOWN')                 AS bed_size,
+			pc.name                                          AS pipe_config,
+			pc.diameter_mm,
+			pc.pressure_class,
+			SUM(pe.pipes_completed)                          AS pipes_completed,
+			COALESCE(sbr.rate_per_pipe, 0)                   AS rate_per_pipe,
+			SUM(pe.pipes_completed) * COALESCE(sbr.rate_per_pipe, 0) AS spin_cost
+		FROM production_entries pe
+		JOIN production_orders po ON po.id = pe.production_order_id
+		JOIN pipe_configs pc ON pc.id = po.pipe_config_id
+		LEFT JOIN spinning_bed_rates sbr
+			ON sbr.bed_size = COALESCE(pe.bed_type, 'UNKNOWN')
+			AND sbr.diameter_mm = pc.diameter_mm
+		WHERE pe.stage_type = 'SPINNING'
+		  AND pe.pipes_completed > 0`
+
+	args := []interface{}{}
+	if fromDate != "" {
+		query += " AND DATE(pe.entry_date) >= ?"
+		args = append(args, fromDate)
+	}
+	if toDate != "" {
+		query += " AND DATE(pe.entry_date) <= ?"
+		args = append(args, toDate)
+	}
+	if outletID != nil {
+		query += " AND po.outlet_id = ?"
+		args = append(args, *outletID)
+	}
+	query += `
+		GROUP BY DATE(pe.entry_date), pe.bed_type, pc.id
+		ORDER BY pe.bed_type ASC, DATE(pe.entry_date) ASC`
+
+	var rows []SpinningEntryRow
+	err := s.db.Raw(query, args...).Scan(&rows).Error
+	return rows, err
+}
+
 // ── Stage-Wise Inventory ──────────────────────────────────────────────────────
 // Returns pipes_completed per pipe config per stage, aggregated across all POs.
 

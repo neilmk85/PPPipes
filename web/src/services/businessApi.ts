@@ -523,6 +523,47 @@ export const processContractorApi = {
     api.delete(`/business/process-contractors/${id}`),
 }
 
+// ─── Contractor Process Assignments ──────────────────────────────────────────
+
+export interface ContractorProcessAssignment {
+  id:           number
+  contractorId: number
+  processType:  string
+  commencedAt:  string
+  createdAt:    string
+  contractor?: {
+    id:    number
+    name:  string
+    phone?: string
+    active: boolean
+  }
+}
+
+export const CONTRACTOR_PROCESS_TYPES = [
+  { key: 'FABRICATION',          label: 'Fabrication' },
+  { key: 'FABRICATION_TESTING',  label: 'Fabrication Testing' },
+  { key: 'SPINNING_SMALL_BED',   label: 'Spinning — Small Bed' },
+  { key: 'SPINNING_LARGE_BED',   label: 'Spinning — Large Bed' },
+  { key: 'WINDING',              label: 'Winding' },
+  { key: 'COATING',              label: 'Coating' },
+  { key: 'WINDING_2',            label: 'Winding 2' },
+  { key: 'COATING_2',            label: 'Coating 2' },
+] as const
+
+export const contractorProcessApi = {
+  list: (processType?: string) =>
+    api.get<{ data: ContractorProcessAssignment[] }>('/contractors/process-assignments', {
+      params: processType ? { processType } : undefined,
+    }).then(unwrap<ContractorProcessAssignment[]>),
+
+  create: (data: { contractorId: number; processType: string; commencedAt: string }) =>
+    api.post<{ data: ContractorProcessAssignment }>('/contractors/process-assignments', data)
+      .then(unwrap<ContractorProcessAssignment>),
+
+  remove: (id: number) =>
+    api.delete(`/contractors/process-assignments/${id}`),
+}
+
 // ─── Spinning Bed Rates ───────────────────────────────────────────────────────
 
 export interface SpinningBedRate {

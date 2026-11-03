@@ -518,6 +518,10 @@ func Migrate(db *gorm.DB) error {
 		slog.Error("[Database] Failed to migrate Contractor", "error", err)
 		return err
 	}
+	if err := db.AutoMigrate(&models.ContractorProcessAssignment{}); err != nil {
+		slog.Error("[Database] Failed to migrate ContractorProcessAssignment", "error", err)
+		return err
+	}
 	if err := db.AutoMigrate(&models.SiteProject{}); err != nil {
 		slog.Error("[Database] Failed to migrate SiteProject", "error", err)
 		return err

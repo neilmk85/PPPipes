@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Store, Users, Receipt, Percent, Plus, Pencil, Trash2, X, Loader2, Shield, Lock, Check, AlertCircle, ShieldCheck, Edit2, Building2, Phone, Mail, MapPin, FileText, Hash, MessageSquare, MessageCircle, Eye, EyeOff, Zap, Send, LayoutTemplate, Palette, Image, AlignLeft, Type, Baseline, Settings as SettingsIcon, ArrowLeft, IndianRupee, Save, Wrench, CheckSquare, Square, UserPlus, FlaskConical, UserCheck } from 'lucide-react'
+import { Store, Users, Receipt, Percent, Plus, Pencil, Trash2, X, Loader2, Shield, Lock, Check, AlertCircle, ShieldCheck, Edit2, Building2, Phone, Mail, MapPin, FileText, Hash, MessageSquare, MessageCircle, Eye, EyeOff, Zap, Send, LayoutTemplate, Palette, Image, AlignLeft, Type, Baseline, Settings as SettingsIcon, ArrowLeft, IndianRupee, Save, Wrench, CheckSquare, Square, UserPlus, FlaskConical, UserCheck, HardHat } from 'lucide-react'
 import FormulasSettings from './FormulasSettings'
 import ReplacementSettings from './ReplacementSettings'
+import ContractorSettings from './ContractorSettings'
 import { tdsApi } from '@/services/api'
 import toast from 'react-hot-toast'
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query'
@@ -19,6 +20,7 @@ const tabs = [
   { key: 'service-rates',    label: 'Service Rates',    icon: <IndianRupee size={13} />,    desc: 'Define third-party service rates for fabrication, spinning, transport and labour' },
   { key: 'tds',              label: 'TDS Sections',     icon: <Wrench size={13} />,         desc: 'Manage TDS sections and applicable rates (194C, 194J, etc.)' },
   { key: 'formulas',         label: 'Formulas',         icon: <FlaskConical size={13} />,   desc: 'View and edit pipe material formulas for 5.25m and 6.46m lengths' },
+  { key: 'contractors',      label: 'Contractors',      icon: <HardHat size={13} />,        desc: 'Manage contractor master list and assign contractors to production processes' },
   { key: 'replacement',      label: 'Replacement',      icon: <UserCheck size={13} />,      desc: 'Manage user replacement pairings and temporary credentials for leave coverage', superAdminOnly: true },
 ]
 
@@ -89,6 +91,7 @@ export default function SettingsPage() {
         {tab === 'service-rates'    && <ServiceRatesSettings />}
         {tab === 'tds'              && <TDSSectionsSettings />}
         {tab === 'formulas'         && <FormulasSettings />}
+        {tab === 'contractors'      && <ContractorSettings />}
         {tab === 'replacement'      && <ReplacementSettings />}
       </div>
     </div>

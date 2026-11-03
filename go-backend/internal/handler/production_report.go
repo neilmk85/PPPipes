@@ -98,6 +98,17 @@ func (h *ProductionReportHandler) SpinningCosts(w http.ResponseWriter, r *http.R
 	util.SendSuccess(w, "Spinning costs retrieved", rows)
 }
 
+// GET /api/production/reports/spinning-entries
+func (h *ProductionReportHandler) SpinningEntries(w http.ResponseWriter, r *http.Request) {
+	from, to, outletID := parseReportFilters(r)
+	rows, err := h.service.GetSpinningEntries(from, to, outletID)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Spinning entries retrieved", rows)
+}
+
 // GET /api/production/reports/contractor-costs
 func (h *ProductionReportHandler) ContractorCosts(w http.ResponseWriter, r *http.Request) {
 	from, to, outletID := parseReportFilters(r)

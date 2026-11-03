@@ -8,7 +8,7 @@ import {
   Legend, ResponsiveContainer, Cell,
 } from 'recharts'
 import { productionReportApi, pipeConfigApi, productApi } from '@/services/api'
-import { processContractorApi, type ProcessContractorAssignment } from '@/services/businessApi'
+import { processContractorApi, contractorProcessApi, type ProcessContractorAssignment, type ContractorProcessAssignment } from '@/services/businessApi'
 import { PROD_STAGES } from '@/types'
 
 // ── date helpers ───────────────────────────────────────────────────────────────
@@ -729,27 +729,108 @@ interface ContractorCostsTabProps {
   assignmentByProcess: Record<string, ProcessContractorAssignment>
 }
 
+// Resolve which contractor was active for a given process+date from the new assignment system
+function resolveContractor(
+  assignments: ContractorProcessAssignment[],
+  processType: string,
+  entryDate: string,
+): ContractorProcessAssignment | null {
+  const relevant = assignments
+    .filter(a => a.processType === processType && a.commencedAt <= entryDate)
+    .sort((a, b) => b.commencedAt.localeCompare(a.commencedAt))
+  return relevant[0] ?? null
+}
+
+// Build spinning groups: { contractorName, processType, commencedAt, endedAt, rows, total }
+interface SpinGroup {
+  contractorName: string
+  commencedAt:    string
+  endedAt:        string | null
+  bedLabel:       string
+  processType:    string
+  rows:           any[]
+  total:          number
+}
+
+function buildSpinGroups(
+  entries: any[],
+  assignments: ContractorProcessAssignment[],
+): SpinGroup[] {
+  // key: `${contractorName}||${processType}||${commencedAt}`
+  const groupMap = new Map<string, SpinGroup>()
+
+  for (const e of entries) {
+    const procType = e.bedSize === 'SMALL_BED' ? 'SPINNING_SMALL_BED' : 'SPINNING_LARGE_BED'
+    const assignment = resolveContractor(assignments, procType, e.entryDate)
+    const cName      = assignment?.contractor?.name ?? 'Unassigned'
+    const commenced  = assignment?.commencedAt ?? ''
+    const gKey       = `${cName}||${procType}||${commenced}`
+
+    if (!groupMap.has(gKey)) {
+      // find the next assignment for this process to determine endedAt
+      const allForProc = assignments
+        .filter(a => a.processType === procType)
+        .sort((a, b) => a.commencedAt.localeCompare(b.commencedAt))
+      const idx = allForProc.findIndex(a => a.commencedAt === commenced && (a.contractor?.name ?? '') === cName)
+      const next = idx >= 0 && idx + 1 < allForProc.length ? allForProc[idx + 1] : null
+
+      groupMap.set(gKey, {
+        contractorName: cName,
+        commencedAt:    commenced,
+        endedAt:        next ? next.commencedAt : null,
+        bedLabel:       BED_LABEL[e.bedSize] ?? e.bedSize,
+        processType:    procType,
+        rows:           [],
+        total:          0,
+      })
+    }
+    const g = groupMap.get(gKey)!
+    // aggregate by pipe config + dia
+    const rowKey = `${e.pipeConfig}||${e.diameterMm}`
+    const existing = g.rows.find((r: any) => `${r.pipeConfig}||${r.diameterMm}` === rowKey)
+    if (existing) {
+      existing.pipesCompleted += e.pipesCompleted
+      existing.spinCost += Number(e.spinCost)
+    } else {
+      g.rows.push({ ...e, spinCost: Number(e.spinCost) })
+    }
+    g.total += Number(e.spinCost)
+  }
+
+  return Array.from(groupMap.values()).sort((a, b) => {
+    if (a.processType !== b.processType) return a.processType.localeCompare(b.processType)
+    return a.commencedAt.localeCompare(b.commencedAt)
+  })
+}
+
 function ContractorCostsTab({ from, to, processFilter, contractorFilter, contractorOptions, assignmentByProcess }: ContractorCostsTabProps) {
   const params = { fromDate: from || undefined, toDate: to || undefined }
 
-  const { data, isLoading }      = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['prod-report-contractor', from, to],
     queryFn: () => productionReportApi.contractorCosts(params).then(r => r.data.data as any[]),
   })
-  const { data: spinData, isLoading: spinLoading } = useQuery({
-    queryKey: ['prod-report-spinning', from, to],
-    queryFn: () => productionReportApi.spinningCosts(params).then(r => r.data.data as any[]),
+  const { data: spinEntries = [], isLoading: spinLoading } = useQuery({
+    queryKey: ['prod-report-spinning-entries', from, to],
+    queryFn: () => productionReportApi.spinningEntries(params).then(r => r.data.data as any[]),
+  })
+  const { data: spinAssignments = [] } = useQuery({
+    queryKey: ['contractor-process-assignments'],
+    queryFn:  () => contractorProcessApi.list(),
   })
 
-  const rows     = data     ?? []
-  const spinRows = spinData ?? []
-  const fabRows  = rows
-  const coatRows = rows
-  const totalFab  = fabRows.reduce((s: number,  r: any) => s + Number(r.fabCost),  0)
+  const rows      = data ?? []
+  const fabRows   = rows
+  const coatRows  = rows
+  const totalFab  = fabRows.reduce((s: number, r: any) => s + Number(r.fabCost),  0)
   const totalCoat = coatRows.reduce((s: number, r: any) => s + Number(r.coatCost), 0)
-  const totalSpin = spinRows.reduce((s: number, r: any) => s + Number(r.spinCost), 0)
 
-  // When contractor filter is set, resolve which processes that contractor covers
+  const spinGroups = useMemo(
+    () => buildSpinGroups(spinEntries, spinAssignments),
+    [spinEntries, spinAssignments]
+  )
+  const totalSpin = spinGroups.reduce((s, g) => s + g.total, 0)
+
   function processMatchesContractor(proc: string) {
     if (contractorFilter === 'all') return true
     const a = assignmentByProcess[proc] as ProcessContractorAssignment | undefined
@@ -757,7 +838,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
   }
 
   const showFab  = (processFilter === 'all' || processFilter === 'FABRICATION') && processMatchesContractor('FABRICATION')
-  const showSpin = (processFilter === 'all' || processFilter === 'SPINNING')    && processMatchesContractor('SPINNING')
+  const showSpin = processFilter === 'all' || processFilter === 'SPINNING'
   const showCoat = (processFilter === 'all' || processFilter === 'COATING')     && processMatchesContractor('COATING')
 
   const visibleTotal =
@@ -766,7 +847,12 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
     (showCoat ? totalCoat : 0)
 
   if (isLoading || spinLoading) return <LoadingTable />
-  if (rows.length === 0 && spinRows.length === 0) return <div className="text-center py-12 text-gray-400">No data for selected range</div>
+  if (rows.length === 0 && spinEntries.length === 0) return <div className="text-center py-12 text-gray-400">No data for selected range</div>
+
+  function fmtDateLabel(iso: string) {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
 
   return (
     <div className="space-y-8">
@@ -859,59 +945,72 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
         </div>
       </div>}
 
-      {/* ── Spinning ──────────────────────────────────────────────── */}
-      {showSpin && <div>
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-2 h-5 rounded-full bg-violet-500" />
-          <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Spinning Contractor</h3>
-          <span className="ml-auto text-xs text-gray-400 font-medium">Rate: ₹/pipe by diameter × bed size</span>
-        </div>
-        <div className="overflow-x-auto rounded-xl ring-1 ring-gray-100">
-          <table className="w-full text-sm">
-            <thead className="bg-violet-50 text-xs text-violet-800 uppercase">
-              <tr>
-                <th className="px-4 py-3 text-left">PO Number</th>
-                <th className="px-4 py-3 text-left">Pipe Config</th>
-                <th className="px-4 py-3 text-right">Dia (mm)</th>
-                <th className="px-4 py-3 text-left">Bed Size</th>
-                <th className="px-4 py-3 text-right">Pipes Spun</th>
-                <th className="px-4 py-3 text-right">Rate (₹/pipe)</th>
-                <th className="px-4 py-3 text-right font-bold">Amount ₹</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {spinRows.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-xs">No spinning entries</td></tr>
-              ) : spinRows.map((r: any, i: number) => (
-                <tr key={i} className="hover:bg-violet-50/40">
-                  <td className="px-4 py-3 font-mono text-xs text-violet-700">{r.poNumber}</td>
-                  <td className="px-4 py-3 text-gray-800 font-medium">{r.pipeConfig}</td>
-                  <td className="px-4 py-3 text-right">{r.diameterMm}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      r.bedSize === 'SMALL_BED'       ? 'bg-amber-100 text-amber-700' :
-                      r.bedSize === 'LARGE_BED'       ? 'bg-blue-100 text-blue-700' :
-                      r.bedSize === 'EXTRA_LARGE_BED' ? 'bg-green-100 text-green-700' :
-                      'bg-gray-100 text-gray-500'
-                    }`}>
-                      {BED_LABEL[r.bedSize] ?? r.bedSize}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">{r.spinPipesCompleted}</td>
-                  <td className="px-4 py-3 text-right text-gray-500">₹{fmt(r.ratePerPipe)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-violet-700">₹{fmt(r.spinCost)}</td>
-                </tr>
+      {/* ── Spinning — grouped by contractor + period ─────────────── */}
+      {showSpin && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-5 rounded-full bg-violet-500" />
+            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Spinning Contractor</h3>
+            <span className="ml-auto text-xs text-gray-400 font-medium">Rate: ₹/pipe by diameter × bed size</span>
+          </div>
+
+          {spinGroups.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-sm">No spinning entries in selected range</div>
+          ) : (
+            <div className="space-y-4">
+              {spinGroups.map((g, gi) => (
+                <div key={gi} className="rounded-xl ring-1 ring-violet-200 overflow-hidden">
+                  {/* Section header */}
+                  <div className="bg-violet-50 px-4 py-2.5 flex items-center gap-3 border-b border-violet-100">
+                    <span className="text-xs font-bold text-violet-800">{g.contractorName}</span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      g.processType === 'SPINNING_SMALL_BED' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    }`}>{g.bedLabel}</span>
+                    {g.commencedAt && (
+                      <span className="text-[10px] text-violet-500 ml-1">
+                        Assigned {fmtDateLabel(g.commencedAt)}
+                        {g.endedAt ? ` → ${fmtDateLabel(g.endedAt)}` : ' (current)'}
+                      </span>
+                    )}
+                    <span className="ml-auto text-xs font-bold text-violet-700">₹{fmt(g.total)}</span>
+                  </div>
+
+                  <table className="w-full text-sm">
+                    <thead className="bg-white text-xs text-gray-500 uppercase border-b border-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Pipe Config</th>
+                        <th className="px-4 py-2 text-right">Dia (mm)</th>
+                        <th className="px-4 py-2 text-right">Pipes Spun</th>
+                        <th className="px-4 py-2 text-right">Rate (₹/pipe)</th>
+                        <th className="px-4 py-2 text-right font-bold">Amount ₹</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {g.rows.map((r: any, ri: number) => (
+                        <tr key={ri} className="hover:bg-violet-50/30">
+                          <td className="px-4 py-2.5 text-gray-800 font-medium">{r.pipeConfig}</td>
+                          <td className="px-4 py-2.5 text-right">{r.diameterMm}</td>
+                          <td className="px-4 py-2.5 text-right">{r.pipesCompleted}</td>
+                          <td className="px-4 py-2.5 text-right text-gray-500">₹{fmt(r.ratePerPipe)}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold text-violet-700">₹{fmt(r.spinCost)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ))}
-            </tbody>
-            <tfoot className="bg-violet-50/60 font-semibold text-sm">
-              <tr>
-                <td colSpan={6} className="px-4 py-3 text-right text-gray-600">Total Spinning Cost</td>
-                <td className="px-4 py-3 text-right text-violet-700">₹{fmt(totalSpin)}</td>
-              </tr>
-            </tfoot>
-          </table>
+
+              {/* Spinning total */}
+              <div className="flex justify-end">
+                <div className="bg-violet-50 rounded-xl px-5 py-2.5 flex items-center gap-3">
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Total Spinning Cost</span>
+                  <span className="text-sm font-bold text-violet-700">₹{fmt(totalSpin)}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>}
+      )}
 
       {/* ── Grand Total ───────────────────────────────────────────── */}
       <div className="flex justify-end">
@@ -923,7 +1022,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             </div>
             {(showSpin || showCoat) && <div className="w-px h-8 bg-white/20" />}
           </>}
-          {showSpin && <>
+          {showSpin && spinGroups.length > 0 && <>
             <div className="text-center">
               <p className="text-xs text-white/80 uppercase tracking-widest">Spinning</p>
               <p className="text-lg font-bold tabular-nums">₹{fmt(totalSpin)}</p>
@@ -936,7 +1035,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
               <p className="text-lg font-bold tabular-nums">₹{fmt(totalCoat)}</p>
             </div>
           </>}
-          {(showFab || showSpin || showCoat) && <div className="w-px h-8 bg-white/20" />}
+          {(showFab || (showSpin && spinGroups.length > 0) || showCoat) && <div className="w-px h-8 bg-white/20" />}
           <div className="text-center">
             <p className="text-xs text-white/70 uppercase tracking-widest">
               {processFilter === 'all' && contractorFilter === 'all' ? 'Grand Total' : 'Total'}

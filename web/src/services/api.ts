@@ -916,6 +916,8 @@ export const productionReportApi = {
     api.get<ApiResponse<any>>('/production/reports/contractor-costs', { params }),
   spinningCosts: (params?: { fromDate?: string; toDate?: string; outletId?: number }) =>
     api.get<ApiResponse<any>>('/production/reports/spinning-costs', { params }),
+  spinningEntries: (params?: { fromDate?: string; toDate?: string; outletId?: number }) =>
+    api.get<ApiResponse<any>>('/production/reports/spinning-entries', { params }),
 }
 
 export const pdiApi = {
