@@ -47,6 +47,22 @@ func applyDateRange(q *gorm.DB, r *http.Request) *gorm.DB {
 	return q
 }
 
+// ─── Diesel helpers ───────────────────────────────────────────────────────────
+
+const dieselProductID = 207
+
+func parseDieselLitres(v string) float64 {
+	f, _ := strconv.ParseFloat(strings.TrimSpace(v), 64)
+	return f
+}
+
+func adjustDieselInventory(tx *gorm.DB, delta float64) {
+	tx.Exec(
+		"UPDATE inventory SET quantity_on_hand = quantity_on_hand + ?, last_stock_update = NOW() WHERE product_id = ?",
+		delta, dieselProductID,
+	)
+}
+
 // ─── Cement Bags ──────────────────────────────────────────────────────────────
 
 const cementBagsProductID = 221
@@ -161,7 +177,16 @@ func (h *BusinessHandler) CreateVehicle(w http.ResponseWriter, r *http.Request) 
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if err := h.db.Create(&row).Error; err != nil {
+	diesel := parseDieselLitres(row.CraneDiesel) + parseDieselLitres(row.JcbDiesel)
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		if diesel > 0 {
+			adjustDieselInventory(tx, -diesel)
+		}
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to create vehicle entry")
 		return
 	}
@@ -174,17 +199,29 @@ func (h *BusinessHandler) UpdateVehicle(w http.ResponseWriter, r *http.Request) 
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	var row models.Vehicle
-	if err := h.db.First(&row, id).Error; err != nil {
+	var old models.Vehicle
+	if err := h.db.First(&old, id).Error; err != nil {
 		util.SendError(w, http.StatusNotFound, "Entry not found")
 		return
 	}
+	oldDiesel := parseDieselLitres(old.CraneDiesel) + parseDieselLitres(old.JcbDiesel)
+	var row models.Vehicle
 	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	row.ID = id
-	if err := h.db.Save(&row).Error; err != nil {
+	newDiesel := parseDieselLitres(row.CraneDiesel) + parseDieselLitres(row.JcbDiesel)
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		diff := newDiesel - oldDiesel
+		if diff != 0 {
+			adjustDieselInventory(tx, -diff)
+		}
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
 		return
 	}
@@ -197,7 +234,21 @@ func (h *BusinessHandler) DeleteVehicle(w http.ResponseWriter, r *http.Request) 
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	if err := h.db.Delete(&models.Vehicle{}, id).Error; err != nil {
+	var row models.Vehicle
+	if err := h.db.First(&row, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	diesel := parseDieselLitres(row.CraneDiesel) + parseDieselLitres(row.JcbDiesel)
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.Vehicle{}, id).Error; err != nil {
+			return err
+		}
+		if diesel > 0 {
+			adjustDieselInventory(tx, diesel) // add back
+		}
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
 	}
