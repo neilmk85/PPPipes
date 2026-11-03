@@ -16,7 +16,7 @@ const tabs = [
   { key: 'receipt',          label: 'Receipt',          icon: <Receipt size={13} />,        desc: 'Customise your POS receipt template' },
   { key: 'invoice',          label: 'Templates',        icon: <LayoutTemplate size={13} />, desc: 'Manage notification and document templates' },
   { key: 'integrations',     label: 'Integrations',     icon: <Zap size={13} />,            desc: 'Connect email, SMS, and WhatsApp channels' },
-  { key: 'service-rates',    label: 'Service Rates',    icon: <IndianRupee size={13} />,    desc: 'Define third-party service rates for fabrication, spinning, transport and labour' },
+  { key: 'service-rates',    label: 'Service Rates',    icon: <IndianRupee size={13} />,    desc: 'Define third-party service rates for fabrication, spinning, knit, transport and labour' },
   { key: 'tds',              label: 'TDS Sections',     icon: <Wrench size={13} />,         desc: 'Manage TDS sections and applicable rates (194C, 194J, etc.)' },
   { key: 'formulas',         label: 'Formulas',         icon: <FlaskConical size={13} />,   desc: 'View and edit pipe material formulas for 5.25m and 6.46m lengths' },
   { key: 'replacement',      label: 'Replacement',      icon: <UserCheck size={13} />,      desc: 'Manage user replacement pairings and temporary credentials for leave coverage', superAdminOnly: true },
@@ -3599,11 +3599,31 @@ const RATE_FIELDS = [
   },
 ]
 
+const KNIT_SMALL_RATES: { dia: number; defaultRate: number }[] = [
+  { dia: 350, defaultRate: 578 }, { dia: 400, defaultRate: 578 }, { dia: 450, defaultRate: 578 },
+  { dia: 500, defaultRate: 578 }, { dia: 600, defaultRate: 578 }, { dia: 700, defaultRate: 683 },
+  { dia: 800, defaultRate: 704 }, { dia: 900, defaultRate: 735 }, { dia: 1000, defaultRate: 840 },
+  { dia: 1100, defaultRate: 998 }, { dia: 1200, defaultRate: 998 },
+]
+
+const KNIT_LARGE_RATES: { dia: number; defaultRate: number }[] = [
+  { dia: 500, defaultRate: 578 }, { dia: 600, defaultRate: 578 }, { dia: 700, defaultRate: 683 },
+  { dia: 800, defaultRate: 704 }, { dia: 900, defaultRate: 819 }, { dia: 1000, defaultRate: 972 },
+  { dia: 1100, defaultRate: 1008 }, { dia: 1200, defaultRate: 1008 }, { dia: 1300, defaultRate: 1155 },
+  { dia: 1400, defaultRate: 1155 }, { dia: 1500, defaultRate: 1400 }, { dia: 1600, defaultRate: 1500 },
+  { dia: 1700, defaultRate: 1600 }, { dia: 1800, defaultRate: 1700 }, { dia: 1900, defaultRate: 1800 },
+  { dia: 2000, defaultRate: 1900 }, { dia: 2100, defaultRate: 2000 }, { dia: 2200, defaultRate: 2100 },
+]
+
 type ServiceRates = Record<string, string>
 
 function ServiceRatesSettings() {
   const allKeys = RATE_FIELDS.flatMap(g => g.fields.map(f => f.key))
-  const defaultRates = Object.fromEntries(allKeys.map(k => [k, '']))
+  const knitDefaults = Object.fromEntries([
+    ...KNIT_SMALL_RATES.map(r => [`knit_small_${r.dia}`, String(r.defaultRate)]),
+    ...KNIT_LARGE_RATES.map(r => [`knit_large_${r.dia}`, String(r.defaultRate)]),
+  ])
+  const defaultRates = { ...Object.fromEntries(allKeys.map(k => [k, ''])), ...knitDefaults }
 
   const loadSaved = (): ServiceRates => {
     try {
@@ -3713,6 +3733,63 @@ function ServiceRatesSettings() {
               </div>
             </div>
           ))}
+
+          {/* Knit section */}
+          <div className="px-6 py-6 flex gap-4">
+            <div className="w-0.5 rounded-full bg-violet-500 self-stretch flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-5">Knit</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {([
+                  { label: 'Small Bed', rows: KNIT_SMALL_RATES, prefix: 'knit_small' },
+                  { label: 'Large Bed', rows: KNIT_LARGE_RATES, prefix: 'knit_large' },
+                ] as const).map(bed => (
+                  <div key={bed.prefix}>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{bed.label}</p>
+                    <div className="rounded-xl border border-gray-200 overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide w-1/2">Dia (mm)</th>
+                            <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide w-1/2">Rate (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {bed.rows.map(r => {
+                            const k = `${bed.prefix}_${r.dia}`
+                            return (
+                              <tr key={r.dia} className="hover:bg-gray-50/60">
+                                <td className="px-3 py-1.5 text-gray-700 font-medium tabular-nums">{r.dia}</td>
+                                <td className="px-3 py-1.5 text-right">
+                                  {editing ? (
+                                    <div className="relative inline-flex items-center">
+                                      <span className="absolute left-2 text-gray-400 text-xs">₹</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={rates[k] ?? ''}
+                                        onChange={e => setRates(prev => ({ ...prev, [k]: e.target.value }))}
+                                        className="w-24 pl-5 pr-2 py-1 text-right text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400/50 focus:border-violet-400"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <span className={`font-semibold tabular-nums ${rates[k] && Number(rates[k]) > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                      {rates[k] && Number(rates[k]) > 0 ? `₹ ${Number(rates[k]).toLocaleString('en-IN')}` : '—'}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
