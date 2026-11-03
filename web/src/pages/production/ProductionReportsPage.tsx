@@ -743,6 +743,7 @@ function resolveContractor(
 
 // Build spinning groups: { contractorName, processType, commencedAt, endedAt, rows, total }
 interface SpinGroup {
+  contractorId:   number | null
   contractorName: string
   commencedAt:    string
   endedAt:        string | null
@@ -775,6 +776,7 @@ function buildSpinGroups(
       const next = idx >= 0 && idx + 1 < allForProc.length ? allForProc[idx + 1] : null
 
       groupMap.set(gKey, {
+        contractorId:   assignment?.contractorId ?? null,
         contractorName: cName,
         commencedAt:    commenced,
         endedAt:        next ? next.commencedAt : null,
@@ -829,7 +831,13 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
     () => buildSpinGroups(spinEntries, spinAssignments),
     [spinEntries, spinAssignments]
   )
-  const totalSpin = spinGroups.reduce((s, g) => s + g.total, 0)
+  const visibleSpinGroups = useMemo(
+    () => contractorFilter === 'all'
+      ? spinGroups
+      : spinGroups.filter(g => g.contractorId === contractorFilter),
+    [spinGroups, contractorFilter]
+  )
+  const totalSpin = visibleSpinGroups.reduce((s, g) => s + g.total, 0)
 
   // Resolve current contractor for a given process type (latest commenced_at)
   function currentContractor(processType: string) {
@@ -985,11 +993,11 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             <span className="ml-auto text-xs text-gray-400 font-medium">Rate: ₹/pipe by diameter × bed size</span>
           </div>
 
-          {spinGroups.length === 0 ? (
+          {visibleSpinGroups.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm">No spinning entries in selected range</div>
           ) : (
             <div className="space-y-4">
-              {spinGroups.map((g, gi) => (
+              {visibleSpinGroups.map((g, gi) => (
                 <div key={gi} className="rounded-xl ring-1 ring-violet-200 overflow-hidden">
                   {/* Section header */}
                   <div className="bg-violet-50 px-4 py-2.5 flex items-center gap-3 border-b border-violet-100">
@@ -1053,7 +1061,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             </div>
             {(showSpin || showCoat) && <div className="w-px h-8 bg-white/20" />}
           </>}
-          {showSpin && spinGroups.length > 0 && <>
+          {showSpin && visibleSpinGroups.length > 0 && <>
             <div className="text-center">
               <p className="text-xs text-white/80 uppercase tracking-widest">Spinning</p>
               <p className="text-lg font-bold tabular-nums">₹{fmt(totalSpin)}</p>
@@ -1066,7 +1074,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
               <p className="text-lg font-bold tabular-nums">₹{fmt(totalCoat)}</p>
             </div>
           </>}
-          {(showFab || (showSpin && spinGroups.length > 0) || showCoat) && <div className="w-px h-8 bg-white/20" />}
+          {(showFab || (showSpin && visibleSpinGroups.length > 0) || showCoat) && <div className="w-px h-8 bg-white/20" />}
           <div className="text-center">
             <p className="text-xs text-white/70 uppercase tracking-widest">
               {processFilter === 'all' && contractorFilter === 'all' ? 'Grand Total' : 'Total'}
