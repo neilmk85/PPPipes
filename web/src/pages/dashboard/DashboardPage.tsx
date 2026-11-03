@@ -687,7 +687,11 @@ export default function DashboardPage() {
                     </tr>
                   ))
                 ) : (
-                  shellPlates.map((inv: any) => {
+                  [...shellPlates].sort((a: any, b: any) => {
+                    const sa = sheetsFromKg(a.product?.name ?? '', parseFloat(a.quantityOnHand ?? 0))
+                    const sb = sheetsFromKg(b.product?.name ?? '', parseFloat(b.quantityOnHand ?? 0))
+                    return sb - sa
+                  }).map((inv: any) => {
                     const weightKg = parseFloat(inv.quantityOnHand ?? 0)
                     const productName = inv.product?.name ?? ''
                     const sheets = sheetsFromKg(productName, weightKg)
