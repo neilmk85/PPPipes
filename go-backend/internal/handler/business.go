@@ -816,7 +816,16 @@ func (h *BusinessHandler) CreateDieselMaintenance(w http.ResponseWriter, r *http
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if err := h.db.Create(&row).Error; err != nil {
+	qty := parseDieselLitres(row.Quantity)
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		if qty > 0 {
+			adjustDieselInventory(tx, -qty)
+		}
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to create diesel maintenance entry")
 		return
 	}
@@ -829,17 +838,28 @@ func (h *BusinessHandler) UpdateDieselMaintenance(w http.ResponseWriter, r *http
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	var row models.DieselMaintenance
-	if err := h.db.First(&row, id).Error; err != nil {
+	var old models.DieselMaintenance
+	if err := h.db.First(&old, id).Error; err != nil {
 		util.SendError(w, http.StatusNotFound, "Entry not found")
 		return
 	}
+	oldQty := parseDieselLitres(old.Quantity)
+	var row models.DieselMaintenance
 	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	row.ID = id
-	if err := h.db.Save(&row).Error; err != nil {
+	newQty := parseDieselLitres(row.Quantity)
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		if diff := newQty - oldQty; diff != 0 {
+			adjustDieselInventory(tx, -diff)
+		}
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
 		return
 	}
@@ -852,7 +872,21 @@ func (h *BusinessHandler) DeleteDieselMaintenance(w http.ResponseWriter, r *http
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	if err := h.db.Delete(&models.DieselMaintenance{}, id).Error; err != nil {
+	var row models.DieselMaintenance
+	if err := h.db.First(&row, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	qty := parseDieselLitres(row.Quantity)
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.DieselMaintenance{}, id).Error; err != nil {
+			return err
+		}
+		if qty > 0 {
+			adjustDieselInventory(tx, qty) // add back
+		}
+		return nil
+	}); err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
 	}
