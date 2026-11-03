@@ -831,6 +831,17 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
   )
   const totalSpin = spinGroups.reduce((s, g) => s + g.total, 0)
 
+  // Resolve current contractor for a given process type (latest commenced_at)
+  function currentContractor(processType: string) {
+    const today = new Date().toISOString().split('T')[0]
+    return spinAssignments
+      .filter(a => a.processType === processType && a.commencedAt <= today)
+      .sort((a, b) => b.commencedAt.localeCompare(a.commencedAt))[0] ?? null
+  }
+
+  const fabContractor  = currentContractor('FABRICATION')
+  const coatContractor = currentContractor('COATING')
+
   function processMatchesContractor(proc: string) {
     if (contractorFilter === 'all') return true
     const a = assignmentByProcess[proc] as ProcessContractorAssignment | undefined
@@ -864,7 +875,17 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Fabrication Contractor</h3>
           <span className="ml-auto text-xs text-gray-400 font-medium">Rate: ₹/kg of steel</span>
         </div>
-        <div className="overflow-x-auto rounded-xl ring-1 ring-gray-100">
+        <div className="rounded-xl ring-1 ring-blue-200 overflow-hidden">
+          {fabContractor && (
+            <div className="bg-blue-50 px-4 py-2.5 flex items-center gap-3 border-b border-blue-100">
+              <span className="text-xs font-bold text-blue-800">{fabContractor.contractor?.name ?? `#${fabContractor.contractorId}`}</span>
+              <span className="text-[10px] text-blue-500">
+                Assigned {fmtDateLabel(fabContractor.commencedAt)} (current)
+              </span>
+              <span className="ml-auto text-xs font-bold text-blue-700">₹{fmt(totalFab)}</span>
+            </div>
+          )}
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-blue-50 text-xs text-blue-800 uppercase">
               <tr>
@@ -900,6 +921,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             </tfoot>
           </table>
         </div>
+        </div>
       </div>}
 
       {/* ── Coating ───────────────────────────────────────────────── */}
@@ -909,7 +931,17 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
           <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Coating Contractor</h3>
           <span className="ml-auto text-xs text-gray-400 font-medium">Rate: ₹/pipe by diameter</span>
         </div>
-        <div className="overflow-x-auto rounded-xl ring-1 ring-gray-100">
+        <div className="rounded-xl ring-1 ring-blue-200 overflow-hidden">
+          {coatContractor && (
+            <div className="bg-blue-50 px-4 py-2.5 flex items-center gap-3 border-b border-blue-100">
+              <span className="text-xs font-bold text-blue-800">{coatContractor.contractor?.name ?? `#${coatContractor.contractorId}`}</span>
+              <span className="text-[10px] text-blue-500">
+                Assigned {fmtDateLabel(coatContractor.commencedAt)} (current)
+              </span>
+              <span className="ml-auto text-xs font-bold text-blue-700">₹{fmt(totalCoat)}</span>
+            </div>
+          )}
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-blue-50 text-xs text-blue-800 uppercase">
               <tr>
@@ -942,6 +974,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
       </div>}
 
