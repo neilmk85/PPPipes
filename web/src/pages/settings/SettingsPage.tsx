@@ -16,7 +16,7 @@ const tabs = [
   { key: 'receipt',          label: 'Receipt',          icon: <Receipt size={13} />,        desc: 'Customise your POS receipt template' },
   { key: 'invoice',          label: 'Templates',        icon: <LayoutTemplate size={13} />, desc: 'Manage notification and document templates' },
   { key: 'integrations',     label: 'Integrations',     icon: <Zap size={13} />,            desc: 'Connect email, SMS, and WhatsApp channels' },
-  { key: 'service-rates',    label: 'Service Rates',    icon: <IndianRupee size={13} />,    desc: 'Define third-party service rates for fabrication, spinning, knit, transport and labour' },
+  { key: 'service-rates',    label: 'Service Rates',    icon: <IndianRupee size={13} />,    desc: 'Define third-party service rates for fabrication, spinning, transport and labour' },
   { key: 'tds',              label: 'TDS Sections',     icon: <Wrench size={13} />,         desc: 'Manage TDS sections and applicable rates (194C, 194J, etc.)' },
   { key: 'formulas',         label: 'Formulas',         icon: <FlaskConical size={13} />,   desc: 'View and edit pipe material formulas for 5.25m and 6.46m lengths' },
   { key: 'replacement',      label: 'Replacement',      icon: <UserCheck size={13} />,      desc: 'Manage user replacement pairings and temporary credentials for leave coverage', superAdminOnly: true },
@@ -3731,7 +3731,7 @@ function ServiceRatesSettings() {
           <div className="px-6 py-6 flex gap-4">
             <div className="w-0.5 rounded-full bg-violet-500 self-stretch flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-5">Knit</p>
+              <p className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-5">Spinning</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {([
                   { label: 'Small Bed', rows: KNIT_SMALL_RATES, prefix: 'knit_small' },
