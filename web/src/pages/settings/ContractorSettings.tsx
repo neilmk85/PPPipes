@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, X, Check, RefreshCw, HardHat, CalendarDays, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Check, RefreshCw, HardHat, CalendarDays, ChevronDown, ChevronRight, Save, IndianRupee } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { contractorApi } from '@/services/api'
-import { contractorProcessApi, CONTRACTOR_PROCESS_TYPES, type ContractorProcessAssignment } from '@/services/businessApi'
+import { contractorProcessApi, CONTRACTOR_PROCESS_TYPES, type ContractorProcessAssignment, coatingRatesApi, spinningRatesApi, type CoatingContractorRate, type SpinningBedRate } from '@/services/businessApi'
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -332,6 +332,263 @@ function ProcessAssignments() {
   )
 }
 
+// ── Coating Rates ─────────────────────────────────────────────────────────────
+
+const COATING_DIAMETERS = [350, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1600, 1700]
+
+function CoatingRates() {
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<Record<number, string>>({})
+
+  const { data: saved = [], isLoading } = useQuery({
+    queryKey: ['coating-rates'],
+    queryFn: () => coatingRatesApi.list(),
+  })
+
+  const rateMap: Record<number, string> = Object.fromEntries(
+    saved.map((r: CoatingContractorRate) => [r.diameterMm, r.ratePerPipe])
+  )
+
+  function startEdit() {
+    setDraft(Object.fromEntries(COATING_DIAMETERS.map(d => [d, rateMap[d] ?? ''])))
+    setEditing(true)
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => coatingRatesApi.upsert(
+      COATING_DIAMETERS
+        .filter(d => draft[d] && Number(draft[d]) > 0)
+        .map(d => ({ diameterMm: d, ratePerPipe: draft[d] }))
+    ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coating-rates'] })
+      setEditing(false)
+      toast.success('Coating rates saved')
+    },
+    onError: () => toast.error('Failed to save coating rates'),
+  })
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+          <IndianRupee size={18} className="text-blue-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-semibold text-gray-900">Coating Rates</p>
+          <p className="text-sm text-gray-500">₹ per pipe by diameter — used in Contractor Costs report</p>
+        </div>
+        {!editing && (
+          <button onClick={startEdit} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-gray-900 hover:bg-gray-100 transition-colors">
+            <Pencil size={14} /> Edit
+          </button>
+        )}
+      </div>
+      <div className="px-6 py-5">
+        {isLoading ? (
+          <p className="text-sm text-gray-400">Loading…</p>
+        ) : (
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dia (mm)</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Rate (₹/pipe)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {COATING_DIAMETERS.map(d => (
+                  <tr key={d} className="hover:bg-gray-50/60">
+                    <td className="px-4 py-2 text-gray-700 font-medium tabular-nums">{d}</td>
+                    <td className="px-4 py-2 text-right">
+                      {editing ? (
+                        <div className="flex justify-end">
+                          <div className="relative inline-flex items-center">
+                            <span className="absolute left-2.5 text-gray-400 text-xs">₹</span>
+                            <input
+                              type="number" min="0" step="1"
+                              value={draft[d] ?? ''}
+                              onChange={e => setDraft(prev => ({ ...prev, [d]: e.target.value }))}
+                              className="w-28 pl-6 pr-3 py-1 text-right text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className={`font-semibold tabular-nums ${rateMap[d] && Number(rateMap[d]) > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                          {rateMap[d] && Number(rateMap[d]) > 0 ? `₹ ${Number(rateMap[d]).toLocaleString('en-IN')}` : '—'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {editing && (
+        <div className="px-6 py-4 bg-gray-50/60 border-t border-gray-100 flex items-center justify-end gap-3">
+          <button
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm disabled:opacity-60"
+          >
+            <Save size={14} /> Save Rates
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Spinning Rates ────────────────────────────────────────────────────────────
+
+const SPIN_SMALL_DIAS  = [350, 400, 450, 500, 600, 700, 800, 900, 1000, 1100, 1200]
+const SPIN_LARGE_DIAS  = [500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2200]
+
+function SpinningRates() {
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<Record<string, string>>({})
+
+  const { data: saved = [], isLoading } = useQuery({
+    queryKey: ['spinning-rates'],
+    queryFn: () => spinningRatesApi.list(),
+  })
+
+  const rateKey = (bed: string, dia: number) => `${bed}_${dia}`
+  const rateMap: Record<string, string> = Object.fromEntries(
+    saved.map((r: SpinningBedRate) => [rateKey(r.bedSize, r.diameterMm), r.ratePerPipe])
+  )
+
+  function startEdit() {
+    const d: Record<string, string> = {}
+    SPIN_SMALL_DIAS.forEach(dia => { d[rateKey('SMALL_BED', dia)] = rateMap[rateKey('SMALL_BED', dia)] ?? '' })
+    SPIN_LARGE_DIAS.forEach(dia => { d[rateKey('LARGE_BED', dia)] = rateMap[rateKey('LARGE_BED', dia)] ?? '' })
+    setDraft(d)
+    setEditing(true)
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const rows: { bedSize: string; diameterMm: number; ratePerPipe: string }[] = []
+      SPIN_SMALL_DIAS.forEach(d => {
+        const k = rateKey('SMALL_BED', d)
+        if (draft[k] && Number(draft[k]) > 0) rows.push({ bedSize: 'SMALL_BED', diameterMm: d, ratePerPipe: draft[k] })
+      })
+      SPIN_LARGE_DIAS.forEach(d => {
+        const k = rateKey('LARGE_BED', d)
+        if (draft[k] && Number(draft[k]) > 0) rows.push({ bedSize: 'LARGE_BED', diameterMm: d, ratePerPipe: draft[k] })
+      })
+      return spinningRatesApi.upsert(rows)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['spinning-rates'] })
+      setEditing(false)
+      toast.success('Spinning rates saved')
+    },
+    onError: () => toast.error('Failed to save spinning rates'),
+  })
+
+  const beds = [
+    { label: 'Small Bed',  key: 'SMALL_BED',  dias: SPIN_SMALL_DIAS },
+    { label: 'Large Bed',  key: 'LARGE_BED',  dias: SPIN_LARGE_DIAS },
+  ]
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+          <IndianRupee size={18} className="text-violet-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-semibold text-gray-900">Spinning Rates</p>
+          <p className="text-sm text-gray-500">₹ per pipe by diameter × bed size — used in Contractor Costs report</p>
+        </div>
+        {!editing && (
+          <button onClick={startEdit} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-gray-900 hover:bg-gray-100 transition-colors">
+            <Pencil size={14} /> Edit
+          </button>
+        )}
+      </div>
+      <div className="px-6 py-5">
+        {isLoading ? (
+          <p className="text-sm text-gray-400">Loading…</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {beds.map(bed => (
+              <div key={bed.key}>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{bed.label}</p>
+                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Dia (mm)</th>
+                        <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">Rate (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {bed.dias.map(d => {
+                        const k = rateKey(bed.key, d)
+                        return (
+                          <tr key={d} className="hover:bg-gray-50/60">
+                            <td className="px-3 py-1.5 text-gray-700 font-medium tabular-nums">{d}</td>
+                            <td className="px-3 py-1.5 text-right">
+                              {editing ? (
+                                <div className="relative inline-flex items-center">
+                                  <span className="absolute left-2 text-gray-400 text-xs">₹</span>
+                                  <input
+                                    type="number" min="0" step="1"
+                                    value={draft[k] ?? ''}
+                                    onChange={e => setDraft(prev => ({ ...prev, [k]: e.target.value }))}
+                                    className="w-24 pl-5 pr-2 py-1 text-right text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-400/50 focus:border-violet-400"
+                                  />
+                                </div>
+                              ) : (
+                                <span className={`font-semibold tabular-nums ${rateMap[k] && Number(rateMap[k]) > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                  {rateMap[k] && Number(rateMap[k]) > 0 ? `₹ ${Number(rateMap[k]).toLocaleString('en-IN')}` : '—'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {editing && (
+        <div className="px-6 py-4 bg-gray-50/60 border-t border-gray-100 flex items-center justify-end gap-3">
+          <button
+            onClick={() => setEditing(false)}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-700 text-white transition-colors shadow-sm disabled:opacity-60"
+          >
+            <Save size={14} /> Save Rates
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Export ───────────────────────────────────────────────────────────────
 
 export default function ContractorSettings() {
@@ -340,6 +597,11 @@ export default function ContractorSettings() {
       <ContractorMasterList />
       <div className="border-t border-gray-100 pt-8">
         <ProcessAssignments />
+      </div>
+      <div className="border-t border-gray-100 pt-8 space-y-6">
+        <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Contractor Rates</p>
+        <CoatingRates />
+        <SpinningRates />
       </div>
     </div>
   )
