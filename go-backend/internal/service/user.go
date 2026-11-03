@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -76,6 +77,7 @@ type UserResponse struct {
 	CreatedBy          *string          `json:"createdBy"`
 	UpdatedBy          *string          `json:"updatedBy"`
 	Roles              []string         `json:"roles"`
+	Permissions        []string         `json:"permissions"`
 	Outlet             *models.Outlet   `json:"outlet"`
 	CardPermissions    *CardPermissions `json:"cardPermissions"`
 }
@@ -175,6 +177,21 @@ func (s *UserService) toUserResponse(user *models.User) *UserResponse {
 		cardPerms = &CardPermissions{Business: business, Pccp: pccp}
 	}
 
+	// Resolve named permissions from custom_roles table (same logic as auth middleware)
+	permissions := make([]string, 0)
+	for _, roleName := range roles {
+		var customRolePerms string
+		if err := s.db.Table("custom_roles").
+			Where("name = ? AND is_active = true", roleName).
+			Pluck("permissions", &customRolePerms).Error; err == nil && customRolePerms != "" {
+			var perms []string
+			if jsonErr := json.Unmarshal([]byte(customRolePerms), &perms); jsonErr == nil {
+				permissions = perms
+			}
+			break
+		}
+	}
+
 	return &UserResponse{
 		ID:                 user.ID,
 		Name:               user.Name,
@@ -193,6 +210,7 @@ func (s *UserService) toUserResponse(user *models.User) *UserResponse {
 		CreatedBy:          user.CreatedBy,
 		UpdatedBy:          user.UpdatedBy,
 		Roles:              roles,
+		Permissions:        permissions,
 		Outlet:             user.Outlet,
 		CardPermissions:    cardPerms,
 	}

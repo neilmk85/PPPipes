@@ -78,6 +78,7 @@ class ApiService {
       name: data['name'],
       email: data['email'],
       roles: List<String>.from(data['roles'] ?? []),
+      permissions: List<String>.from(data['permissions'] ?? []),
       outletId: data['outletId'],
       outletName: data['outlet'] != null ? data['outlet']['name'] as String? : null,
       cardPermissions: data['cardPermissions'] != null
