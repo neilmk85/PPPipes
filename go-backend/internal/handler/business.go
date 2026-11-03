@@ -2098,12 +2098,18 @@ func (h *BusinessHandler) adjustInventoryByName(tx *gorm.DB, productName string,
 	if tx.Where("name = ?", productName).First(&prod).Error != nil {
 		return
 	}
+	// Convert kg to the product's base unit (e.g. brass) when purchase unit differs from sale unit
+	delta := deltaKg
+	if prod.SaleUOM != nil && prod.UnitOfMeasure != *prod.SaleUOM && prod.SaleFactor.IsPositive() {
+		f, _ := prod.SaleFactor.Float64()
+		delta = deltaKg / f
+	}
 	var inv models.Inventory
 	if tx.Where("product_id = ? AND outlet_id = ?", prod.ID, 1).First(&inv).Error != nil {
 		inv = models.Inventory{ProductID: prod.ID, OutletID: 1}
 		tx.Create(&inv)
 	}
-	tx.Model(&inv).UpdateColumn("quantity_on_hand", gorm.Expr("quantity_on_hand + ?", deltaKg))
+	tx.Model(&inv).UpdateColumn("quantity_on_hand", gorm.Expr("quantity_on_hand + ?", delta))
 }
 
 func constructionSiloProduct(siloType string) string {
