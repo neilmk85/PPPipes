@@ -19,6 +19,18 @@ function extractDiameter(name: string): string {
   return match ? `${match[1]} mm` : name
 }
 
+// Weight of one 1.6mm MS sheet for a given pipe diameter (circumference × 1m length × 1.6mm thick × 7850 kg/m³)
+function sheetWeightKg(diameterMm: number): number {
+  return Math.PI * (diameterMm / 1000) * 1 * 0.0016 * 7850
+}
+
+function sheetsFromKg(name: string, weightKg: number): number {
+  const match = name.match(/\b(\d{3,4})\b/)
+  if (!match) return 0
+  const w = sheetWeightKg(parseInt(match[1], 10))
+  return w > 0 ? Math.round(weightKg / w) : 0
+}
+
 // ── Card header ──────────────────────────────────────────────────────────────
 
 function CardHeader({
@@ -217,8 +229,9 @@ export default function DashboardPage() {
       inv.product?.name?.toLowerCase().includes('sheet')
     ), [inventory])
 
-  const shellTotalQty    = shellPlates.reduce((s: number, i: any) => s + parseFloat(i.quantityOnHand ?? 0), 0)
-  const shellTotalWeight = shellTotalQty
+  const shellTotalWeight = shellPlates.reduce((s: number, i: any) => s + parseFloat(i.quantityOnHand ?? 0), 0)
+  const shellTotalQty    = shellTotalWeight  // kept for header display (kg)
+  const shellTotalSheets = shellPlates.reduce((s: number, i: any) => s + sheetsFromKg(i.product?.name ?? '', parseFloat(i.quantityOnHand ?? 0)), 0)
 
   // ── MS Flat ───────────────────────────────────────────────────────────────
   const msFlat = useMemo(() =>
@@ -635,9 +648,9 @@ export default function DashboardPage() {
             right={(
               <div className="flex gap-6">
                 <div>
-                  <p className="text-xs text-blue-100">Total Qty</p>
+                  <p className="text-xs text-blue-100">Total Sheets</p>
                   <p className="text-sm font-bold text-white tabular-nums">
-                    {fmt(shellPlates.length > 0 ? shellTotalQty : SHELL_DUMMY.reduce((s, r) => s + r.qty, 0))}
+                    {shellPlates.length > 0 ? fmt(shellTotalSheets) : SHELL_DUMMY.reduce((s, r) => s + r.qty, 0)}
                   </p>
                 </div>
               </div>
@@ -675,17 +688,19 @@ export default function DashboardPage() {
                   ))
                 ) : (
                   shellPlates.map((inv: any) => {
-                    const qty = parseFloat(inv.quantityOnHand ?? 0)
+                    const weightKg = parseFloat(inv.quantityOnHand ?? 0)
+                    const productName = inv.product?.name ?? ''
+                    const sheets = sheetsFromKg(productName, weightKg)
                     return (
                       <tr key={inv.id} className="hover:bg-violet-50/30 transition-colors">
                         <td className="px-6 py-3.5">
-                          <span className="text-sm font-semibold text-gray-800">{extractDiameter(inv.product?.name ?? '')}</span>
+                          <span className="text-sm font-semibold text-gray-800">{extractDiameter(productName)}</span>
                         </td>
                         <td className="px-6 py-3.5 text-right">
-                          <span className="text-sm text-gray-600 tabular-nums">{fmt(qty)}</span>
+                          <span className="text-sm text-gray-600 tabular-nums">{sheets > 0 ? fmt(sheets) : '—'}</span>
                         </td>
                         <td className="px-6 py-3.5 text-right">
-                          <span className="text-sm font-semibold text-gray-900 tabular-nums">{fmt(qty)}</span>
+                          <span className="text-sm font-semibold text-gray-900 tabular-nums">{fmt(weightKg)}</span>
                         </td>
                       </tr>
                     )
@@ -696,7 +711,7 @@ export default function DashboardPage() {
                 <tr className="bg-violet-50 border-t-2 border-violet-200">
                   <td className="px-6 py-3 text-xs font-bold text-violet-700 uppercase tracking-widest">Total</td>
                   <td className="px-6 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">
-                    {fmt(shellPlates.length > 0 ? shellTotalQty : SHELL_DUMMY.reduce((s, r) => s + r.qty, 0))}
+                    {shellPlates.length > 0 ? fmt(shellTotalSheets) : SHELL_DUMMY.reduce((s, r) => s + r.qty, 0)}
                   </td>
                   <td className="px-6 py-3 text-right text-sm font-bold text-gray-900 tabular-nums">
                     {shellPlates.length > 0 ? `${fmt(shellTotalWeight)} kg` : '—'}
