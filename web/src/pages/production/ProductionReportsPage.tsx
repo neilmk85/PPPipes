@@ -889,7 +889,6 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
           <table className="w-full text-sm">
             <thead className="bg-blue-50 text-xs text-blue-800 uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">PO Number</th>
                 <th className="px-4 py-3 text-left">Pipe Config</th>
                 <th className="px-4 py-3 text-right">Dia (mm)</th>
                 <th className="px-4 py-3 text-right">Pipes Fabricated</th>
@@ -900,10 +899,9 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             </thead>
             <tbody className="divide-y divide-gray-100">
               {fabRows.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-xs">No fabrication entries</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-xs">No fabrication entries</td></tr>
               ) : fabRows.map((r: any, i: number) => (
                 <tr key={i} className="hover:bg-blue-50/40">
-                  <td className="px-4 py-3 font-mono text-xs text-violet-700">{r.poNumber}</td>
                   <td className="px-4 py-3 text-gray-800 font-medium">{r.pipeConfig}</td>
                   <td className="px-4 py-3 text-right">{r.diameterMm}</td>
                   <td className="px-4 py-3 text-right">{r.fabPipesCompleted}</td>
@@ -915,7 +913,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             </tbody>
             <tfoot className="bg-blue-50/60 font-semibold text-sm">
               <tr>
-                <td colSpan={6} className="px-4 py-3 text-right text-gray-600">Total Fabrication Cost</td>
+                <td colSpan={5} className="px-4 py-3 text-right text-gray-600">Total Fabrication Cost</td>
                 <td className="px-4 py-3 text-right text-blue-700">₹{fmt(totalFab)}</td>
               </tr>
             </tfoot>
@@ -945,7 +943,6 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
           <table className="w-full text-sm">
             <thead className="bg-blue-50 text-xs text-blue-800 uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">PO Number</th>
                 <th className="px-4 py-3 text-left">Pipe Config</th>
                 <th className="px-4 py-3 text-right">Dia (mm)</th>
                 <th className="px-4 py-3 text-right">Pipes Coated</th>
@@ -955,10 +952,9 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             </thead>
             <tbody className="divide-y divide-gray-100">
               {coatRows.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-xs">No coating entries</td></tr>
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-xs">No coating entries</td></tr>
               ) : coatRows.map((r: any, i: number) => (
                 <tr key={i} className="hover:bg-blue-50/40">
-                  <td className="px-4 py-3 font-mono text-xs text-violet-700">{r.poNumber}</td>
                   <td className="px-4 py-3 text-gray-800 font-medium">{r.pipeConfig}</td>
                   <td className="px-4 py-3 text-right">{r.diameterMm}</td>
                   <td className="px-4 py-3 text-right">{r.coatPipesCompleted}</td>
@@ -969,7 +965,7 @@ function ContractorCostsTab({ from, to, processFilter, contractorFilter, contrac
             </tbody>
             <tfoot className="bg-blue-50/60 font-semibold text-sm">
               <tr>
-                <td colSpan={5} className="px-4 py-3 text-right text-gray-600">Total Coating Cost</td>
+                <td colSpan={4} className="px-4 py-3 text-right text-gray-600">Total Coating Cost</td>
                 <td className="px-4 py-3 text-right text-blue-700">₹{fmt(totalCoat)}</td>
               </tr>
             </tfoot>

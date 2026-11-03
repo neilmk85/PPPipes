@@ -292,21 +292,21 @@ func (s *ProductionReportService) GetContractorCostReport(fromDate, toDate strin
 			pc.name                                           AS pipe_config,
 			pc.diameter_mm,
 			pc.pressure_class,
-			COALESCE(fab.pipes_completed, 0)                  AS fab_pipes_completed,
-			COALESCE(fab_kg.kg_per_pipe, 0)                   AS fab_kg_per_pipe,
-			COALESCE(rc.fabrication_rate_kg, 0)               AS fab_rate_kg,
+			COALESCE(fab.pipes_completed, 0)                                   AS fab_pipes_completed,
+			COALESCE(fab_kg.kg_per_pipe, 0)                                    AS fab_kg_per_pipe,
+			COALESCE(NULLIF(rc.fabrication_rate_kg, ''), '0')                  AS fab_rate_kg,
 			COALESCE(fab.pipes_completed, 0)
 				* COALESCE(fab_kg.kg_per_pipe, 0)
-				* COALESCE(rc.fabrication_rate_kg, 0)         AS fab_cost,
-			COALESCE(coat.pipes_completed, 0)                 AS coat_pipes_completed,
-			COALESCE(ccr.rate_per_pipe, 0)                    AS coat_rate_per_pipe,
+				* COALESCE(NULLIF(rc.fabrication_rate_kg, ''), '0')            AS fab_cost,
+			COALESCE(coat.pipes_completed, 0)                                  AS coat_pipes_completed,
+			COALESCE(ccr.rate_per_pipe, 0)                                     AS coat_rate_per_pipe,
 			COALESCE(coat.pipes_completed, 0)
-				* COALESCE(ccr.rate_per_pipe, 0)              AS coat_cost,
+				* COALESCE(ccr.rate_per_pipe, 0)                               AS coat_cost,
 			COALESCE(fab.pipes_completed, 0)
 				* COALESCE(fab_kg.kg_per_pipe, 0)
-				* COALESCE(rc.fabrication_rate_kg, 0)
+				* COALESCE(NULLIF(rc.fabrication_rate_kg, ''), '0')
 			+ COALESCE(coat.pipes_completed, 0)
-				* COALESCE(ccr.rate_per_pipe, 0)              AS total_contractor_cost
+				* COALESCE(ccr.rate_per_pipe, 0)                               AS total_contractor_cost
 		FROM production_orders po
 		JOIN pipe_configs pc ON pc.id = po.pipe_config_id
 		LEFT JOIN (
