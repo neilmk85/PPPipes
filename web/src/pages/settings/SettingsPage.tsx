@@ -7,7 +7,7 @@ import ContractorSettings from './ContractorSettings'
 import { tdsApi } from '@/services/api'
 import toast from 'react-hot-toast'
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query'
-import { coatingRatesApi, type CoatingContractorRate } from '@/services/businessApi'
+import { coatingRatesApi, type CoatingContractorRate, businessRateConfigApi } from '@/services/businessApi'
 import { taxGroupApi, rolesApi, outletApi, integrationApi, staffApi, userCardPermissionsApi, roleCardPermissionsApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
@@ -3712,6 +3712,8 @@ function CoatingRatesSection() {
 type ServiceRates = Record<string, string>
 
 function ServiceRatesSettings() {
+  const qc = useQueryClient()
+
   const allKeys = RATE_FIELDS.flatMap(g => g.fields.map(f => f.key))
   const knitDefaults = Object.fromEntries([
     ...KNIT_SMALL_RATES.map(r => [`knit_small_${r.dia}`, String(r.defaultRate)]),
@@ -3719,28 +3721,65 @@ function ServiceRatesSettings() {
   ])
   const defaultRates = { ...Object.fromEntries(allKeys.map(k => [k, ''])), ...knitDefaults }
 
+  const { data: dbConfig } = useQuery({
+    queryKey: ['biz-rate-config'],
+    queryFn:  () => businessRateConfigApi.get(),
+  })
+
   const loadSaved = (): ServiceRates => {
     try {
       const s = localStorage.getItem(SERVICE_RATES_KEY)
-      return s ? { ...defaultRates, ...JSON.parse(s) } : defaultRates
+      const base = s ? { ...defaultRates, ...JSON.parse(s) } : defaultRates
+      // Overlay DB values (source of truth for fields that have DB columns)
+      if (dbConfig) {
+        if (dbConfig.fabricationRateKg) base['fabrication_per_kg'] = dbConfig.fabricationRateKg
+        if (dbConfig.labourRatePerDay)  base['labour_per_day']     = dbConfig.labourRatePerDay
+        if (dbConfig.otRatePerHour)     base['labour_per_hour']    = dbConfig.otRatePerHour
+      }
+      return base
     } catch { return defaultRates }
   }
 
-  const [rates, setRates] = useState<ServiceRates>(loadSaved)
-  const [editing, setEditing] = useState(() => {
-    // Start in edit mode if nothing has been saved yet
-    const s = localStorage.getItem(SERVICE_RATES_KEY)
-    return !s
-  })
+  const [rates, setRates] = useState<ServiceRates>(defaultRates)
+  const [editing, setEditing] = useState(false)
   const [saveFlash, setSaveFlash] = useState(false)
 
-  function handleSave() {
-    localStorage.setItem(SERVICE_RATES_KEY, JSON.stringify(rates))
-    setSaveFlash(true)
-    setTimeout(() => setSaveFlash(false), 2000)
-    setEditing(false)
-    toast.success('Service rates saved')
-  }
+  // Sync from DB whenever dbConfig loads
+  useEffect(() => {
+    if (dbConfig) {
+      setRates(prev => ({
+        ...prev,
+        fabrication_per_kg: dbConfig.fabricationRateKg || prev['fabrication_per_kg'] || '',
+        labour_per_day:     dbConfig.labourRatePerDay  || prev['labour_per_day']     || '',
+        labour_per_hour:    dbConfig.otRatePerHour     || prev['labour_per_hour']    || '',
+      }))
+    }
+  }, [dbConfig])
+
+  const saveMutation = useMutation({
+    mutationFn: () => businessRateConfigApi.update({
+      fabricationRateKg:     rates['fabrication_per_kg'] || '',
+      labourRatePerDay:      rates['labour_per_day']     || '',
+      otRatePerHour:         rates['labour_per_hour']    || '',
+      smallBedRate:          dbConfig?.smallBedRate      || '',
+      largeBedRate:          dbConfig?.largeBedRate      || '',
+      extraLargeBedRate:     dbConfig?.extraLargeBedRate || '',
+      coatingRate:           dbConfig?.coatingRate       || '',
+      winding2Rate:          dbConfig?.winding2Rate      || '',
+      coating2Rate:          dbConfig?.coating2Rate      || '',
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['biz-rate-config'] })
+      localStorage.setItem(SERVICE_RATES_KEY, JSON.stringify(rates))
+      setSaveFlash(true)
+      setTimeout(() => setSaveFlash(false), 2000)
+      setEditing(false)
+      toast.success('Service rates saved')
+    },
+    onError: () => toast.error('Failed to save rates'),
+  })
+
+  function handleSave() { saveMutation.mutate() }
 
   function handleEdit() {
     setRates(loadSaved())
