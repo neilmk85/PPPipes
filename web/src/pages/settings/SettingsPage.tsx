@@ -7,6 +7,7 @@ import ContractorSettings from './ContractorSettings'
 import { tdsApi } from '@/services/api'
 import toast from 'react-hot-toast'
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query'
+import { coatingRatesApi, type CoatingContractorRate } from '@/services/businessApi'
 import { taxGroupApi, rolesApi, outletApi, integrationApi, staffApi, userCardPermissionsApi, roleCardPermissionsApi } from '@/services/api'
 import { useAuthStore } from '@/store/authStore'
 
@@ -3611,6 +3612,103 @@ const KNIT_LARGE_RATES: { dia: number; defaultRate: number }[] = [
   { dia: 2000, defaultRate: 1900 }, { dia: 2100, defaultRate: 2000 }, { dia: 2200, defaultRate: 2100 },
 ]
 
+const COATING_DIAMETERS = [350, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1600, 1700]
+
+function CoatingRatesSection() {
+  const qc = useQueryClient()
+  const [editCoat, setEditCoat] = useState(false)
+  const [coatDraft, setCoatDraft] = useState<Record<number, string>>({})
+
+  const { data: coatSaved = [] } = useQuery({
+    queryKey: ['coating-rates'],
+    queryFn:  () => coatingRatesApi.list(),
+  })
+
+  const coatRateMap: Record<number, string> = Object.fromEntries(
+    coatSaved.map((r: CoatingContractorRate) => [r.diameterMm, r.ratePerPipe])
+  )
+
+  function startEditCoat() {
+    setCoatDraft(Object.fromEntries(COATING_DIAMETERS.map(d => [d, coatRateMap[d] ?? ''])))
+    setEditCoat(true)
+  }
+
+  const saveCoatMutation = useMutation({
+    mutationFn: () => coatingRatesApi.upsert(
+      COATING_DIAMETERS
+        .filter(d => coatDraft[d] && Number(coatDraft[d]) > 0)
+        .map(d => ({ diameterMm: d, ratePerPipe: coatDraft[d] }))
+    ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coating-rates'] })
+      setEditCoat(false)
+      toast.success('Coating rates saved')
+    },
+    onError: () => toast.error('Failed to save coating rates'),
+  })
+
+  return (
+    <div className="px-6 py-6 border-b border-gray-100 flex gap-4">
+      <div className="w-0.5 rounded-full bg-blue-400 self-stretch flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-5">
+          <p className="text-sm font-bold text-gray-700 uppercase tracking-widest">Coating</p>
+          <span className="text-xs text-gray-400 font-normal normal-case">₹/pipe by diameter</span>
+          <button
+            onClick={editCoat ? () => setEditCoat(false) : startEditCoat}
+            className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            {editCoat ? <><X size={11} /> Cancel</> : <><Pencil size={11} /> Edit</>}
+          </button>
+          {editCoat && (
+            <button
+              onClick={() => saveCoatMutation.mutate()}
+              disabled={saveCoatMutation.isPending}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+            >
+              <Save size={11} /> Save
+            </button>
+          )}
+        </div>
+        <div className="rounded-xl border border-gray-200 overflow-hidden max-w-xs">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide w-1/2">Dia (mm)</th>
+                <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide w-1/2">Rate (₹)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {COATING_DIAMETERS.map(d => (
+                <tr key={d} className="hover:bg-gray-50/60">
+                  <td className="px-3 py-1.5 text-gray-700 font-medium tabular-nums">{d}</td>
+                  <td className="px-3 py-1.5 text-right">
+                    {editCoat ? (
+                      <div className="relative inline-flex items-center">
+                        <span className="absolute left-2 text-gray-400 text-xs">₹</span>
+                        <input
+                          type="number" min="0" step="1"
+                          value={coatDraft[d] ?? ''}
+                          onChange={e => setCoatDraft(prev => ({ ...prev, [d]: e.target.value }))}
+                          className="w-24 pl-5 pr-2 py-1 text-right text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400"
+                        />
+                      </div>
+                    ) : (
+                      <span className={`font-semibold tabular-nums ${coatRateMap[d] && Number(coatRateMap[d]) > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                        {coatRateMap[d] && Number(coatRateMap[d]) > 0 ? `₹ ${Number(coatRateMap[d]).toLocaleString('en-IN')}` : '—'}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 type ServiceRates = Record<string, string>
 
 function ServiceRatesSettings() {
@@ -3729,6 +3827,9 @@ function ServiceRatesSettings() {
               </div>
             </div>
           ))}
+
+          {/* Coating rates section */}
+          <CoatingRatesSection />
 
           {/* Knit section */}
           <div className="px-6 py-6 flex gap-4">
