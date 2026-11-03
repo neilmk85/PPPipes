@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Archive, Plus, Pencil, Trash2, X, Loader2, AlertTriangle, Search, ArrowLeft, Calendar, ChevronDown } from 'lucide-react'
+import { Archive, Plus, Pencil, Trash2, X, Loader2, AlertTriangle, ArrowLeft, Calendar, ChevronDown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { storeRoomMaterialsApi, type StoreEntry } from '@/services/businessApi'
 import { productApi } from '@/services/api'
@@ -166,114 +166,11 @@ const ITEM_TYPE_LABEL: Record<string, string> = {
   GENERAL:       'General',
 }
 
-// ─── Item Autocomplete ────────────────────────────────────────────────────────
-interface ProductOption { name: string; uom: string; itemType: string }
-
-function ItemAutocomplete({
-  value,
-  onChange,
-  options,
-  loading,
-}: {
-  value: string
-  onChange: (name: string, uom: string, itemType: string) => void
-  options: ProductOption[]
-  loading: boolean
-}) {
-  const [open, setOpen]     = useState(false)
-  const [cursor, setCursor] = useState(-1)
-
-  const filtered = useMemo(() => {
-    const q = value.trim().toLowerCase()
-    if (!q) return options
-    return options.filter(o => o.name.toLowerCase().includes(q))
-  }, [value, options])
-
-  const pick = (o: ProductOption) => {
-    onChange(o.name, o.uom, o.itemType)
-    setOpen(false)
-    setCursor(-1)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) {
-      if (e.key === 'ArrowDown') { setOpen(true); setCursor(0); e.preventDefault() }
-      return
-    }
-    if (e.key === 'ArrowDown') { setCursor(c => Math.min(c + 1, filtered.length - 1)); e.preventDefault() }
-    if (e.key === 'ArrowUp')   { setCursor(c => Math.max(c - 1, 0));                   e.preventDefault() }
-    if (e.key === 'Enter' && cursor >= 0) { pick(filtered[cursor]); e.preventDefault() }
-    if (e.key === 'Escape') { setOpen(false); setCursor(-1) }
-  }
-
-  return (
-    <div className="relative">
-      <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        <input
-          type="text"
-          placeholder={loading ? 'Loading products…' : 'Search item name…'}
-          value={value}
-          onChange={e => { onChange(e.target.value, '', ''); setOpen(true); setCursor(-1) }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          onKeyDown={handleKeyDown}
-          autoComplete="off"
-          className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-lime-500/30 focus:border-lime-400 transition-colors"
-        />
-        {loading && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 animate-spin" />}
-      </div>
-
-      {open && filtered.length > 0 && (
-        <ul className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-56 overflow-y-auto"
-          style={{ zIndex: 9999 }}>
-          {filtered.map((o, i) => (
-            <li
-              key={o.name}
-              onMouseDown={e => { e.preventDefault(); pick(o) }}
-              onMouseEnter={() => setCursor(i)}
-              className={`flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors ${
-                i === cursor
-                  ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white'
-                  : 'hover:bg-lime-50'
-              }`}
-            >
-              <span className={`text-sm font-medium ${i === cursor ? 'text-white' : 'text-gray-800'}`}>
-                {o.name}
-              </span>
-              <div className="flex items-center gap-2 shrink-0 ml-3">
-                {o.uom && (
-                  <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
-                    i === cursor ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>{o.uom}</span>
-                )}
-                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
-                  i === cursor
-                    ? 'bg-white/20 text-white'
-                    : o.itemType === 'RAW_MATERIAL' ? 'bg-amber-50 text-amber-600'
-                    : o.itemType === 'FINISHED_PIPE' ? 'bg-violet-50 text-violet-600'
-                    : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {ITEM_TYPE_LABEL[o.itemType] ?? o.itemType}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {open && !loading && value.trim() && filtered.length === 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl px-4 py-3"
-          style={{ zIndex: 9999 }}>
-          <p className="text-sm text-gray-400 italic">No products match "{value}"</p>
-        </div>
-      )}
-    </div>
-  )
-}
+// ─── Product Option ───────────────────────────────────────────────────────────
+interface ProductOption { id: number; name: string; uom: string; itemType: string }
 
 // ─── Add / Edit Modal ─────────────────────────────────────────────────────────
-const EMPTY_FORM = { date: todayStr(), itemName: '', itemType: '', quantity: '', uom: '', notes: '' }
+const EMPTY_FORM = { date: todayStr(), itemName: '', itemType: '', productId: undefined as number | undefined, quantity: '', uom: '', notes: '' }
 
 function EntryModal({
   initial,
@@ -288,7 +185,7 @@ function EntryModal({
   productOptions: ProductOption[]
   loadingProducts: boolean
 }) {
-  const [form, setForm] = useState(initial ? { ...initial } : { ...EMPTY_FORM })
+  const [form, setForm] = useState(initial ? { ...initial, productId: initial.productId } : { ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -303,8 +200,10 @@ function EntryModal({
     setErrors(prev => { const n = { ...prev }; delete n[k]; return n })
   }
 
-  const handleItemChange = (name: string, uom: string, itemType: string) => {
-    setForm(f => ({ ...f, itemName: name, uom, itemType }))
+  const handleItemSelect = (productId: number) => {
+    const opt = productOptions.find(o => o.id === productId)
+    if (!opt) return
+    setForm(f => ({ ...f, itemName: opt.name, uom: opt.uom, itemType: opt.itemType, productId: opt.id }))
     setErrors(prev => { const n = { ...prev }; delete n.itemName; return n })
   }
 
@@ -359,13 +258,19 @@ function EntryModal({
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">
               Item Name <span className="text-red-500">*</span>
             </label>
-            <div className={errors.itemName ? 'ring-1 ring-red-400 rounded-xl' : ''}>
-              <ItemAutocomplete
-                value={form.itemName}
-                onChange={handleItemChange}
-                options={productOptions}
-                loading={loadingProducts}
-              />
+            <div className="relative">
+              <select
+                value={form.productId ?? ''}
+                onChange={e => { if (e.target.value) handleItemSelect(Number(e.target.value)) }}
+                disabled={loadingProducts}
+                className={`w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-lime-500/30 focus:border-lime-400 transition-colors appearance-none bg-white ${errors.itemName ? 'border-red-400' : 'border-gray-200'}`}
+              >
+                <option value="">{loadingProducts ? 'Loading products…' : '— Select item —'}</option>
+                {productOptions.map(o => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
             {errors.itemName && <p className="flex items-center gap-1 mt-1.5 text-xs text-red-500"><AlertTriangle size={11} /> {errors.itemName}</p>}
             {form.itemType && (
@@ -481,6 +386,7 @@ export default function StoreRoomMaterialPage() {
       const res = await productApi.getAll({ size: 1000, page: 0 })
       const list = res.data.data?.content ?? res.data.data ?? []
       return (list as any[]).map((p: any): ProductOption => ({
+        id:       p.id as number,
         name:     p.name as string,
         uom:      p.unitOfMeasure ?? p.uom ?? '',
         itemType: p.itemType ?? 'GENERAL',

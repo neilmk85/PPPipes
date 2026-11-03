@@ -244,6 +244,7 @@ export interface StoreEntry {
   date:      string
   itemName:  string
   itemType:  string
+  productId?: number
   quantity:  string
   uom:       string
   notes:     string

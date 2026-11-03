@@ -139,6 +139,7 @@ type StoreRoomMaterial struct {
 	Date      DateOnly  `gorm:"column:date;type:date;not null" json:"date"`
 	ItemName  string    `gorm:"column:item_name;not null" json:"itemName"`
 	ItemType  string    `gorm:"column:item_type" json:"itemType"`
+	ProductID *uint     `gorm:"column:product_id" json:"productId"`
 	Quantity  string    `gorm:"column:quantity" json:"quantity"`
 	Uom       string    `gorm:"column:uom" json:"uom"`
 	Notes     string    `gorm:"column:notes;type:text" json:"notes"`

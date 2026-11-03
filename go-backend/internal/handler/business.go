@@ -905,13 +905,37 @@ func (h *BusinessHandler) ListStoreRoomMaterials(w http.ResponseWriter, r *http.
 	util.SendSuccess(w, "Store room materials retrieved", rows)
 }
 
+func parseStoreQty(s string) float64 {
+	f, _ := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return f
+}
+
+func adjustInventoryByProductID(tx *gorm.DB, productID uint, delta float64) {
+	if productID == 0 {
+		return
+	}
+	tx.Exec(
+		"UPDATE inventory SET quantity_on_hand = quantity_on_hand + ?, last_stock_update = NOW() WHERE product_id = ?",
+		delta, productID,
+	)
+}
+
 func (h *BusinessHandler) CreateStoreRoomMaterial(w http.ResponseWriter, r *http.Request) {
 	var row models.StoreRoomMaterial
 	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	if err := h.db.Create(&row).Error; err != nil {
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		if row.ProductID != nil {
+			adjustInventoryByProductID(tx, *row.ProductID, -parseStoreQty(row.Quantity))
+		}
+		return nil
+	})
+	if err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to create store room material entry")
 		return
 	}
@@ -924,17 +948,31 @@ func (h *BusinessHandler) UpdateStoreRoomMaterial(w http.ResponseWriter, r *http
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	var row models.StoreRoomMaterial
-	if err := h.db.First(&row, id).Error; err != nil {
+	var old models.StoreRoomMaterial
+	if err := h.db.First(&old, id).Error; err != nil {
 		util.SendError(w, http.StatusNotFound, "Entry not found")
 		return
 	}
+	var row models.StoreRoomMaterial
 	if err := json.NewDecoder(r.Body).Decode(&row); err != nil {
 		util.SendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	row.ID = id
-	if err := h.db.Save(&row).Error; err != nil {
+	txErr := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&row).Error; err != nil {
+			return err
+		}
+		// Restore old, deduct new
+		if old.ProductID != nil {
+			adjustInventoryByProductID(tx, *old.ProductID, parseStoreQty(old.Quantity))
+		}
+		if row.ProductID != nil {
+			adjustInventoryByProductID(tx, *row.ProductID, -parseStoreQty(row.Quantity))
+		}
+		return nil
+	})
+	if txErr != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
 		return
 	}
@@ -947,7 +985,21 @@ func (h *BusinessHandler) DeleteStoreRoomMaterial(w http.ResponseWriter, r *http
 		util.SendError(w, http.StatusBadRequest, "Invalid id")
 		return
 	}
-	if err := h.db.Delete(&models.StoreRoomMaterial{}, id).Error; err != nil {
+	var row models.StoreRoomMaterial
+	if err := h.db.First(&row, id).Error; err != nil {
+		util.SendError(w, http.StatusNotFound, "Entry not found")
+		return
+	}
+	txErr := h.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&models.StoreRoomMaterial{}, id).Error; err != nil {
+			return err
+		}
+		if row.ProductID != nil {
+			adjustInventoryByProductID(tx, *row.ProductID, parseStoreQty(row.Quantity))
+		}
+		return nil
+	})
+	if txErr != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
 	}
