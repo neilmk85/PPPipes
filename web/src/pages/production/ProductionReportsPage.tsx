@@ -1114,11 +1114,27 @@ export default function ProductionReportsPage() {
   const assignmentByProcess = Object.fromEntries(
     assignments.map((a: ProcessContractorAssignment) => [a.processType, a])
   )
-  const contractorOptions = assignments.map((a: ProcessContractorAssignment) => ({
-    supplierId: a.supplierId,
-    name:       a.supplier?.name ?? `Vendor #${a.supplierId}`,
-    process:    a.processType,
-  }))
+
+  const { data: allContractorAssignments = [] } = useQuery({
+    queryKey: ['contractor-process-assignments-all'],
+    queryFn:  () => contractorProcessApi.list(),
+  })
+
+  // Build unique contractor options from the process assignments (by contractorId)
+  const contractorOptions = useMemo(() => {
+    const seen = new Map<number, { supplierId: number; name: string; process: string }>()
+    for (const a of allContractorAssignments as ContractorProcessAssignment[]) {
+      if (!seen.has(a.contractorId)) {
+        const process = a.processType.startsWith('SPINNING') ? 'SPINNING' : a.processType
+        seen.set(a.contractorId, {
+          supplierId: a.contractorId,
+          name:       a.contractor?.name ?? `Contractor #${a.contractorId}`,
+          process,
+        })
+      }
+    }
+    return Array.from(seen.values())
+  }, [allContractorAssignments])
 
   function setActiveTab(key: TabKey) {
     setSearchParams(prev => { prev.set('tab', key); return prev }, { replace: true })
