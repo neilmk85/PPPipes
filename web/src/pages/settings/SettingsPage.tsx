@@ -3577,13 +3577,6 @@ const RATE_FIELDS = [
     ],
   },
   {
-    group: 'Spinning',
-    fields: [
-      { key: 'spinning_small_per_pipe', label: 'Spinning – Small Bed', unit: 'per Pipe' },
-      { key: 'spinning_large_per_pipe', label: 'Spinning – Large Bed', unit: 'per Pipe' },
-    ],
-  },
-  {
     group: 'Transport',
     fields: [
       { key: 'transport_per_km',   label: 'Transport', unit: 'per Km' },
