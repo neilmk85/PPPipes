@@ -151,6 +151,40 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           const Divider(indent: 16, endIndent: 16),
+
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text('Report Access',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey,
+                    letterSpacing: 1)),
+          ),
+
+          Builder(builder: (context) {
+            final perms = auth.user?.permissions ?? [];
+            final canContractor = perms.isEmpty || perms.contains('VIEW_CONTRACTOR_COSTS');
+            return Column(children: [
+              _PermTile(
+                icon: Icons.precision_manufacturing_outlined,
+                label: 'Fabrication Report',
+                granted: canContractor,
+              ),
+              _PermTile(
+                icon: Icons.format_paint_outlined,
+                label: 'Coating Report',
+                granted: canContractor,
+              ),
+              _PermTile(
+                icon: Icons.rotate_right_outlined,
+                label: 'Spinning Report',
+                granted: canContractor,
+              ),
+            ]);
+          }),
+
+          const Divider(indent: 16, endIndent: 16),
           const SizedBox(height: 8),
 
           Padding(
@@ -190,6 +224,40 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+}
+
+class _PermTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool granted;
+
+  const _PermTile({required this.icon, required this.label, required this.granted});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon,
+          color: granted ? const Color(0xFF10B981) : Colors.grey),
+      title: Text(label),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: granted
+              ? const Color(0xFF10B981).withValues(alpha: 0.1)
+              : Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          granted ? 'Allowed' : 'Restricted',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: granted ? const Color(0xFF10B981) : Colors.grey,
+          ),
+        ),
       ),
     );
   }
