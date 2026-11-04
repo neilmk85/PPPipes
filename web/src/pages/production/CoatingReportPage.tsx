@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, ChevronDown, Download, Paintbrush, X } from 'lucide-react'
+import { Calendar, ChevronDown, Download, Paintbrush, ArrowLeft } from 'lucide-react'
 import { subDays } from 'date-fns'
 import { productionReportApi } from '@/services/api'
 import { processContractorApi } from '@/services/businessApi'
@@ -94,54 +94,78 @@ function exportCSV(rows: any[], from: string, to: string, contractorName: string
   URL.revokeObjectURL(a.href)
 }
 
-function CoatDetailDrawer({ row, onClose }: { row: any; onClose: () => void }) {
-  const pipes    = Number(row.coatPipesCompleted)
-  const rate     = Number(row.coatRatePerPipe)
-  const total    = pipes * rate
-  const noRate   = rate === 0
+function CoatDetailPage({ row, onClose }: { row: any; onClose: () => void }) {
+  const pipes  = Number(row.coatPipesCompleted)
+  const rate   = Number(row.coatRatePerPipe)
+  const total  = pipes * rate
+  const noRate = rate === 0
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col overflow-y-auto">
-        <div className="bg-gradient-to-br from-blue-700 to-cyan-600 px-6 py-5 flex items-start justify-between">
-          <div>
-            <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Coating Detail</p>
-            <p className="text-lg font-extrabold text-white font-mono">{row.poNumber}</p>
-            <p className="text-sm text-blue-200 mt-0.5">{row.pipeConfig}</p>
-          </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
-            <X size={18} />
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-50">
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-600 px-8 pt-6 pb-6 shadow-[0_8px_40px_rgba(29,78,216,0.30)]">
+        <div className="absolute -top-8 -right-8 w-52 h-52 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        <div className="relative">
+          <button onClick={onClose} className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white transition-colors mb-4">
+            <ArrowLeft size={18} /> Back to Report
           </button>
-        </div>
-        <div className="p-5 space-y-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+              <Paintbrush size={22} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Coating Detail</p>
+              <h1 className="text-2xl font-extrabold text-white font-mono tracking-tight">{row.poNumber}</h1>
+              <p className="text-sm text-blue-200 mt-0.5">{row.pipeConfig}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex items-stretch gap-px bg-white/10 rounded-xl overflow-hidden border border-white/10">
             {[
-              { label: 'Diameter', value: `${row.diameterMm} mm` },
-              { label: 'Pressure Class', value: row.pressureClass || '—' },
               { label: 'Pipes Coated', value: pipes.toLocaleString() },
-              { label: 'Rate per Pipe', value: noRate ? 'Not set' : `₹${fmt(rate)}` },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-gray-50 rounded-xl p-3">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{label}</p>
-                <p className="text-sm font-bold text-gray-800">{value}</p>
+              { label: 'Rate / Pipe',  value: noRate ? 'Not set' : `₹${fmt(rate)}` },
+              { label: 'Total Cost',   value: noRate ? '—' : `₹${fmt(total)}` },
+            ].map((s, i) => (
+              <div key={i} className="flex-1 px-5 py-3 bg-white/5">
+                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-0.5">{s.label}</p>
+                <p className="text-lg font-bold text-white">{s.value}</p>
               </div>
             ))}
           </div>
-          <div className="bg-blue-50 rounded-xl p-4 space-y-2.5">
-            <p className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Calculation</p>
+        </div>
+      </div>
+
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-6">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Pipe Details</h2>
+          <div className="space-y-1">
             {[
-              { label: 'Pipes coated', value: `${pipes.toLocaleString()} pipes` },
+              { label: 'Pipe Config',    value: row.pipeConfig },
+              { label: 'Diameter',       value: `${row.diameterMm} mm` },
+              { label: 'Pressure Class', value: row.pressureClass || '—' },
+              { label: 'Pipes Coated',   value: pipes.toLocaleString() },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
+                <span className="text-sm text-gray-500">{label}</span>
+                <span className="text-sm font-semibold text-gray-900">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-blue-50 rounded-2xl p-6">
+          <h2 className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-4">Cost Breakdown</h2>
+          <div className="space-y-1">
+            {[
+              { label: 'Pipes coated',   value: `${pipes.toLocaleString()} pipes` },
               { label: '× Rate per pipe', value: noRate ? 'Not set' : `₹${fmt(rate)}` },
             ].map(({ label, value }) => (
-              <div key={label} className="flex justify-between items-center">
-                <span className="text-xs text-blue-600">{label}</span>
+              <div key={label} className="flex justify-between items-center py-2.5 border-b border-blue-100 last:border-0">
+                <span className="text-sm text-blue-600">{label}</span>
                 <span className="text-sm font-medium text-blue-700">{value}</span>
               </div>
             ))}
-            <div className="border-t border-blue-200 pt-2.5 flex justify-between items-center">
-              <span className="text-sm font-bold text-blue-800">Total Amount</span>
-              <span className="text-base font-extrabold text-blue-700">
+            <div className="pt-4 flex justify-between items-center">
+              <span className="text-base font-bold text-blue-800">Total Amount</span>
+              <span className="text-xl font-extrabold text-blue-700">
                 {noRate ? '—' : `₹${fmt(total)}`}
               </span>
             </div>
@@ -175,6 +199,7 @@ export default function CoatingReportPage() {
   const rows  = (data ?? []).filter((r: any) => Number(r.coatPipesCompleted) > 0)
   const total = rows.reduce((s: number, r: any) => s + Number(r.coatCost), 0)
   const totalPipes = rows.reduce((s: number, r: any) => s + Number(r.coatPipesCompleted), 0)
+  const coatRate = rows.find((r: any) => Number(r.coatRatePerPipe) > 0)?.coatRatePerPipe
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -213,7 +238,7 @@ export default function CoatingReportPage() {
             { label: 'Total Amount',     value: `₹${fmt(total)}` },
             { label: 'Pipes Coated',     value: totalPipes.toLocaleString() },
             { label: 'Production Orders', value: rows.length.toString() },
-            { label: 'Rate Basis',       value: '₹ / pipe by diameter' },
+            { label: 'Rate / Pipe',       value: coatRate ? `₹${fmt(coatRate)}/pipe` : 'Not set' },
           ].map((s, i) => (
             <div key={i} className="flex-1 px-5 py-3 bg-white/5">
               <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-0.5">{s.label}</p>
@@ -284,7 +309,7 @@ export default function CoatingReportPage() {
           )}
         </div>
       </div>
-      {selected && <CoatDetailDrawer row={selected} onClose={() => setSelected(null)} />}
+      {selected && <CoatDetailPage row={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }

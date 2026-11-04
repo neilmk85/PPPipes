@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, ChevronDown, Download, RotateCw, X } from 'lucide-react'
+import { Calendar, ChevronDown, Download, RotateCw, ArrowLeft } from 'lucide-react'
 import { subDays } from 'date-fns'
 import { productionReportApi } from '@/services/api'
 import { processContractorApi } from '@/services/businessApi'
@@ -96,59 +96,83 @@ function exportCSV(rows: any[], from: string, to: string, contractorName: string
   URL.revokeObjectURL(a.href)
 }
 
-function SpinDetailDrawer({ row, onClose }: { row: any; onClose: () => void }) {
-  const pipes = Number(row.spinPipesCompleted)
-  const rate = Number(row.ratePerPipe)
-  const total = pipes * rate
+function SpinDetailPage({ row, onClose }: { row: any; onClose: () => void }) {
+  const pipes  = Number(row.spinPipesCompleted)
+  const rate   = Number(row.ratePerPipe)
+  const total  = pipes * rate
   const noRate = rate === 0
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-      <div className="relative w-full max-w-sm bg-white shadow-2xl flex flex-col overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-        style={{ animation: 'slideIn 0.2s ease' }}>
-        <style>{`@keyframes slideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }`}</style>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-violet-50">
-          <div>
-            <p className="text-xs font-bold text-violet-500 uppercase tracking-widest">Spinning Entry</p>
-            <p className="text-lg font-extrabold text-gray-900">{row.poNumber}</p>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-violet-100 transition-colors">
-            <X size={18} className="text-gray-500" />
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-50">
+      <div className="relative overflow-hidden bg-gradient-to-br from-violet-700 via-violet-600 to-purple-600 px-8 pt-6 pb-6 shadow-[0_8px_40px_rgba(109,40,217,0.30)]">
+        <div className="absolute -top-8 -right-8 w-52 h-52 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        <div className="relative">
+          <button onClick={onClose} className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white transition-colors mb-4">
+            <ArrowLeft size={18} /> Back to Report
           </button>
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+              <RotateCw size={22} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-violet-200 uppercase tracking-widest mb-0.5">Spinning Detail</p>
+              <h1 className="text-2xl font-extrabold text-white font-mono tracking-tight">{row.poNumber}</h1>
+              <p className="text-sm text-violet-200 mt-0.5">{row.pipeConfig}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex items-stretch gap-px bg-white/10 rounded-xl overflow-hidden border border-white/10">
+            {[
+              { label: 'Pipes Spun',  value: pipes.toLocaleString() },
+              { label: 'Bed Size',    value: BED_LABEL[row.bedSize] ?? row.bedSize },
+              { label: 'Rate / Pipe', value: noRate ? 'Not set' : `₹${fmt(rate)}` },
+              { label: 'Total Cost',  value: noRate ? '—' : `₹${fmt(total)}` },
+            ].map((s, i) => (
+              <div key={i} className="flex-1 px-5 py-3 bg-white/5">
+                <p className="text-[10px] font-bold text-violet-200 uppercase tracking-widest mb-0.5">{s.label}</p>
+                <p className="text-lg font-bold text-white">{s.value}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+      </div>
+
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-6">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Pipe Details</h2>
+          <div className="space-y-1">
             {[
               { label: 'Pipe Config',    value: row.pipeConfig },
               { label: 'Diameter',       value: `${row.diameterMm} mm` },
               { label: 'Pressure Class', value: row.pressureClass || '—' },
               { label: 'Bed Size',       value: BED_LABEL[row.bedSize] ?? row.bedSize },
-            ].map(item => (
-              <div key={item.label} className="bg-gray-50 rounded-xl p-3">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{item.label}</p>
-                <p className="text-sm font-semibold text-gray-800">{item.value}</p>
+              { label: 'Pipes Spun',     value: pipes.toLocaleString() },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
+                <span className="text-sm text-gray-500">{label}</span>
+                <span className="text-sm font-semibold text-gray-900">{value}</span>
               </div>
             ))}
           </div>
-          {noRate && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-              <p className="text-xs font-bold text-amber-700 mb-1">Rate not configured</p>
-              <p className="text-xs text-amber-600">Spinning rates are configured per diameter and bed size.</p>
-            </div>
-          )}
-          <div className="bg-violet-50 rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">Calculation</p>
+        </div>
+
+        <div className="bg-violet-50 rounded-2xl p-6">
+          <h2 className="text-xs font-bold text-violet-500 uppercase tracking-widest mb-4">Cost Breakdown</h2>
+          <div className="space-y-1">
             {[
-              { label: 'Pipes Spun',   value: pipes.toLocaleString(), bold: false },
-              { label: 'Rate / Pipe',  value: noRate ? 'Not set' : `₹${fmt(rate)}`, bold: false },
-              { label: 'Total Cost',   value: noRate ? '—' : `₹${fmt(total)}`, bold: true },
-            ].map(item => (
-              <div key={item.label} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{item.label}</span>
-                <span className={`text-sm ${item.bold ? 'font-extrabold text-violet-700 text-base' : 'font-semibold text-gray-800'}`}>{item.value}</span>
+              { label: 'Pipes spun',    value: `${pipes.toLocaleString()} pipes` },
+              { label: '× Rate / pipe', value: noRate ? 'Not set' : `₹${fmt(rate)}` },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex justify-between items-center py-2.5 border-b border-violet-100 last:border-0">
+                <span className="text-sm text-violet-600">{label}</span>
+                <span className="text-sm font-medium text-violet-700">{value}</span>
               </div>
             ))}
+            <div className="pt-4 flex justify-between items-center">
+              <span className="text-base font-bold text-violet-800">Total Amount</span>
+              <span className="text-xl font-extrabold text-violet-700">
+                {noRate ? '—' : `₹${fmt(total)}`}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -182,6 +206,7 @@ export default function SpinningReportPage() {
   const smallBed      = rows.filter((r: any) => r.bedSize === 'SMALL_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
   const largeBed      = rows.filter((r: any) => r.bedSize === 'LARGE_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
   const extraLargeBed = rows.filter((r: any) => r.bedSize === 'EXTRA_LARGE_BED').reduce((s: number, r: any) => s + Number(r.spinPipesCompleted), 0)
+  const spinRate = rows.find((r: any) => Number(r.ratePerPipe) > 0)?.ratePerPipe
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -217,11 +242,12 @@ export default function SpinningReportPage() {
         {/* Stat strip */}
         <div className="relative mt-5 flex items-stretch gap-px bg-white/10 rounded-xl overflow-hidden border border-white/10">
           {[
-            { label: 'Total Amount',      value: `₹${fmt(total)}` },
-            { label: 'Pipes Spun',        value: totalPipes.toLocaleString() },
-            { label: 'Small Bed',         value: smallBed.toLocaleString() },
-            { label: 'Large Bed',         value: largeBed.toLocaleString() },
-            { label: 'Extra Large Bed',   value: extraLargeBed.toLocaleString() },
+            { label: 'Total Amount',    value: `₹${fmt(total)}` },
+            { label: 'Pipes Spun',      value: totalPipes.toLocaleString() },
+            { label: 'Small Bed',       value: smallBed.toLocaleString() },
+            { label: 'Large Bed',       value: largeBed.toLocaleString() },
+            { label: 'Extra Large Bed', value: extraLargeBed.toLocaleString() },
+            { label: 'Rate / Pipe',     value: spinRate ? `₹${fmt(spinRate)}/pipe` : 'Not set' },
           ].map((s, i) => (
             <div key={i} className="flex-1 px-5 py-3 bg-white/5">
               <p className="text-[10px] font-bold text-violet-200 uppercase tracking-widest mb-0.5">{s.label}</p>
@@ -300,7 +326,7 @@ export default function SpinningReportPage() {
           )}
         </div>
       </div>
-      {selected && <SpinDetailDrawer row={selected} onClose={() => setSelected(null)} />}
+      {selected && <SpinDetailPage row={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }

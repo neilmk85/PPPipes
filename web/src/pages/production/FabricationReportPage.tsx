@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, ChevronDown, Hammer, Download, X, AlertTriangle, ExternalLink } from 'lucide-react'
+import { Calendar, ChevronDown, Hammer, Download, ArrowLeft, AlertTriangle, ExternalLink } from 'lucide-react'
 import { subDays } from 'date-fns'
 import { productionReportApi } from '@/services/api'
 import { processContractorApi } from '@/services/businessApi'
@@ -103,7 +103,7 @@ function exportCSV(rows: any[], from: string, to: string, contractorName: string
   URL.revokeObjectURL(a.href)
 }
 
-function FabDetailDrawer({ row, onClose }: { row: any; onClose: () => void }) {
+function FabDetailPage({ row, onClose }: { row: any; onClose: () => void }) {
   const pipes     = Number(row.fabPipesCompleted)
   const kgPerPipe = Number(row.fabKgPerPipe)
   const rateKg    = Number(row.fabRateKg)
@@ -112,68 +112,88 @@ function FabDetailDrawer({ row, onClose }: { row: any; onClose: () => void }) {
   const noRate    = rateKg === 0
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col overflow-y-auto">
-        {/* Header */}
-        <div className="bg-gradient-to-br from-blue-700 to-cyan-600 px-6 py-5 flex items-start justify-between">
-          <div>
-            <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Fabrication Detail</p>
-            <p className="text-lg font-extrabold text-white font-mono">{row.poNumber}</p>
-            <p className="text-sm text-blue-200 mt-0.5">{row.pipeConfig}</p>
-          </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
-            <X size={18} />
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-50">
+      {/* Hero */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-600 px-8 pt-6 pb-6 shadow-[0_8px_40px_rgba(29,78,216,0.30)]">
+        <div className="absolute -top-8 -right-8 w-52 h-52 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        <div className="relative">
+          <button onClick={onClose} className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white transition-colors mb-4">
+            <ArrowLeft size={18} /> Back to Report
           </button>
-        </div>
-
-        <div className="p-5 space-y-5">
-          {/* Pipe info */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+              <Hammer size={22} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Fabrication Detail</p>
+              <h1 className="text-2xl font-extrabold text-white font-mono tracking-tight">{row.poNumber}</h1>
+              <p className="text-sm text-blue-200 mt-0.5">{row.pipeConfig}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex items-stretch gap-px bg-white/10 rounded-xl overflow-hidden border border-white/10">
             {[
-              { label: 'Diameter', value: `${row.diameterMm} mm` },
-              { label: 'Pressure Class', value: row.pressureClass || '—' },
               { label: 'Pipes Fabricated', value: pipes.toLocaleString() },
-              { label: 'Steel per Pipe', value: kgPerPipe > 0 ? `${fmt(kgPerPipe)} kg` : '—' },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-gray-50 rounded-xl p-3">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{label}</p>
-                <p className="text-sm font-bold text-gray-800">{value}</p>
+              { label: 'Steel / Pipe',     value: kgPerPipe > 0 ? `${fmt(kgPerPipe)} kg` : '—' },
+              { label: 'Rate / kg',        value: noRate ? 'Not set' : `₹${fmt(rateKg)}` },
+              { label: 'Total Cost',       value: noRate || kgPerPipe === 0 ? '—' : `₹${fmt(totalCost)}` },
+            ].map((s, i) => (
+              <div key={i} className="flex-1 px-5 py-3 bg-white/5">
+                <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-0.5">{s.label}</p>
+                <p className="text-lg font-bold text-white">{s.value}</p>
               </div>
             ))}
           </div>
+        </div>
+      </div>
 
-          {/* Rate warning */}
-          {noRate && (
-            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl p-3">
-              <AlertTriangle size={15} className="text-amber-500 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-amber-800">Fabrication rate not configured</p>
-                <p className="text-xs text-amber-600 mt-0.5">Set the rate in Business Settings to calculate costs.</p>
-                <a href="/business/settings" className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 underline mt-1">
-                  Open Business Settings <ExternalLink size={11} />
-                </a>
-              </div>
-            </div>
-          )}
+      {noRate && (
+        <div className="mx-6 mt-5 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
+          <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-amber-800">Fabrication rate not configured</p>
+            <p className="text-xs text-amber-600 mt-0.5">Set the ₹/kg rate in Business Settings to see costs and amounts.</p>
+          </div>
+          <a href="/business/settings" className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+            Set Rate <ExternalLink size={12} />
+          </a>
+        </div>
+      )}
 
-          {/* Calculation breakdown */}
-          <div className="bg-blue-50 rounded-xl p-4 space-y-2.5">
-            <p className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Calculation</p>
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 p-6">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Pipe Details</h2>
+          <div className="space-y-1">
             {[
-              { label: 'Pipes fabricated',    value: `${pipes.toLocaleString()} pipes` },
-              { label: '× Steel per pipe',    value: kgPerPipe > 0 ? `${fmt(kgPerPipe)} kg` : '—' },
-              { label: '= Total steel',       value: totalKg > 0 ? `${fmt(totalKg)} kg` : '—', bold: true },
-              { label: '× Rate per kg',       value: noRate ? 'Not set' : `₹${fmt(rateKg)}` },
-            ].filter(Boolean).map(({ label, value, bold }: any) => (
-              <div key={label} className="flex justify-between items-center">
-                <span className="text-xs text-blue-600">{label}</span>
+              { label: 'Pipe Config',      value: row.pipeConfig },
+              { label: 'Diameter',         value: `${row.diameterMm} mm` },
+              { label: 'Pressure Class',   value: row.pressureClass || '—' },
+              { label: 'Pipes Fabricated', value: pipes.toLocaleString() },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
+                <span className="text-sm text-gray-500">{label}</span>
+                <span className="text-sm font-semibold text-gray-900">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-blue-50 rounded-2xl p-6">
+          <h2 className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-4">Cost Breakdown</h2>
+          <div className="space-y-1">
+            {[
+              { label: 'Pipes fabricated', value: `${pipes.toLocaleString()} pipes` },
+              { label: '× Steel per pipe', value: kgPerPipe > 0 ? `${fmt(kgPerPipe)} kg` : '—' },
+              { label: '= Total steel',    value: totalKg > 0 ? `${fmt(totalKg)} kg` : '—', bold: true },
+              { label: '× Rate per kg',    value: noRate ? 'Not set' : `₹${fmt(rateKg)}` },
+            ].map(({ label, value, bold }: any) => (
+              <div key={label} className="flex justify-between items-center py-2.5 border-b border-blue-100 last:border-0">
+                <span className="text-sm text-blue-600">{label}</span>
                 <span className={`text-sm ${bold ? 'font-bold text-blue-800' : 'font-medium text-blue-700'}`}>{value}</span>
               </div>
             ))}
-            <div className="border-t border-blue-200 pt-2.5 flex justify-between items-center">
-              <span className="text-sm font-bold text-blue-800">Total Amount</span>
-              <span className="text-base font-extrabold text-blue-700">
+            <div className="pt-4 flex justify-between items-center">
+              <span className="text-base font-bold text-blue-800">Total Amount</span>
+              <span className="text-xl font-extrabold text-blue-700">
                 {noRate || kgPerPipe === 0 ? '—' : `₹${fmt(totalCost)}`}
               </span>
             </div>
@@ -208,6 +228,7 @@ export default function FabricationReportPage() {
   const total = rows.reduce((s: number, r: any) => s + Number(r.fabCost), 0)
   const totalPipes = rows.reduce((s: number, r: any) => s + Number(r.fabPipesCompleted), 0)
   const rateNotSet = rows.length > 0 && rows.every((r: any) => Number(r.fabRateKg) === 0)
+  const fabRate = rows.find((r: any) => Number(r.fabRateKg) > 0)?.fabRateKg
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -246,7 +267,7 @@ export default function FabricationReportPage() {
             { label: 'Total Amount', value: `₹${fmt(total)}` },
             { label: 'Pipes Fabricated', value: totalPipes.toLocaleString() },
             { label: 'Production Orders', value: rows.length.toString() },
-            { label: 'Rate Basis', value: '₹ / kg of steel' },
+            { label: 'Rate / kg', value: fabRate ? `₹${fmt(fabRate)}/kg` : 'Not set' },
           ].map((s, i) => (
             <div key={i} className="flex-1 px-5 py-3 bg-white/5">
               <p className="text-[10px] font-bold text-blue-200 uppercase tracking-widest mb-0.5">{s.label}</p>
@@ -331,7 +352,7 @@ export default function FabricationReportPage() {
           )}
         </div>
       </div>
-      {selected && <FabDetailDrawer row={selected} onClose={() => setSelected(null)} />}
+      {selected && <FabDetailPage row={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }
