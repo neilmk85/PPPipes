@@ -31,8 +31,14 @@ class ApiService {
     // Attach JWT token
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.read(key: 'accessToken');
-        if (token != null) options.headers['Authorization'] = 'Bearer $token';
+        try {
+          final token = await _storage.read(key: 'accessToken');
+          if (token != null) options.headers['Authorization'] = 'Bearer $token';
+        } catch (_) {
+          // flutter_secure_storage throws OperationError on web when the stored
+          // crypto key is missing or mismatched — clear and continue unauthenticated
+          try { await _storage.deleteAll(); } catch (_) {}
+        }
         handler.next(options);
       },
       onError: (error, handler) async {

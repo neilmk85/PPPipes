@@ -63,7 +63,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _doRestore() async {
-    final token = await _storage.read(key: 'accessToken');
+    String? token;
+    try {
+      token = await _storage.read(key: 'accessToken');
+    } catch (_) {
+      try { await _storage.deleteAll(); } catch (_) {}
+      state = state.copyWith(isRestoring: false);
+      return;
+    }
     if (token == null) {
       state = state.copyWith(isRestoring: false);
       return;
