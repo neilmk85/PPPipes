@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/date_filter_dropdown.dart';
 
 class GstScreen extends ConsumerStatefulWidget {
   const GstScreen({super.key});
@@ -23,10 +24,13 @@ class _GstScreenState extends ConsumerState<GstScreen> {
   List<dynamic> _hsnSummary = [];
   bool _loading = true;
   String? _error;
-  DateTimeRange _range = DateTimeRange(
-    start: DateTime(DateTime.now().year, DateTime.now().month, 1),
-    end: DateTime.now(),
+  BizDateFilter _dateFilter = BizDateFilter(
+    preset: 'this_month',
+    from: bizResolveFrom('this_month'),
+    to: bizResolveTo('this_month'),
   );
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
@@ -36,6 +40,7 @@ class _GstScreenState extends ConsumerState<GstScreen> {
 
   @override
   void dispose() {
+    _overlayEntry?.remove();
     super.dispose();
   }
 
@@ -45,8 +50,8 @@ class _GstScreenState extends ConsumerState<GstScreen> {
       _error = null;
     });
     try {
-      final from = DateFormat('yyyy-MM-dd').format(_range.start);
-      final to = DateFormat('yyyy-MM-dd').format(_range.end);
+      final from = DateFormat('yyyy-MM-dd').format(_dateFilter.from ?? bizResolveFrom('this_month'));
+      final to = DateFormat('yyyy-MM-dd').format(_dateFilter.to ?? DateTime.now());
       final outletId = ref.read(authProvider).user?.outletId ?? 0;
       final results = await Future.wait([
         ApiService().getGstr1(from, to, outletId),
@@ -67,17 +72,29 @@ class _GstScreenState extends ConsumerState<GstScreen> {
     }
   }
 
-  Future<void> _pickRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: _range,
-    );
-    if (picked != null) {
-      setState(() => _range = picked);
-      _load();
+  void _toggleDateDropdown() {
+    if (_overlayEntry != null) {
+      _dismissDropdown();
+      return;
     }
+    _overlayEntry = OverlayEntry(
+      builder: (_) => BizDateDropdown(
+        layerLink: _layerLink,
+        filter: _dateFilter,
+        onApply: (f) {
+          setState(() => _dateFilter = f);
+          _dismissDropdown();
+          _load();
+        },
+        onDismiss: _dismissDropdown,
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _dismissDropdown() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   Widget _buildTabContent() {
@@ -236,9 +253,12 @@ class _GstScreenState extends ConsumerState<GstScreen> {
               ),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.date_range, color: Colors.white),
-                onPressed: _pickRange,
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: IconButton(
+                  icon: const Icon(Icons.date_range, color: Colors.white),
+                  onPressed: _toggleDateDropdown,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.refresh, color: Colors.white),
@@ -283,10 +303,7 @@ class _GstScreenState extends ConsumerState<GstScreen> {
                                       : 'HSN',
                               'View',
                             ),
-                            _hStat(
-                              '${DateFormat('dd MMM').format(_range.start)} – ${DateFormat('dd MMM').format(_range.end)}',
-                              'Period',
-                            ),
+                            _hStat(_dateFilter.label, 'Period'),
                           ],
                         ),
                       ),
