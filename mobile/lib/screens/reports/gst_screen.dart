@@ -355,11 +355,18 @@ class _Gstr1Tab extends StatelessWidget {
     final fmt =
         NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
     final totalTaxableValue = sp.d(data['totalTaxableValue']);
-    final totalTax = sp.d(data['totalTax']);
-    final totalInvoices = data['totalInvoices'] ?? 0;
-    final igst = sp.d(data['totalIgst']);
     final cgst = sp.d(data['totalCgst']);
     final sgst = sp.d(data['totalSgst']);
+    final igst = sp.d(data['totalIgst']);
+    final totalTax = cgst + sgst + igst;
+    final totalInvoices = data['totalInvoices'] ?? 0;
+
+    final b2bList = (data['b2b'] as List?) ?? [];
+    final b2csList = (data['b2cs'] as List?) ?? [];
+    final b2bTaxable = b2bList.fold<double>(
+        0, (s, r) => s + sp.d((r as Map<String, dynamic>)['taxableValue']));
+    final b2csTaxable = b2csList.fold<double>(
+        0, (s, r) => s + sp.d((r as Map<String, dynamic>)['taxableValue']));
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -372,21 +379,25 @@ class _Gstr1Tab extends StatelessWidget {
               ('Total Invoices', totalInvoices.toString()),
               ('Taxable Value', fmt.format(totalTaxableValue)),
               ('Total Tax', fmt.format(totalTax)),
-              ('IGST', fmt.format(igst)),
               ('CGST', fmt.format(cgst)),
               ('SGST', fmt.format(sgst)),
+              if (igst > 0) ('IGST', fmt.format(igst)),
             ],
           ),
-          if (data['b2b'] != null || data['b2c'] != null) ...[
+          if (b2bList.isNotEmpty || b2csList.isNotEmpty) ...[
             const SizedBox(height: 16),
             _GstSummaryCard(
               title: 'Breakdown',
               color: const Color(0xFF1976D2),
               rows: [
-                if (data['b2bTaxableValue'] != null)
-                  ('B2B Taxable', fmt.format(sp.d(data['b2bTaxableValue']))),
-                if (data['b2cTaxableValue'] != null)
-                  ('B2C Taxable', fmt.format(sp.d(data['b2cTaxableValue']))),
+                if (b2bList.isNotEmpty)
+                  ('B2B Invoices', b2bList.length.toString()),
+                if (b2bTaxable > 0)
+                  ('B2B Taxable', fmt.format(b2bTaxable)),
+                if (b2csList.isNotEmpty)
+                  ('B2CS Groups', b2csList.length.toString()),
+                if (b2csTaxable > 0)
+                  ('B2CS Taxable', fmt.format(b2csTaxable)),
               ],
             ),
           ],
@@ -404,34 +415,65 @@ class _Gstr3bTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final fmt =
         NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
-    final outwardTax = sp.d(data['outwardTaxLiability']);
-    final inputCredit = sp.d(data['inputTaxCredit']);
-    final netPayable = outwardTax - inputCredit;
+
+    final sec31 = (data['section3_1_taxable'] as Map<String, dynamic>?) ?? {};
+    final sec4 = (data['section4_itc'] as Map<String, dynamic>?) ?? {};
+    final netTax = (data['netTaxPayable'] as Map<String, dynamic>?) ?? {};
+    final itcCarry = (data['itcCarryForward'] as Map<String, dynamic>?) ?? {};
+
+    final outwardCgst = sp.d(sec31['cgst']);
+    final outwardSgst = sp.d(sec31['sgst']);
+    final outwardTax = outwardCgst + outwardSgst;
+    final taxableValue = sp.d(sec31['taxableValue']);
+
+    final itcCgst = sp.d(sec4['cgst']);
+    final itcSgst = sp.d(sec4['sgst']);
+    final itcIgst = sp.d(sec4['igst']);
+    final totalItc = itcCgst + itcSgst + itcIgst;
+
+    final netCgst = sp.d(netTax['cgst']);
+    final netSgst = sp.d(netTax['sgst']);
+    final netIgst = sp.d(netTax['igst']);
+    final netTotal = sp.d(netTax['total']);
+
+    final carryTotal = sp.d(itcCarry['total']);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           _GstSummaryCard(
-            title: 'GSTR-3B Summary',
+            title: '3.1 — Outward Tax Liability',
             color: const Color(0xFF00796B),
             rows: [
-              ('Outward Tax Liability', fmt.format(outwardTax)),
-              ('Input Tax Credit', fmt.format(inputCredit)),
-              ('Net Payable', fmt.format(netPayable)),
+              ('Invoices', (data['billCount'] ?? 0).toString()),
+              ('Taxable Value', fmt.format(taxableValue)),
+              ('CGST', fmt.format(outwardCgst)),
+              ('SGST', fmt.format(outwardSgst)),
+              ('Total Output Tax', fmt.format(outwardTax)),
             ],
           ),
           const SizedBox(height: 16),
           _GstSummaryCard(
-            title: 'Tax Breakup',
-            color: const Color(0xFF00897B),
+            title: '4 — Input Tax Credit (ITC)',
+            color: const Color(0xFF1565C0),
             rows: [
-              if (data['igstPayable'] != null)
-                ('IGST Payable', fmt.format(sp.d(data['igstPayable']))),
-              if (data['cgstPayable'] != null)
-                ('CGST Payable', fmt.format(sp.d(data['cgstPayable']))),
-              if (data['sgstPayable'] != null)
-                ('SGST Payable', fmt.format(sp.d(data['sgstPayable']))),
+              if (itcIgst > 0) ('IGST Credit', fmt.format(itcIgst)),
+              ('CGST Credit', fmt.format(itcCgst)),
+              ('SGST Credit', fmt.format(itcSgst)),
+              ('Total ITC', fmt.format(totalItc)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _GstSummaryCard(
+            title: 'Net Tax Payable',
+            color: const Color(0xFF7B1FA2),
+            rows: [
+              if (netIgst > 0) ('IGST Payable', fmt.format(netIgst)),
+              ('CGST Payable', fmt.format(netCgst)),
+              ('SGST Payable', fmt.format(netSgst)),
+              ('Total Payable', fmt.format(netTotal)),
+              if (carryTotal > 0) ('ITC Carry Forward', fmt.format(carryTotal)),
             ],
           ),
         ],
