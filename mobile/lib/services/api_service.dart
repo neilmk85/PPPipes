@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
+import 'token_store.dart';
 
 class LoginException implements Exception {
   final String message;
@@ -15,10 +15,7 @@ class ApiService {
   factory ApiService() => _instance;
 
   late final Dio _dio;
-  final _storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-  );
+  final _storage = TokenStore.instance;
 
   ApiService._internal() {
     _dio = Dio(BaseOptions(
@@ -28,17 +25,10 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
     ));
 
-    // Attach JWT token
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        try {
-          final token = await _storage.read(key: 'accessToken');
-          if (token != null) options.headers['Authorization'] = 'Bearer $token';
-        } catch (_) {
-          // flutter_secure_storage throws OperationError on web when the stored
-          // crypto key is missing or mismatched — clear and continue unauthenticated
-          try { await _storage.deleteAll(); } catch (_) {}
-        }
+        final token = await _storage.read('accessToken');
+        if (token != null) options.headers['Authorization'] = 'Bearer $token';
         handler.next(options);
       },
       onError: (error, handler) async {
@@ -56,8 +46,8 @@ class ApiService {
       final res = await _dio.post('/auth/login', data: {'email': email, 'password': password});
       final auth = AuthResponse.fromJson(res.data['data']);
       await Future.wait([
-        _storage.write(key: 'accessToken',  value: auth.accessToken),
-        _storage.write(key: 'refreshToken', value: auth.refreshToken),
+        _storage.write('accessToken',  auth.accessToken),
+        _storage.write('refreshToken', auth.refreshToken),
       ]).timeout(const Duration(seconds: 8), onTimeout: () => []);
       return auth;
     } on DioException catch (e) {
@@ -75,8 +65,8 @@ class ApiService {
   Future<AuthResponse> getMe() async {
     final res = await _dio.get('/users/me');
     final data = Map<String, dynamic>.from(res.data['data'] as Map);
-    final token = await _storage.read(key: 'accessToken') ?? '';
-    final refresh = await _storage.read(key: 'refreshToken') ?? '';
+    final token = await _storage.read('accessToken') ?? '';
+    final refresh = await _storage.read('refreshToken') ?? '';
     return AuthResponse(
       accessToken: token,
       refreshToken: refresh,

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/token_store.dart';
 import '../services/widget_service.dart';
 
 enum LoginErrorField { email, password, general }
@@ -42,7 +42,7 @@ class AuthState {
 
 class AuthNotifier extends StateNotifier<AuthState> {
   final ApiService _api;
-  final FlutterSecureStorage _storage;
+  final TokenStore _storage;
 
   AuthNotifier(this._api, this._storage) : super(const AuthState()) {
     _restoreSession();
@@ -65,7 +65,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _doRestore() async {
     String? token;
     try {
-      token = await _storage.read(key: 'accessToken');
+      token = await _storage.read('accessToken');
     } catch (_) {
       try { await _storage.deleteAll(); } catch (_) {}
       state = state.copyWith(isRestoring: false);
@@ -146,8 +146,5 @@ class AuthNotifier extends StateNotifier<AuthState> {
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ApiService(), const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-  ));
+  return AuthNotifier(ApiService(), TokenStore.instance);
 });
