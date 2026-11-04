@@ -70,7 +70,6 @@ type GSTR1Response struct {
 func (gs *GSTService) GSTR1(outletId int, from, to time.Time) (GSTR1Response, error) {
 	var res GSTR1Response
 
-	// Get outlet info
 	outlet := &models.Outlet{}
 	if err := gs.db.First(outlet, outletId).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -80,152 +79,101 @@ func (gs *GSTService) GSTR1(outletId int, from, to time.Time) (GSTR1Response, er
 	}
 
 	res.OutletGSTIN = outlet.GSTIN
+	res.Period = from.Format("2006-01-02") + " to " + to.Format("2006-01-02")
 
-	// Get completed orders
-	var orders []models.Order
-	if err := gs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
+	var invoices []models.Invoice
+	if err := gs.db.Where("outlet_id = ? AND status != ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, models.InvoiceStatusCancelled, from, to).
 		Preload("Items.Product.TaxGroup").
 		Preload("Customer").
-		Preload("Invoices").
-		Find(&orders).Error; err != nil {
+		Find(&invoices).Error; err != nil {
 		return res, err
 	}
 
-	res.Period = from.Format("2006-01-02") + " to " + to.Format("2006-01-02")
-	res.TotalInvoices = len(orders)
+	res.TotalInvoices = len(invoices)
 
-	// Process B2B (customers with GSTIN)
 	b2bMap := make(map[string]*B2BRecord)
-	for _, order := range orders {
-		if order.Customer != nil && order.Customer.GSTIN != nil {
-			taxable := order.Subtotal.Sub(order.DiscountAmount)
-			tax := order.TaxAmount
-			cgst := tax.Div(decimal.NewFromInt(2)).Round(2)
-			sgst := tax.Sub(cgst)
-
-			invoiceNumber := order.OrderNumber
-			if len(order.Invoices) > 0 {
-				invoiceNumber = order.Invoices[0].InvoiceNumber
-			}
-
-			b2bMap[invoiceNumber] = &B2BRecord{
-				GSTIN:        *order.Customer.GSTIN,
-				CustomerName: order.Customer.Name,
-				InvoiceNumber: invoiceNumber,
-				InvoiceDate:  order.CreatedAt.Format("2006-01-02"),
-				InvoiceValue: order.TotalAmount,
-				TaxableValue: taxable,
-				CGST:         cgst,
-				SGST:         sgst,
-				IGST:         decimal.Zero,
-			}
-		}
-	}
-
-	// Process B2CS (customers without GSTIN)
 	b2csMap := make(map[string]*B2CSRecord)
 	hsnMap := make(map[string]*HSNRecord)
 
-	for _, order := range orders {
-		// B2CS processing
-		if order.Customer == nil || order.Customer.GSTIN == nil {
-			for _, item := range order.Items {
+	for _, inv := range invoices {
+		taxable := inv.Subtotal.Sub(inv.DiscountAmount).Sub(inv.BillDiscountAmt)
+		tax := inv.TaxAmount
+		cgst := tax.Div(decimal.NewFromInt(2)).Round(2)
+		sgst := tax.Sub(cgst)
+
+		if inv.Customer != nil && inv.Customer.GSTIN != nil && *inv.Customer.GSTIN != "" {
+			b2bMap[inv.InvoiceNumber] = &B2BRecord{
+				GSTIN:         *inv.Customer.GSTIN,
+				CustomerName:  inv.Customer.Name,
+				InvoiceNumber: inv.InvoiceNumber,
+				InvoiceDate:   inv.IssueDate.Format("2006-01-02"),
+				InvoiceValue:  inv.TotalAmount,
+				TaxableValue:  taxable,
+				CGST:          cgst,
+				SGST:          sgst,
+				IGST:          decimal.Zero,
+			}
+		} else {
+			for _, item := range inv.Items {
 				rate := "0"
 				if !item.TaxRate.IsZero() {
 					rate = fmt.Sprintf("%.0f", item.TaxRate.InexactFloat64())
 				}
-
 				if _, exists := b2csMap[rate]; !exists {
-					b2csMap[rate] = &B2CSRecord{
-						TaxRate:      rate,
-						TaxableValue: decimal.Zero,
-						CGST:         decimal.Zero,
-						SGST:         decimal.Zero,
-						IGST:         decimal.Zero,
-					}
+					b2csMap[rate] = &B2CSRecord{TaxRate: rate, TaxableValue: decimal.Zero, CGST: decimal.Zero, SGST: decimal.Zero, IGST: decimal.Zero}
 				}
-
-				taxable := item.Quantity.Mul(item.UnitPrice).Sub(item.DiscountAmount)
-				tax := item.TaxAmount
-				cgst := tax.Div(decimal.NewFromInt(2)).Round(2)
-				sgst := tax.Sub(cgst)
-
-				b2csMap[rate].TaxableValue = b2csMap[rate].TaxableValue.Add(taxable)
-				b2csMap[rate].CGST = b2csMap[rate].CGST.Add(cgst)
-				b2csMap[rate].SGST = b2csMap[rate].SGST.Add(sgst)
+				itemTaxable := item.Quantity.Mul(item.UnitPrice).Mul(decimal.NewFromInt(1).Sub(item.DiscountPercent.Div(decimal.NewFromInt(100))))
+				itemTax := itemTaxable.Mul(item.TaxRate).Div(decimal.NewFromInt(100)).Round(2)
+				itemCGST := itemTax.Div(decimal.NewFromInt(2)).Round(2)
+				itemSGST := itemTax.Sub(itemCGST)
+				b2csMap[rate].TaxableValue = b2csMap[rate].TaxableValue.Add(itemTaxable)
+				b2csMap[rate].CGST = b2csMap[rate].CGST.Add(itemCGST)
+				b2csMap[rate].SGST = b2csMap[rate].SGST.Add(itemSGST)
 			}
 		}
 
-		// HSN processing
-		for _, item := range order.Items {
-			hsn := ""
-			if item.Product != nil && item.Product.TaxGroup != nil && item.Product.TaxGroup.HSNCode != nil {
+		for _, item := range inv.Items {
+			hsn := "NO_HSN"
+			if item.Product != nil && item.Product.TaxGroup != nil && item.Product.TaxGroup.HSNCode != nil && *item.Product.TaxGroup.HSNCode != "" {
 				hsn = *item.Product.TaxGroup.HSNCode
 			}
-			if hsn == "" {
-				hsn = "NO_HSN"
-			}
-
 			if _, exists := hsnMap[hsn]; !exists {
-				uom := "Pcs"
-				desc := "Unknown"
+				uom, desc := "Nos", item.ProductName
 				if item.Product != nil {
 					uom = item.Product.UnitOfMeasure
 					desc = item.Product.Name
 				}
-				hsnMap[hsn] = &HSNRecord{
-					HSNCode:       hsn,
-					Description:   desc,
-					UOM:           uom,
-					TotalQuantity: decimal.Zero,
-					TotalValue:    decimal.Zero,
-					TaxableValue:  decimal.Zero,
-					CGST:          decimal.Zero,
-					SGST:          decimal.Zero,
-					IGST:          decimal.Zero,
-					TotalTax:      decimal.Zero,
-				}
+				hsnMap[hsn] = &HSNRecord{HSNCode: hsn, Description: desc, UOM: uom, TotalQuantity: decimal.Zero, TotalValue: decimal.Zero, TaxableValue: decimal.Zero, CGST: decimal.Zero, SGST: decimal.Zero, IGST: decimal.Zero, TotalTax: decimal.Zero}
 			}
-
-			taxable := item.Quantity.Mul(item.UnitPrice).Sub(item.DiscountAmount)
-			tax := item.TaxAmount
-			cgst := tax.Div(decimal.NewFromInt(2)).Round(2)
-			sgst := tax.Sub(cgst)
-
+			itemTaxable := item.Quantity.Mul(item.UnitPrice).Mul(decimal.NewFromInt(1).Sub(item.DiscountPercent.Div(decimal.NewFromInt(100))))
+			itemTax := itemTaxable.Mul(item.TaxRate).Div(decimal.NewFromInt(100)).Round(2)
+			itemCGST := itemTax.Div(decimal.NewFromInt(2)).Round(2)
 			hsnMap[hsn].TotalQuantity = hsnMap[hsn].TotalQuantity.Add(item.Quantity)
 			hsnMap[hsn].TotalValue = hsnMap[hsn].TotalValue.Add(item.LineTotal)
-			hsnMap[hsn].TaxableValue = hsnMap[hsn].TaxableValue.Add(taxable)
-			hsnMap[hsn].CGST = hsnMap[hsn].CGST.Add(cgst)
-			hsnMap[hsn].SGST = hsnMap[hsn].SGST.Add(sgst)
-			hsnMap[hsn].TotalTax = hsnMap[hsn].TotalTax.Add(tax)
+			hsnMap[hsn].TaxableValue = hsnMap[hsn].TaxableValue.Add(itemTaxable)
+			hsnMap[hsn].CGST = hsnMap[hsn].CGST.Add(itemCGST)
+			hsnMap[hsn].SGST = hsnMap[hsn].SGST.Add(itemTax.Sub(itemCGST))
+			hsnMap[hsn].TotalTax = hsnMap[hsn].TotalTax.Add(itemTax)
 		}
+
+		res.GrandTotal = res.GrandTotal.Add(inv.TotalAmount)
+		res.TotalCGST = res.TotalCGST.Add(cgst)
+		res.TotalSGST = res.TotalSGST.Add(sgst)
+		res.TotalTaxableValue = res.TotalTaxableValue.Add(taxable)
 	}
 
-	// Build results
 	res.B2B = make([]B2BRecord, 0, len(b2bMap))
 	for _, b := range b2bMap {
 		res.B2B = append(res.B2B, *b)
-		res.TotalTaxableValue = res.TotalTaxableValue.Add(b.TaxableValue)
-		res.TotalCGST = res.TotalCGST.Add(b.CGST)
-		res.TotalSGST = res.TotalSGST.Add(b.SGST)
 	}
-
 	res.B2CS = make([]B2CSRecord, 0, len(b2csMap))
 	for _, b := range b2csMap {
 		res.B2CS = append(res.B2CS, *b)
-		res.TotalTaxableValue = res.TotalTaxableValue.Add(b.TaxableValue)
-		res.TotalCGST = res.TotalCGST.Add(b.CGST)
-		res.TotalSGST = res.TotalSGST.Add(b.SGST)
 	}
-
 	res.HSNSummary = make([]HSNRecord, 0, len(hsnMap))
 	for _, h := range hsnMap {
 		res.HSNSummary = append(res.HSNSummary, *h)
-	}
-
-	for _, order := range orders {
-		res.GrandTotal = res.GrandTotal.Add(order.TotalAmount)
 	}
 
 	return res, nil
@@ -291,41 +239,37 @@ func (gs *GSTService) GSTR3B(outletId int, from, to time.Time) (GSTR3BResponse, 
 	res.OutletName = outlet.Name
 	res.Period = from.Format("2006-01-02") + " to " + to.Format("2006-01-02")
 
-	// Get completed orders
-	var orders []models.Order
-	if err := gs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).Find(&orders).Error; err != nil {
+	var invoices []models.Invoice
+	if err := gs.db.Where("outlet_id = ? AND status != ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, models.InvoiceStatusCancelled, from, to).Find(&invoices).Error; err != nil {
 		return res, err
 	}
 
-	// Calculate output tax
 	grossSales := decimal.Zero
 	totalDiscount := decimal.Zero
 	taxable := decimal.Zero
 	outputTax := decimal.Zero
 
-	for _, order := range orders {
-		grossSales = grossSales.Add(order.TotalAmount)
-		totalDiscount = totalDiscount.Add(order.DiscountAmount)
-		t := order.Subtotal.Sub(order.DiscountAmount)
-		taxable = taxable.Add(t)
-		outputTax = outputTax.Add(order.TaxAmount)
+	for _, inv := range invoices {
+		grossSales = grossSales.Add(inv.TotalAmount)
+		totalDiscount = totalDiscount.Add(inv.DiscountAmount.Add(inv.BillDiscountAmt))
+		taxable = taxable.Add(inv.Subtotal.Sub(inv.DiscountAmount).Sub(inv.BillDiscountAmt))
+		outputTax = outputTax.Add(inv.TaxAmount)
 	}
 
 	res.GrossSales = grossSales
 	res.TotalDiscount = totalDiscount
+	res.BillCount = len(invoices)
 	res.Section3_1_Taxable.TaxableValue = taxable
 	res.Section3_1_Taxable.CGST = outputTax.Div(decimal.NewFromInt(2)).Round(2)
 	res.Section3_1_Taxable.SGST = outputTax.Sub(res.Section3_1_Taxable.CGST)
 
-	// Get purchase bills
+	// Get purchase bills for ITC
 	var bills []models.PurchaseBill
 	if err := gs.db.Where("outlet_id = ? AND bill_date >= ? AND bill_date <= ?", outletId, from, to).
 		Find(&bills).Error; err != nil {
 		return res, err
 	}
-
-	res.BillCount = len(bills)
 
 	itcIGST := decimal.Zero
 	itcCGST := decimal.Zero
@@ -375,58 +319,39 @@ func (gs *GSTService) GSTR3B(outletId int, from, to time.Time) (GSTR3BResponse, 
 // ─── HSN Summary (Sales) ───────────────────────────────────────────────────
 
 func (gs *GSTService) HSNSummary(outletId int, from, to time.Time) ([]HSNRecord, error) {
-	var orders []models.Order
-	if err := gs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
+	var invoices []models.Invoice
+	if err := gs.db.Where("outlet_id = ? AND status != ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, models.InvoiceStatusCancelled, from, to).
 		Preload("Items.Product.TaxGroup").
-		Find(&orders).Error; err != nil {
+		Find(&invoices).Error; err != nil {
 		return nil, err
 	}
 
 	hsnMap := make(map[string]*HSNRecord)
 
-	for _, order := range orders {
-		for _, item := range order.Items {
-			hsn := ""
-			if item.Product != nil && item.Product.TaxGroup != nil && item.Product.TaxGroup.HSNCode != nil {
+	for _, inv := range invoices {
+		for _, item := range inv.Items {
+			hsn := "NO_HSN"
+			if item.Product != nil && item.Product.TaxGroup != nil && item.Product.TaxGroup.HSNCode != nil && *item.Product.TaxGroup.HSNCode != "" {
 				hsn = *item.Product.TaxGroup.HSNCode
 			}
-			if hsn == "" {
-				hsn = "NO_HSN"
-			}
-
 			if _, exists := hsnMap[hsn]; !exists {
-				uom := "Pcs"
-				desc := "Unknown"
+				uom, desc := "Nos", item.ProductName
 				if item.Product != nil {
 					uom = item.Product.UnitOfMeasure
 					desc = item.Product.Name
 				}
-				hsnMap[hsn] = &HSNRecord{
-					HSNCode:       hsn,
-					Description:   desc,
-					UOM:           uom,
-					TotalQuantity: decimal.Zero,
-					TotalValue:    decimal.Zero,
-					TaxableValue:  decimal.Zero,
-					CGST:          decimal.Zero,
-					SGST:          decimal.Zero,
-					IGST:          decimal.Zero,
-					TotalTax:      decimal.Zero,
-				}
+				hsnMap[hsn] = &HSNRecord{HSNCode: hsn, Description: desc, UOM: uom, TotalQuantity: decimal.Zero, TotalValue: decimal.Zero, TaxableValue: decimal.Zero, CGST: decimal.Zero, SGST: decimal.Zero, IGST: decimal.Zero, TotalTax: decimal.Zero}
 			}
-
-			taxable := item.Quantity.Mul(item.UnitPrice).Sub(item.DiscountAmount)
-			tax := item.TaxAmount
-			cgst := tax.Div(decimal.NewFromInt(2)).Round(2)
-			sgst := tax.Sub(cgst)
-
+			itemTaxable := item.Quantity.Mul(item.UnitPrice).Mul(decimal.NewFromInt(1).Sub(item.DiscountPercent.Div(decimal.NewFromInt(100))))
+			itemTax := itemTaxable.Mul(item.TaxRate).Div(decimal.NewFromInt(100)).Round(2)
+			itemCGST := itemTax.Div(decimal.NewFromInt(2)).Round(2)
 			hsnMap[hsn].TotalQuantity = hsnMap[hsn].TotalQuantity.Add(item.Quantity)
 			hsnMap[hsn].TotalValue = hsnMap[hsn].TotalValue.Add(item.LineTotal)
-			hsnMap[hsn].TaxableValue = hsnMap[hsn].TaxableValue.Add(taxable)
-			hsnMap[hsn].CGST = hsnMap[hsn].CGST.Add(cgst)
-			hsnMap[hsn].SGST = hsnMap[hsn].SGST.Add(sgst)
-			hsnMap[hsn].TotalTax = hsnMap[hsn].TotalTax.Add(tax)
+			hsnMap[hsn].TaxableValue = hsnMap[hsn].TaxableValue.Add(itemTaxable)
+			hsnMap[hsn].CGST = hsnMap[hsn].CGST.Add(itemCGST)
+			hsnMap[hsn].SGST = hsnMap[hsn].SGST.Add(itemTax.Sub(itemCGST))
+			hsnMap[hsn].TotalTax = hsnMap[hsn].TotalTax.Add(itemTax)
 		}
 	}
 
@@ -614,26 +539,24 @@ func (gs *GSTService) TallyExport(outletId int, from, to time.Time) (string, err
 		return "", err
 	}
 
-	var orders []models.Order
-	if err := gs.db.Where("outlet_id = ? AND status = ? AND created_at >= ? AND created_at <= ?",
-		outletId, "COMPLETED", from, to).
-		Preload("Items").
+	var invoices []models.Invoice
+	if err := gs.db.Where("outlet_id = ? AND status != ? AND issue_date >= ? AND issue_date <= ?",
+		outletId, models.InvoiceStatusCancelled, from, to).
 		Preload("Customer").
-		Find(&orders).Error; err != nil {
+		Find(&invoices).Error; err != nil {
 		return "", err
 	}
 
 	var vouchers strings.Builder
-	for _, o := range orders {
+	for _, inv := range invoices {
 		customerName := "Cash"
-		if o.Customer != nil {
-			customerName = o.Customer.Name
+		if inv.Customer != nil {
+			customerName = inv.Customer.Name
 		}
-
-		tax := o.TaxAmount
+		tax := inv.TaxAmount
 		cgst := tax.Div(decimal.NewFromInt(2)).Round(2)
 		sgst := tax.Sub(cgst)
-		taxableValue := o.Subtotal.Sub(o.DiscountAmount)
+		taxableValue := inv.Subtotal.Sub(inv.DiscountAmount).Sub(inv.BillDiscountAmt)
 
 		vouchers.WriteString(fmt.Sprintf(`
       <VOUCHER VCHTYPE="Sales" ACTION="Create">
@@ -645,10 +568,10 @@ func (gs *GSTService) TallyExport(outletId int, from, to time.Time) (string, err
         <CGST>%s</CGST>
         <SGST>%s</SGST>
       </VOUCHER>`,
-			o.CreatedAt.Format("20060102"),
+			inv.IssueDate.Format("20060102"),
 			customerName,
-			o.OrderNumber,
-			o.TotalAmount.String(),
+			inv.InvoiceNumber,
+			inv.TotalAmount.String(),
 			taxableValue.String(),
 			cgst.String(),
 			sgst.String(),
