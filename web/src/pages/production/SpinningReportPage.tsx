@@ -85,10 +85,10 @@ function fmt(n: number | string | undefined) {
 }
 
 function exportCSV(rows: any[], from: string, to: string, contractorName: string) {
-  const header = ['PO Number', 'Pipe Config', 'Dia (mm)', 'Bed Size', 'Pipes Spun', 'Rate (₹/pipe)', 'Amount (₹)']
-  const data = rows.map(r => [r.poNumber, r.pipeConfig, r.diameterMm, BED_LABEL[r.bedSize]??r.bedSize, r.spinPipesCompleted, fmt(r.ratePerPipe), fmt(r.spinCost)])
+  const header = ['Pipe Config', 'Dia (mm)', 'Bed Size', 'Pipes Spun', 'Rate (₹/pipe)', 'Amount (₹)']
+  const data = rows.map(r => [r.pipeConfig, r.diameterMm, BED_LABEL[r.bedSize]??r.bedSize, r.spinPipesCompleted, fmt(r.ratePerPipe), fmt(r.spinCost)])
   const total = rows.reduce((s, r) => s + Number(r.spinCost), 0)
-  data.push(['','','','','','TOTAL', fmt(total)])
+  data.push(['','','','','TOTAL', fmt(total)])
   const csv = [header, ...data].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
   const blob = new Blob([`Spinning Report\nContractor: ${contractorName}\nPeriod: ${from||'All'} to ${to||'All'}\n\n${csv}`], { type: 'text/csv' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
@@ -116,8 +116,8 @@ function SpinDetailPage({ row, onClose }: { row: any; onClose: () => void }) {
             </div>
             <div>
               <p className="text-xs font-semibold text-violet-200 uppercase tracking-widest mb-0.5">Spinning Detail</p>
-              <h1 className="text-2xl font-extrabold text-white font-mono tracking-tight">{row.poNumber}</h1>
-              <p className="text-sm text-violet-200 mt-0.5">{row.pipeConfig}</p>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight">{row.pipeConfig}</h1>
+              <p className="text-sm text-violet-200 mt-0.5">{row.diameterMm} mm · {BED_LABEL[row.bedSize] ?? row.bedSize}</p>
             </div>
           </div>
           <div className="mt-5 flex items-stretch gap-px bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -280,7 +280,6 @@ export default function SpinningReportPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-violet-50 border-b border-violet-100">
-                    <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-700 uppercase tracking-widest">PO Number</th>
                     <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-700 uppercase tracking-widest">Pipe Config</th>
                     <th className="px-4 py-3 text-right text-[11px] font-bold text-violet-700 uppercase tracking-widest">Dia (mm)</th>
                     <th className="px-4 py-3 text-left text-[11px] font-bold text-violet-700 uppercase tracking-widest">Bed Size</th>
@@ -292,7 +291,6 @@ export default function SpinningReportPage() {
                 <tbody className="divide-y divide-gray-50">
                   {rows.map((r: any, i: number) => (
                     <tr key={i} className="hover:bg-violet-50/40 transition-colors cursor-pointer group" onClick={() => setSelected(r)}>
-                      <td className="px-4 py-3 font-mono text-xs text-violet-700 font-bold group-hover:text-violet-900">{r.poNumber}</td>
                       <td className="px-4 py-3 text-gray-800 font-medium">{r.pipeConfig}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{r.diameterMm}</td>
                       <td className="px-4 py-3">
@@ -317,7 +315,7 @@ export default function SpinningReportPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-violet-50 border-t border-violet-100">
-                    <td colSpan={6} className="px-4 py-3 text-right text-sm font-bold text-gray-700">Total Spinning Cost</td>
+                    <td colSpan={5} className="px-4 py-3 text-right text-sm font-bold text-gray-700">Total Spinning Cost</td>
                     <td className="px-4 py-3 text-right text-base font-extrabold text-violet-700">₹{fmt(total)}</td>
                   </tr>
                 </tfoot>

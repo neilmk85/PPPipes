@@ -92,10 +92,10 @@ function fmt(n: number | string | undefined) {
 }
 
 function exportCSV(rows: any[], from: string, to: string, contractorName: string) {
-  const header = ['PO Number', 'Pipe Config', 'Dia (mm)', 'Pipes Fabricated', 'Kg/Pipe', 'Rate (₹/kg)', 'Amount (₹)']
-  const data = rows.map(r => [r.poNumber, r.pipeConfig, r.diameterMm, r.fabPipesCompleted, fmt(r.fabKgPerPipe), fmt(r.fabRateKg), fmt(r.fabCost)])
+  const header = ['Pipe Config', 'Dia (mm)', 'Pipes Fabricated', 'Kg/Pipe', 'Rate (₹/kg)', 'Amount (₹)']
+  const data = rows.map(r => [r.pipeConfig, r.diameterMm, r.fabPipesCompleted, fmt(r.fabKgPerPipe), fmt(r.fabRateKg), fmt(r.fabCost)])
   const total = rows.reduce((s, r) => s + Number(r.fabCost), 0)
-  data.push(['', '', '', '', '', 'TOTAL', fmt(total)])
+  data.push(['', '', '', '', 'TOTAL', fmt(total)])
   const csv = [header, ...data].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
   const blob = new Blob([`Fabrication Report\nContractor: ${contractorName}\nPeriod: ${from||'All'} to ${to||'All'}\n\n${csv}`], { type: 'text/csv' })
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
@@ -126,8 +126,8 @@ function FabDetailPage({ row, onClose }: { row: any; onClose: () => void }) {
             </div>
             <div>
               <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Fabrication Detail</p>
-              <h1 className="text-2xl font-extrabold text-white font-mono tracking-tight">{row.poNumber}</h1>
-              <p className="text-sm text-blue-200 mt-0.5">{row.pipeConfig}</p>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight">{row.pipeConfig}</h1>
+              <p className="text-sm text-blue-200 mt-0.5">{row.diameterMm} mm · {row.pressureClass || 'Class N/A'}</p>
             </div>
           </div>
           <div className="mt-5 flex items-stretch gap-px bg-white/10 rounded-xl overflow-hidden border border-white/10">
@@ -312,7 +312,6 @@ export default function FabricationReportPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-blue-50 border-b border-blue-100">
-                    <th className="px-4 py-3 text-left text-[11px] font-bold text-blue-700 uppercase tracking-widest">PO Number</th>
                     <th className="px-4 py-3 text-left text-[11px] font-bold text-blue-700 uppercase tracking-widest">Pipe Config</th>
                     <th className="px-4 py-3 text-right text-[11px] font-bold text-blue-700 uppercase tracking-widest">Dia (mm)</th>
                     <th className="px-4 py-3 text-right text-[11px] font-bold text-blue-700 uppercase tracking-widest">Pipes Fabricated</th>
@@ -325,7 +324,6 @@ export default function FabricationReportPage() {
                   {rows.map((r: any, i: number) => (
                     <tr key={i} onClick={() => setSelected(r)}
                       className="hover:bg-blue-50/60 transition-colors cursor-pointer group">
-                      <td className="px-4 py-3 font-mono text-xs text-violet-700 font-bold group-hover:text-violet-900">{r.poNumber}</td>
                       <td className="px-4 py-3 text-gray-800 font-medium">{r.pipeConfig}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{r.diameterMm}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900">{Number(r.fabPipesCompleted).toLocaleString()}</td>
@@ -343,7 +341,7 @@ export default function FabricationReportPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-blue-50 border-t border-blue-100">
-                    <td colSpan={6} className="px-4 py-3 text-right text-sm font-bold text-gray-700">Total Fabrication Cost</td>
+                    <td colSpan={5} className="px-4 py-3 text-right text-sm font-bold text-gray-700">Total Fabrication Cost</td>
                     <td className="px-4 py-3 text-right text-base font-extrabold text-blue-700">₹{fmt(total)}</td>
                   </tr>
                 </tfoot>
