@@ -58,6 +58,9 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	cartHoldService := service.NewCartHoldService(db)
 	cartHoldHandler := handler.NewCartHoldHandler(cartHoldService)
 
+	gstService := service.NewGSTService(db)
+	gstHandler := handler.NewGSTHandler(gstService)
+
 	purchaseReturnService := service.NewPurchaseReturnService(db)
 	purchaseReturnHandler := handler.NewPurchaseReturnHandler(purchaseReturnService)
 
@@ -2240,6 +2243,14 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		cartHoldHandler.Delete,
 		middleware.Authenticate(db),
 	))
+
+	// ==================== GST REPORTS ====================
+	mux.HandleFunc("GET /api/gst/gstr1", middleware.Chain(gstHandler.GSTR1, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/gst/gstr3b", middleware.Chain(gstHandler.GSTR3B, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/gst/hsn-summary", middleware.Chain(gstHandler.HSNSummary, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/gst/hsn-purchase-summary", middleware.Chain(gstHandler.HSNPurchaseSummary, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/gst/gstr1/export", middleware.Chain(gstHandler.ExportGSTR1, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/gst/gstr3b/export", middleware.Chain(gstHandler.ExportGSTR3B, middleware.Authenticate(db)))
 
 	// ==================== FILE UPLOADS ====================
 	if _, err := os.Stat(cfg.UploadDir); !os.IsNotExist(err) {
