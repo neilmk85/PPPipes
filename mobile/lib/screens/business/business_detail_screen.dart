@@ -2430,6 +2430,9 @@ class _LoadingScreenState extends State<LoadingScreen> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                   scrolledUnderElevation: 0,
+                  leading: context.canPop()
+                      ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop())
+                      : IconButton(icon: const Icon(Icons.menu_outlined), onPressed: openAppDrawer, tooltip: 'Open menu'),
                   flexibleSpace: FlexibleSpaceBar(
                     collapseMode: CollapseMode.pin,
                     background: Container(
