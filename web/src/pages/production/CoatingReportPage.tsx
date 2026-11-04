@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, ChevronDown, Download, Paintbrush } from 'lucide-react'
+import { Calendar, ChevronDown, Download, Paintbrush, X } from 'lucide-react'
 import { subDays } from 'date-fns'
 import { productionReportApi } from '@/services/api'
 import { processContractorApi } from '@/services/businessApi'
@@ -94,9 +94,68 @@ function exportCSV(rows: any[], from: string, to: string, contractorName: string
   URL.revokeObjectURL(a.href)
 }
 
+function CoatDetailDrawer({ row, onClose }: { row: any; onClose: () => void }) {
+  const pipes    = Number(row.coatPipesCompleted)
+  const rate     = Number(row.coatRatePerPipe)
+  const total    = pipes * rate
+  const noRate   = rate === 0
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col overflow-y-auto">
+        <div className="bg-gradient-to-br from-blue-700 to-cyan-600 px-6 py-5 flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-1">Coating Detail</p>
+            <p className="text-lg font-extrabold text-white font-mono">{row.poNumber}</p>
+            <p className="text-sm text-blue-200 mt-0.5">{row.pipeConfig}</p>
+          </div>
+          <button onClick={onClose} className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5 space-y-5">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Diameter', value: `${row.diameterMm} mm` },
+              { label: 'Pressure Class', value: row.pressureClass || '—' },
+              { label: 'Pipes Coated', value: pipes.toLocaleString() },
+              { label: 'Rate per Pipe', value: noRate ? 'Not set' : `₹${fmt(rate)}` },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{label}</p>
+                <p className="text-sm font-bold text-gray-800">{value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="bg-blue-50 rounded-xl p-4 space-y-2.5">
+            <p className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-3">Calculation</p>
+            {[
+              { label: 'Pipes coated', value: `${pipes.toLocaleString()} pipes` },
+              { label: '× Rate per pipe', value: noRate ? 'Not set' : `₹${fmt(rate)}` },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex justify-between items-center">
+                <span className="text-xs text-blue-600">{label}</span>
+                <span className="text-sm font-medium text-blue-700">{value}</span>
+              </div>
+            ))}
+            <div className="border-t border-blue-200 pt-2.5 flex justify-between items-center">
+              <span className="text-sm font-bold text-blue-800">Total Amount</span>
+              <span className="text-base font-extrabold text-blue-700">
+                {noRate ? '—' : `₹${fmt(total)}`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CoatingReportPage() {
   const [from, setFrom] = useState('')
   const [to,   setTo]   = useState('')
+  const [selected, setSelected] = useState<any>(null)
 
   const params = { fromDate: from || undefined, toDate: to || undefined }
 
@@ -169,7 +228,7 @@ export default function CoatingReportPage() {
         <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Coating Entries</h2>
-            <span className="text-xs text-gray-400 font-medium">Rate: ₹/pipe by diameter</span>
+            <span className="text-xs text-gray-400 font-medium">Click any row for details · Rate: ₹/pipe by diameter</span>
           </div>
 
           {isLoading ? (
@@ -197,13 +256,20 @@ export default function CoatingReportPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {rows.map((r: any, i: number) => (
-                    <tr key={i} className="hover:bg-blue-50/40 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs text-violet-700 font-bold">{r.poNumber}</td>
+                    <tr key={i} onClick={() => setSelected(r)}
+                      className="hover:bg-blue-50/60 transition-colors cursor-pointer group">
+                      <td className="px-4 py-3 font-mono text-xs text-violet-700 font-bold group-hover:text-violet-900">{r.poNumber}</td>
                       <td className="px-4 py-3 text-gray-800 font-medium">{r.pipeConfig}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{r.diameterMm}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900">{Number(r.coatPipesCompleted).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-gray-500">₹{fmt(r.coatRatePerPipe)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-blue-700">₹{fmt(r.coatCost)}</td>
+                      <td className="px-4 py-3 text-right">
+                        {Number(r.coatRatePerPipe) === 0
+                          ? <span className="text-xs text-amber-500 font-medium">Not set</span>
+                          : <span className="text-gray-500">₹{fmt(r.coatRatePerPipe)}</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-blue-700">
+                        {Number(r.coatCost) === 0 ? <span className="text-gray-300">—</span> : `₹${fmt(r.coatCost)}`}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -218,6 +284,7 @@ export default function CoatingReportPage() {
           )}
         </div>
       </div>
+      {selected && <CoatDetailDrawer row={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }

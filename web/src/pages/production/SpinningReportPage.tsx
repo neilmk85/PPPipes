@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Calendar, ChevronDown, Download, RotateCw } from 'lucide-react'
+import { Calendar, ChevronDown, Download, RotateCw, X } from 'lucide-react'
 import { subDays } from 'date-fns'
 import { productionReportApi } from '@/services/api'
 import { processContractorApi } from '@/services/businessApi'
@@ -96,9 +96,70 @@ function exportCSV(rows: any[], from: string, to: string, contractorName: string
   URL.revokeObjectURL(a.href)
 }
 
+function SpinDetailDrawer({ row, onClose }: { row: any; onClose: () => void }) {
+  const pipes = Number(row.spinPipesCompleted)
+  const rate = Number(row.ratePerPipe)
+  const total = pipes * rate
+  const noRate = rate === 0
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+      <div className="relative w-full max-w-sm bg-white shadow-2xl flex flex-col overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'slideIn 0.2s ease' }}>
+        <style>{`@keyframes slideIn { from { transform: translateX(100%) } to { transform: translateX(0) } }`}</style>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-violet-50">
+          <div>
+            <p className="text-xs font-bold text-violet-500 uppercase tracking-widest">Spinning Entry</p>
+            <p className="text-lg font-extrabold text-gray-900">{row.poNumber}</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-violet-100 transition-colors">
+            <X size={18} className="text-gray-500" />
+          </button>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { label: 'Pipe Config',    value: row.pipeConfig },
+              { label: 'Diameter',       value: `${row.diameterMm} mm` },
+              { label: 'Pressure Class', value: row.pressureClass || '—' },
+              { label: 'Bed Size',       value: BED_LABEL[row.bedSize] ?? row.bedSize },
+            ].map(item => (
+              <div key={item.label} className="bg-gray-50 rounded-xl p-3">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{item.label}</p>
+                <p className="text-sm font-semibold text-gray-800">{item.value}</p>
+              </div>
+            ))}
+          </div>
+          {noRate && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p className="text-xs font-bold text-amber-700 mb-1">Rate not configured</p>
+              <p className="text-xs text-amber-600">Spinning rates are configured per diameter and bed size.</p>
+            </div>
+          )}
+          <div className="bg-violet-50 rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-bold text-violet-600 uppercase tracking-widest">Calculation</p>
+            {[
+              { label: 'Pipes Spun',   value: pipes.toLocaleString(), bold: false },
+              { label: 'Rate / Pipe',  value: noRate ? 'Not set' : `₹${fmt(rate)}`, bold: false },
+              { label: 'Total Cost',   value: noRate ? '—' : `₹${fmt(total)}`, bold: true },
+            ].map(item => (
+              <div key={item.label} className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">{item.label}</span>
+                <span className={`text-sm ${item.bold ? 'font-extrabold text-violet-700 text-base' : 'font-semibold text-gray-800'}`}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SpinningReportPage() {
   const [from, setFrom] = useState('')
   const [to,   setTo]   = useState('')
+  const [selected, setSelected] = useState<any>(null)
 
   const params = { fromDate: from || undefined, toDate: to || undefined }
 
@@ -175,7 +236,7 @@ export default function SpinningReportPage() {
         <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Spinning Entries</h2>
-            <span className="text-xs text-gray-400 font-medium">Rate: ₹/pipe by diameter × bed size</span>
+            <span className="text-xs text-gray-400 font-medium">Click any row for details · Rate: ₹/pipe by diameter × bed size</span>
           </div>
 
           {isLoading ? (
@@ -204,8 +265,8 @@ export default function SpinningReportPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {rows.map((r: any, i: number) => (
-                    <tr key={i} className="hover:bg-violet-50/40 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs text-violet-700 font-bold">{r.poNumber}</td>
+                    <tr key={i} className="hover:bg-violet-50/40 transition-colors cursor-pointer group" onClick={() => setSelected(r)}>
+                      <td className="px-4 py-3 font-mono text-xs text-violet-700 font-bold group-hover:text-violet-900">{r.poNumber}</td>
                       <td className="px-4 py-3 text-gray-800 font-medium">{r.pipeConfig}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{r.diameterMm}</td>
                       <td className="px-4 py-3">
@@ -217,8 +278,14 @@ export default function SpinningReportPage() {
                         }`}>{BED_LABEL[r.bedSize] ?? r.bedSize}</span>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-900">{Number(r.spinPipesCompleted).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-gray-500">₹{fmt(r.ratePerPipe)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-violet-700">₹{fmt(r.spinCost)}</td>
+                      <td className="px-4 py-3 text-right text-gray-500">
+                        {Number(r.ratePerPipe) === 0
+                          ? <span className="text-amber-500 font-medium">Not set</span>
+                          : `₹${fmt(r.ratePerPipe)}`}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-violet-700">
+                        {Number(r.spinCost) === 0 ? <span className="text-gray-400">—</span> : `₹${fmt(r.spinCost)}`}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -233,6 +300,7 @@ export default function SpinningReportPage() {
           )}
         </div>
       </div>
+      {selected && <SpinDetailDrawer row={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }
