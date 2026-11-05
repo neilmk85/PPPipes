@@ -340,7 +340,7 @@ func (h *BusinessHandler) cementStockKg() (float64, error) {
 	if err := h.db.Where("product_id = ? AND outlet_id = ?", prod.ID, 1).First(&inv).Error; err != nil {
 		return 0, nil // no inventory record yet = 0 stock
 	}
-	return inv.QuantityOnHand.InexactFloat64(), nil
+	return inv.QuantityOnHand.InexactFloat64() * 1000, nil
 }
 
 func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request) {
@@ -370,7 +370,7 @@ func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	spinning, coating := siloFillKg(row)
-	h.adjustSiloInventory("CEMENT", -fillKg)
+	h.adjustSiloInventory("CEMENT", -row.QuantityMT.InexactFloat64())
 	h.adjustSiloInventory("Silo CEMENT (CORE)", spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", coating)
 	util.SendSuccess(w, "Silo fill created", row)
@@ -399,9 +399,7 @@ func (h *BusinessHandler) UpdateSiloFill(w http.ResponseWriter, r *http.Request)
 	}
 	oldSpinning, oldCoating := siloFillKg(old)
 	newSpinning, newCoating := siloFillKg(row)
-	oldKg := old.QuantityMT.InexactFloat64() * 1000
-	newKg := row.QuantityMT.InexactFloat64() * 1000
-	h.adjustSiloInventory("CEMENT", oldKg-newKg) // net change: refund old, deduct new
+	h.adjustSiloInventory("CEMENT", old.QuantityMT.InexactFloat64()-row.QuantityMT.InexactFloat64())
 	h.adjustSiloInventory("Silo CEMENT (CORE)", newSpinning-oldSpinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", newCoating-oldCoating)
 	util.SendSuccess(w, "Silo fill updated", row)
@@ -423,8 +421,7 @@ func (h *BusinessHandler) DeleteSiloFill(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	spinning, coating := siloFillKg(row)
-	deletedKg := row.QuantityMT.InexactFloat64() * 1000
-	h.adjustSiloInventory("CEMENT", deletedKg) // restore cement stock on delete
+	h.adjustSiloInventory("CEMENT", row.QuantityMT.InexactFloat64())
 	h.adjustSiloInventory("Silo CEMENT (CORE)", -spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", -coating)
 	util.SendSuccess(w, "Silo fill deleted", nil)
