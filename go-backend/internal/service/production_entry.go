@@ -482,6 +482,23 @@ func (s *ProductionEntryService) Create(req CreateProductionEntryRequest, userID
 		return nil, err
 	}
 
+	// Log inventory movements for all material consumptions just created
+	type mcRow struct {
+		ProductName string
+		ConsumedQty float64
+		UOM         string
+	}
+	var rows []mcRow
+	s.db.Raw(`
+		SELECT p.name AS product_name, mc.consumed_qty, mc.uom
+		FROM material_consumptions mc
+		JOIN products p ON p.id = mc.material_product_id
+		WHERE mc.production_entry_id = ?`, entry.ID).Scan(&rows)
+	for _, r := range rows {
+		logMovement(s.db, r.ProductName, -r.ConsumedQty, r.UOM,
+			"Production: "+string(stage), "PRODUCTION", uint(entry.ID))
+	}
+
 	// 11. Trigger async cost sheet computation (PO-linked only)
 	if req.ProductionOrderID != 0 {
 		go func() {
