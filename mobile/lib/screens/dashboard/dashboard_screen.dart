@@ -636,9 +636,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           final lengthM  = p.d(order['lengthM']);
           String toM(int pipes) {
             final m = pipes * lengthM;
-            return m >= 1000
-                ? '${(m / 1000).toStringAsFixed(2)} km'
-                : '${m.toStringAsFixed(0)} m';
+            return '${m.toStringAsFixed(0)} m';
           }
           Widget numCell(String count, String meters, Color mainColor, {bool isStatusCell = false}) =>
             Expanded(child: Padding(
