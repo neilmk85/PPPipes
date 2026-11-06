@@ -373,6 +373,14 @@ func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request)
 	h.adjustSiloInventory("CEMENT", -row.QuantityMT.InexactFloat64())
 	h.adjustSiloInventory("Silo CEMENT (CORE)", spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", coating)
+	mt := row.QuantityMT.InexactFloat64()
+	h.logMovement("CEMENT", -mt, "MT", fmt.Sprintf("Silo %d fill", row.SiloNumber), "SILO_FILL", row.ID)
+	if spinning > 0 {
+		h.logMovement("Silo CEMENT (CORE)", spinning, "kg", fmt.Sprintf("Silo %d fill", row.SiloNumber), "SILO_FILL", row.ID)
+	}
+	if coating > 0 {
+		h.logMovement("Silo CEMENT (COATING)", coating, "kg", fmt.Sprintf("Silo %d fill", row.SiloNumber), "SILO_FILL", row.ID)
+	}
 	util.SendSuccess(w, "Silo fill created", row)
 }
 
@@ -399,9 +407,19 @@ func (h *BusinessHandler) UpdateSiloFill(w http.ResponseWriter, r *http.Request)
 	}
 	oldSpinning, oldCoating := siloFillKg(old)
 	newSpinning, newCoating := siloFillKg(row)
-	h.adjustSiloInventory("CEMENT", old.QuantityMT.InexactFloat64()-row.QuantityMT.InexactFloat64())
+	cementDelta := old.QuantityMT.InexactFloat64() - row.QuantityMT.InexactFloat64()
+	h.adjustSiloInventory("CEMENT", cementDelta)
 	h.adjustSiloInventory("Silo CEMENT (CORE)", newSpinning-oldSpinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", newCoating-oldCoating)
+	if cementDelta != 0 {
+		h.logMovement("CEMENT", cementDelta, "MT", fmt.Sprintf("Silo %d fill updated", row.SiloNumber), "SILO_FILL", row.ID)
+	}
+	if newSpinning-oldSpinning != 0 {
+		h.logMovement("Silo CEMENT (CORE)", newSpinning-oldSpinning, "kg", fmt.Sprintf("Silo %d fill updated", row.SiloNumber), "SILO_FILL", row.ID)
+	}
+	if newCoating-oldCoating != 0 {
+		h.logMovement("Silo CEMENT (COATING)", newCoating-oldCoating, "kg", fmt.Sprintf("Silo %d fill updated", row.SiloNumber), "SILO_FILL", row.ID)
+	}
 	util.SendSuccess(w, "Silo fill updated", row)
 }
 
@@ -421,9 +439,17 @@ func (h *BusinessHandler) DeleteSiloFill(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	spinning, coating := siloFillKg(row)
-	h.adjustSiloInventory("CEMENT", row.QuantityMT.InexactFloat64())
+	mt := row.QuantityMT.InexactFloat64()
+	h.adjustSiloInventory("CEMENT", mt)
 	h.adjustSiloInventory("Silo CEMENT (CORE)", -spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", -coating)
+	h.logMovement("CEMENT", mt, "MT", fmt.Sprintf("Silo %d fill deleted", row.SiloNumber), "SILO_FILL", row.ID)
+	if spinning > 0 {
+		h.logMovement("Silo CEMENT (CORE)", -spinning, "kg", fmt.Sprintf("Silo %d fill deleted", row.SiloNumber), "SILO_FILL", row.ID)
+	}
+	if coating > 0 {
+		h.logMovement("Silo CEMENT (COATING)", -coating, "kg", fmt.Sprintf("Silo %d fill deleted", row.SiloNumber), "SILO_FILL", row.ID)
+	}
 	util.SendSuccess(w, "Silo fill deleted", nil)
 }
 
@@ -527,9 +553,11 @@ func (h *BusinessHandler) CreateSiloExtraction(w http.ResponseWriter, r *http.Re
 	coreKg := kg1 + kg2
 	if coreKg > 0 {
 		h.adjustSiloInventory("Silo CEMENT (CORE)", -coreKg)
+		h.logMovement("Silo CEMENT (CORE)", -coreKg, "kg", "Silo extraction", "SILO_EXTRACTION", row.ID)
 	}
 	if kg3 > 0 {
 		h.adjustSiloInventory("Silo CEMENT (COATING)", -kg3)
+		h.logMovement("Silo CEMENT (COATING)", -kg3, "kg", "Silo extraction", "SILO_EXTRACTION", row.ID)
 	}
 	util.SendSuccess(w, "Silo extraction created", row)
 }
@@ -555,9 +583,11 @@ func (h *BusinessHandler) DeleteSiloExtraction(w http.ResponseWriter, r *http.Re
 	coreKg := kg1 + kg2
 	if coreKg > 0 {
 		h.adjustSiloInventory("Silo CEMENT (CORE)", coreKg)
+		h.logMovement("Silo CEMENT (CORE)", coreKg, "kg", "Silo extraction deleted", "SILO_EXTRACTION", row.ID)
 	}
 	if kg3 > 0 {
 		h.adjustSiloInventory("Silo CEMENT (COATING)", kg3)
+		h.logMovement("Silo CEMENT (COATING)", kg3, "kg", "Silo extraction deleted", "SILO_EXTRACTION", row.ID)
 	}
 	util.SendSuccess(w, "Silo extraction deleted", nil)
 }
@@ -771,8 +801,9 @@ func (h *BusinessHandler) DeleteSilo(w http.ResponseWriter, r *http.Request) {
 
 // ─── Silo Extraction ──────────────────────────────────────────────────────────
 
-// adjustSiloInventory adds deltaKg to the named silo product's inventory (outlet 1).
-func (h *BusinessHandler) adjustSiloInventory(productName string, deltaKg float64) {
+// adjustSiloInventory adds delta to the named silo product's inventory (outlet 1).
+// delta is in the product's native unit (MT for CEMENT, kg for Silo CEMENT CORE/COATING).
+func (h *BusinessHandler) adjustSiloInventory(productName string, delta float64) {
 	var prod models.Product
 	if h.db.Where("name = ?", productName).First(&prod).Error != nil {
 		return
@@ -783,7 +814,40 @@ func (h *BusinessHandler) adjustSiloInventory(productName string, deltaKg float6
 		h.db.Create(&inv)
 	}
 	h.db.Model(&inv).UpdateColumn("quantity_on_hand",
-		gorm.Expr("quantity_on_hand + ?", deltaKg))
+		gorm.Expr("quantity_on_hand + ?", delta))
+}
+
+func (h *BusinessHandler) logMovement(productName string, delta float64, unit, reason, refType string, refID uint) {
+	h.db.Create(&models.InventoryMovement{
+		ProductName: productName,
+		Delta:       delta,
+		Unit:        unit,
+		Reason:      reason,
+		RefType:     refType,
+		RefID:       refID,
+	})
+}
+
+func (h *BusinessHandler) ListInventoryMovements(w http.ResponseWriter, r *http.Request) {
+	q := h.db.Order("created_at DESC, id DESC")
+	if p := r.URL.Query().Get("product"); p != "" {
+		q = q.Where("product_name = ?", p)
+	}
+	if from := r.URL.Query().Get("from"); from != "" {
+		q = q.Where("DATE(created_at) >= ?", from)
+	}
+	if to := r.URL.Query().Get("to"); to != "" {
+		q = q.Where("DATE(created_at) <= ?", to)
+	}
+	if rt := r.URL.Query().Get("refType"); rt != "" {
+		q = q.Where("ref_type = ?", rt)
+	}
+	var rows []models.InventoryMovement
+	if err := q.Limit(500).Find(&rows).Error; err != nil {
+		util.SendError(w, http.StatusInternalServerError, "Failed to fetch movements")
+		return
+	}
+	util.SendSuccess(w, "Inventory movements retrieved", rows)
 }
 
 // siloFillKg returns spinning kg and coating kg from a silo fill row (silo 1/2 → core, silo 3 → coating).

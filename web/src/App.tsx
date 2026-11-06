@@ -38,6 +38,7 @@ import DirectPurchasePage from '@/pages/purchases/DirectPurchasePage'
 import DirectPurchaseFormPage from '@/pages/purchases/DirectPurchaseFormPage'
 import TransfersPage from '@/pages/inventory/TransfersPage'
 import StageWiseInventoryPage from '@/pages/inventory/StageWiseInventoryPage'
+import InventoryMovementsPage from '@/pages/inventory/InventoryMovementsPage'
 import OrdersPage from '@/pages/orders/OrdersPage'
 import CreateOrderPage from '@/pages/orders/CreateOrderPage'
 import SalesOrdersPage from '@/pages/orders/SalesOrdersPage'
@@ -191,6 +192,7 @@ export default function App() {
           <Route path="/inventory/uom" element={<ProtectedRoute><UomConversionPage /></ProtectedRoute>} />
           <Route path="/inventory/bulk-purchase" element={<ProtectedRoute><BulkPurchasePage /></ProtectedRoute>} />
           <Route path="/inventory/stage-wise" element={<ProtectedRoute><StageWiseInventoryPage /></ProtectedRoute>} />
+          <Route path="/inventory/movements" element={<ProtectedRoute><InventoryMovementsPage /></ProtectedRoute>} />
           <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
           <Route path="/customers/new" element={<ProtectedRoute><CustomerFormPage /></ProtectedRoute>} />
           <Route path="/customers/:id/edit" element={<ProtectedRoute><CustomerFormPage /></ProtectedRoute>} />

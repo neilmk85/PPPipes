@@ -75,6 +75,7 @@ const navEntries: NavEntry[] = [
       { path: '/inventory',              icon: <Boxes size={14} />,        label: 'Stock',                permission: 'VIEW_INVENTORY' },
       { path: '/inventory/stage-wise',   icon: <Layers size={14} />,       label: 'Stage Wise Inventory', permission: 'VIEW_INVENTORY' },
       { path: '/inventory/categories',   icon: <Tag size={14} />,          label: 'Categories',           permission: 'VIEW_CATEGORIES' },
+      { path: '/inventory/movements',    icon: <Activity size={14} />,     label: 'Movement Log',         permission: 'VIEW_INVENTORY' },
     ],
   },
   { path: '/business/loading', icon: <Truck size={18} />, label: 'Loading', permission: 'MANAGE_LOADING' },

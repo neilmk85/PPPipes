@@ -6,6 +6,21 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// ─── Inventory Movement Log ───────────────────────────────────────────────────
+
+type InventoryMovement struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	CreatedAt   time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	ProductName string    `gorm:"column:product_name;type:varchar(100);not null;index" json:"productName"`
+	Delta       float64   `gorm:"column:delta;type:decimal(14,4);not null" json:"delta"`
+	Unit        string    `gorm:"column:unit;type:varchar(20);not null" json:"unit"`
+	Reason      string    `gorm:"column:reason;type:varchar(200);not null" json:"reason"`
+	RefType     string    `gorm:"column:ref_type;type:varchar(50)" json:"refType"`
+	RefID       uint      `gorm:"column:ref_id" json:"refId"`
+}
+
+func (InventoryMovement) TableName() string { return "biz_inventory_movements" }
+
 // ─── Silo Fill ────────────────────────────────────────────────────────────────
 // Records cement filled INTO the silos from supplier delivery.
 // Silo 1 & 2 feed the Spinning stage (Silo CEMENT CORE); Silo 3 feeds Coating.

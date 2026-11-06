@@ -2024,6 +2024,7 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 	mux.HandleFunc("GET /api/business/silo-extractions", middleware.Chain(businessHandler.ListSiloExtractions, middleware.Authenticate(db)))
 	mux.HandleFunc("POST /api/business/silo-extractions", middleware.Chain(businessHandler.CreateSiloExtraction, middleware.Authenticate(db)))
 	mux.HandleFunc("DELETE /api/business/silo-extractions/{id}", middleware.Chain(businessHandler.DeleteSiloExtraction, middleware.Authenticate(db)))
+	mux.HandleFunc("GET /api/business/inventory-movements", middleware.Chain(businessHandler.ListInventoryMovements, middleware.Authenticate(db)))
 
 	// Diesel Maintenance
 	mux.HandleFunc("GET /api/business/diesel-maintenance", middleware.Chain(businessHandler.ListDieselMaintenance, middleware.Authenticate(db)))

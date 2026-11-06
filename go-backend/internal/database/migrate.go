@@ -645,6 +645,12 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// Phase 30: Inventory movement audit log
+	if err := db.AutoMigrate(&models.InventoryMovement{}); err != nil {
+		slog.Error("[Database] Failed to migrate InventoryMovement", "error", err)
+		return err
+	}
+
 	slog.Info("[Database] Migrations completed successfully")
 	return nil
 }
