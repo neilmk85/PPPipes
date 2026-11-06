@@ -398,6 +398,23 @@ func (pos *PurchaseOrderService) CreateDirect(data map[string]interface{}) (*mod
 
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Log inventory movements after successful transaction
+	for _, item := range itemsData {
+		if item.ProductID == nil {
+			continue
+		}
+		var prod models.Product
+		if pos.db.Select("name, unit_of_measure").First(&prod, *item.ProductID).Error == nil {
+			qty, _ := item.Quantity.Float64()
+			logMovement(pos.db, prod.Name, qty, prod.UnitOfMeasure, "Purchase received", "PURCHASE", uint(order.ID))
+		}
+	}
+
+	return &order, nil
 }
 
 // Update updates an existing purchase order

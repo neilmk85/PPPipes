@@ -205,6 +205,12 @@ func (is *InventoryService) AdjustStock(dto AdjustStockDTO) (adjustment *models.
 		return nil, err
 	}
 
+	// Log inventory movement for the stock adjustment
+	if adjustment.Product != nil {
+		delta, _ := dto.Quantity.Float64()
+		logMovement(is.db, adjustment.Product.Name, delta, adjustment.Product.UnitOfMeasure, "Stock adjustment: "+string(adjustment.Reason), "STOCK_ADJUSTMENT", uint(adjustment.ID))
+	}
+
 	return adjustment, nil
 }
 
