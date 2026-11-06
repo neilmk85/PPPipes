@@ -1008,6 +1008,9 @@ func (h *BusinessHandler) CreateStoreRoomMaterial(w http.ResponseWriter, r *http
 		util.SendError(w, http.StatusInternalServerError, "Failed to create store room material entry")
 		return
 	}
+	if row.ProductID != nil && row.ItemName != "" {
+		h.logMovement(row.ItemName, -parseStoreQty(row.Quantity), row.Uom, "Store issue", "STORE_ISSUE", row.ID)
+	}
 	util.SendSuccess(w, "Store room material entry created", row)
 }
 
@@ -1045,6 +1048,12 @@ func (h *BusinessHandler) UpdateStoreRoomMaterial(w http.ResponseWriter, r *http
 		util.SendError(w, http.StatusInternalServerError, "Failed to update entry")
 		return
 	}
+	if old.ProductID != nil && old.ItemName != "" {
+		h.logMovement(old.ItemName, parseStoreQty(old.Quantity), old.Uom, "Store issue updated (reversed)", "STORE_ISSUE", row.ID)
+	}
+	if row.ProductID != nil && row.ItemName != "" {
+		h.logMovement(row.ItemName, -parseStoreQty(row.Quantity), row.Uom, "Store issue updated", "STORE_ISSUE", row.ID)
+	}
 	util.SendSuccess(w, "Entry updated", row)
 }
 
@@ -1071,6 +1080,9 @@ func (h *BusinessHandler) DeleteStoreRoomMaterial(w http.ResponseWriter, r *http
 	if txErr != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete entry")
 		return
+	}
+	if row.ProductID != nil && row.ItemName != "" {
+		h.logMovement(row.ItemName, parseStoreQty(row.Quantity), row.Uom, "Store issue deleted", "STORE_ISSUE", row.ID)
 	}
 	util.SendSuccess(w, "Entry deleted", nil)
 }
@@ -2366,6 +2378,21 @@ func (h *BusinessHandler) CreateConstruction(w http.ResponseWriter, r *http.Requ
 		util.SendError(w, http.StatusInternalServerError, "Failed to create construction entry")
 		return
 	}
+	if row.CementKg > 0 && row.SiloType != "" {
+		h.logMovement(constructionSiloProduct(row.SiloType), -row.CementKg, "kg", "Construction mix", "CONSTRUCTION", row.ID)
+	}
+	if row.CrushSandKg > 0 {
+		h.logMovement("CRUSHED SAND", -row.CrushSandKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+	}
+	if row.DustKg > 0 {
+		h.logMovement("DUST", -row.DustKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+	}
+	if row.Metal10mmKg > 0 {
+		h.logMovement("10MM METAL", -row.Metal10mmKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+	}
+	if row.Metal20mmKg > 0 {
+		h.logMovement("20MM METAL", -row.Metal20mmKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+	}
 	util.SendSuccess(w, "Construction entry created", row)
 }
 
@@ -2429,6 +2456,36 @@ func (h *BusinessHandler) UpdateConstruction(w http.ResponseWriter, r *http.Requ
 		util.SendError(w, http.StatusInternalServerError, "Failed to update construction entry")
 		return
 	}
+	if old.CementKg > 0 && old.SiloType != "" {
+		h.logMovement(constructionSiloProduct(old.SiloType), old.CementKg, "kg", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+	}
+	if old.CrushSandKg > 0 {
+		h.logMovement("CRUSHED SAND", old.CrushSandKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+	}
+	if old.DustKg > 0 {
+		h.logMovement("DUST", old.DustKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+	}
+	if old.Metal10mmKg > 0 {
+		h.logMovement("10MM METAL", old.Metal10mmKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+	}
+	if old.Metal20mmKg > 0 {
+		h.logMovement("20MM METAL", old.Metal20mmKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+	}
+	if upd.CementKg > 0 && upd.SiloType != "" {
+		h.logMovement(constructionSiloProduct(upd.SiloType), -upd.CementKg, "kg", "Construction mix updated", "CONSTRUCTION", upd.ID)
+	}
+	if upd.CrushSandKg > 0 {
+		h.logMovement("CRUSHED SAND", -upd.CrushSandKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+	}
+	if upd.DustKg > 0 {
+		h.logMovement("DUST", -upd.DustKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+	}
+	if upd.Metal10mmKg > 0 {
+		h.logMovement("10MM METAL", -upd.Metal10mmKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+	}
+	if upd.Metal20mmKg > 0 {
+		h.logMovement("20MM METAL", -upd.Metal20mmKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+	}
 	util.SendSuccess(w, "Construction entry updated", upd)
 }
 
@@ -2468,6 +2525,21 @@ func (h *BusinessHandler) DeleteConstruction(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		util.SendError(w, http.StatusInternalServerError, "Failed to delete construction entry")
 		return
+	}
+	if row.CementKg > 0 && row.SiloType != "" {
+		h.logMovement(constructionSiloProduct(row.SiloType), row.CementKg, "kg", "Construction mix deleted", "CONSTRUCTION", row.ID)
+	}
+	if row.CrushSandKg > 0 {
+		h.logMovement("CRUSHED SAND", row.CrushSandKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
+	}
+	if row.DustKg > 0 {
+		h.logMovement("DUST", row.DustKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
+	}
+	if row.Metal10mmKg > 0 {
+		h.logMovement("10MM METAL", row.Metal10mmKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
+	}
+	if row.Metal20mmKg > 0 {
+		h.logMovement("20MM METAL", row.Metal20mmKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
 	}
 	util.SendSuccess(w, "Construction entry deleted", nil)
 }
