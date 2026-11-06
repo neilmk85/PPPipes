@@ -222,9 +222,10 @@ export default function SalesOrderDetailPage() {
   const pipeItems    = (so?.items ?? []).filter((i: any) => i.pipeConfigId)
   const convertedCnt = pipeItems.filter((i: any) => i.productionOrderId).length
   const pendingCnt   = pipeItems.length - convertedCnt
-  const totalPipes   = pipeItems.reduce((sum: number, i: any) => sum + Number(i.quantity), 0)
-  const totalMeters  = +pipeItems.reduce((sum: number, i: any) =>
-    sum + Number(i.quantity) * (i.pipeConfig?.lengthM ?? 5.25), 0).toFixed(2)
+  // quantity is stored in meters for pipe items; convert to pipes for display
+  const totalMeters  = +pipeItems.reduce((sum: number, i: any) => sum + Number(i.quantity), 0).toFixed(2)
+  const totalPipes   = pipeItems.reduce((sum: number, i: any) =>
+    sum + Math.ceil(Number(i.quantity) / (i.pipeConfig?.lengthM ?? 5.25)), 0)
 
   async function handleConvertItem(itemId: number) {
     setConvertingItem(itemId)
@@ -388,12 +389,12 @@ export default function SalesOrderDetailPage() {
               </p>
               <div className="grid grid-cols-2 divide-x divide-blue-100">
                 <div className="pr-6 text-center">
-                  <p className="text-3xl font-bold text-gray-900 tabular-nums">{totalPipes.toLocaleString()}</p>
-                  <p className="mt-1 text-xs text-gray-500">Total Number of Pipes</p>
-                </div>
-                <div className="pl-6 text-center">
                   <p className="text-3xl font-bold text-gray-900 tabular-nums">{totalMeters.toLocaleString()}</p>
                   <p className="mt-1 text-xs text-gray-500">Total Length in Meters</p>
+                </div>
+                <div className="pl-6 text-center">
+                  <p className="text-3xl font-bold text-gray-900 tabular-nums">{totalPipes.toLocaleString()}</p>
+                  <p className="mt-1 text-xs text-gray-500">Total Number of Pipes</p>
                 </div>
               </div>
             </div>
@@ -438,7 +439,7 @@ export default function SalesOrderDetailPage() {
               <thead>
                 <tr className="bg-slate-50 border-y border-slate-200">
                   <th className="px-6 py-3 text-left   text-[11px] font-bold text-slate-500 uppercase tracking-widest">Pipe / Product</th>
-                  <th className="px-6 py-3 text-center text-[11px] font-bold text-slate-500 uppercase tracking-widest">Qty</th>
+                  <th className="px-6 py-3 text-center text-[11px] font-bold text-slate-500 uppercase tracking-widest">Meters / Qty</th>
                   <th className="px-6 py-3 text-right  text-[11px] font-bold text-slate-500 uppercase tracking-widest">Unit Price</th>
                   <th className="px-6 py-3 text-right  text-[11px] font-bold text-slate-500 uppercase tracking-widest">Total</th>
                   <th className="px-6 py-3 text-center text-[11px] font-bold text-slate-500 uppercase tracking-widest">Production</th>
@@ -462,8 +463,15 @@ export default function SalesOrderDetailPage() {
                           {item.sku && <p className="text-xs text-gray-400 mt-0.5">{item.sku}</p>}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center font-semibold text-gray-800">
-                        {parseFloat(item.quantity).toLocaleString()}
+                      <td className="px-6 py-4 text-center">
+                        {isPipe ? (
+                          <div>
+                            <p className="font-semibold text-gray-800">{parseFloat(item.quantity).toLocaleString()} m</p>
+                            <p className="text-xs text-gray-400 mt-0.5">≈ {Math.ceil(Number(item.quantity) / (item.pipeConfig?.lengthM ?? 5.25))} pipes</p>
+                          </div>
+                        ) : (
+                          <span className="font-semibold text-gray-800">{parseFloat(item.quantity).toLocaleString()}</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right text-gray-600 tabular-nums">
                         ₹{parseFloat(item.unitPrice).toLocaleString('en-IN')}
