@@ -628,23 +628,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           final name     = diameter > 0
               ? '$diameter mm${pressure.isNotEmpty ? ' · $pressure' : ''}'
               : (order['pipeConfigName'] ?? order['pipeName'] ?? '—').toString();
-          final planned  = p.i(order['plannedQty']);
-          final done     = p.i(order['finishedPipes']);
-          final left     = (planned - done).clamp(0, planned);
-          final status   = (order['status'] ?? '').toString();
-          final isActive = status == 'IN_PROGRESS';
-          final lengthM  = p.d(order['lengthM']);
-          String toM(int pipes) {
-            final m = pipes * lengthM;
-            return '${m.toStringAsFixed(0)} m';
-          }
-          Widget numCell(String count, String meters, Color mainColor, {bool isStatusCell = false}) =>
+          // plannedQty is stored in meters (SO item.quantity = meters entered)
+          final plannedM   = p.d(order['plannedQty']);
+          final lengthM    = p.d(order['lengthM']);
+          final pipesTotal = lengthM > 0 ? (plannedM / lengthM).ceil() : 0;
+          final done       = p.i(order['finishedPipes']);
+          final left       = (pipesTotal - done).clamp(0, pipesTotal);
+          final status     = (order['status'] ?? '').toString();
+          final isActive   = status == 'IN_PROGRESS';
+          String mStr(double m) => '${m.toStringAsFixed(0)} m';
+          Widget numCell(String main, String sub, Color mainColor) =>
             Expanded(child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(count, textAlign: TextAlign.right,
+                Text(main, textAlign: TextAlign.right,
                     style: TextStyle(fontSize: 12, color: mainColor)),
-                Text(meters, textAlign: TextAlign.right,
+                Text(sub, textAlign: TextAlign.right,
                     style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
               ]),
             ));
@@ -654,9 +653,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                 child: Text(name, style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
               )),
-              numCell(planned.toString(), toM(planned), const Color(0xFF334155)),
-              numCell(done.toString(),    toM(done),    const Color(0xFF059669)),
-              numCell(left.toString(),    toM(left),    const Color(0xFFD97706)),
+              // Total: show meters as primary, pipe count as sub
+              numCell(mStr(plannedM), '≈ $pipesTotal pipes', const Color(0xFF334155)),
+              // Done: pipes as primary, meters as sub
+              numCell(done.toString(), mStr(done * lengthM), const Color(0xFF059669)),
+              // Left: pipes as primary, meters as sub
+              numCell(left.toString(), mStr(left * lengthM), const Color(0xFFD97706)),
               Expanded(child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                 child: Text(
