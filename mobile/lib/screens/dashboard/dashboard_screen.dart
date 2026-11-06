@@ -857,7 +857,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _hdiv(),
         if (_shellPlates.isEmpty) _empty('No shell plate products found')
         else ...[
-          ..._shellPlates.map((inv) {
+          ...([..._shellPlates]..sort((a, b) {
+            final aSheets = _sheetsFromKg((a['product']?['name'] ?? '').toString(), p.d(a['quantityOnHand']));
+            final bSheets = _sheetsFromKg((b['product']?['name'] ?? '').toString(), p.d(b['quantityOnHand']));
+            if ((aSheets > 0) == (bSheets > 0)) return 0;
+            return aSheets > 0 ? -1 : 1;
+          })).map((inv) {
             final name   = (inv['product']?['name'] ?? '').toString();
             final kg     = p.d(inv['quantityOnHand']);
             final sheets = _sheetsFromKg(name, kg);
