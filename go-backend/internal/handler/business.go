@@ -374,12 +374,12 @@ func (h *BusinessHandler) CreateSiloFill(w http.ResponseWriter, r *http.Request)
 	h.adjustSiloInventory("Silo CEMENT (CORE)", spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", coating)
 	mt := row.QuantityMT.InexactFloat64()
-	h.logMovement("CEMENT", -mt, "MT", fmt.Sprintf("Silo %d fill", row.SiloNumber), "SILO_FILL", row.ID)
+	h.logMovement("CEMENT", -mt, "MT", siloLabel(row.SiloNumber)+" fill", "SILO_FILL", row.ID)
 	if spinning > 0 {
-		h.logMovement("Silo CEMENT (CORE)", spinning, "kg", fmt.Sprintf("Silo %d fill", row.SiloNumber), "SILO_FILL", row.ID)
+		h.logMovement("Silo CEMENT (CORE)", spinning, "kg", siloLabel(row.SiloNumber)+" fill", "SILO_FILL", row.ID)
 	}
 	if coating > 0 {
-		h.logMovement("Silo CEMENT (COATING)", coating, "kg", fmt.Sprintf("Silo %d fill", row.SiloNumber), "SILO_FILL", row.ID)
+		h.logMovement("Silo CEMENT (COATING)", coating, "kg", siloLabel(row.SiloNumber)+" fill", "SILO_FILL", row.ID)
 	}
 	util.SendSuccess(w, "Silo fill created", row)
 }
@@ -412,13 +412,13 @@ func (h *BusinessHandler) UpdateSiloFill(w http.ResponseWriter, r *http.Request)
 	h.adjustSiloInventory("Silo CEMENT (CORE)", newSpinning-oldSpinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", newCoating-oldCoating)
 	if cementDelta != 0 {
-		h.logMovement("CEMENT", cementDelta, "MT", fmt.Sprintf("Silo %d fill updated", row.SiloNumber), "SILO_FILL", row.ID)
+		h.logMovement("CEMENT", cementDelta, "MT", siloLabel(row.SiloNumber)+" fill updated", "SILO_FILL", row.ID)
 	}
 	if newSpinning-oldSpinning != 0 {
-		h.logMovement("Silo CEMENT (CORE)", newSpinning-oldSpinning, "kg", fmt.Sprintf("Silo %d fill updated", row.SiloNumber), "SILO_FILL", row.ID)
+		h.logMovement("Silo CEMENT (CORE)", newSpinning-oldSpinning, "kg", siloLabel(row.SiloNumber)+" fill updated", "SILO_FILL", row.ID)
 	}
 	if newCoating-oldCoating != 0 {
-		h.logMovement("Silo CEMENT (COATING)", newCoating-oldCoating, "kg", fmt.Sprintf("Silo %d fill updated", row.SiloNumber), "SILO_FILL", row.ID)
+		h.logMovement("Silo CEMENT (COATING)", newCoating-oldCoating, "kg", siloLabel(row.SiloNumber)+" fill updated", "SILO_FILL", row.ID)
 	}
 	util.SendSuccess(w, "Silo fill updated", row)
 }
@@ -443,12 +443,12 @@ func (h *BusinessHandler) DeleteSiloFill(w http.ResponseWriter, r *http.Request)
 	h.adjustSiloInventory("CEMENT", mt)
 	h.adjustSiloInventory("Silo CEMENT (CORE)", -spinning)
 	h.adjustSiloInventory("Silo CEMENT (COATING)", -coating)
-	h.logMovement("CEMENT", mt, "MT", fmt.Sprintf("Silo %d fill deleted", row.SiloNumber), "SILO_FILL", row.ID)
+	h.logMovement("CEMENT", mt, "MT", siloLabel(row.SiloNumber)+" fill deleted", "SILO_FILL", row.ID)
 	if spinning > 0 {
-		h.logMovement("Silo CEMENT (CORE)", -spinning, "kg", fmt.Sprintf("Silo %d fill deleted", row.SiloNumber), "SILO_FILL", row.ID)
+		h.logMovement("Silo CEMENT (CORE)", -spinning, "kg", siloLabel(row.SiloNumber)+" fill deleted", "SILO_FILL", row.ID)
 	}
 	if coating > 0 {
-		h.logMovement("Silo CEMENT (COATING)", -coating, "kg", fmt.Sprintf("Silo %d fill deleted", row.SiloNumber), "SILO_FILL", row.ID)
+		h.logMovement("Silo CEMENT (COATING)", -coating, "kg", siloLabel(row.SiloNumber)+" fill deleted", "SILO_FILL", row.ID)
 	}
 	util.SendSuccess(w, "Silo fill deleted", nil)
 }
@@ -848,6 +848,14 @@ func (h *BusinessHandler) ListInventoryMovements(w http.ResponseWriter, r *http.
 		return
 	}
 	util.SendSuccess(w, "Inventory movements retrieved", rows)
+}
+
+// siloLabel returns "Silo CORE" for silos 1/2, "Silo COATING" for silo 3.
+func siloLabel(siloNumber int) string {
+	if siloNumber == 3 {
+		return "Silo COATING"
+	}
+	return "Silo CORE"
 }
 
 // siloFillKg returns spinning kg and coating kg from a silo fill row (silo 1/2 → core, silo 3 → coating).
