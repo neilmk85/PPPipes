@@ -633,15 +633,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           final left     = (planned - done).clamp(0, planned);
           final status   = (order['status'] ?? '').toString();
           final isActive = status == 'IN_PROGRESS';
+          final lengthM  = p.d(order['lengthM']);
+          String toM(int pipes) {
+            final m = pipes * lengthM;
+            return m >= 1000
+                ? '${(m / 1000).toStringAsFixed(2)} km'
+                : '${m.toStringAsFixed(0)} m';
+          }
+          Widget numCell(String count, String meters, Color mainColor, {bool isStatusCell = false}) =>
+            Expanded(child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(count, textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 12, color: mainColor)),
+                Text(meters, textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+              ]),
+            ));
           return Column(children: [
-            _DRow([
-              (name,                         TextAlign.left,  null),
-              (planned.toString(),           TextAlign.right, null),
-              (done.toString(),              TextAlign.right, const Color(0xFF059669)),
-              (left.toString(),              TextAlign.right, const Color(0xFFD97706)),
-              (isActive ? 'Active' : 'Planned',
-                                             TextAlign.right,
-                                             isActive ? const Color(0xFF059669) : const Color(0xFF9CA3AF)),
+            Row(children: [
+              Expanded(child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                child: Text(name, style: const TextStyle(fontSize: 12, color: Color(0xFF334155))),
+              )),
+              numCell(planned.toString(), toM(planned), const Color(0xFF334155)),
+              numCell(done.toString(),    toM(done),    const Color(0xFF059669)),
+              numCell(left.toString(),    toM(left),    const Color(0xFFD97706)),
+              Expanded(child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                child: Text(
+                  isActive ? 'Active' : 'Planned',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 12,
+                      color: isActive ? const Color(0xFF059669) : const Color(0xFF9CA3AF)),
+                ),
+              )),
             ]),
             _div(),
           ]);
