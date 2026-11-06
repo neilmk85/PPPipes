@@ -815,6 +815,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  // weight of one 1.6mm MS sheet: π × (d/1000) × 1m × 0.0016m × 7850 kg/m³
+  double _sheetWeightKg(int diameterMm) =>
+      3.14159265 * (diameterMm / 1000.0) * 1.0 * 0.0016 * 7850;
+
+  int _sheetsFromKg(String name, double weightKg) {
+    final match = RegExp(r'\b(\d{3,4})\b').firstMatch(name);
+    if (match == null) return 0;
+    final d = int.tryParse(match.group(1) ?? '') ?? 0;
+    final w = _sheetWeightKg(d);
+    return w > 0 ? (weightKg / w).round() : 0;
+  }
+
   // ── Shell Plates ──────────────────────────────────────────────────────────────
   Widget _buildShellPlates() {
     return _Card(
@@ -825,9 +837,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         trailing: _shellPlates.isNotEmpty ? Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('Total Weight',
+            Text('Total Sheets',
                 style: TextStyle(color: Colors.blue.shade100, fontSize: 9)),
-            Text('${_fmt(_shellTotal)} kg',
+            Text(_fmt(_shellPlates.fold<int>(0, (s, i) {
+              final n = (i['product']?['name'] ?? '').toString();
+              return s + _sheetsFromKg(n, p.d(i['quantityOnHand']));
+            }).toDouble()),
                 style: const TextStyle(color: Colors.white,
                     fontWeight: FontWeight.bold, fontSize: 12)),
           ],
@@ -843,20 +858,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         if (_shellPlates.isEmpty) _empty('No shell plate products found')
         else ...[
           ..._shellPlates.map((inv) {
-            final name = (inv['product']?['name'] ?? '').toString();
-            final qty  = p.d(inv['quantityOnHand']);
+            final name   = (inv['product']?['name'] ?? '').toString();
+            final kg     = p.d(inv['quantityOnHand']);
+            final sheets = _sheetsFromKg(name, kg);
             return Column(children: [
               _DRow([
-                (_extractDiameter(name), TextAlign.left, null),
-                (_fmt(qty), TextAlign.right, null),
-                ('${_fmt(qty)} kg', TextAlign.right, null),
+                (_extractDiameter(name),          TextAlign.left,  null),
+                (sheets > 0 ? _fmt(sheets.toDouble()) : '—', TextAlign.right, null),
+                (kg > 0 ? '${_fmt(kg)} kg' : '0 kg', TextAlign.right, null),
               ]),
               _div(),
             ]);
           }),
           _DRow([
             ('Total', TextAlign.left, _violet),
-            (_fmt(_shellTotal), TextAlign.right, null),
+            (_fmt(_shellPlates.fold<int>(0, (s, i) {
+              final n = (i['product']?['name'] ?? '').toString();
+              return s + _sheetsFromKg(n, p.d(i['quantityOnHand']));
+            }).toDouble()), TextAlign.right, null),
             ('${_fmt(_shellTotal)} kg', TextAlign.right, null),
           ], footer: true),
         ],
