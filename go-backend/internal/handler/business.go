@@ -2361,16 +2361,16 @@ func (h *BusinessHandler) CreateConstruction(w http.ResponseWriter, r *http.Requ
 			h.adjustInventoryByName(tx, constructionSiloProduct(row.SiloType), -row.CementKg)
 		}
 		if row.CrushSandKg > 0 {
-			h.adjustInventoryByName(tx, "CRUSHED SAND", -row.CrushSandKg)
+			h.adjustInventoryByName(tx, "CRUSHED SAND", -row.CrushSandKg/5000)
 		}
 		if row.DustKg > 0 {
-			h.adjustInventoryByName(tx, "DUST", -row.DustKg)
+			h.adjustInventoryByName(tx, "DUST", -row.DustKg/3000)
 		}
 		if row.Metal10mmKg > 0 {
-			h.adjustInventoryByName(tx, "10MM METAL", -row.Metal10mmKg)
+			h.adjustInventoryByName(tx, "10MM METAL", -row.Metal10mmKg/4900)
 		}
 		if row.Metal20mmKg > 0 {
-			h.adjustInventoryByName(tx, "20MM METAL", -row.Metal20mmKg)
+			h.adjustInventoryByName(tx, "20MM METAL", -row.Metal20mmKg/4750)
 		}
 		return nil
 	})
@@ -2382,16 +2382,16 @@ func (h *BusinessHandler) CreateConstruction(w http.ResponseWriter, r *http.Requ
 		h.logMovement(constructionSiloProduct(row.SiloType), -row.CementKg, "kg", "Construction mix", "CONSTRUCTION", row.ID)
 	}
 	if row.CrushSandKg > 0 {
-		h.logMovement("CRUSHED SAND", -row.CrushSandKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+		h.logMovement("CRUSHED SAND", -row.CrushSandKg/5000, "brass", "Construction mix", "CONSTRUCTION", row.ID)
 	}
 	if row.DustKg > 0 {
-		h.logMovement("DUST", -row.DustKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+		h.logMovement("DUST", -row.DustKg/3000, "brass", "Construction mix", "CONSTRUCTION", row.ID)
 	}
 	if row.Metal10mmKg > 0 {
-		h.logMovement("10MM METAL", -row.Metal10mmKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+		h.logMovement("10MM METAL", -row.Metal10mmKg/4900, "brass", "Construction mix", "CONSTRUCTION", row.ID)
 	}
 	if row.Metal20mmKg > 0 {
-		h.logMovement("20MM METAL", -row.Metal20mmKg, "brass", "Construction mix", "CONSTRUCTION", row.ID)
+		h.logMovement("20MM METAL", -row.Metal20mmKg/4750, "brass", "Construction mix", "CONSTRUCTION", row.ID)
 	}
 	util.SendSuccess(w, "Construction entry created", row)
 }
@@ -2418,16 +2418,16 @@ func (h *BusinessHandler) UpdateConstruction(w http.ResponseWriter, r *http.Requ
 			h.adjustInventoryByName(tx, constructionSiloProduct(old.SiloType), old.CementKg)
 		}
 		if old.CrushSandKg > 0 {
-			h.adjustInventoryByName(tx, "CRUSHED SAND", old.CrushSandKg)
+			h.adjustInventoryByName(tx, "CRUSHED SAND", old.CrushSandKg/5000)
 		}
 		if old.DustKg > 0 {
-			h.adjustInventoryByName(tx, "DUST", old.DustKg)
+			h.adjustInventoryByName(tx, "DUST", old.DustKg/3000)
 		}
 		if old.Metal10mmKg > 0 {
-			h.adjustInventoryByName(tx, "10MM METAL", old.Metal10mmKg)
+			h.adjustInventoryByName(tx, "10MM METAL", old.Metal10mmKg/4900)
 		}
 		if old.Metal20mmKg > 0 {
-			h.adjustInventoryByName(tx, "20MM METAL", old.Metal20mmKg)
+			h.adjustInventoryByName(tx, "20MM METAL", old.Metal20mmKg/4750)
 		}
 		// Apply new values
 		upd.ID = id
@@ -2439,16 +2439,16 @@ func (h *BusinessHandler) UpdateConstruction(w http.ResponseWriter, r *http.Requ
 			h.adjustInventoryByName(tx, constructionSiloProduct(upd.SiloType), -upd.CementKg)
 		}
 		if upd.CrushSandKg > 0 {
-			h.adjustInventoryByName(tx, "CRUSHED SAND", -upd.CrushSandKg)
+			h.adjustInventoryByName(tx, "CRUSHED SAND", -upd.CrushSandKg/5000)
 		}
 		if upd.DustKg > 0 {
-			h.adjustInventoryByName(tx, "DUST", -upd.DustKg)
+			h.adjustInventoryByName(tx, "DUST", -upd.DustKg/3000)
 		}
 		if upd.Metal10mmKg > 0 {
-			h.adjustInventoryByName(tx, "10MM METAL", -upd.Metal10mmKg)
+			h.adjustInventoryByName(tx, "10MM METAL", -upd.Metal10mmKg/4900)
 		}
 		if upd.Metal20mmKg > 0 {
-			h.adjustInventoryByName(tx, "20MM METAL", -upd.Metal20mmKg)
+			h.adjustInventoryByName(tx, "20MM METAL", -upd.Metal20mmKg/4750)
 		}
 		return nil
 	})
@@ -2460,31 +2460,31 @@ func (h *BusinessHandler) UpdateConstruction(w http.ResponseWriter, r *http.Requ
 		h.logMovement(constructionSiloProduct(old.SiloType), old.CementKg, "kg", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
 	}
 	if old.CrushSandKg > 0 {
-		h.logMovement("CRUSHED SAND", old.CrushSandKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+		h.logMovement("CRUSHED SAND", old.CrushSandKg/5000, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
 	}
 	if old.DustKg > 0 {
-		h.logMovement("DUST", old.DustKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+		h.logMovement("DUST", old.DustKg/3000, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
 	}
 	if old.Metal10mmKg > 0 {
-		h.logMovement("10MM METAL", old.Metal10mmKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+		h.logMovement("10MM METAL", old.Metal10mmKg/4900, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
 	}
 	if old.Metal20mmKg > 0 {
-		h.logMovement("20MM METAL", old.Metal20mmKg, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
+		h.logMovement("20MM METAL", old.Metal20mmKg/4750, "brass", "Construction mix updated (reversed)", "CONSTRUCTION", upd.ID)
 	}
 	if upd.CementKg > 0 && upd.SiloType != "" {
 		h.logMovement(constructionSiloProduct(upd.SiloType), -upd.CementKg, "kg", "Construction mix updated", "CONSTRUCTION", upd.ID)
 	}
 	if upd.CrushSandKg > 0 {
-		h.logMovement("CRUSHED SAND", -upd.CrushSandKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+		h.logMovement("CRUSHED SAND", -upd.CrushSandKg/5000, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
 	}
 	if upd.DustKg > 0 {
-		h.logMovement("DUST", -upd.DustKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+		h.logMovement("DUST", -upd.DustKg/3000, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
 	}
 	if upd.Metal10mmKg > 0 {
-		h.logMovement("10MM METAL", -upd.Metal10mmKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+		h.logMovement("10MM METAL", -upd.Metal10mmKg/4900, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
 	}
 	if upd.Metal20mmKg > 0 {
-		h.logMovement("20MM METAL", -upd.Metal20mmKg, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
+		h.logMovement("20MM METAL", -upd.Metal20mmKg/4750, "brass", "Construction mix updated", "CONSTRUCTION", upd.ID)
 	}
 	util.SendSuccess(w, "Construction entry updated", upd)
 }
@@ -2509,16 +2509,16 @@ func (h *BusinessHandler) DeleteConstruction(w http.ResponseWriter, r *http.Requ
 			h.adjustInventoryByName(tx, constructionSiloProduct(row.SiloType), row.CementKg)
 		}
 		if row.CrushSandKg > 0 {
-			h.adjustInventoryByName(tx, "CRUSHED SAND", row.CrushSandKg)
+			h.adjustInventoryByName(tx, "CRUSHED SAND", row.CrushSandKg/5000)
 		}
 		if row.DustKg > 0 {
-			h.adjustInventoryByName(tx, "DUST", row.DustKg)
+			h.adjustInventoryByName(tx, "DUST", row.DustKg/3000)
 		}
 		if row.Metal10mmKg > 0 {
-			h.adjustInventoryByName(tx, "10MM METAL", row.Metal10mmKg)
+			h.adjustInventoryByName(tx, "10MM METAL", row.Metal10mmKg/4900)
 		}
 		if row.Metal20mmKg > 0 {
-			h.adjustInventoryByName(tx, "20MM METAL", row.Metal20mmKg)
+			h.adjustInventoryByName(tx, "20MM METAL", row.Metal20mmKg/4750)
 		}
 		return nil
 	})
@@ -2530,16 +2530,16 @@ func (h *BusinessHandler) DeleteConstruction(w http.ResponseWriter, r *http.Requ
 		h.logMovement(constructionSiloProduct(row.SiloType), row.CementKg, "kg", "Construction mix deleted", "CONSTRUCTION", row.ID)
 	}
 	if row.CrushSandKg > 0 {
-		h.logMovement("CRUSHED SAND", row.CrushSandKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
+		h.logMovement("CRUSHED SAND", row.CrushSandKg/5000, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
 	}
 	if row.DustKg > 0 {
-		h.logMovement("DUST", row.DustKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
+		h.logMovement("DUST", row.DustKg/3000, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
 	}
 	if row.Metal10mmKg > 0 {
-		h.logMovement("10MM METAL", row.Metal10mmKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
+		h.logMovement("10MM METAL", row.Metal10mmKg/4900, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
 	}
 	if row.Metal20mmKg > 0 {
-		h.logMovement("20MM METAL", row.Metal20mmKg, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
+		h.logMovement("20MM METAL", row.Metal20mmKg/4750, "brass", "Construction mix deleted", "CONSTRUCTION", row.ID)
 	}
 	util.SendSuccess(w, "Construction entry deleted", nil)
 }
