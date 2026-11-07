@@ -6246,7 +6246,7 @@ class _PdiScreenState extends State<PdiScreen> {
       final name  = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
       final dateStr = (e['entryDate'] ?? e['createdAt'] ?? '') as String;
       if (dateStr.isEmpty) continue;
-      final entryDate = DateTime.tryParse(dateStr);
+      final entryDate = DateTime.tryParse(dateStr.split('T').first);
       if (entryDate == null) continue;
       final daysAgo = DateTime(today.year, today.month, today.day)
           .difference(DateTime(entryDate.year, entryDate.month, entryDate.day))
@@ -16455,7 +16455,7 @@ class _PccpStageScreenState extends State<PccpStageScreen> {
       for (final e in c2Entries.cast<Map<String, dynamic>>()) {
         final name     = (e['pipeConfig']?['name'] ?? 'Config #${e['pipeConfigId']}') as String;
         final dateStr  = (e['entryDate'] ?? e['createdAt'] ?? '') as String;
-        final entryDate = DateTime.tryParse(dateStr);
+        final entryDate = DateTime.tryParse(dateStr.split('T').first);
         if (entryDate == null) continue;
         final daysAgo  = DateTime(today.year, today.month, today.day)
             .difference(DateTime(entryDate.year, entryDate.month, entryDate.day))
@@ -16831,10 +16831,10 @@ class _EntryTile extends StatelessWidget {
     final pipeName  = entry['pipeConfig']?['name']?.toString() ?? 'Pipe #${entry['pipeConfigId']}';
     final pipes     = (entry['pipesCompleted'] as num?)?.toInt() ?? 0;
     final rawDate   = entry['entryDate'] as String? ?? '';
-    final entryDt   = rawDate.isNotEmpty ? DateTime.tryParse(rawDate) : null;
+    final entryDt   = rawDate.isNotEmpty ? DateTime.tryParse(rawDate.split('T').first) : null;
     final dateStr   = entryDt != null ? DateFormat('d MMM yyyy').format(entryDt) : '—';
     final rawCreated = entry['createdAt'] as String? ?? '';
-    final createdDt  = rawCreated.isNotEmpty ? DateTime.tryParse(rawCreated) : null;
+    final createdDt  = rawCreated.isNotEmpty ? DateTime.tryParse(rawCreated.split('T').first) : null;
     final createdDateOnly = createdDt != null ? DateTime(createdDt.year, createdDt.month, createdDt.day) : null;
     final entryDateOnly   = entryDt   != null ? DateTime(entryDt.year,   entryDt.month,   entryDt.day)   : null;
     final showEnteredOn   = createdDateOnly != null && entryDateOnly != null && createdDateOnly != entryDateOnly;
