@@ -16831,9 +16831,14 @@ class _EntryTile extends StatelessWidget {
     final pipeName  = entry['pipeConfig']?['name']?.toString() ?? 'Pipe #${entry['pipeConfigId']}';
     final pipes     = (entry['pipesCompleted'] as num?)?.toInt() ?? 0;
     final rawDate   = entry['entryDate'] as String? ?? '';
-    final dateStr   = rawDate.isNotEmpty
-      ? DateFormat('d MMM yyyy').format(DateTime.tryParse(rawDate) ?? DateTime.now())
-      : '—';
+    final entryDt   = rawDate.isNotEmpty ? DateTime.tryParse(rawDate) : null;
+    final dateStr   = entryDt != null ? DateFormat('d MMM yyyy').format(entryDt) : '—';
+    final rawCreated = entry['createdAt'] as String? ?? '';
+    final createdDt  = rawCreated.isNotEmpty ? DateTime.tryParse(rawCreated) : null;
+    final createdDateOnly = createdDt != null ? DateTime(createdDt.year, createdDt.month, createdDt.day) : null;
+    final entryDateOnly   = entryDt   != null ? DateTime(entryDt.year,   entryDt.month,   entryDt.day)   : null;
+    final showEnteredOn   = createdDateOnly != null && entryDateOnly != null && createdDateOnly != entryDateOnly;
+    final enteredOnStr    = showEnteredOn ? DateFormat('d MMM yyyy').format(createdDt!) : null;
     final shift     = entry['shiftName']?.toString();
     final batchNo   = entry['batchNumber']?.toString();
     final orderNo   = entry['productionOrderId'] != null ? 'PRD #${entry['productionOrderId']}' : null;
@@ -16848,7 +16853,7 @@ class _EntryTile extends StatelessWidget {
       child: Row(children: [
         Container(
           width: 5,
-          height: 60,
+          height: showEnteredOn ? 76 : 60,
           decoration: BoxDecoration(
             color: color,
             borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
@@ -16872,6 +16877,15 @@ class _EntryTile extends StatelessWidget {
                     Text('Shift $shift', style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
                   ],
                 ]),
+                if (enteredOnStr != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(children: [
+                      const Icon(Icons.edit_calendar_outlined, size: 11, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 4),
+                      Text('Entered: $enteredOnStr', style: const TextStyle(fontSize: 11, color: Color(0xFFF59E0B))),
+                    ]),
+                  ),
                 if (batchNo != null || orderNo != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 3),
