@@ -336,31 +336,12 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 		return nil, err
 	}
 
-	// PDI balance = total PDI'd - total loaded (available in PDI yard)
-	type pdiRow struct {
-		PipeName string
-		PDI      int
-	}
-	var pdiRows []pdiRow
-	s.db.Raw(`
-		SELECT p.pipe_name,
-			GREATEST(0, COALESCE(SUM(p.quantity), 0) -
-				COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0)
-			) AS pdi
-		FROM biz_pdis p GROUP BY p.pipe_name
-	`).Scan(&pdiRows)
-	pdiBalanceMap := map[string]int{}
-	for _, pr := range pdiRows {
-		pdiBalanceMap[pr.PipeName] = pr.PDI
-	}
-
-	// Compute totals and drop rows where every stage is zero.
+	// Compute totals (PDI is informational only — not added to total).
 	result := rows[:0]
 	for _, r := range rows {
-		r.PDI = pdiBalanceMap[r.PipeName]
 		r.Total = r.Fabrication + r.FabricationTesting + r.Moulding +
 			r.Spinning + r.Demoulding + r.Curing1 + r.Winding + r.Winding2 +
-			r.Coating + r.Coating2 + r.Curing2 + r.FinalTesting + r.PDI
+			r.Coating + r.Coating2 + r.Curing2 + r.FinalTesting
 		if r.Total > 0 {
 			result = append(result, r)
 		}
