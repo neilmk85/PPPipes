@@ -407,28 +407,9 @@ func (s *ProductionOrderService) GetIntermediateStock(fromDate, toDate string) (
 	if err := s.db.Raw(query, args...).Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	// Fetch PDI balances per pipe name
-	type pdiRow2 struct {
-		PipeName string
-		PDI      int
-	}
-	var pdiRows2 []pdiRow2
-	s.db.Raw(`
-		SELECT p.pipe_name,
-			GREATEST(0, COALESCE(SUM(p.quantity), 0) -
-				COALESCE((SELECT SUM(lr.quantity) FROM biz_loading_records lr WHERE lr.pipe_name = p.pipe_name), 0)
-			) AS pdi
-		FROM biz_pdis p GROUP BY p.pipe_name
-	`).Scan(&pdiRows2)
-	pdiMap2 := map[string]int{}
-	for _, pr := range pdiRows2 {
-		pdiMap2[pr.PipeName] = pr.PDI
-	}
-
 	result := rows[:0]
 	for _, r := range rows {
-		r.PDI = pdiMap2[r.PipeName]
-		r.Total = r.Curing1 + r.Curing2 + r.FinalTesting + r.PDI
+		r.Total = r.Curing1 + r.Curing2 + r.FinalTesting
 		if r.Total > 0 {
 			result = append(result, r)
 		}
