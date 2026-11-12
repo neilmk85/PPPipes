@@ -336,9 +336,25 @@ func (s *ProductionOrderService) GetAllStagesStock(fromDate, toDate string) ([]A
 		return nil, err
 	}
 
-	// Compute totals (PDI is informational only — not added to total).
+	// PDI count is informational only — shown in its column but NOT added to Total.
+	type pdiRow struct {
+		PipeName string
+		PDI      int
+	}
+	var pdiRows []pdiRow
+	s.db.Raw(`
+		SELECT p.pipe_name,
+			COALESCE(SUM(p.quantity), 0) AS pdi
+		FROM biz_pdis p GROUP BY p.pipe_name
+	`).Scan(&pdiRows)
+	pdiMap := map[string]int{}
+	for _, pr := range pdiRows {
+		pdiMap[pr.PipeName] = pr.PDI
+	}
+
 	result := rows[:0]
 	for _, r := range rows {
+		r.PDI = pdiMap[r.PipeName]
 		r.Total = r.Fabrication + r.FabricationTesting + r.Moulding +
 			r.Spinning + r.Demoulding + r.Curing1 + r.Winding + r.Winding2 +
 			r.Coating + r.Coating2 + r.Curing2 + r.FinalTesting
