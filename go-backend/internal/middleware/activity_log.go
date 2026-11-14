@@ -744,6 +744,30 @@ func describeProduction(action, resource string, req, resp []byte) (string, stri
 	case "orders":
 		num := label(req, resp, "poNumber", "orderNumber", "number")
 		qty := bodyField(req, "plannedQty")
+
+		// Status change — detect hold/resume/complete for richer descriptions
+		if status := bodyField(req, "status"); status != "" && action == "UPDATED" {
+			switch status {
+			case "ON_HOLD":
+				base := fmt.Sprintf("Put production order ON HOLD: %s", num)
+				if reason := bodyField(req, "holdReason"); reason != "" {
+					base += " — reason: " + reason
+				}
+				if hqty := bodyField(req, "holdQtyProduced"); hqty != "" && hqty != "0" {
+					base += fmt.Sprintf(" (%s pipes completed at hold)", hqty)
+				}
+				return "UPDATED", "PRODUCTION", base
+			case "IN_PROGRESS":
+				return "UPDATED", "PRODUCTION", fmt.Sprintf("Resumed/started production order: %s", num)
+			case "COMPLETED":
+				return "UPDATED", "PRODUCTION", fmt.Sprintf("Completed production order: %s", num)
+			case "CANCELLED":
+				return "UPDATED", "PRODUCTION", fmt.Sprintf("Cancelled production order: %s", num)
+			default:
+				return "UPDATED", "PRODUCTION", fmt.Sprintf("Updated production order status to %s: %s", status, num)
+			}
+		}
+
 		if num != "" && qty != "" {
 			return action, "PRODUCTION", fmt.Sprintf("%s production order: %s (%s pipes planned)", actionVerb(action), num, qty)
 		}
