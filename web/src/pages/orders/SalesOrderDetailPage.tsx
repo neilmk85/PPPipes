@@ -5,7 +5,7 @@ import {
   ArrowLeft, FileText, CheckCircle2, Truck, XCircle,
   Factory, User, Calendar, MapPin, Edit2, Loader2,
   ChevronRight, Package, Zap, AlertCircle, Clock, X,
-  IndianRupee, Plus, Trash2,
+  IndianRupee, Plus, Trash2, AlertTriangle,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -190,6 +190,13 @@ export default function SalesOrderDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // Early Close state
+  const [showEarlyClose, setShowEarlyClose]     = useState(false)
+  const [earlyCloseStep, setEarlyCloseStep]     = useState<'warn' | 'form'>('warn')
+  const [earlyCloseNote, setEarlyCloseNote]     = useState('')
+  const [earlyCloseQtys, setEarlyCloseQtys]     = useState<Record<number, string>>({})
+  const [earlyClosing, setEarlyClosing]         = useState(false)
+
   async function handleDelete() {
     setDeleting(true)
     try {
@@ -218,6 +225,31 @@ export default function SalesOrderDetailPage() {
   const payments: any[] = paymentsData ?? []
   const totalPaid = payments.reduce((s, p) => s + parseFloat(p.amount ?? 0), 0)
   const balance = Math.max(0, parseFloat(so?.totalAmount ?? 0) - totalPaid)
+
+  const convertedPOs = (so?.items ?? []).filter((i: any) => i.productionOrderId && i.productionOrder)
+  const activePOs    = convertedPOs.filter((i: any) =>
+    !['COMPLETED', 'CANCELLED'].includes(i.productionOrder?.status))
+
+  async function handleEarlyClose() {
+    if (!earlyCloseNote.trim()) { toast.error('Please enter a reason'); return }
+    const items = activePOs.map((i: any) => ({
+      productionOrderId: i.productionOrder.id,
+      completionQty: parseInt(earlyCloseQtys[i.productionOrder.id] ?? '0', 10),
+    }))
+    if (items.some((x: { completionQty: number }) => !x.completionQty || x.completionQty <= 0)) {
+      toast.error('Enter actual completed quantity for each production order')
+      return
+    }
+    setEarlyClosing(true)
+    try {
+      await salesOrderApi.earlyClose(Number(id), { note: earlyCloseNote, items })
+      toast.success('Sales order early-closed successfully')
+      qc.invalidateQueries({ queryKey: ['sales-order', id] })
+      setShowEarlyClose(false)
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? 'Failed to early-close')
+    } finally { setEarlyClosing(false) }
+  }
 
   const pipeItems    = (so?.items ?? []).filter((i: any) => i.pipeConfigId)
   const convertedCnt = pipeItems.filter((i: any) => i.productionOrderId).length
@@ -297,6 +329,20 @@ export default function SalesOrderDetailPage() {
             <button onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center gap-2 bg-white border border-red-200 hover:bg-red-50 text-red-600 px-4 py-2 rounded-xl font-semibold text-sm shadow-sm transition-all">
               <Trash2 size={15} /> Delete
+            </button>
+          )}
+          {activePOs.length > 0 && (
+            <button
+              onClick={() => {
+                const defaults: Record<number, string> = {}
+                activePOs.forEach((i: any) => { defaults[i.productionOrder.id] = '' })
+                setEarlyCloseQtys(defaults)
+                setEarlyCloseNote('')
+                setEarlyCloseStep('warn')
+                setShowEarlyClose(true)
+              }}
+              className="flex items-center gap-2 bg-white border border-amber-300 hover:bg-amber-50 text-amber-700 px-4 py-2 rounded-xl font-semibold text-sm shadow-sm transition-all">
+              <AlertTriangle size={15} /> Early Close
             </button>
           )}
           <button onClick={() => setShowPaymentModal(true)}
@@ -665,6 +711,126 @@ export default function SalesOrderDetailPage() {
           balance={balance}
           onClose={() => setShowPaymentModal(false)}
         />
+      )}
+
+      {/* ── Early Close Modal ── */}
+      {showEarlyClose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
+                <AlertTriangle size={18} className="text-amber-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-gray-900">Early Close Sales Order</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{so.soNumber}</p>
+              </div>
+              <button onClick={() => setShowEarlyClose(false)}>
+                <X size={16} className="text-gray-400 hover:text-gray-600" />
+              </button>
+            </div>
+
+            {earlyCloseStep === 'warn' ? (
+              <>
+                <div className="px-6 py-5">
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-4 space-y-2">
+                    <p className="text-sm font-semibold text-amber-800">Are you sure you want to early-close this order?</p>
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      This will mark all active production orders under this sales order as <strong>Completed</strong>,
+                      even if planned quantities were not fully met. You will need to enter the actual quantity
+                      completed for each pipe type and provide a reason.
+                    </p>
+                    <div className="pt-1">
+                      <p className="text-xs font-semibold text-amber-700">Active production orders ({activePOs.length}):</p>
+                      {activePOs.map((i: any) => (
+                        <p key={i.productionOrder.id} className="text-xs text-amber-600 mt-0.5">
+                          • {i.productionOrder.poNumber} — {i.productName} — {i.productionOrder.plannedQty} pipes planned
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+                  <button onClick={() => setShowEarlyClose(false)}
+                    className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={() => setEarlyCloseStep('form')}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors">
+                    Yes, proceed
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="px-6 py-5 space-y-4">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                        <th className="text-left pb-2">Pipe Type / PO</th>
+                        <th className="text-center pb-2">Planned</th>
+                        <th className="text-center pb-2 w-28">Actual Completed</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {activePOs.map((i: any) => {
+                        const po = i.productionOrder
+                        const qty = parseInt(earlyCloseQtys[po.id] ?? '', 10) || 0
+                        const shortfall = po.plannedQty - qty
+                        return (
+                          <tr key={po.id}>
+                            <td className="py-3 pr-4">
+                              <p className="font-medium text-gray-800">{i.productName}</p>
+                              <p className="text-xs text-gray-400">{po.poNumber}</p>
+                            </td>
+                            <td className="py-3 text-center text-gray-600">{po.plannedQty}</td>
+                            <td className="py-3 text-center">
+                              <input
+                                type="number" min={1} max={po.plannedQty}
+                                value={earlyCloseQtys[po.id] ?? ''}
+                                onChange={e => setEarlyCloseQtys(prev => ({ ...prev, [po.id]: e.target.value }))}
+                                className="w-24 px-2 py-1.5 text-sm text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300"
+                                placeholder="0"
+                              />
+                              {qty > 0 && qty < po.plannedQty && (
+                                <p className="text-xs text-red-400 mt-0.5">-{shortfall}</p>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                      Reason for early closure <span className="text-red-400">*</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={earlyCloseNote}
+                      onChange={e => setEarlyCloseNote(e.target.value)}
+                      placeholder="e.g. Customer satisfied with current production, sufficient supply…"
+                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+                    />
+                  </div>
+                </div>
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+                  <button onClick={() => setEarlyCloseStep('warn')}
+                    className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+                    Back
+                  </button>
+                  <button
+                    disabled={earlyClosing || !earlyCloseNote.trim()}
+                    onClick={handleEarlyClose}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-40"
+                  >
+                    {earlyClosing ? 'Closing…' : 'Confirm Early Close'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Confirmation dialog ── */}

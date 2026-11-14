@@ -29,6 +29,8 @@ type SalesOrder struct {
 	ShippingState    *string           `gorm:"column:shipping_state" json:"shippingState"`
 	Notes            *string           `gorm:"column:notes" json:"notes"`
 	TermsConditions  *string           `gorm:"column:terms_conditions;type:text" json:"termsConditions"`
+	EarlyCloseNote   *string           `gorm:"column:early_close_note;type:text" json:"earlyCloseNote"`
+	EarlyClosedAt    *time.Time        `gorm:"column:early_closed_at" json:"earlyClosedAt"`
 	CreatedAt        time.Time         `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt        time.Time         `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	CreatedBy        *string           `gorm:"column:created_by" json:"createdBy"`

@@ -20,6 +20,9 @@ type ProductionOrder struct {
 	HoldReason      *string               `gorm:"column:hold_reason;type:text" json:"holdReason"`
 	HoldAt          *time.Time            `gorm:"column:hold_at" json:"holdAt"`
 	HoldQtyProduced *int                  `gorm:"column:hold_qty_produced" json:"holdQtyProduced"`
+	CompletionQty   *int                  `gorm:"column:completion_qty" json:"completionQty"`
+	CompletionNote  *string               `gorm:"column:completion_note;type:text" json:"completionNote"`
+	IsEarlyComplete bool                  `gorm:"column:is_early_complete;default:false" json:"isEarlyComplete"`
 	CreatedByUserID *int                  `gorm:"column:created_by_user_id" json:"createdByUserId"`
 
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`

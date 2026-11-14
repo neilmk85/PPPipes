@@ -34,6 +34,18 @@ type UpdateProductionOrderStatusRequest struct {
 	Status          string  `json:"status"`
 	HoldReason      *string `json:"holdReason"`
 	HoldQtyProduced *int    `json:"holdQtyProduced"`
+	CompletionQty   *int    `json:"completionQty"`
+	CompletionNote  *string `json:"completionNote"`
+}
+
+type EarlyCloseSOItem struct {
+	ProductionOrderID int `json:"productionOrderId"`
+	CompletionQty     int `json:"completionQty"`
+}
+
+type EarlyCloseSORequest struct {
+	Note  string            `json:"note"`
+	Items []EarlyCloseSOItem `json:"items"`
 }
 
 // StageProgress summarises pipe counts for one stage
@@ -546,6 +558,14 @@ func (s *ProductionOrderService) UpdateStatus(id int, req UpdateProductionOrderS
 		order.HoldReason = nil
 		order.HoldQtyProduced = nil
 	}
+	// Early / forced completion
+	if newStatus == models.ProdOrderCompleted {
+		order.CompletionQty = req.CompletionQty
+		order.CompletionNote = req.CompletionNote
+		if req.CompletionQty != nil && order.PlannedQty > 0 && *req.CompletionQty < order.PlannedQty {
+			order.IsEarlyComplete = true
+		}
+	}
 
 	order.Status = newStatus
 	order.UpdatedBy = &updatedBy
@@ -553,6 +573,30 @@ func (s *ProductionOrderService) UpdateStatus(id int, req UpdateProductionOrderS
 		return nil, err
 	}
 	return order, nil
+}
+
+func (s *ProductionOrderService) EarlyCloseSalesOrder(soID int, req EarlyCloseSORequest, updatedBy string) error {
+	for _, item := range req.Items {
+		qty := item.CompletionQty
+		note := req.Note
+		updateReq := UpdateProductionOrderStatusRequest{
+			Status:         string(models.ProdOrderCompleted),
+			CompletionQty:  &qty,
+			CompletionNote: &note,
+		}
+		if _, err := s.UpdateStatus(item.ProductionOrderID, updateReq, updatedBy); err != nil {
+			return err
+		}
+	}
+	now := time.Now()
+	if err := s.db.Model(&models.SalesOrder{}).Where("id = ?", soID).Updates(map[string]interface{}{
+		"early_close_note": req.Note,
+		"early_closed_at":  now,
+		"updated_by":       updatedBy,
+	}).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *ProductionOrderService) GetProgress(id int) (*ProductionProgress, error) {

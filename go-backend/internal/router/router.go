@@ -1820,6 +1820,11 @@ func Setup(db *gorm.DB, cfg *config.Config, wsHub *websocket.Hub) http.Handler {
 		productionOrderHandler.UpdateStatus,
 		middleware.Authenticate(db),
 	))
+	mux.HandleFunc("POST /api/sales-orders/{id}/early-close", middleware.Chain(
+		productionOrderHandler.EarlyCloseSalesOrder,
+		middleware.Authenticate(db),
+		middleware.RequireRoleOrPermission("MANAGE_SALES_ORDERS", "SUPER_ADMIN", "ADMIN", "MANAGER", "ACCOUNTS_MANAGER"),
+	))
 	mux.HandleFunc("GET /api/production/orders/{id}/progress", middleware.Chain(
 		productionOrderHandler.GetProgress,
 		middleware.Authenticate(db),

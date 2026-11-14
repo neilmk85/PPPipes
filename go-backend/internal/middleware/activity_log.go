@@ -503,6 +503,14 @@ func describeStandard(action, resource, path string, req, resp, before []byte) (
 		if strings.Contains(path, "/cancel") {
 			return "UPDATED", "SALES_ORDERS", "Cancelled sales order: " + num
 		}
+		if strings.Contains(path, "/early-close") {
+			note := bodyField(req, "note")
+			desc := "Early closed sales order: " + num
+			if note != "" {
+				desc += " — " + note
+			}
+			return "UPDATED", "SALES_ORDERS", desc
+		}
 		return action, "SALES_ORDERS", base
 
 	// ── Purchase orders ───────────────────────────────────────────────────────
@@ -760,7 +768,21 @@ func describeProduction(action, resource string, req, resp []byte) (string, stri
 			case "IN_PROGRESS":
 				return "UPDATED", "PRODUCTION", fmt.Sprintf("Resumed/started production order: %s", num)
 			case "COMPLETED":
-				return "UPDATED", "PRODUCTION", fmt.Sprintf("Completed production order: %s", num)
+				base := fmt.Sprintf("Completed production order: %s", num)
+				if cqty := bodyField(req, "completionQty"); cqty != "" && cqty != "0" {
+					base += fmt.Sprintf(" — completed: %s pipes", cqty)
+					if planned := respField(resp, "plannedQty"); planned != "" {
+						p, pe := strconv.Atoi(planned)
+						c, ce := strconv.Atoi(cqty)
+						if pe == nil && ce == nil && c < p {
+							base += fmt.Sprintf(" (shortfall: %d)", p-c)
+						}
+					}
+				}
+				if note := bodyField(req, "completionNote"); note != "" {
+					base += " — " + note
+				}
+				return "UPDATED", "PRODUCTION", base
 			case "CANCELLED":
 				return "UPDATED", "PRODUCTION", fmt.Sprintf("Cancelled production order: %s", num)
 			default:

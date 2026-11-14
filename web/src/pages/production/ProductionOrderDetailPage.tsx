@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
-import { ArrowLeft, Plus, RefreshCw, ChevronRight, PauseCircle, Play, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Plus, RefreshCw, ChevronRight, PauseCircle, Play, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { productionOrderApi, productionEntryApi } from '@/services/api'
 import { PROD_STAGES, ProductionProgress, ProductionEntry, CostSheet } from '@/types'
 
@@ -48,8 +48,12 @@ export default function ProductionOrderDetailPage() {
     },
   })
 
-  const [showHoldModal, setShowHoldModal] = useState(false)
-  const [holdReason, setHoldReason]       = useState('')
+  const [showHoldModal, setShowHoldModal]           = useState(false)
+  const [holdReason, setHoldReason]                 = useState('')
+  const [showCompleteModal, setShowCompleteModal]   = useState(false)
+  const [completeStep, setCompleteStep]             = useState<'warn' | 'form'>('warn')
+  const [completionQty, setCompletionQty]           = useState('')
+  const [completionNote, setCompletionNote]         = useState('')
 
   const holdMut = useMutation({
     mutationFn: () => {
@@ -61,6 +65,19 @@ export default function ProductionOrderDetailPage() {
       setShowHoldModal(false)
       toast.success('Order put on hold')
     },
+  })
+
+  const completeMut = useMutation({
+    mutationFn: () => {
+      const qty = parseInt(completionQty, 10)
+      return productionOrderApi.updateStatus(Number(id), 'COMPLETED', undefined, undefined, qty, completionNote.trim() || undefined)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['production-order', id] })
+      setShowCompleteModal(false)
+      toast.success('Production order marked complete')
+    },
+    onError: (e: any) => toast.error(e.response?.data?.message ?? 'Failed to complete order'),
   })
 
   const resumeMut = useMutation({
@@ -115,18 +132,46 @@ export default function ProductionOrderDetailPage() {
           </button>
         )}
 {order.status === 'IN_PROGRESS' && (
+          <>
+            <button
+              onClick={() => { setHoldReason(''); setShowHoldModal(true) }}
+              className="flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-600 hover:bg-orange-100 px-3 py-2 rounded-xl text-sm font-semibold transition-colors"
+            >
+              <PauseCircle size={15} /> Hold
+            </button>
+            <button
+              onClick={() => {
+                const ft = stages.find(s => s.stageType === 'FINAL_TESTING')?.pipesCompleted ?? 0
+                setCompletionQty(String(ft))
+                setCompletionNote('')
+                setCompleteStep('warn')
+                setShowCompleteModal(true)
+              }}
+              className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 px-3 py-2 rounded-xl text-sm font-semibold transition-colors"
+            >
+              <CheckCircle2 size={15} /> Force Complete
+            </button>
+          </>
+        )}
+        {order.status === 'ON_HOLD' && (
           <button
-            onClick={() => { setHoldReason(''); setShowHoldModal(true) }}
-            className="flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-600 hover:bg-orange-100 px-3 py-2 rounded-xl text-sm font-semibold transition-colors"
+            onClick={() => {
+              const ft = stages.find(s => s.stageType === 'FINAL_TESTING')?.pipesCompleted ?? 0
+              setCompletionQty(String(ft))
+              setCompletionNote('')
+              setCompleteStep('warn')
+              setShowCompleteModal(true)
+            }}
+            className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 px-3 py-2 rounded-xl text-sm font-semibold transition-colors"
           >
-            <PauseCircle size={15} /> Hold
+            <CheckCircle2 size={15} /> Force Complete
           </button>
         )}
         {order.status === 'ON_HOLD' && (
           <button
             disabled={resumeMut.isPending}
             onClick={() => resumeMut.mutate()}
-            className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 px-3 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40"
+            className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-40"
           >
             <Play size={15} /> Resume
           </button>
@@ -353,6 +398,114 @@ export default function ProductionOrderDetailPage() {
           </table>
         )}
       </div>
+
+      {/* Force Complete Modal */}
+      {showCompleteModal && (() => {
+        const planned = order.plannedQty
+        const qty = parseInt(completionQty, 10) || 0
+        const shortfall = planned - qty
+        const isEarly = qty < planned
+        const canConfirm = qty > 0 && qty <= planned && (!isEarly || completionNote.trim().length > 0)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center">
+                  <CheckCircle2 size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Force Complete Order</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{order.poNumber}</p>
+                </div>
+              </div>
+
+              {completeStep === 'warn' ? (
+                <>
+                  <div className="px-6 py-5">
+                    <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-4 flex gap-3">
+                      <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800">Are you sure?</p>
+                        <p className="text-xs text-amber-700 mt-1">
+                          This will permanently mark the order as Complete. This action cannot be undone
+                          and will stop all further production entries for this order.
+                        </p>
+                        <p className="text-xs text-amber-600 mt-2">
+                          Planned: <span className="font-bold">{planned} pipes</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+                    <button onClick={() => setShowCompleteModal(false)}
+                      className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+                      Cancel
+                    </button>
+                    <button onClick={() => setCompleteStep('form')}
+                      className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition-colors">
+                      Yes, proceed
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="px-6 py-5 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                        Actual quantity completed <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="number" min={1} max={planned}
+                        value={completionQty}
+                        onChange={e => setCompletionQty(e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-300"
+                        placeholder={`Max ${planned}`}
+                      />
+                      {qty > 0 && (
+                        <div className="mt-2 flex gap-4">
+                          <span className="text-xs text-gray-500">Planned: <strong>{planned}</strong></span>
+                          <span className="text-xs text-gray-500">Completed: <strong className="text-green-700">{qty}</strong></span>
+                          {isEarly && (
+                            <span className="text-xs text-red-500">Shortfall: <strong>{shortfall}</strong> pipes</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                        Reason for completion {isEarly && <span className="text-red-400">*</span>}
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={completionNote}
+                        onChange={e => setCompletionNote(e.target.value)}
+                        placeholder="e.g. Customer satisfied with current quantity, sufficient supply…"
+                        className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-300 resize-none"
+                      />
+                      {isEarly && !completionNote.trim() && (
+                        <p className="text-xs text-red-400 mt-1">Reason is required when completing below planned quantity.</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+                    <button onClick={() => setCompleteStep('warn')}
+                      className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">
+                      Back
+                    </button>
+                    <button
+                      disabled={!canConfirm || completeMut.isPending}
+                      onClick={() => completeMut.mutate()}
+                      className="px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 transition-colors disabled:opacity-40"
+                    >
+                      {completeMut.isPending ? 'Saving…' : 'Mark Complete'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Hold Modal */}
       {showHoldModal && (

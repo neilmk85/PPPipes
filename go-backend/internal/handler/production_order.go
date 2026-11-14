@@ -227,3 +227,27 @@ func (h *ProductionOrderHandler) GetStageCosts(w http.ResponseWriter, r *http.Re
 	}
 	util.SendSuccess(w, "Stage costs retrieved", costs)
 }
+
+// POST /api/sales-orders/{id}/early-close
+func (h *ProductionOrderHandler) EarlyCloseSalesOrder(w http.ResponseWriter, r *http.Request) {
+	soID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid SO ID")
+		return
+	}
+	var req service.EarlyCloseSORequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		util.SendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	user := middleware.GetUser(r)
+	updatedBy := ""
+	if user != nil {
+		updatedBy = user.Email
+	}
+	if err := h.service.EarlyCloseSalesOrder(soID, req, updatedBy); err != nil {
+		handleError(w, err)
+		return
+	}
+	util.SendSuccess(w, "Sales order early-closed", nil)
+}

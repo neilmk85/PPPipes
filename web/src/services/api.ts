@@ -774,6 +774,8 @@ export const salesOrderApi = {
   getById: (id: number) => api.get<ApiResponse<any>>(`/sales-orders/${id}`),
   update: (id: number, data: any) => api.put<ApiResponse<any>>(`/sales-orders/${id}`, data),
   deliver: (id: number, data: any) => api.patch<ApiResponse<any>>(`/sales-orders/${id}/deliver`, data),
+  earlyClose: (id: number, data: { note: string; items: { productionOrderId: number; completionQty: number }[] }) =>
+    api.post<ApiResponse<any>>(`/sales-orders/${id}/early-close`, data),
   generateInvoice: (id: number, data?: any) => api.post<ApiResponse<any>>(`/sales-orders/${id}/invoice`, data ?? {}),
   cancel: (id: number) => api.patch<ApiResponse<any>>(`/sales-orders/${id}/cancel`),
   delete: (id: number) => api.delete<ApiResponse<any>>(`/sales-orders/${id}`),
@@ -825,8 +827,8 @@ export const productionOrderApi = {
     api.get<ApiResponse<any>>(`/production/orders/${id}`),
   create: (data: any) =>
     api.post<ApiResponse<any>>('/production/orders', data),
-  updateStatus: (id: number, status: string, holdReason?: string, holdQtyProduced?: number) =>
-    api.patch<ApiResponse<any>>(`/production/orders/${id}/status`, { status, holdReason, holdQtyProduced }),
+  updateStatus: (id: number, status: string, holdReason?: string, holdQtyProduced?: number, completionQty?: number, completionNote?: string) =>
+    api.patch<ApiResponse<any>>(`/production/orders/${id}/status`, { status, holdReason, holdQtyProduced, completionQty, completionNote }),
   getProgress: (id: number) =>
     api.get<ApiResponse<any>>(`/production/orders/${id}/progress`),
   getCostSheet: (id: number) =>
