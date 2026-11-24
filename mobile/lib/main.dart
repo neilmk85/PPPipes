@@ -25,6 +25,7 @@ import 'screens/production/contractor_costs_screen.dart';
 import 'screens/production/fabrication_report_screen.dart';
 import 'screens/production/coating_report_screen.dart';
 import 'screens/production/spinning_report_screen.dart';
+import 'screens/production/stage_entries_report_screen.dart';
 import 'screens/business/business_screen.dart';
 import 'screens/business/business_detail_screen.dart';
 
@@ -101,6 +102,26 @@ class PosApp extends ConsumerWidget {
             GoRoute(path: '/production/reports/fabrication', builder: (_, __) => const FabricationReportScreen()),
             GoRoute(path: '/production/reports/coating', builder: (_, __) => const CoatingReportScreen()),
             GoRoute(path: '/production/reports/spinning', builder: (_, __) => const SpinningReportScreen()),
+            GoRoute(
+              path: '/production/reports/winding2',
+              builder: (_, __) => const StageEntriesReportScreen(
+                stageType: 'WINDING_2',
+                title: 'Winding 2 Report',
+                processLabel: 'Winding 2',
+                color: Color(0xFF1D4ED8),
+                colorDark: Color(0xFF1E3A8A),
+              ),
+            ),
+            GoRoute(
+              path: '/production/reports/coating2',
+              builder: (_, __) => const StageEntriesReportScreen(
+                stageType: 'COATING_2',
+                title: 'Coating 2 Report',
+                processLabel: 'Coating 2',
+                color: Color(0xFF1E40AF),
+                colorDark: Color(0xFF1E3A8A),
+              ),
+            ),
             GoRoute(path: '/business',             builder: (_, __) => const BusinessScreen()),
             GoRoute(path: '/business/cement-bags',     builder: (_, __) => const CementBagsScreen()),
             GoRoute(path: '/business/vehicles',        builder: (_, __) => const VehiclesScreen()),
